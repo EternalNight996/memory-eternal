@@ -1,0 +1,236 @@
+# 🧠 memory-eternal — 给 AI 装「第二大脑」
+
+<p align="center">
+  <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
+  <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
+  <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
+  <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
+  <a href="https://dsh.market/"><img src="https://raw.githubusercontent.com/2BingLing/dsh-market/master/assets/readme/badge-listed-zh.svg" alt="DSH Market 收录" /></a>
+</p>
+
+> **对话结束自动沉淀，跨会话不失忆；召回只取相关小块，省 token 少噪音。**
+> 全自研、零第三方记忆框架、不改 DSH 源码、一个记忆库所有 Agent 共享，纯 Markdown 可 git 管理。
+
+<p align="center"><strong>⭐ 觉得好用就点个 Star</strong>！ <br/><sub>DSH 一条命令：<code>dsh plugin --profile web add memory-eternal</code></sub></p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-eternal.gif" width="880" alt="对话自动沉淀 + 图形化知识库 + 知识图谱（演示）" />
+</p>
+
+---
+
+## 🚀 五分钟上手
+
+### 🟦 DeepSeek Harness（DSH）—— 重点
+
+**装**（dsh-desktop 用 DSH CLI，一条命令）：
+
+```bash
+# dsh-desktop 用户（推荐）：DSH CLI 直接装进 profile
+dsh plugin --profile web add memory-eternal
+
+# 或直接在 profile（pnpm workspace）里更新。注意用 pnpm，npm install 会报 EUNSUPPORTEDPROTOCOL
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
+```
+
+**重启 dsh web** 后，三样东西立即生效：
+
+| 效果 | 在哪看 |
+|---|---|
+| 自动沉淀知识卡 | 每轮对话结束自动发生，无需操作 |
+| `memory_recall` 工具 | Agent 需要历史时自动调用 |
+| 图形化界面 | 侧边栏底部「记忆」按钮 / 设置 → 记忆 |
+
+**入口**：侧边栏底部「记忆」按钮 → 记忆库（左栏含 知识卡 / 知识图谱 / 用量 / **审核中心** / 回收中心 / **记忆配置**）；「DSH 设置 → 记忆」= 纯配置页。
+
+**改配置**：记忆库左栏「记忆配置」（或 DSH 设置 → 记忆）→ DSH 记忆配置 / 成本控制 / 自动审核配置 / 服务自管理，点「保存配置」即写入。`autoWebMode`/`watchdogAutoSpawn` 的改动需重启 DSH 生效。
+
+### 🟨 Claude Code
+
+```bash
+npm i -g memory-eternal     # 装 CLI + MCP（写 ~/.claude.json mcpServers.memory）
+dsh-memory connect claude       # 写 ~/.claude/settings.json 的 SessionEnd hook → 会话结束自动沉淀
+```
+
+装完即用：会话里说「recall 一下数据库选型」→ 自动检索记忆；会话结束 → 自动沉淀进统一 `~/.dsh/memory-vault`（新卡 `pending` 待审核）。
+
+### 🟧 Codex CLI / Cursor
+
+```bash
+npm i -g memory-eternal     # 装完自动写 Codex config.toml / Cursor mcp.json 的 mcpServers.memory
+dsh-memory connect codex        # 写用户级 ~/.codex/hooks.json 的 Stop hook → 会话结束自动沉淀（含 Codex Desktop）
+dsh-memory connect cursor       # 写 ~/.cursor/hooks.json 的 stop/sessionEnd hook → 自动沉淀
+```
+
+重启工具 → MCP 已在列表，会话里直接：`用 memory_recall 查一下项目历史决策`；会话结束自动沉淀进统一 `~/.dsh/memory-vault`（新卡 `pending` 待审核）。
+
+> **三种 agent 同一套库**：全部写入 `~/.dsh/memory-vault`，每卡 `submittedBy` 区分作者（DeepSeek Harness / claude-code / codex / cursor），主库只显已审核、审核中心管新卡。
+
+> **原生插件（可选，平台 Marketplace）**：仓库含 `.claude-plugin` / `.codex-plugin` / `.cursor-plugin` 清单，可 `claude /plugin marketplace add EternalNight996/memory-eternal` + `/plugin install`、`codex plugin marketplace add EternalNight996/memory-eternal` + `codex plugin add`、Cursor Settings→Plugins。`connect` 走用户级 hooks.json（更稳，不依赖 Marketplace 审核；Codex Desktop 也走这条）。
+
+> **只保留本插件（卸载其它记忆插件，如 agentmemory）**：`dsh-memory` 只写自己的键（`mcpServers.memory` / 含 `capture.mjs` 的 hooks），不依赖、也不冲突任何其它记忆插件。卸载其它插件需在其自身配置层删除对应条目（如 Codex 的 `[marketplaces.*]` 与 `hooks.state.*`、其 `hooks.json` 事件、`~/.agentmemory` 数据目录）。
+
+
+
+### 🟩 浏览器（不依赖任何 Agent）
+
+```bash
+dsh-memory open    # 起 web + 开浏览器（默认 http://127.0.0.1:7999）
+```
+
+统计 / 搜索 / 知识卡（增删改合并导入导出）/ 知识图谱，全在此。与 DSH 内嵌页同一份 UI，数据同步。
+
+> **zcode（智谱）**：暂无原生 MCP，经社区 [zcode-open-bridge](https://github.com/tizerluo/zcode-open-bridge) 转 MCP 或用 CLI。
+
+---
+
+## 📖 命令速查
+
+```bash
+dsh-memory recall "数据库选型"       # 检索
+dsh-memory capture "重要结论..."     # 手动沉淀（- 读 stdin）
+dsh-memory sweep ~/.claude/projects  # 挖掘已有会话记录
+dsh-memory setup [--dry-run]         # 重跑/预览自动挂载（幂等）
+dsh-memory connect <claude|codex|cursor>  # 写会话结束自动沉淀 hook（用户级 hooks.json，含 Codex Desktop）
+dsh-memory mcp                       # MCP stdio（挂任意 MCP 客户端）
+dsh-memory serve [--port 7999]       # 前台跑 web
+dsh-memory open                      # ensure web 存活 + 开浏览器
+dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
+```
+
+单独装（不发 DSH）时 `dsh-memory` 命令来自 `npm i -g`。
+
+---
+
+## ⚙️ 服务自管理（白话）
+
+**三个概念**，别搞混：
+
+- **web server 怎么保活**（`autoWebMode`）→ `init`=DSH 启动时拉一次（默认）；`interval`=DSH 进程内定时探活自动拉起（0 额外内存）；`manual`=全手动只从 `dsh-memory open` 起。
+- **看门狗进程**（`watchdogAutoSpawn`，默认开）→ 一个**独立** node 进程，DSH 退出了它也能拉起 web（约 +47 MB 内存）。只在要 7×24 保活时开。
+- **自动挂载 MCP**（`autoMcpSetup`，默认关）→ 是否自动把 MCP 写进 Claude Code/Codex/Cursor 配置。关 = 不碰你本机配置文件，需要时手动 `dsh-memory setup`。
+
+**改这些**：记忆库左栏「记忆配置」（或 DSH 设置 → 记忆）→ 表格里改，点「保存配置」；`autoWebMode`/`watchdogAutoSpawn` 需重启 DSH 生效。
+
+**MCP 是协议不是常驻服务**：agent 开会话才 spawn，用完即退，没有「开机自启」一说。
+
+### 三种部署强度
+
+| 场景 | 配置 | 内存 |
+|---|---|---|
+| 个人开发（默认） | `autoWebMode=init` + `watchdogAutoSpawn=off` | web 47 MB |
+| 常驻 7×24 | `watchdogAutoSpawn=on` | web + watchdog 47+47 MB |
+| 真正开机自启（无 DSH） | Windows 计划任务跑 `dsh-memory watchdog --port 7799 --interval 5000 --max-restart 10` | 同上 |
+
+---
+
+## ⚙️ 记忆配置（大白话）
+
+> 所有配置都在 **记忆库左栏「记忆配置」**（或 DSH 设置 → 记忆）里改，点「保存配置」生效。下图就是配置页全貌（含插件信息 / Agent MCP 挂载状态 / 自动审核配置）：
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-config.png" width="880" alt="记忆配置页" />
+</p>
+
+### 一、最常用
+
+| 配置项 | 默认 | 大白话说明 |
+|---|---|---|
+| 自动沉淀 | 开 | 每轮聊完自动把有用的内容存成知识卡 |
+| 自动召回 | 开 | AI 需要历史时自动帮你查记忆 |
+| 记忆库目录 | `~/.dsh/memory-vault` | 记忆存哪，纯 Markdown 可 git 管理 |
+
+### 二、省钱包（重要）
+
+| 配置项 | 默认 | 大白话说明 |
+|---|---|---|
+| **蒸馏知识卡** | 开 | 把对话**压缩**成精炼知识卡（要调 AI，花钱）。**关掉 = 存原文**，一分钱不花 |
+| **语义去重喂 AI** | 开 | 判断新内容是不是重复（要调 AI）。**关掉 = 用简单去重**，省一次 AI 调用 |
+| 蒸馏输出上限 | 900 | 压缩一次最多写多少字，越大越准越费钱 |
+| 召回相关性阈值 | 2 | 检索要「多像」才返回，越大越准但漏得越多（越省） |
+| 捕获最小长度 | 200 | 对话太短不存，避免闲聊浪费 |
+| 日配额 | 60 | 一天最多存几张，防 AI 烧钱 |
+
+### 三、服务怎么跑
+
+| 配置项 | 默认 | 大白话说明 |
+|---|---|---|
+| 保活模式 `autoWebMode` | init | `init`=DSH 启动时开一次 web；`interval`=定时检查挂了自动重启；`manual`=全靠手动 |
+| 看门狗 `watchdogAutoSpawn` | 开 | 后台一个**独立进程**保证 web 不死（+47 MB 内存）。个人用可关 |
+| 自动挂载 MCP `autoMcpSetup` | 关 | **让 Claude Code / Codex / Cursor 也能用你的记忆库**。开=自动配好它们；关=不碰你电脑配置，手动跑 `dsh-memory setup` |
+
+> 💰 **想省钱**：把「蒸馏知识卡」关掉、调低「蒸馏输出上限」、调高「召回相关性阈值」。
+
+### 🎯 一键推荐配置（按场景点一下）
+
+配置页顶部有 **🟢 A 轻量省心 / 💰 B 极致省钱 / ⭐ C 高质量** 三个按钮，点一下自动填好对应值，再点保存即可：
+
+| 方案 | 场景 | 保活 | 看门狗 | 蒸馏 | 蒸馏上限 | 召回阈值 | 内存 | LLM 成本 |
+|---|---|---|---|---|---|---|---|---|
+| 🟢 **A 轻量省心** | 个人开发（默认）| init | 关 | 开 | 900 | 2 | ~47 MB | 正常 |
+| 💰 **B 极致省钱** | 预算敏感/多 Agent | init | 关 | **关** | 500 | 3 | ~47 MB | **近 0** |
+| ⭐ **C 高质量** | 长项目/团队 | interval | **开** | 开 | 1200 | 1 | ~94 MB | 高 |
+
+---
+
+## 🛡️ 审核中心 & 回收中心
+
+新卡默认进**审核中心**（`pending`），由你确认后才入主库；驳回的进「已驳回」，可恢复或删除进回收站。命中免审条件（审核模式=全部免审 / 免审智能体 / 免审类型）的新卡直接入库；回收站软删卡 30 天内可恢复，超期自动永久删除。
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-center.png" width="880" alt="审核中心" />
+</p>
+
+- **待审核 / 已驳回** 双页签，按类型 / 日期 / 智能体筛选，全选后一键「批准 / 驳回 / 删除进回收站」。
+- 审核规则在「记忆配置 → 自动审核配置」：`审核模式`（全部要审 / 全部免审）+ `免审智能体` + `免审类型` + `回收保留天数`。
+
+### 🥇 为什么审核系统更靠谱（对比其它记忆产品）
+
+多数记忆产品（mem0 / Zep / agentmemory…）对话一结束就**自动全量入库**，好坏不论——噪音、错误事实、敏感内容一起进库，之后又被召回，**污染上下文、放大幻觉**。
+
+memory-eternal 走**人机协同审核**，只让可信内容进主库：
+
+| 维度 | 其它记忆产品 | memory-eternal 审核系统 |
+|---|---|---|
+| 入库 | 自动全量，无把关 | 新卡先进**审核中心（pending）**，人工批准才入主库 |
+| 质量 | 未过滤噪音/错误 | 只保留你确认过的卡 → 召回更准、噪声更低 |
+| 可信 | 无来源/审核追溯 | 每卡带 `submittedBy` 作者 + `pending/approved/rejected` 审核状态 |
+| 免打扰 | — | 免审智能体 / 免审类型命中 → 可信卡直接入库，零等待 |
+| 容错 | 删了就没 | 回收站软删，30 天内可恢复 |
+
+---
+
+## 🧬 为什么全自研
+
+市面上记忆方案多，但大多依赖第三方框架 / 动不动起 MCP 服务 / 记忆锁私有库。本插件把骨架自己搭，**零第三方运行时依赖**，逻辑逐行可读：
+
+| 模块 | 自研实现 | 替代什么 |
+|---|---|---|
+| 去重 | 词法 Jaccard bigram（0.62）+ 语义去重 | 防重复卡 |
+| 检索 | CJK 感知：中文整词 + 字符 bigram | 无需全文搜索引擎 |
+| 图谱 | 力导向 + `[[wikilink]]`/共享标签连边 | 知识关联一眼看清 |
+| 存储 | 带 frontmatter 的普通 `.md` | 不锁库、可读、可 git、可被任意工具读 |
+
+> 与热门项目同向（总结→存储→按需召回），但定位不同：**本地、自研、零依赖、可读可控**。如果你已在用 mem0/Zep 等，也能把它当「本地持久记忆底座」叠加使用。
+
+---
+
+## 🛠 开发 / 测试
+
+```bash
+npm i
+npm test        # 单元测试：vault 去重/检索/图谱 + capture 管线 + API 形状
+npm run build   # 构建 lib/client.js（DSH 内嵌）+ web/app.js（独立 web bundle）
+```
+
+---
+
+## 📄 License
+
+MIT
+
+---
+
+> **让 AI 真正记住你：对话自动沉淀，知识随手可查。** ⭐ 觉得有用就点个 Star，Let's make AI not forget.
+>
+> English README: [README.en.md](README.en.md)
