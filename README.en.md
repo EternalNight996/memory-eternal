@@ -16,6 +16,11 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-eternal.gif" width="880" alt="Auto-capture + visual library + knowledge graph (demo)" />
 </p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-popup.png" width="32%" alt="Memory popup: knowledge cards / search / knowledge graph" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-settings.png" width="32%" alt="DSH Settings → Memory: all options" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-sidebar.png" width="32%" alt="Sidebar quick entry" />
+</p>
 
 ---
 
