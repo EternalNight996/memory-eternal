@@ -1773,27 +1773,29 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
 function GraphView({ t, onOpen, all, onAllChange, onMutate, active }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
+  const loadedRef = useRef(false)
 
   const reload = useCallback(async () => {
     try {
+      loadedRef.current = false
       const r = await fetch(`${API}/graph${all ? '?all=1' : ''}`)
       const d = await r.json()
-      if (d.ok) { setData(d); setError('') }
+      if (d.ok) { setData(d); setError(''); loadedRef.current = true }
       else { setData(null); setError(d.error || t('error')) }
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
     }
   }, [all, t])
 
-  // 只在 active=true 时加载数据；切换离开时清空
+  // 首次激活时加载，之后切走不清空（缓存），只有 all 变化或手动刷新才重新获取
   useEffect(() => {
-    if (!active) { setData(null); setError(''); return }
+    if (!active || loadedRef.current) return
     let alive = true
     fetch(`${API}/graph${all ? '?all=1' : ''}`)
       .then((r) => r.json())
-      .then((d) => { if (alive) { if (d.ok) { setData(d); setError('') } else { setData(null); setError(d.error || t('error')) } } })
+      .then((d) => { if (alive) { if (d.ok) { setData(d); setError(''); loadedRef.current = true } else { setData(null); setError(d.error || t('error')) } } })
       .catch((e) => { if (alive) setError(String(e && e.message ? e.message : e)) })
-    return () => { alive = false; setData(null); setError('') }
+    return () => { alive = false }
   }, [all, t, active])
 
   const del = useCallback(async (path) => {
