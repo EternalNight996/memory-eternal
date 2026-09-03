@@ -26,7 +26,7 @@ const versionRef = (() => { try { const p = JSON.parse(readFileSync(path.join(PA
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { ensureVault, search, generateDailyBrief } from './lib/vault.js'
-import { migrateFromMarkdown, setAuditConfig } from './lib/db.js'
+import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { summarizeTurn, extractLastTurn, sliceNewEvents, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json } from './lib/api.js'
 
@@ -351,6 +351,20 @@ export function apply(ctx, config) {
     import('./lib/vault.js').then((v) => v.purgeExpired(vaultDir(), days)).catch(() => {})
   }, 30 * 60 * 1000)
   ctx.effect(() => () => clearInterval(purgeTimer), 'memory-eternal: recycle purge timer')
+
+  // SQLite 定时备份：每天凌晨 3 点自动备份，保留最近 7 天。
+  let lastBackupDate = ''
+  const backupTimer = setInterval(async () => {
+    const d = new Date()
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (lastBackupDate === date || d.getHours() !== 3) return
+    lastBackupDate = date
+    try {
+      const r = await backupDb(vaultDir(), { maxKeep: 7 })
+      if (r.ok) console.error(`[memory-eternal] backup done: ${r.path}`)
+    } catch (e) { console.error('[memory-eternal] backup failed:', e?.message || e) }
+  }, 10 * 60 * 1000) // 每 10 分钟检查一次，命中凌晨 3 点才执行
+  ctx.effect(() => () => clearInterval(backupTimer), 'memory-eternal: backup timer')
 
   // -- 3. 知识库 JSON API（客户端设置页数据源） ----------------------------
   // 多宿主状态：web server 常驻地址（ensureWebServer 的结果，client 壳经
