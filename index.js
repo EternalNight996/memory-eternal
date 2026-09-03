@@ -310,9 +310,8 @@ export function apply(ctx, config) {
         if (hits.length === 0) return `记忆库中没有与「${query}」相关的内容。`
         const lines = hits.map((h, i) => {
           const tags = h.tags.length ? ` [${h.tags.join(', ')}]` : ''
-          const snippet = String(includeBody ? h.summary : h.summary || '')
-            .replace(/\s+/g, ' ').trim().slice(0, defLen)
-          const body = includeBody ? `\n${String(h.excerpt || '')}` : ''
+          const snippet = String(h.summary || '').replace(/\s+/g, ' ').trim().slice(0, defLen)
+          const body = includeBody ? `\n${String(h.excerpt || '').slice(0, 800)}` : ''
           return `### ${i + 1}. ${h.title}${tags}\n路径：${h.path}\n${snippet}${body}`
         })
         return `从记忆核心检索到 ${hits.length} 条相关卡片：\n\n${lines.join('\n\n')}`
