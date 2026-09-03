@@ -1035,7 +1035,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
           }
         </div>
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
-          <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={true} />
+          <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={true} visible={view === 'graph'} />
         </div>
         <div style={{ display: view === 'config' ? 'contents' : 'none' }}>
           <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />
@@ -1776,10 +1776,11 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
 
 // -- Enhanced knowledge graph ------------------------------------------------
 
-function GraphView({ t, onOpen, all, onAllChange, onMutate, active }) {
+function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const loadedRef = useRef(false)
+  const fitTrigger = useRef(0)
 
   const reload = useCallback(async () => {
     try {
@@ -1803,6 +1804,11 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active }) {
       .catch((e) => { if (alive) setError(String(e && e.message ? e.message : e)) })
     return () => { alive = false }
   }, [all, t, active])
+
+  // 切换到图谱视图时触发一次 fit，让画布居中适配
+  useEffect(() => {
+    if (visible && data) fitTrigger.current++
+  }, [visible, data])
 
   const del = useCallback(async (path) => {
     try {
@@ -1839,6 +1845,7 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active }) {
           all={all}
           onAllChange={onAllChange}
           countLabel={`${data.nodes.length} ${t('nodes')} · ${countEdges(data.edges)} ${t('edges')}`}
+          fitTrigger={fitTrigger.current}
         />
       )}
     </div>
@@ -1857,7 +1864,7 @@ const KG = {
   shapes: { project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
 }
 
-function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, all, onAllChange }) {
+function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, all, onAllChange, fitTrigger }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
   const simRef = useRef(null)
@@ -2227,6 +2234,13 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
 
     return () => { sim.running = false; if (sim.raf) cancelAnimationFrame(sim.raf); ro.disconnect(); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onUp); canvas.removeEventListener('wheel', onWheel); canvas.removeEventListener('contextmenu', onCtx); window.removeEventListener('mousedown', onDocMouseDown) }
   }, [nodes, edges])
+
+  // 切换到图谱视图时重新 fit，让画布居中适配当前容器尺寸
+  useEffect(() => {
+    if (fitTrigger !== undefined && fitRef.current) {
+      requestAnimationFrame(() => fitRef.current())
+    }
+  }, [fitTrigger])
 
   return (
     <div className="me-graph" ref={wrapRef}>
