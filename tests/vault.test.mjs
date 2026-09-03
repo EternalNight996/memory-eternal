@@ -66,6 +66,7 @@ test('writeCard + listCards + readCard roundtrip', async () => {
     tags: ['rl', '机器学习'],
     body: '策略梯度是一类直接优化策略参数的强化学习方法。\n- 优点：连续动作空间友好\n- 缺点：方差大',
     source: 'session:test',
+    status: 'approved',
   })
   assert.equal(out.ok, true)
   assert.ok(out.path.startsWith('03-Knowledge/'))
@@ -82,18 +83,18 @@ test('dedup guard refuses near-duplicate card', async () => {
   const bodyA = '我们讨论了PostgreSQL与MySQL的选型问题，最终确定使用PostgreSQL，因为它的扩展性和JSONB支持更好，团队也更熟悉，迁移成本可控。同时我们决定用pgvector做向量检索，与现有ORM集成。'
   // 近重复：仅追加细节，正文几乎一致 → 应触发去重
   const bodyB = bodyA + '补充：主从复制用流复制，故障切换由Patroni管理，备份用pgBackRest。'
-  const a = await writeCard(root, { kind: 'knowledge', title: '数据库选型-分析', body: bodyA })
+  const a = await writeCard(root, { kind: 'knowledge', title: '数据库选型-分析', body: bodyA, status: 'approved' })
   assert.equal(a.ok, true)
-  const b = await writeCard(root, { kind: 'knowledge', title: '数据库选型-结论', body: bodyB })
+  const b = await writeCard(root, { kind: 'knowledge', title: '数据库选型-结论', body: bodyB, status: 'approved' })
   assert.equal(b.ok, false)
   assert.ok(b.duplicate)
-  const c = await writeCard(root, { kind: 'knowledge', title: '前端构建工具', body: 'vite基于esbuild和rollup，开发体验好，生态成熟，适合中大型项目。HMR极快，配置简单，社区插件丰富。' })
+  const c = await writeCard(root, { kind: 'knowledge', title: '前端构建工具', body: 'vite基于esbuild和rollup，开发体验好，生态成熟，适合中大型项目。HMR极快，配置简单，社区插件丰富。', status: 'approved' })
   assert.equal(c.ok, true)
 })
 
 test('appendUpdate appends update record and bumps updated', async () => {
   const root = await freshRoot()
-  const out = await writeCard(root, { kind: 'knowledge', title: '部署方案', body: '使用Docker Compose部署三个服务，Nginx做反代，配置了健康检查。' })
+  const out = await writeCard(root, { kind: 'knowledge', title: '部署方案', body: '使用Docker Compose部署三个服务，Nginx做反代，配置了健康检查。', status: 'approved' })
   const updated = await appendUpdate(root, out.path, '补充：增加自动扩容策略，基于CPU使用率。')
   assert.equal(updated.ok, true)
   const text = await readCard(root, out.path)
@@ -103,7 +104,7 @@ test('appendUpdate appends update record and bumps updated', async () => {
 
 test('search: CJK fragment finds cards', async () => {
   const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: '强化学习基础', tags: ['rl'], body: '策略梯度是一类直接优化策略参数的强化学习方法。', source: 'session:x' })
+  await writeCard(root, { kind: 'knowledge', title: '强化学习基础', tags: ['rl'], body: '策略梯度是一类直接优化策略参数的强化学习方法。', source: 'session:x', status: 'approved' })
   const hits = await search(root, '策略梯度')
   assert.ok(hits.length >= 1)
   assert.ok(hits[0].title.includes('强化学习'))
@@ -113,8 +114,8 @@ test('search: CJK fragment finds cards', async () => {
 
 test('graph: wikilink + shared tag edges', async () => {
   const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: '强化学习基础', tags: ['rl'], body: '策略梯度是核心。参考 [[数据库选型]]', source: 'session:x' })
-  await writeCard(root, { kind: 'knowledge', title: '数据库选型', tags: ['rl'], body: 'PostgreSQL 优于 MySQL。', source: 'session:x' })
+  await writeCard(root, { kind: 'knowledge', title: '强化学习基础', tags: ['rl'], body: '策略梯度是核心。参考 [[数据库选型]]', source: 'session:x', status: 'approved' })
+  await writeCard(root, { kind: 'knowledge', title: '数据库选型', tags: ['rl'], body: 'PostgreSQL 优于 MySQL。', source: 'session:x', status: 'approved' })
   const g = await graph(root)
   assert.equal(g.nodes.length, 2)
   const linkEdges = g.edges.filter((e) => e.type === 'link')
@@ -125,8 +126,8 @@ test('graph: wikilink + shared tag edges', async () => {
 
 test('overview aggregates counts', async () => {
   const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: 'A', body: '内容A足够长以便写入知识库文件。' })
-  await writeCard(root, { kind: 'project', title: 'B', body: '内容B足够长以便写入知识库文件。' })
+  await writeCard(root, { kind: 'knowledge', title: 'A', body: '内容A足够长以便写入知识库文件。', status: 'approved' })
+  await writeCard(root, { kind: 'project', title: 'B', body: '内容B足够长以便写入知识库文件。', status: 'approved' })
   const ov = await overview(root)
   assert.equal(ov.total, 2)
   assert.equal(ov.byKind.knowledge, 1)
@@ -136,7 +137,7 @@ test('overview aggregates counts', async () => {
 
 test('dedupCheck finds best match in dir', async () => {
   const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: '数据库选型', body: 'PostgreSQL与MySQL选型，结论是PostgreSQL，扩展性与JSONB是关键。团队熟悉，迁移成本可控，向量检索用pgvector。' })
+  await writeCard(root, { kind: 'knowledge', title: '数据库选型', body: 'PostgreSQL与MySQL选型，结论是PostgreSQL，扩展性与JSONB是关键。团队熟悉，迁移成本可控，向量检索用pgvector。', status: 'approved' })
   const dir = path.join(root, '03-Knowledge')
   const hit = await dedupCheck(dir, 'PostgreSQL与MySQL选型，结论是PostgreSQL，扩展性与JSONB是关键。团队熟悉，迁移成本可控，向量检索用pgvector。', 0.62)
   assert.ok(hit)
@@ -145,7 +146,7 @@ test('dedupCheck finds best match in dir', async () => {
 
 test('stats returns overview + todayCards', async () => {
   const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: '知识点A', tags: ['t1'], body: '内容A足够长便于写入知识库文件。' })
+  await writeCard(root, { kind: 'knowledge', title: '知识点A', tags: ['t1'], body: '内容A足够长便于写入知识库文件。', status: 'approved' })
   const s = await stats(root)
   assert.equal(s.total, 1)
   assert.ok(s.today >= 1)
@@ -158,8 +159,8 @@ test('optimizeCandidates returns merge/stale (non-destructive)', async () => {
   const root = await freshRoot()
   const a = '数据库索引B+树的原理与加速机制，索引是数据库为加速查找而额外维护的数据结构。'
   const b = '数据库索引B+树加速查询的原理，索引为数据库加速查找，是额外维护的数据结构。'
-  await writeCard(root, { kind: 'knowledge', title: '索引A', tags: [], body: a }, { dedup: false })
-  await writeCard(root, { kind: 'knowledge', title: '索引B', tags: [], body: b }, { dedup: false })
+  await writeCard(root, { kind: 'knowledge', title: '索引A', tags: [], body: a, status: 'approved' }, { dedup: false })
+  await writeCard(root, { kind: 'knowledge', title: '索引B', tags: [], body: b, status: 'approved' }, { dedup: false })
   const o = await optimizeCandidates(root)
   assert.ok(Array.isArray(o.merge))
   assert.ok(Array.isArray(o.stale))
@@ -168,7 +169,7 @@ test('optimizeCandidates returns merge/stale (non-destructive)', async () => {
 
 test('search semantic + minScore + feedback roundtrip', async () => {
   const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: 'React性能', tags: [], body: 'React memo 和 useMemo 优化重渲染性能。' })
+  await writeCard(root, { kind: 'knowledge', title: 'React性能', tags: [], body: 'React memo 和 useMemo 优化重渲染性能。', status: 'approved' })
   const hits = await search(root, 'react性能', { limit: 10, semantic: true })
   assert.ok(hits.length >= 1)
   await addFeedback(root, { query: 'react性能', path: hits[0].path, useful: true })
@@ -179,8 +180,8 @@ test('search semantic + minScore + feedback roundtrip', async () => {
 
 test('cross-vault searchAll + graphAll aggregate multiple roots', async () => {
   const a = await freshRoot(); const b = await freshRoot()
-  await writeCard(a, { kind: 'knowledge', title: 'A卡', tags: [], body: '跨库内容一件大事。' })
-  await writeCard(b, { kind: 'knowledge', title: 'B卡', tags: [], body: '跨库内容另一件大事。' })
+  await writeCard(a, { kind: 'knowledge', title: 'A卡', tags: [], body: '跨库内容一件大事。', status: 'approved' })
+  await writeCard(b, { kind: 'knowledge', title: 'B卡', tags: [], body: '跨库内容另一件大事。', status: 'approved' })
   const roots = [{ name: '', root: a }, { name: 'v2', root: b }]
   const hits = await searchAll(roots, '跨库内容', { limit: 10 })
   assert.ok(hits.length >= 1)
@@ -191,7 +192,7 @@ test('cross-vault searchAll + graphAll aggregate multiple roots', async () => {
 
 test('dailyBrief + generateDailyBrief idempotent', async () => {
   const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: '今日卡', tags: [], body: '今天沉淀的内容正文。' })
+  await writeCard(root, { kind: 'knowledge', title: '今日卡', tags: [], body: '今天沉淀的内容正文。', status: 'approved' })
   assert.ok(dailyBrief([{ kind: 'knowledge', title: '今日卡' }]).includes('今日卡'))
   const r1 = await generateDailyBrief(root)
   assert.equal(r1.ok, true)
@@ -201,13 +202,13 @@ test('dailyBrief + generateDailyBrief idempotent', async () => {
 
 test('mergeCards: 合并两张同 kind 卡为一张（保留 kind/并集标签/删除原卡）', async () => {
   const root = await freshRoot()
-  const a = await writeCard(root, { kind: 'knowledge', title: 'A 卡', tags: ['t1'], body: '内容A足够长便于写入知识库文件。' }, { dedup: false })
-  const b = await writeCard(root, { kind: 'knowledge', title: 'B 卡', tags: ['t2'], body: '内容B足够长便于写入知识库文件。' }, { dedup: false })
+  const a = await writeCard(root, { kind: 'knowledge', title: 'A 卡', tags: ['t1'], body: '内容A足够长便于写入知识库文件。', status: 'approved' }, { dedup: false })
+  const b = await writeCard(root, { kind: 'knowledge', title: 'B 卡', tags: ['t2'], body: '内容B足够长便于写入知识库文件。', status: 'approved' }, { dedup: false })
   const r = await mergeCards(root, [a.path, b.path])
   assert.equal(r.ok, true)
   assert.ok(r.path)
   // 原 2 张应被删除
-  const cards = await listCards(root)
+  const cards = await listCards(root, { status: ['approved', 'pending', 'rejected'] })
   assert.equal(cards.length, 1)
   // 新卡应保留 kind=knowledge、标签并集、含原文 + 分隔符
   const text = await readCard(root, cards[0].path)
@@ -222,11 +223,11 @@ test('mergeCards: 合并两张同 kind 卡为一张（保留 kind/并集标签/�
 
 test('mergeCards: <2 张卡应返回错误（不执行合并）', async () => {
   const root = await freshRoot()
-  const a = await writeCard(root, { kind: 'knowledge', title: '单卡', tags: [], body: '单卡正文足够长便于写入知识库文件。' }, { dedup: false })
+  const a = await writeCard(root, { kind: 'knowledge', title: '单卡', tags: [], body: '单卡正文足够长便于写入知识库文件。', status: 'approved' }, { dedup: false })
   const r1 = await mergeCards(root, [])
   assert.equal(r1.ok, false)
   const r2 = await mergeCards(root, [a.path])
   assert.equal(r2.ok, false)
   // 原卡应仍在
-  assert.equal((await listCards(root)).length, 1)
+  assert.equal((await listCards(root, { status: ['approved', 'pending', 'rejected'] })).length, 1)
 })
