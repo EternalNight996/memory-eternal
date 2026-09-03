@@ -26,7 +26,7 @@ const versionRef = (() => { try { const p = JSON.parse(readFileSync(path.join(PA
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { ensureVault, search, generateDailyBrief } from './lib/vault.js'
-import { migrateFromMarkdown } from './lib/db.js'
+import { migrateFromMarkdown, setAuditConfig } from './lib/db.js'
 import { summarizeTurn, extractLastTurn, sliceNewEvents, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json } from './lib/api.js'
 
@@ -112,6 +112,15 @@ export function apply(ctx, config) {
 
   // 自动迁移：从 .md 文件导入 SQLite（幂等，DB 有数据则跳过）
   try { migrateFromMarkdown(vaultDir()).catch(() => {}) } catch {}
+  // 同步审核配置到 SQLite config 表（enforceAudit 从此表读取规则）
+  const syncAudit = () => {
+    try {
+      const cfg = settings.get() ?? {}
+      setAuditConfig(vaultDir(), { auditMode: cfg.auditMode, auditExemptAgents: cfg.auditExemptAgents, auditExemptKinds: cfg.auditExemptKinds })
+    } catch {}
+  }
+  syncAudit()
+  settings.watch(syncAudit)
 
   // 所有 profile 目录（当前激活 + 其余命名的），供跨库聚合。
   const vaultRoots = () => {
