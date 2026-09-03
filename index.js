@@ -273,12 +273,12 @@ export function apply(ctx, config) {
       }
       if (!cfg || cfg.enabled === false || cfg.autoRecall !== true) return
       const text = [
-        '你拥有一个本地「记忆核心」（Markdown 知识库，位于 ' + vaultDir() + '）。',
+        '你拥有一个本地「记忆核心」（SQLite 知识库，位于 ' + vaultDir() + '）。',
         '规则：',
         '1. 每轮对话结束后，值得长期复用的内容会被自动沉淀成知识卡，你无需询问用户、也无需手动保存。',
         '2. 当任务需要项目背景、历史决策、之前讨论过的方案或领域知识时，先调用 memory_recall 检索相关卡片，再作答。',
         '3. 若检索结果为空，就诚实说明当前记忆库没有相关内容，不要编造。',
-        '4. 知识卡是普通 Markdown 文件，你可以用文件工具直接读写它。',
+        '4. 知识卡存储在 SQLite 数据库中（memory-eternal.db），**禁止**用文件工具直接读写 vault 目录下的任何文件。沉淀记忆必须通过 memory_recall 工具或 /memory-eternal/api/write API。',
       ].join('\n')
       disposeSection = ctx.systemPrompt.section({
         name: 'memory-eternal: auto-recall',
