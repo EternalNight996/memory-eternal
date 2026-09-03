@@ -1024,25 +1024,31 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
 
         {error && <div className="mc-empty">{t('error')}：{error}</div>}
 
-        {view === 'cards' ? (
-          loading && !cards.length
+        <div style={{ display: view === 'cards' ? 'contents' : 'none' }}>
+          {loading
             ? <div className="mc-empty">{t('loading')}</div>
+            : error
+              ? <div className="mc-empty">{t('error')}：{error} <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('retry')}</button></div>
             : cards.length === 0
               ? <div className="mc-empty">{t('empty')}</div>
               : <><div className="mc-grid">{sortedCards.slice(0, visibleCount).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} />)}</div>{sortedCards.length > visibleCount && <div ref={sentinelRef} style={{ height: 1 }} />}</>
-        ) : view === 'graph' ? (
-          <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} />
-        ) : view === 'config' ? (
+          }
+        </div>
+        <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
+          <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={true} />
+        </div>
+        <div style={{ display: view === 'config' ? 'contents' : 'none' }}>
           <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />
-        ) : view === 'stats' ? (
+        </div>
+        <div style={{ display: view === 'stats' ? 'contents' : 'none' }}>
           <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} />
-        ) : view === 'audit' ? (
+        </div>
+        <div style={{ display: view === 'audit' ? 'contents' : 'none' }}>
           <AuditPanel t={t} onReload={() => loadAll()} version={dataVer} />
-        ) : view === 'optimize' ? (
+        </div>
+        <div style={{ display: view === 'optimize' ? 'contents' : 'none' }}>
           <RecoverPanel t={t} onReload={() => loadAll()} version={dataVer} />
-        ) : (
-          <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} />
-        )}
+        </div>
 
         {reader && <CardReader t={t} card={reader} query={query.trim()} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />}
         <NewCardModal t={t} newCard={newCard} setNewCard={setNewCard} onCreated={() => { loadAll(); bump(); setLibToast({ ok: true, msg: t('created') }); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />
