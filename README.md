@@ -13,7 +13,7 @@
 </p>
 
 > **对话结束自动沉淀，跨会话不失忆；召回只取相关小块，省 token 少噪音。**
-> 全自研、零第三方记忆框架、不改 DSH 源码、一个记忆库所有 Agent 共享，纯 Markdown 可 git 管理。
+> 全自研、零第三方记忆框架、不改 DSH 源码、一个记忆库所有 Agent 共享，SQLite 持久存储，零外部依赖。
 
 <p align="center"><strong>⭐ 觉得好用就点个 Star</strong>！ <br/><sub>DSH 一条命令：<code>dsh plugin --profile web add memory-eternal</code></sub></p>
 
@@ -183,6 +183,8 @@ dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
 
 新卡默认进**审核中心**（`pending`），由你确认后才入主库；驳回的进「已驳回」，可恢复或删除进回收站。命中免审条件（审核模式=全部免审 / 免审智能体 / 免审类型）的新卡直接入库；回收站软删卡 30 天内可恢复，超期自动永久删除。
 
+> **v0.3.0 起：审核守卫下沉到数据库层。** 所有写入路径（自动沉淀 / MCP / UI 新建 / 导入）强制经过 `enforceAudit()`，调用方无法绕过。`setCardStatus()` 是唯一审核操作入口，每次变更写入 `audit_log` 审计日志（who/what/when/why），不可篡改。
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-center.png" width="880" alt="审核中心" />
 </p>
@@ -215,7 +217,8 @@ memory-eternal 走**人机协同审核**，只让可信内容进主库：
 | 去重 | 词法 Jaccard bigram（0.62）+ 语义去重 | 防重复卡 |
 | 检索 | CJK 感知：中文整词 + 字符 bigram | 无需全文搜索引擎 |
 | 图谱 | 力导向 + `[[wikilink]]`/共享标签连边 | 知识关联一眼看清 |
-| 存储 | 带 frontmatter 的普通 `.md` | 不锁库、可读、可 git、可被任意工具读 |
+| 存储 | **SQLite**（`node:sqlite` 内置，零依赖）| 不锁库、分表存储、SQL 查询 |
+| 审核 | **数据库层审核守卫** + 审计日志 | 杜绝越权，所有写入强制走审核 |
 
 > 与热门项目同向（总结→存储→按需召回），但定位不同：**本地、自研、零依赖、可读可控**。如果你已在用 mem0/Zep 等，也能把它当「本地持久记忆底座」叠加使用。
 
@@ -228,6 +231,19 @@ npm i
 npm test        # 单元测试：vault 去重/检索/图谱 + capture 管线 + API 形状
 npm run build   # 构建 lib/client.js（DSH 内嵌）+ web/app.js（独立 web bundle）
 ```
+
+---
+
+## 📋 更新日志
+
+| 版本 | 日期 | 关键改动 |
+|---|---|---|
+| **v0.3.1** | 2026-09-03 | 知识图谱按需加载（点击时 fetch，关闭时注销） |
+| **v0.3.0** | 2026-09-03 | **SQLite 化存储层**（`node:sqlite` 零依赖）+ 数据库层审核守卫 `enforceAudit()` + `audit_log` 审计日志 + 自动从 .md 迁移 |
+| v0.2.0 | 2026-09-03 | recall 含正文修复（`search()` 返回 excerpt 字段） |
+| v0.1.2 | 2026-09-03 | 审核守卫加固（`writeCard` 默认 `pending`，`mergeCards` 走审核） |
+| v0.1.1 | 2026-09-03 | recall 含正文修复（excerpt 字段 + body 逻辑修正） |
+| v0.1.0 | 2026-08-31 | 首发：自动沉淀 + 自动召回 + 图形化知识库 + 知识图谱 + 审核中心 + 回收中心 |
 
 ---
 
