@@ -1031,7 +1031,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
               ? <div className="mc-empty">{t('empty')}</div>
               : <><div className="mc-grid">{sortedCards.slice(0, visibleCount).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} />)}</div>{sortedCards.length > visibleCount && <div ref={sentinelRef} style={{ height: 1 }} />}</>
         ) : view === 'graph' ? (
-          <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} />
+          <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} />
         ) : view === 'config' ? (
           <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />
         ) : view === 'stats' ? (
@@ -1770,7 +1770,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
 
 // -- Enhanced knowledge graph ------------------------------------------------
 
-function GraphView({ t, onOpen, all, onAllChange, onMutate }) {
+function GraphView({ t, onOpen, all, onAllChange, onMutate, active }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
 
@@ -1785,14 +1785,16 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate }) {
     }
   }, [all, t])
 
+  // 只在 active=true 时加载数据；切换离开时清空
   useEffect(() => {
+    if (!active) { setData(null); setError(''); return }
     let alive = true
     fetch(`${API}/graph${all ? '?all=1' : ''}`)
       .then((r) => r.json())
       .then((d) => { if (alive) { if (d.ok) { setData(d); setError('') } else { setData(null); setError(d.error || t('error')) } } })
       .catch((e) => { if (alive) setError(String(e && e.message ? e.message : e)) })
-    return () => { alive = false }
-  }, [all, t])
+    return () => { alive = false; setData(null); setError('') }
+  }, [all, t, active])
 
   const del = useCallback(async (path) => {
     try {
