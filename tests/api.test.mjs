@@ -15,8 +15,8 @@ after(async () => {
 
 test('API data shapes: overview', async () => {
   await ensureVault(root)
-  await writeCard(root, { kind: 'knowledge', title: 'A', tags: ['t1'], body: '内容A足够长以便写入知识库文件。这是关于知识卡片的内容，用于验证数据形状。' })
-  await writeCard(root, { kind: 'project', title: 'B', tags: ['t1'], body: '项目B的进展与里程碑规划，包括团队分工和交付时间表，用于验证项目类卡片的写入。' })
+  await writeCard(root, { kind: 'knowledge', title: 'A', tags: ['t1'], body: '内容A足够长以便写入知识库文件。这是关于知识卡片的内容，用于验证数据形状。', status: 'approved' })
+  await writeCard(root, { kind: 'project', title: 'B', tags: ['t1'], body: '项目B的进展与里程碑规划，包括团队分工和交付时间表，用于验证项目类卡片的写入。', status: 'approved' })
   const ov = await overview(root)
   assert.equal(ov.total, 2)
   assert.equal(ov.byKind.knowledge, 1)
@@ -82,8 +82,8 @@ test('API data shapes: cross-vault graphAll + searchAll aggregate', async () => 
   const bRoot = path.join(tmpRoot, 'b')
   await ensureVault(aRoot)
   await ensureVault(bRoot)
-  await writeCard(aRoot, { kind: 'knowledge', title: 'A', tags: ['t1'], body: '跨库聚合内容足够长便于写入知识库文件以验证聚合。' }, { dedup: false })
-  await writeCard(bRoot, { kind: 'knowledge', title: 'B', tags: ['t1'], body: '跨库聚合另一张内容足够长便于写入知识库文件以验证聚合。' }, { dedup: false })
+  await writeCard(aRoot, { kind: 'knowledge', title: 'A', tags: ['t1'], body: '跨库聚合内容足够长便于写入知识库文件以验证聚合。', status: 'approved' }, { dedup: false })
+  await writeCard(bRoot, { kind: 'knowledge', title: 'B', tags: ['t1'], body: '跨库聚合另一张内容足够长便于写入知识库文件以验证聚合。', status: 'approved' }, { dedup: false })
   const roots = [{ name: '', root: aRoot }, { name: 'v2', root: bRoot }]
   const g = await graphAll(roots)
   assert.ok(g.nodes.length >= 2)

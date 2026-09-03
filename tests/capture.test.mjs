@@ -92,8 +92,8 @@ test('compressExcerpt keeps structured lines and caps length', () => {
 test('pickNeighbors ranks existing cards by keyword overlap', async () => {
   const freshRoot = path.join(tmpRoot, 'vault-neighbors')
   await ensureVault(freshRoot)
-  await captureCard(freshRoot, { kind: 'knowledge', title: 'Redis缓存策略', tags: ['redis'], body: 'Redis缓存热点数据，TTL设置，缓存穿透与雪崩处理。' })
-  await captureCard(freshRoot, { kind: 'knowledge', title: '前端构建工具', tags: ['vite'], body: 'Vite 基于 esbuild 与 Rollup。' })
+  await captureCard(freshRoot, { kind: 'knowledge', title: 'Redis缓存策略', tags: ['redis'], body: 'Redis缓存热点数据，TTL设置，缓存穿透与雪崩处理。', status: 'approved' })
+  await captureCard(freshRoot, { kind: 'knowledge', title: '前端构建工具', tags: ['vite'], body: 'Vite 基于 esbuild 与 Rollup。', status: 'approved' })
   const draft = { title: '缓存策略补充', body: 'Redis缓存TTL雪崩穿透问题再讨论' }
   const neighbors = await pickNeighbors(freshRoot, draft, 8)
   assert.ok(neighbors.length >= 1)
@@ -165,6 +165,7 @@ test('captureCard writes with dedup; duplicate appends update instead', async ()
     title: '缓存策略',
     tags: ['redis'],
     body,
+    status: 'approved',
   })
   assert.equal(first.ok, true)
   // 高度相似的卡 → 去重拒绝
@@ -188,7 +189,7 @@ test('captureCard writes with dedup; duplicate appends update instead', async ()
 test('makeDedupChecker scans a directory', async () => {
   await ensureVault(root)
   const body = 'Redis缓存热点数据，TTL设为10分钟，缓存穿透用空值缓存解决，并增加随机过期防止雪崩，大key分段缓存。'
-  await captureCard(root, { kind: 'knowledge', title: '缓存策略', tags: ['redis'], body })
+  await captureCard(root, { kind: 'knowledge', title: '缓存策略', tags: ['redis'], body, status: 'approved' })
   const checker = makeDedupChecker(path.join(root, '03-Knowledge'))
   const hit = await checker(body, 0.62)
   assert.ok(hit)
