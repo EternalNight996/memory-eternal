@@ -26,6 +26,7 @@ const versionRef = (() => { try { const p = JSON.parse(readFileSync(path.join(PA
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { ensureVault, search, generateDailyBrief } from './lib/vault.js'
+import { migrateFromMarkdown } from './lib/db.js'
 import { summarizeTurn, extractLastTurn, sliceNewEvents, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json } from './lib/api.js'
 
@@ -96,6 +97,7 @@ const DSH_AGENT = 'deepseek-harness'
 export function apply(ctx, config) {
   const settings = ctx.settings.register('memory-eternal', Config, { base: config ?? {} })
 
+  // 首次激活：自动从 .md 文件迁移到 SQLite（幂等，已有数据则跳过）
   const vaultDir = () => {
     const cfg = settings.get() ?? {}
     // 多 Vault：若配了 vaultProfiles 且选中了 activeVault，则用该 profile 的目录。
@@ -107,6 +109,9 @@ export function apply(ctx, config) {
     const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
     return path.join(home, 'memory-vault')
   }
+
+  // 自动迁移：从 .md 文件导入 SQLite（幂等，DB 有数据则跳过）
+  try { migrateFromMarkdown(vaultDir()).catch(() => {}) } catch {}
 
   // 所有 profile 目录（当前激活 + 其余命名的），供跨库聚合。
   const vaultRoots = () => {

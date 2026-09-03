@@ -190,7 +190,7 @@ test('makeDedupChecker scans a directory', async () => {
   await ensureVault(root)
   const body = 'Redis缓存热点数据，TTL设为10分钟，缓存穿透用空值缓存解决，并增加随机过期防止雪崩，大key分段缓存。'
   await captureCard(root, { kind: 'knowledge', title: '缓存策略', tags: ['redis'], body, status: 'approved' })
-  const checker = makeDedupChecker(path.join(root, '03-Knowledge'))
+  const checker = makeDedupChecker(root)
   const hit = await checker(body, 0.62)
   assert.ok(hit)
 })
