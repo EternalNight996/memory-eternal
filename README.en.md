@@ -13,7 +13,7 @@
 </p>
 
 > **Auto-captures knowledge after every conversation and survives across sessions; recall fetches only the relevant chunks — saves tokens, less noise.**
-> Fully self-built, zero third-party memory framework, no DSH source changes, one vault shared by every Agent, plain Markdown & git-manageable.
+> Fully self-built, zero third-party memory framework, no DSH source changes, one vault shared by every Agent, SQLite persistent storage, zero external dependencies.
 
 <p align="center"><strong>⭐ Star it if you like it!</strong> <br/><sub>DSH one-liner: <code>dsh plugin --profile web add memory-eternal</code></sub></p>
 
