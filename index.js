@@ -412,8 +412,9 @@ export function apply(ctx, config) {
             // 单智能体安装/卸载 MCP：POST {agent, action}
             if (req.method !== 'POST') return json(res, 405, { ok: false, error: '需 POST' })
             try {
-              let raw = ''
-              for await (const chunk of req) raw += chunk
+              const chunks = []
+              for await (const chunk of req) chunks.push(chunk)
+              const raw = Buffer.concat(chunks).toString('utf8')
               const body = JSON.parse(raw || '{}')
               const agent = String(body.agent || '')
               const action = String(body.action || '')
@@ -452,8 +453,9 @@ export function apply(ctx, config) {
               return json(res, 200, { ok: true, config: safe, revision: me?.revision ?? 0, writable: true, readonly: false, schema: me?.schema ?? null, dsh: dshInfo, version: versionRef })
             }
             if (method === 'POST') {
-              let raw = ''
-              for await (const chunk of req) raw += chunk
+              const cfgChunks = []
+              for await (const chunk of req) cfgChunks.push(chunk)
+              const raw = Buffer.concat(cfgChunks).toString('utf8')
               let body = {}
               try { body = JSON.parse(raw || '{}') } catch { return json(res, 400, { ok: false, error: 'JSON 解析失败' }) }
               const patch = body.patch ?? {}
