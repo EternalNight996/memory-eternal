@@ -22,11 +22,12 @@ const freshRoot = async () => {
   return root
 }
 
-test('ensureVault creates 00-System and 02-06 roots', async () => {
+test('ensureVault creates SQLite database', async () => {
   const root = await freshRoot()
-  for (const dir of ['00-System', '02-Projects', '03-Knowledge', '04-Content', '05-Prompts', '06-Business']) {
-    await assert.doesNotReject(fs.access(path.join(root, dir)))
-  }
+  await ensureVault(root)
+  // SQLite 化后 ensureVault 确保 DB 存在（不再是目录结构）
+  const cards = await listCards(root, { status: ['approved', 'pending', 'rejected'] })
+  assert.ok(Array.isArray(cards))
 })
 
 test('parseCard extracts frontmatter + body', () => {
@@ -126,8 +127,8 @@ test('graph: wikilink + shared tag edges', async () => {
 
 test('overview aggregates counts', async () => {
   const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: 'A', body: '内容A足够长以便写入知识库文件。', status: 'approved' })
-  await writeCard(root, { kind: 'project', title: 'B', body: '内容B足够长以便写入知识库文件。', status: 'approved' })
+  await writeCard(root, { kind: 'knowledge', title: 'A', body: '内容A足够长以便写入知识库文件。这是关于知识卡片的内容，用于验证数据形状。', status: 'approved' })
+  await writeCard(root, { kind: 'project', title: 'B', body: '项目B的进展与里程碑规划，包括团队分工和交付时间表，用于验证项目类卡片的写入。', status: 'approved' })
   const ov = await overview(root)
   assert.equal(ov.total, 2)
   assert.equal(ov.byKind.knowledge, 1)
@@ -138,8 +139,7 @@ test('overview aggregates counts', async () => {
 test('dedupCheck finds best match in dir', async () => {
   const root = await freshRoot()
   await writeCard(root, { kind: 'knowledge', title: '数据库选型', body: 'PostgreSQL与MySQL选型，结论是PostgreSQL，扩展性与JSONB是关键。团队熟悉，迁移成本可控，向量检索用pgvector。', status: 'approved' })
-  const dir = path.join(root, '03-Knowledge')
-  const hit = await dedupCheck(dir, 'PostgreSQL与MySQL选型，结论是PostgreSQL，扩展性与JSONB是关键。团队熟悉，迁移成本可控，向量检索用pgvector。', 0.62)
+  const hit = await dedupCheck(root, 'PostgreSQL与MySQL选型，结论是PostgreSQL，扩展性与JSONB是关键。团队熟悉，迁移成本可控，向量检索用pgvector。', 0.62)
   assert.ok(hit)
   assert.ok(hit.path.includes('.md'))
 })
@@ -157,8 +157,8 @@ test('stats returns overview + todayCards', async () => {
 
 test('optimizeCandidates returns merge/stale (non-destructive)', async () => {
   const root = await freshRoot()
-  const a = '数据库索引B+树的原理与加速机制，索引是数据库为加速查找而额外维护的数据结构。'
-  const b = '数据库索引B+树加速查询的原理，索引为数据库加速查找，是额外维护的数据结构。'
+  const a = '数据库索引B+树的原理与加速机制，索引是数据库为加速查找而额外维护的数据结构。索引加速查询性能。'
+  const b = '数据库索引B+树的原理与加速机制，索引是数据库为加速查找而额外维护的数据结构。索引提升查询速度。'
   await writeCard(root, { kind: 'knowledge', title: '索引A', tags: [], body: a, status: 'approved' }, { dedup: false })
   await writeCard(root, { kind: 'knowledge', title: '索引B', tags: [], body: b, status: 'approved' }, { dedup: false })
   const o = await optimizeCandidates(root)
@@ -175,7 +175,7 @@ test('search semantic + minScore + feedback roundtrip', async () => {
   await addFeedback(root, { query: 'react性能', path: hits[0].path, useful: true })
   const fb = await readFeedback(root)
   assert.ok(fb.length >= 1)
-  assert.equal(fb[0].useful, true)
+  assert.equal(fb[0].useful, 1)
 })
 
 test('cross-vault searchAll + graphAll aggregate multiple roots', async () => {
