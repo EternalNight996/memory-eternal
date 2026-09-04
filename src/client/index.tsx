@@ -493,6 +493,7 @@ export const EN = {
 
 const KIND_IDS = ['all', 'project', 'knowledge', 'content', 'prompt', 'business', 'tool', 'mistake']
 const KIND_COLORS = { project: '#3B82F6', knowledge: '#10B981', content: '#F59E0B', prompt: '#A855F7', business: '#EC4899', tool: '#06B6D4', mistake: '#EF4444', other: '#6B7280' }
+const KIND_EMOJI = { project: '📁', knowledge: '📚', content: '📝', prompt: '💬', business: '💼', tool: '🔧', mistake: '⚠️', other: '📎' }
 const KIND_LABELS = { project: 'kindProject', knowledge: 'kindKnowledge', content: 'kindContent', prompt: 'kindPrompt', business: 'kindBusiness', tool: 'kindTool', mistake: 'kindMistake', other: 'kindKnowledge' }
 // DSH 宿主自动沉淀卡的署名（与 index.js 的 DSH_AGENT 保持一致）。
 // 归一化：session:<uuid> / agent / unknown / 空 → deepseek-harness；claude-code → claude；其余取冒号前 token。
@@ -945,23 +946,23 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
         <div className={`mc-rail${railOpen ? ' open' : ''}`}>
           <button type="button" className="mc-rail-collapse" onClick={() => setRailOpen((v) => !v)} aria-label={railOpen ? t('collapse') : t('expand')} title={railOpen ? t('collapse') : t('expand')}>{railOpen ? '«' : '»'}</button>
           <button type="button" className={`mc-railbtn${view === 'cards' ? ' active' : ''}`} onClick={() => setView('cards')} title={t('cardsTab')}>
-            <span className="mc-rail-ico">📇</span>
+            <span className="mc-rail-ico">🧠</span>
             {railOpen && <span className="mc-rail-label">{t('cardsTab')}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'graph' ? ' active' : ''}`} onClick={() => setView('graph')} title={t('graphTab')}>
-            <span className="mc-rail-ico">🕸</span>
+            <span className="mc-rail-ico">🔮</span>
             {railOpen && <span className="mc-rail-label">{t('graphTab')}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'stats' ? ' active' : ''}`} onClick={() => setView('stats')} title={t('tabUsage')}>
-            <span className="mc-rail-ico">📊</span>
+            <span className="mc-rail-ico">📈</span>
             {railOpen && <span className="mc-rail-label">{t('tabUsage')}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'audit' ? ' active' : ''}`} onClick={() => setView('audit')} title={t('tabAudit')}>
-            <span className="mc-rail-ico">🛡️</span>
+            <span className="mc-rail-ico">🔍</span>
             {railOpen && <span className="mc-rail-label">{t('tabAudit')}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'optimize' ? ' active' : ''}`} onClick={() => setView('optimize')} title={t('tabRecycle')}>
-            <span className="mc-rail-ico">🗑️</span>
+            <span className="mc-rail-ico">♻️</span>
             {railOpen && <span className="mc-rail-label">{t('tabRecycle')}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'config' ? ' active' : ''}`} onClick={() => setView('config')} title={t('tabConfig')}>
@@ -1471,24 +1472,25 @@ function RecoverPanel({ t, onReload, version }) {
 const CardRow = ({ card, t, onOpen, query, onDelete }) => (  <article className="mc-cardrow mc-card" onClick={() => onOpen(card)}>
     <h4>
       <span className="mc-kind" style={{ background: KIND_COLORS[card.kind] || KIND_COLORS.other }} />
+      <span style={{ marginRight: 4 }}>{KIND_EMOJI[card.kind] || '📎'}</span>
       {query ? highlightMatches(card.title, query) : card.title}
       {isNewCard(card.updated) && <span className="mc-new">{t('newBadge')}</span>}
-      {card.status === 'pending' && <span className="mc-status" style={{ background: '#f59e0b' }}>{t('statusPending')}</span>}
-      {card.status === 'rejected' && <span className="mc-status" style={{ background: '#ef4444' }}>{t('statusRejected')}</span>}
-      {(!card.status || card.status === 'approved') && <span className="mc-status" style={{ background: '#10b981' }}>{t('statusApproved')}</span>}
+      {card.status === 'pending' && <span className="mc-status" style={{ background: '#f59e0b' }}>⏳ {t('statusPending')}</span>}
+      {card.status === 'rejected' && <span className="mc-status" style={{ background: '#ef4444' }}>❌ {t('statusRejected')}</span>}
+      {(!card.status || card.status === 'approved') && <span className="mc-status" style={{ background: '#10b981' }}>✅ {t('statusApproved')}</span>}
     </h4>
     <p>{query ? highlightMatches(card.summary || '', query) : (card.summary || '')}</p>
     {card.tags.length > 0 && (
       <div className="mc-tags">
-        {card.tags.slice(0, 4).map((tag) => <span key={tag} className="mc-tag">{tag}</span>)}
+        {card.tags.slice(0, 4).map((tag) => <span key={tag} className="mc-tag">🏷 {tag}</span>)}
       </div>
     )}
     <footer>
-      <span>{t(KIND_LABELS[card.kind])}</span>
+      <span>{KIND_EMOJI[card.kind] || '📎'} {t(KIND_LABELS[card.kind])}</span>
       {<span style={{ fontSize: 10, opacity: 0.6 }}>🤖 {normAgent(card.submittedBy)}</span>}
-      <span>{fmtDate(card.updated)}</span>
+      <span>📅 {fmtDate(card.updated)}</span>
       <span className="spacer" style={{ flex: 1 }} />
-      <button type="button" className="mc-card-del" title={t('delete')} onClick={(e) => { e.stopPropagation(); if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>✕</button>
+      <button type="button" className="mc-card-del" title={t('delete')} onClick={(e) => { e.stopPropagation(); if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>🗑</button>
     </footer>
   </article>
 )
