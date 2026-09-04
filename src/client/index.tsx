@@ -1952,11 +1952,17 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     types.forEach((ty, i) => { const a = (i / types.length) * Math.PI * 2 - Math.PI / 2; sim.typeCenters[ty] = { x: Math.cos(a) * 160, y: Math.sin(a) * 160 } })
     simRef.current = sim
 
+    let lastW = 0, lastH = 0
     const resize = () => {
       const w = canvas.clientWidth, h = canvas.clientHeight
       sim.w = w; sim.h = h
       canvas.width = w * dpr; canvas.height = h * dpr
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      // 容器从 0 变为有效尺寸时（display:none → flex），自动 fit 居中
+      if ((lastW === 0 || lastH === 0) && w > 0 && h > 0 && sim.tickCount > 0) {
+        requestAnimationFrame(() => fit())
+      }
+      lastW = w; lastH = h
     }
     resize()
     const ro = new ResizeObserver(resize)
