@@ -6,10 +6,12 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { ensureVault, writeCard, listCards, readCard, search, graph, overview, stats, optimizeCandidates, graphAll, searchAll } from '../lib/vault.js'
+import { closeAllDb } from '../lib/db.js'
 
 const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'mc-api-'))
 const root = path.join(tmpRoot, 'vault')
 after(async () => {
+  closeAllDb()
   await fs.rm(tmpRoot, { recursive: true, force: true })
 })
 

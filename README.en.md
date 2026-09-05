@@ -49,6 +49,8 @@ After **restarting dsh web**, three things are live immediately:
 
 **Entry**: The sidebar-footer `Memory` button opens the vault (its left rail includes Cards / Graph / Usage / **Audit Center** / Recycle Bin / **Memory Config**); "DSH Settings → Memory" is the pure config page.
 
+**UI language**: The whole UI is bilingual (English / 中文) and follows **DSH Settings → Language** in real time — Cards, Graph, Audit Center, card templates, config panel all included; the standalone web page follows the browser language.
+
 **Edit config**: Vault left rail "Memory Config" (or DSH Settings → Memory) → DSH memory config / cost control / auto-audit config / self-hosting — just hit "Save Config". `autoWebMode` / `watchdogAutoSpawn` changes require a DSH restart.
 
 ### 🟨 Claude Code
