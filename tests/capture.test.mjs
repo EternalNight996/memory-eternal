@@ -5,11 +5,13 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { ensureVault, listCards, readCard } from '../lib/vault.js'
+import { closeAllDb } from '../lib/db.js'
 import { summarizeTurn, extractLastTurn, sliceNewEvents, parseCaptureJson, captureCard, captureUpdate, makeDedupChecker, pickNeighbors, DEDUP_THRESHOLD, compressExcerpt } from '../lib/capture.js'
 
 const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'mc-cap-'))
 const root = path.join(tmpRoot, 'vault')
 after(async () => {
+  closeAllDb()
   await fs.rm(tmpRoot, { recursive: true, force: true })
 })
 

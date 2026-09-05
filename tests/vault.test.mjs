@@ -9,9 +9,11 @@ import {
   writeCard, readCard, appendUpdate, search, graph, overview, dedupCheck,
   stats, optimizeCandidates, searchAll, graphAll, dailyBrief, generateDailyBrief, readFeedback, addFeedback, mergeCards,
 } from '../lib/vault.js'
+import { closeAllDb } from '../lib/db.js'
 
 const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'mc-vault-'))
 after(async () => {
+  closeAllDb()
   await fs.rm(tmpRoot, { recursive: true, force: true })
 })
 

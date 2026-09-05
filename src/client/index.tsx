@@ -8,7 +8,7 @@
 //
 // 数据全部来自 host 的 /memory-eternal/api/* JSON 路由（同源 fetch），不引入额外依赖。
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
@@ -251,6 +251,24 @@ export const ZH = {
   mergeConfirm: '将所选卡片合并为一张并删除原卡？',
   merged: '已合并',
   mergeFail: '合并失败',
+  mcpInstalled: '✅ {agent} MCP 已安装',
+  mcpUninstalled: '✅ {agent} MCP 已卸载',
+  mcpActionFail: '❌ {agent} MCP 操作失败：{error}',
+  dshHostLabel: 'DeepSeek Harness（当前宿主）',
+  restartHint: '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效',
+  conflictRefresh: '配置已被外部修改，请刷新后重试',
+  untitled: '无标题',
+  tplBlank: '📄 空白',
+  tagsHint: '标签（逗号分隔）',
+  connCount: '{n} 连接',
+  tplDecisionTags: '决策, 方案',
+  tplBugTags: '踩坑, 教训',
+  tplMeetingTags: '会议, 纪要',
+  tplWeeklyTags: '周报',
+  tplDecisionBody: '# 技术决策：[标题]\n\n## 背景\n- 问题描述\n\n## 候选方案\n| 方案 | 优点 | 缺点 |\n| --- | --- | --- |\n| A | | |\n| B | | |\n\n## 决策\n选择方案 A，原因：\n\n## 风险与后续\n',
+  tplBugBody: '# 踩坑记录：[标题]\n\n## 现象\n- 发生了什么\n\n## 根因\n\n## 解决方案\n\n## 教训\n- 如何避免下次',
+  tplMeetingBody: '# 会议纪要：[标题]\n\n**日期**：\n**参会人**：\n\n## 议题\n1. \n\n## 结论\n\n## 待办\n- [ ] ',
+  tplWeeklyBody: '# 周报 [YYYY-MM-DD]\n\n## 本周完成\n- \n\n## 下周计划\n- \n\n## 风险/阻塞\n- ',
 }
 
 export const EN = {
@@ -489,6 +507,24 @@ export const EN = {
   mergeConfirm: 'Merge the selected cards into one and delete the originals?',
   merged: 'Merged',
   mergeFail: 'Merge failed',
+  mcpInstalled: '✅ {agent} MCP installed',
+  mcpUninstalled: '✅ {agent} MCP uninstalled',
+  mcpActionFail: '❌ {agent} MCP action failed: {error}',
+  dshHostLabel: 'DeepSeek Harness (current host)',
+  restartHint: 'Saved. autoWebMode/watchdogAutoSpawn take effect after restarting DSH',
+  conflictRefresh: 'Config changed elsewhere — refresh and retry',
+  untitled: 'Untitled',
+  tplBlank: '📄 Blank',
+  tagsHint: 'Tags (comma-separated)',
+  connCount: '{n} connections',
+  tplDecisionTags: 'decision, plan',
+  tplBugTags: 'pitfall, lesson',
+  tplMeetingTags: 'meeting, minutes',
+  tplWeeklyTags: 'weekly report',
+  tplDecisionBody: '# Tech decision: [title]\n\n## Background\n- Problem\n\n## Candidates\n| Option | Pros | Cons |\n| --- | --- | --- |\n| A | | |\n| B | | |\n\n## Decision\nOption A, because:\n\n## Risks & follow-ups\n',
+  tplBugBody: '# Pitfall: [title]\n\n## Symptom\n- What happened\n\n## Root cause\n\n## Fix\n\n## Lesson\n- How to avoid it next time',
+  tplMeetingBody: '# Meeting notes: [title]\n\n**Date**:\n**Attendees**:\n\n## Topics\n1. \n\n## Conclusions\n\n## Action items\n- [ ] ',
+  tplWeeklyBody: '# Weekly report [YYYY-MM-DD]\n\n## Done this week\n- \n\n## Next week\n- \n\n## Risks/blockers\n- ',
 }
 
 const KIND_IDS = ['all', 'project', 'knowledge', 'content', 'prompt', 'business', 'tool', 'mistake']
@@ -652,9 +688,10 @@ export function apply(ctx) {
   )), 'memory-eternal: settings section')
 
   // 侧边栏底部 footer：「记忆」按钮 → 弹窗内嵌 web 端（记忆配置已并入记忆视图，左栏⚙ 可开）
+  // locale face 一并传入：iframe web 端首屏 URL 带 ?lang=，语言变化经 postMessage 实时跟随 DSH 系统配置
   ctx.effect(() => ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register(
     { name: 'sidebar.footer.action', id: `${NS}:footer`, order: 100, label: () => t('nav'), locale: NS, inject: () => ({}) },
-    (props) => React.createElement(MemoryFooterButton, { t, wide: !(props && props.wide === false) }),
+    (props) => React.createElement(MemoryFooterButton, { t, locale: ctx.locale, wide: !(props && props.wide === false) }),
   )), 'memory-eternal: sidebar footer action')
 }
 
@@ -686,7 +723,7 @@ function SettingSection({ t }) {
 
 // -- Sidebar footer button ---------------------------------------------------
 
-function MemoryFooterButton({ t, wide }) {
+function MemoryFooterButton({ t, locale, wide }) {
   const [open, setOpen] = useState(false)
   return (
     <div className={`me-footer${wide ? '' : ' rail'}`}>
@@ -695,21 +732,38 @@ function MemoryFooterButton({ t, wide }) {
         <span className="me-footer-ico" aria-hidden="true"><DatabaseIcon /></span>
         <span className="me-footer-label">{t('nav')}</span>
       </button>
-      {open && <WebModal t={t} onClose={() => setOpen(false)} />}
+      {open && <WebModal t={t} locale={locale} onClose={() => setOpen(false)} />}
     </div>
   )
 }
 
 /** 侧边栏底部「⚙ 配置」按钮 → 弹窗内嵌 web 配置视图（?tab=config）。 */
 /** 全屏弹窗内嵌 web 端（渲染走 web，与浏览器访问同一份 UI）。可选 tab 指定初始视图。 */
-function WebModal({ t, onClose, tab }) {
+function WebModal({ t, locale, onClose, tab }) {
   const [full, setFull] = useState(false)
+  const iframeRef = useRef(null)
   const base = useWebUrl()
+  // 跟随 DSH 系统语言：订阅 locale 快照（getSnapshot/subscribe，同 slots 响应式链路）
+  const subscribe = useCallback((cb) => (locale && typeof locale.subscribe === 'function' ? locale.subscribe(cb) : () => {}), [locale])
+  const getSnapshot = useCallback(() => (locale && typeof locale.getSnapshot === 'function' ? locale.getSnapshot() : null), [locale])
+  const snap = useSyncExternalStore(subscribe, getSnapshot)
+  const lang = snap && (snap.active === 'zh' || snap.active === 'en') ? snap.active : null
+  // 打开瞬间把语言定格进 URL（iframe 首屏即正确）；之后的变化走 postMessage，避免 iframe 整页重载
+  const openLang = useRef(null)
+  if (openLang.current === null && lang) openLang.current = lang
+  const url = useMemo(() => {
+    const q = openLang.current ? `lang=${openLang.current}` : ''
+    if (tab === 'config') return `${API}/ui/config?tab=config${q ? `&${q}` : ''}`
+    if (tab) return `${base.replace(/\/$/, '')}/?tab=${tab}${q ? `&${q}` : ''}`
+    return q ? `${base}${base.endsWith('/') ? '' : '/'}?${q}` : base
+  }, [base, tab]) // eslint-disable-line react-hooks/exhaustive-deps -- openLang 定格，语言变化走 postMessage
+  // DSH 系统语言变化 → 实时通知 iframe 内 web 端切换
+  useEffect(() => {
+    const win = iframeRef.current && iframeRef.current.contentWindow
+    if (win && lang) win.postMessage({ source: 'memory-eternal', type: 'locale', lang }, '*')
+  }, [lang])
   // tab=config 走 DSH host 同源配置页（/memory-eternal/ui/config），保证 /config API 同源可读写；
   // 其他 tab 走独立 web server。
-  const url = tab === 'config'
-    ? `${API}/ui/config?tab=config`
-    : tab ? `${base.replace(/\/$/, '')}/?tab=${tab}` : base
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -725,7 +779,7 @@ function WebModal({ t, onClose, tab }) {
             <button type="button" onClick={() => setFull((f) => !f)} aria-label={full ? t('exitFullscreen') : t('enterFullscreen')} title={full ? t('exitFullscreen') : t('enterFullscreen')} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{full ? '⤡' : '⤢'}</button>
             <button type="button" onClick={onClose} aria-label={t('close')} title={t('close')} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
           </div>
-          <iframe src={url} title="memory-eternal" style={{ width: '100%', flex: 1, border: 0, borderRadius: 'inherit', background: 'var(--dsw-alias-bg-base, #fff)' }} />
+          <iframe ref={iframeRef} src={url} title="memory-eternal" style={{ width: '100%', flex: 1, border: 0, borderRadius: 'inherit', background: 'var(--dsw-alias-bg-base, #fff)' }} />
         </div>
       </div>
     </div>
@@ -1082,6 +1136,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
   const notify = (msg, ok = true) => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast({ msg, ok }); toastTimer.current = setTimeout(() => setToast(null), 1900) }
+  // 词条带 {placeholder} 填充（本项目 t 为词典直查，不含参数替换）
+  const tf = (k, map) => Object.keys(map).reduce((s, kk) => s.split('{' + kk + '}').join(map[kk]), t(k))
   const load = useCallback(async () => {
     try {
       const [c, ss, b] = await Promise.all([
@@ -1121,8 +1177,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
     try {
       const r = await fetch(`${API}/config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch: form, expectedRevision: revision }) })
       const d = await r.json()
-      if (d && d.ok) { const m = d.note || t('savedOk'); setSaved(t('savedOk') + (d.note ? ` · ${d.note}` : '')); notify(m); await load() }
-      else { setErr(d?.error || t('saveFail')); notify(d?.error || t('saveFail'), false) }
+      if (d && d.ok) { setSaved(t('savedOk') + (d.note ? ` · ${t('restartHint')}` : '')); notify(t('savedOk')); await load() }
+      else { const msg = r.status === 409 ? t('conflictRefresh') : (d?.error || t('saveFail')); setErr(msg); notify(msg, false) }
     } catch { setErr(t('saveFail')); notify(t('saveFail'), false) }
     finally { setBusy('') }
   }
@@ -1144,8 +1200,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
     try {
       const r = await fetch(`${API}/mcp/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent, action }) })
       const d = await r.json()
-      if (d && d.ok) notify(action === 'install' ? `✅ ${agent} MCP 已安装` : `✅ ${agent} MCP 已卸载`)
-      else notify(`❌ ${agent} MCP 操作失败：${d?.error || ''}`, false)
+      if (d && d.ok) notify(tf(action === 'install' ? 'mcpInstalled' : 'mcpUninstalled', { agent }))
+      else notify(tf('mcpActionFail', { agent, error: d?.error || '' }), false)
       try { const s = await fetch(`${API}/setup-status`).then((x) => x.json()); if (s && s.ok) setSetupStatus(s) } catch {}
     } catch { notify(t('mergeFail'), false) }
     finally { setBusy('') }
@@ -1183,7 +1239,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
         {(cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
           <div className="mc-card" style={{ marginBottom: 10, padding: '10px 14px', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
             <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
-            <span style={{ fontSize: 12, opacity: 0.7 }}>{cfg.dsh?.label || t('nav')}</span>
+            <span style={{ fontSize: 12, opacity: 0.7 }}>{t('dshHostLabel')}</span>
             {cfg.version && <code style={{ fontSize: 11, padding: '2px 8px', background: 'var(--dsw-alias-bg-layer-2, #f3f4f6)', borderRadius: 6 }}>v{cfg.version}</code>}
             {cfg.dsh?.vaultDir && <span style={{ fontSize: 11, opacity: 0.6 }}>📁 {cfg.dsh.vaultDir}</span>}
           </div>
@@ -1200,7 +1256,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {setupStatus.agents.map((a) => (
                 <div key={a.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                   <span style={{ flex: 1 }}>
-                    <b>{a.isDsh ? (a.label || 'DeepSeek Harness') : a.name}</b>
+                    <b>{a.isDsh ? t('dshHostLabel') : a.name}</b>
                     {a.isDsh && a.version && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.5 }}>v{a.version}</span>}
                     {!a.installed && <span style={{ marginLeft: 6, opacity: 0.6 }}>({t('notInstalled')})</span>}
                     {a.installed && a.mcpConfigured === false && <span style={{ marginLeft: 6, color: '#f59e0b' }}>({t('noMcpEntry')})</span>}
@@ -1391,7 +1447,7 @@ function AuditPanel({ t, onReload, version }) {
           <button type="button" className="mc-btn me-on" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</button>
           {tab === 'pending'
             ? <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</button>
-            : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete') || '删除进回收站'}</button>}
+            : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete')}</button>}
         </div>
         {items.length ? (
           <div className="mc-card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1413,7 +1469,7 @@ function AuditPanel({ t, onReload, version }) {
                 ) : (
                   <>
                     <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('restore')} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                    <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} title={t('restoreDelete') || '删除进回收站'} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
+                    <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
                   </>
                 )}
               </div>
@@ -1695,26 +1751,27 @@ function LibraryAdmin({ t, tab, onReload, version }) {
   )
 }
 
+// 新建卡模板：label/tags/body 全部存词条 key，渲染时经 t() 解析（跟随界面语言）
 const NEW_CARD_TEMPLATES = [
-  { key: 'decision', label: 'tplDecision', kind: 'knowledge', tags: ['决策', '方案'], body: '# 技术决策：[标题]\n\n## 背景\n- 问题描述\n\n## 候选方案\n| 方案 | 优点 | 缺点 |\n| --- | --- | --- |\n| A | | |\n| B | | |\n\n## 决策\n选择方案 A，原因：\n\n## 风险与后续\n' },
-  { key: 'bug', label: 'tplBug', kind: 'mistake', tags: ['踩坑', '教训'], body: '# 踩坑记录：[标题]\n\n## 现象\n- 发生了什么\n\n## 根因\n\n## 解决方案\n\n## 教训\n- 如何避免下次' },
-  { key: 'meeting', label: 'tplMeeting', kind: 'content', tags: ['会议', '纪要'], body: '# 会议纪要：[标题]\n\n**日期**：\n**参会人**：\n\n## 议题\n1. \n\n## 结论\n\n## 待办\n- [ ] ' },
-  { key: 'weekly', label: 'tplWeekly', kind: 'content', tags: ['周报'], body: '# 周报 [YYYY-MM-DD]\n\n## 本周完成\n- \n\n## 下周计划\n- \n\n## 风险/阻塞\n- ' },
+  { key: 'decision', label: 'tplDecision', kind: 'knowledge', tagKey: 'tplDecisionTags', bodyKey: 'tplDecisionBody' },
+  { key: 'bug', label: 'tplBug', kind: 'mistake', tagKey: 'tplBugTags', bodyKey: 'tplBugBody' },
+  { key: 'meeting', label: 'tplMeeting', kind: 'content', tagKey: 'tplMeetingTags', bodyKey: 'tplMeetingBody' },
+  { key: 'weekly', label: 'tplWeekly', kind: 'content', tagKey: 'tplWeeklyTags', bodyKey: 'tplWeeklyBody' },
 ]
 
 function NewCardModal({ t, newCard, setNewCard, onCreated }) {
   if (!newCard) return null
   const T = NEW_CARD_TEMPLATES.find((x) => x.key === newCard.template)
-  const body = newCard.body || (T ? T.body : '')
+  const body = newCard.body || (T ? t(T.bodyKey) : '')
   const kind = newCard.kind || (T ? T.kind : 'knowledge')
-  const tags = newCard.tags || (T ? T.tags.join(', ') : '')
+  const tags = newCard.tags || (T ? t(T.tagKey) : '')
   const creating = newCard._creating
-  const applyTemplate = (key) => { const tpl = NEW_CARD_TEMPLATES.find((x) => x.key === key); setNewCard((v) => ({ ...v, template: key, kind: tpl ? tpl.kind : v.kind, body: tpl ? tpl.body : v.body, tags: tpl ? tpl.tags.join(', ') : v.tags })) }
+  const applyTemplate = (key) => { const tpl = NEW_CARD_TEMPLATES.find((x) => x.key === key); setNewCard((v) => ({ ...v, template: key, kind: tpl ? tpl.kind : v.kind, body: tpl ? t(tpl.bodyKey) : v.body, tags: tpl ? t(tpl.tagKey) : v.tags })) }
   const doCreate = async () => {
     if (!newCard.title && !body) return
     setNewCard((v) => ({ ...v, _creating: true }))
     try {
-      const r = await fetch(`${API}/write`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newCard.title || '无标题', kind, tags: tags.split(',').map((t) => t.trim()).filter(Boolean), body, source: 'manual' }) }).then((x) => x.json())
+      const r = await fetch(`${API}/write`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newCard.title || t('untitled'), kind, tags: tags.split(',').map((tg) => tg.trim()).filter(Boolean), body, source: 'manual' }) }).then((x) => x.json())
       if (r.ok) { setNewCard(null); onCreated && onCreated() }
       else setNewCard((v) => ({ ...v, _creating: false }))
     } catch (e) { setNewCard((v) => ({ ...v, _creating: false })) }
@@ -1732,13 +1789,13 @@ function NewCardModal({ t, newCard, setNewCard, onCreated }) {
             {NEW_CARD_TEMPLATES.map((tpl) => (
               <button key={tpl.key} type="button" className={`mc-btn${newCard.template === tpl.key ? ' me-on' : ''}`} onClick={() => applyTemplate(tpl.key)}>{t(tpl.label)}</button>
             ))}
-            <button type="button" className={`mc-btn${newCard.template === '' ? ' me-on' : ''}`} onClick={() => setNewCard((v) => ({ ...v, template: '', body: '', tags: '', kind: 'knowledge' }))}>📄 空白</button>
+            <button type="button" className={`mc-btn${newCard.template === '' ? ' me-on' : ''}`} onClick={() => setNewCard((v) => ({ ...v, template: '', body: '', tags: '', kind: 'knowledge' }))}>{t('tplBlank')}</button>
           </div>
           <select className="mc-btn" value={kind} onChange={(e) => setNewCard((v) => ({ ...v, kind: e.target.value }))} style={{ maxWidth: 180, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'var(--dsw-alias-label-primary, #111)' }}>
             {['project','knowledge','content','prompt','business','tool','mistake'].map((k) => <option key={k} value={k} style={{ background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'var(--dsw-alias-label-primary, #111)' }}>{k}</option>)}
           </select>
           <input type="text" className="mc-btn" placeholder={t('cardTitle')} value={newCard.title || ''} onChange={(e) => setNewCard((v) => ({ ...v, title: e.target.value }))} />
-          <input type="text" className="mc-btn" placeholder={t('tags') + ' (逗号分隔)'} value={tags} onChange={(e) => setNewCard((v) => ({ ...v, tags: e.target.value }))} />
+          <input type="text" className="mc-btn" placeholder={t('tagsHint')} value={tags} onChange={(e) => setNewCard((v) => ({ ...v, tags: e.target.value }))} />
           <textarea className="mc-btn" placeholder={t('cardBody')} value={body} onChange={(e) => setNewCard((v) => ({ ...v, body: e.target.value }))} style={{ minHeight: 180, resize: 'vertical', fontFamily: 'inherit' }} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button type="button" className="mc-btn me-on" disabled={creating} onClick={doCreate}>{creating ? t('exporting') : t('createCard')}</button>
@@ -1783,6 +1840,9 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
   const [error, setError] = useState('')
   const loadedRef = useRef(false)
   const fitTrigger = useRef(0)
+  // 主 effect 依赖 [nodes, edges]，语言切换不重跑 → 经 ref 读最新 t（tooltip 等 canvas 内文案）
+  const tRef = useRef(t)
+  tRef.current = t
 
   const reload = useCallback(async () => {
     try {
@@ -2104,7 +2164,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
           tooltipRef.current.style.display = 'block'
           tooltipRef.current.style.left = (lx + 14) + 'px'
           tooltipRef.current.style.top = (ly - 6) + 'px'
-          tooltipRef.current.innerHTML = '<b>' + esc(hn.title || hn.name || '') + '</b><br/><span style="opacity:.8">' + esc(hn.kind || '') + ' · ' + conn + ' 连接</span>'
+          tooltipRef.current.innerHTML = '<b>' + esc(hn.title || hn.name || '') + '</b><br/><span style="opacity:.8">' + esc(hn.kind || '') + ' · ' + tRef.current('connCount').replace('{n}', conn) + '</span>'
         }
       } else if (tooltipRef.current) tooltipRef.current.style.display = 'none'
     }
@@ -2257,7 +2317,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         <span className="spacer" style={{ flex: 1 }} />
         <input type="text" placeholder={t('search')} value={search} onChange={(e) => setSearch(e.target.value)} />
         <span style={{ position: 'relative', display: 'inline-flex' }}>
-          <button type="button" className="mc-btn" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen} title="筛选" style={{ borderRadius: 8 }}>
+          <button type="button" className="mc-btn" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen} title={t('filterLabel')} style={{ borderRadius: 8 }}>
             🔍 {t('filterLabel')} {filterKind !== 'all' || timeMode || filterTag ? '●' : '▾'}
           </button>
           {filterOpen && <div className="me-graph-legend-pop" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, background: 'rgba(28,28,32,0.92)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#eee', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 8, minWidth: 240, boxShadow: '0 12px 34px rgba(0,0,0,.35)' }}>
