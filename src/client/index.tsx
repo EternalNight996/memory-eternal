@@ -236,8 +236,15 @@ export const ZH = {
   scanHint: '点「🔍 一键搜索和整理」扫描相似卡/陈旧卡，再用「⚡ 一键优化」执行。',
   mergeNow: '合并',
   delete: '删除',
-  todayBriefLabel: '每日回顾',
-  todayBrief: '查看今日简报',
+  captureAlert: '自动沉淀异常',
+  captureAlertHint: '打开左栏「用量/今日」看自动沉淀日志；若是接口/版本不匹配，需更新 memory-eternal 插件。',
+  captureLog: '自动沉淀日志',
+  captureLogHint: '每轮对话结束后自动跑：监听 → 判定 → 写卡。这里显示最近 100 条，用来排查「为什么没写卡」。',
+  captureLogEmpty: '还没有记录。跟 Agent 聊一轮（> 捕获最小长度）后再回来看。',
+  captureLogUnavailable: '日志仅在 DSH 宿主内可用（独立 Web 页没有 host 运行时）。',
+  captureAgentCards: 'Agent 自动沉淀的卡',
+  noCards: '暂无',
+  loadMore: '加载更多',
   batchMerge: '一键智能合并',
   mergeAllConfirm: '将按相似度分组的卡片各合并为一张（保留各自 kind），原卡删除？',
   crossVault: '跨库聚合',
@@ -492,8 +499,15 @@ export const EN = {
   scanHint: 'Click "🔍 Scan & organize" to find similar/stale cards, then "⚡ One-click optimize" to run.',
   mergeNow: 'Merge',
   delete: 'Delete',
-  todayBriefLabel: 'Daily review',
-  todayBrief: 'Today brief',
+  captureAlert: 'Auto-capture failed',
+  captureAlertHint: 'Open "Usage / Today" for the capture log; if the cause is an API/version mismatch, update the memory-eternal plugin.',
+  captureLog: 'Auto-capture log',
+  captureLogHint: 'Runs after every turn: listen → judge → write. Last 100 entries, so you can see why a card was not written.',
+  captureLogEmpty: 'No entries yet. Chat one turn (> min capture chars) and come back.',
+  captureLogUnavailable: 'Log is available only inside the DSH host (the standalone web page has no host runtime).',
+  captureAgentCards: 'Cards auto-captured by the agent',
+  noCards: 'none',
+  loadMore: 'Load more',
   batchMerge: 'Smart batch merge',
   mergeAllConfirm: 'Merge similar-grouped cards into one each (keep kind), delete originals?',
   crossVault: 'All vaults',
@@ -546,6 +560,16 @@ const normAgent = (sub) => {
 // 智能体筛选候选 = 恒含 DSH + 已配置外部智能体 + 卡上出现过的署名。
 const KNOWN_AGENTS = [DSH_AGENT, 'claude', 'codex', 'cursor', 'codex-desktop']
 const agentOptions = (existing = []) => [...new Set([...KNOWN_AGENTS, ...(existing || []).map(normAgent)])]
+
+// 自动沉淀日志的动作标记（与 index.js 的 logCapture(action) 一一对应）。
+const CAPTURE_ACTIONS = {
+  boot: ['🚀', '#8b5cf6'],
+  listen: ['👂', 'inherit'],
+  created: ['✅', '#10b981'],
+  appended: ['➕', '#3b82f6'],
+  skip: ['⏭', '#f59e0b'],
+  fail: ['❌', '#ef4444'],
+}
 
 const CSS = `
 .memory-eternal-root { font-family: inherit; color: var(--dsw-alias-label-primary, #1f2937); }
@@ -810,6 +834,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const [overview, setOverview] = useState(null)
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
+  const [capHealth, setCapHealth] = useState(null)
   const [error, setError] = useState('')
   const [kind, setKind] = useState('all')
   const [query, setQuery] = useState('')
@@ -873,12 +898,15 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
 
   const loadAll = useCallback(async () => {
     try {
-      const [ov, cardsRes] = await Promise.all([
+      const [ov, cardsRes, capRes] = await Promise.all([
         fetch(`${API}/overview`).then((r) => r.json()),
         fetch(`${API}/cards?status=all&limit=500`).then((r) => r.json()),
+        // 自动沉淀健康状态：异常时页面顶部亮红条（不依赖用户自己去翻日志）
+        fetch(`${API}/capture-log`).then((r) => r.json()).catch(() => null),
       ])
       if (ov.ok) setOverview(ov)
       if (cardsRes.ok) { setCards(cardsRes.cards || []); setVisibleCount(100) }
+      setCapHealth(capRes && capRes.ok && capRes.available ? (capRes.health || null) : null)
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
     } finally {
@@ -994,6 +1022,16 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
           <div className="spacer" />
           {onFull && <button type="button" className="me-modal-close" onClick={onFull} aria-label={full ? t('exitFull') : t('fullscreen')}>{full ? '❐' : '⛶'}</button>}
           <button type="button" className="me-modal-close" onClick={onClose} aria-label={t('close')}>✕</button>
+        </div>
+      )}
+      {capHealth && capHealth.ok === false && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '0 0 8px', padding: '9px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.45)', borderLeft: '4px solid #ef4444', color: 'var(--dsw-alias-label-primary, #e5e7eb)', fontSize: 12.5, lineHeight: 1.6 }}>
+          <span style={{ fontWeight: 800 }}>⚠ {t('captureAlert')}</span>
+          <span style={{ flex: 1 }}>
+            {capHealth.reason}
+            <div style={{ opacity: 0.68, fontSize: 11.5, marginTop: 2 }}>{t('captureAlertHint')}</div>
+          </span>
+          <span style={{ opacity: 0.7 }}>{capHealth.since ? fmtDate(new Date(capHealth.since).toISOString()) : ''}</span>
         </div>
       )}
       <div className="me-modal-body">
@@ -1557,10 +1595,10 @@ function LibraryAdmin({ t, tab, onReload, version }) {
   const [err, setErr] = useState('')
   const [opt, setOpt] = useState(null)
   const [budget, setBudget] = useState(null)
-  const [brief, setBrief] = useState('')
+  const [captureLog, setCaptureLog] = useState(null)
+  const [agentCards, setAgentCards] = useState([])
   const [busy, setBusy] = useState('')
   const [oneClickCleanupStale, setOneClickCleanupStale] = useState(false)
-  const doBrief = useCallback(async () => { if (brief) { setBrief(''); return } try { const r = await fetch(`${API}/todayBrief`).then((x) => x.json()); setBrief(r.ok ? (r.brief || '') : '') } catch (e) {} }, [brief])
   const doBatchMerge = useCallback(async () => {
     if (!opt || !opt.merge || !opt.merge.length) return
     if (!window.confirm(t('mergeAllConfirm'))) return
@@ -1586,10 +1624,18 @@ function LibraryAdmin({ t, tab, onReload, version }) {
   async function fetchAll() {
     try {
       // 不自动拉 optimize（避免挂载即扫描）——由「一键搜索和整理」按钮手动触发
-      const rs = await Promise.all([fetch(`${API}/stats`), fetch(`${API}/budget`)])
-      const [s, b] = await Promise.all(rs.map((r) => r.json()))
+      const rs = await Promise.all([
+        fetch(`${API}/stats`),
+        fetch(`${API}/budget`),
+        // 自动沉淀日志：确认「agent 真的在写卡」；顺手取它写过的卡（按智能体过滤）
+        fetch(`${API}/capture-log`),
+        fetch(`${API}/cards?status=all&limit=500`),
+      ])
+      const [s, b, c, k] = await Promise.all(rs.map((r) => r.json()))
       if (s.ok) setStats(s)
       if (b.ok) setBudget(b)
+      if (c.ok) setCaptureLog(c)
+      if (k.ok) setAgentCards((k.cards || []).filter((x) => normAgent(x.submittedBy) === DSH_AGENT).sort((a, z) => String(z.updated || '').localeCompare(String(a.updated || ''))).slice(0, 30))
       setErr(!s.ok ? t('adminLoadFail') : '')
     } catch (e) { setErr(t('adminLoadFail')) }
   }
@@ -1630,10 +1676,53 @@ function LibraryAdmin({ t, tab, onReload, version }) {
           </div>}
           {tab === 'stats' && (
             <div>
-              <div className="mc-card" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <b style={{ fontSize: 12 }}>{t('todayBriefLabel')}</b>
-                <button type="button" className="mc-btn" onClick={doBrief}>{brief ? `📕 ${t('collapse')}` : `📖 ${t('todayBrief')}`}</button>
-                {brief && <pre style={{ margin: 0, fontSize: 12, width: '100%', whiteSpace: 'pre-wrap', opacity: 0.85 }}>{brief}</pre>}
+              <div className="mc-card" style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <b style={{ fontSize: 12 }}>🪵 {t('captureLog')}</b>
+                  <span style={{ fontSize: 11, opacity: 0.6 }}>{t('captureLogHint')}</span>
+                  <div style={{ flex: 1 }} />
+                  <button type="button" className="mc-btn" onClick={() => fetchAll()}>↻ {t('refresh')}</button>
+                </div>
+                {!captureLog
+                  ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('loading')}</div>
+                  : captureLog.available === false
+                    ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('captureLogUnavailable')}</div>
+                    : (captureLog.entries || []).length === 0
+                      ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('captureLogEmpty')}</div>
+                      : (
+                        <div style={{ maxHeight: 260, overflow: 'auto', marginTop: 8 }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                            <tbody>
+                              {(captureLog.entries || []).map((e, i) => {
+                                const conf = CAPTURE_ACTIONS[e.action] || ['•', 'inherit']
+                                return (
+                                  <tr key={i} style={{ borderBottom: '1px solid rgba(127,127,127,0.12)' }}>
+                                    <td style={{ padding: '4px 6px', opacity: 0.55, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(e.time ? new Date(e.time).toISOString() : '')}</td>
+                                    <td style={{ padding: '4px 6px', whiteSpace: 'nowrap', color: conf[1], fontWeight: 600 }}>{conf[0]} {e.action}</td>
+                                    <td style={{ padding: '4px 6px' }}>{e.reason || ''}</td>
+                                    <td style={{ padding: '4px 6px', opacity: 0.55, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.preview || ''}>{e.preview || ''}</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+              </div>
+              <div className="mc-card" style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>🤖 {t('captureAgentCards')}（{agentCards.length}）</div>
+                {agentCards.length ? (
+                  <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                    {agentCards.map((c) => (
+                      <li key={c.path} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px', borderBottom: '1px solid rgba(127,127,127,0.12)', fontSize: 12 }}>
+                        <span className="mc-kind" style={{ background: KIND_COLORS[c.kind] || KIND_COLORS.other }} />
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
+                        {c.status === 'pending' && <span className="mc-status" style={{ background: '#f59e0b' }}>⏳ {t('statusPending')}</span>}
+                        <span style={{ opacity: 0.55, fontSize: 11 }}>{fmtDate(c.updated)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <div style={{ opacity: 0.6, fontSize: 12 }}>{t('noCards')}</div>}
               </div>
               {stats && (
                 <>

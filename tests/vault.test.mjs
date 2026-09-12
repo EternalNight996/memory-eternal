@@ -7,7 +7,7 @@ import path from 'node:path'
 import {
   parseCard, safeSlug, textSimilarity, queryTerms, ensureVault, listCards,
   writeCard, readCard, appendUpdate, search, graph, overview, dedupCheck,
-  stats, optimizeCandidates, searchAll, graphAll, dailyBrief, generateDailyBrief, readFeedback, addFeedback, mergeCards,
+  stats, optimizeCandidates, searchAll, graphAll, readFeedback, addFeedback, mergeCards,
 } from '../lib/vault.js'
 import { closeAllDb } from '../lib/db.js'
 
@@ -190,16 +190,6 @@ test('cross-vault searchAll + graphAll aggregate multiple roots', async () => {
   const g = await graphAll(roots)
   assert.ok(Array.isArray(g.nodes))
   assert.ok(g.nodes.length >= 1)
-})
-
-test('dailyBrief + generateDailyBrief idempotent', async () => {
-  const root = await freshRoot()
-  await writeCard(root, { kind: 'knowledge', title: '今日卡', tags: [], body: '今天沉淀的内容正文。', status: 'approved' })
-  assert.ok(dailyBrief([{ kind: 'knowledge', title: '今日卡' }]).includes('今日卡'))
-  const r1 = await generateDailyBrief(root)
-  assert.equal(r1.ok, true)
-  const r2 = await generateDailyBrief(root)
-  assert.equal(r2.existed, true, '生成应幂等，当天已存在则跳过')
 })
 
 test('mergeCards: 合并两张同 kind 卡为一张（保留 kind/并集标签/删除原卡）', async () => {

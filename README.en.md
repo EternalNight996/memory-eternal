@@ -169,6 +169,17 @@ Top of the config page: **🟢 A Light / 💰 B Budget / ⭐ C Premium** — cli
 
 ---
 
+## 🔔 Capture Log & Failure Alerts
+
+Auto-capture is a silent background pipeline: when it broke, the only symptom used to be "no new cards" with no visible cause. Since v0.9.0 it speaks up.
+
+- **Capture log**: Settings → Memory → Usage / Today shows the last 100 run entries: `🚀 boot` / `👂 session attached (which event API + event count)` / `✅ card created` / `➕ update appended` / `⏭ skipped (reason)` / `❌ failed (reason)`.
+- **Active alerts**: any failure turns the strip red at the top of the memory library *and* injects "auto-capture failed + reason" into the agent context, so the agent tells you in its first sentence — no need to dig through logs.
+- **Stall watchdog**: if turns start but no turn-stopping event arrives for 15 minutes (e.g. DSH renamed the event), a 10-minute sweep reports it.
+- **Self-adapting event API**: the session event API is detected automatically (`ownEvents()` → `snapshotEvents()` → `events`), so a DSH upgrade that changes the API can no longer silently break capture.
+
+---
+
 ## 🛡️ Audit Center & Recycle Bin
 
 New cards go to the **Audit Center** (`pending`) by default and enter the main vault only after you approve them; rejected ones move to "Rejected", where you can restore or delete to the recycle bin. Cards matching an exemption (audit mode = skip all / exempt agents / exempt kinds) go straight in; recycle-bin cards are recoverable within 30 days, then auto-purged.
@@ -218,6 +229,21 @@ npm i
 npm test        # unit tests: vault dedup/retrieval/graph + capture pipeline + API shapes
 npm run build   # builds lib/client.js (DSH embed) + web/app.js (standalone web bundle)
 ```
+
+---
+
+## 📋 Changelog
+
+| Version | Date | Highlights |
+|---|---|---|
+| **v0.9.0** | 2026-09-12 | **Fixed silent auto-capture death (6 days without a single card)**: after a DSH upgrade the session event API moved from `events` to `ownEvents()/snapshotEvents()`; the listener read nothing, returned silently and left no trace — now it tries `ownEvents()` → `snapshotEvents()` → `events` and logs a per-session attach entry. Daily quota now counts **real writes only** (previously every "not worth saving" verdict burned quota, exhausting the 24h budget after 40 attempts); `captureCooldownMs` actually applies; a single capture input is tail-capped at 20k chars. New **capture log** panel and **active failure alerts** (red strip + agent-context injection + turn-stopping stall sweep). Removed the automatic "Daily review" digest (timer / `/todayBrief` route / UI button). |
+| **v0.8.0** | 2026-09-06 | **Full UI i18n**: follows the DSH system language live (zh/en) across cards, graph, audit center, config panel and new-card templates; SQLite EBUSY fix for the Windows test suite |
+| **v0.3.1** | 2026-09-03 | Knowledge graph loads on demand (fetch on open, unregister on close) |
+| **v0.3.0** | 2026-09-03 | **SQLite storage layer** (`node:sqlite`, zero deps) + DB-level audit guard `enforceAudit()` + `audit_log` table + automatic `.md` migration |
+| v0.2.0 | 2026-09-03 | Recall with body text (`search()` returns the `excerpt` field) |
+| v0.1.2 | 2026-09-03 | Audit guard hardening (`writeCard` defaults to `pending`, `mergeCards` goes through audit) |
+| v0.1.1 | 2026-09-03 | Recall body fix (`excerpt` field + body logic) |
+| v0.1.0 | 2026-08-31 | First release: auto capture + auto recall + graphical knowledge base + knowledge graph + audit center + recycle bin |
 
 ---
 

@@ -25,9 +25,9 @@ const PACKAGE_ROOT = path.resolve(path.dirname(__filename))
 const versionRef = (() => { try { const p = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')); return p.version } catch { return '' } })()
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { ensureVault, search, generateDailyBrief } from './lib/vault.js'
+import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
-import { summarizeTurn, extractLastTurn, sliceNewEvents, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
+import { summarizeTurn, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json } from './lib/api.js'
 
 export const name = 'memory-eternal'
@@ -152,21 +152,64 @@ export function apply(ctx, config) {
   const pending = new Map() // sessionId -> merged events array
   let captureQueue = Promise.resolve()
 
-  const scheduleCapture = (agent, events, lastSeq) => {
+  // -- 自动沉淀日志：最近 200 条「监听/判定/写入」事件（内存环形缓冲，不落盘）。
+  // 自动沉淀是后台静默管线，出错或空转时页面上完全看不出来；这里留一条可读的
+  // 运行轨迹，供「用量/今日」页的「自动沉淀日志」面板直接排查。
+  const captureLog = []
+  const CAPTURE_LOG_MAX = 200
+  // 健康状态：fail → 亮红（systemPrompt 段 + 页面横幅都会提示）；真写卡成功 → 复原。
+  const health = createCaptureHealth()
+  let refreshPrompt = null // 由 systemPrompt effect 赋值；健康状态翻转时重渲染提示段
+  const touchPrompt = () => {
+    if (typeof refreshPrompt !== 'function') return
+    try { refreshPrompt(settings.get()) } catch { /* 提示段刷新失败不影响沉淀 */ }
+  }
+  const logCapture = (sessionId, action, reason, extra = {}) => {
+    captureLog.push({ time: Date.now(), sessionId: String(sessionId || 'unknown').slice(0, 40), action, reason, ...extra })
+    if (captureLog.length > CAPTURE_LOG_MAX) captureLog.splice(0, captureLog.length - CAPTURE_LOG_MAX)
+    if (action === 'fail') { health.fail(reason); touchPrompt() }
+    else if (action === 'created' || action === 'appended') { health.succeed(); touchPrompt() }
+  }
+  const preview = (text) => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60)
+  // 单次沉淀送进 LLM 的对话上限（字符）：够覆盖一轮长对话，又不会把整段历史塞进去。
+  const CAPTURE_TEXT_MAX = 20000
+  // 启动留痕：面板里看不到这条 = host 半边没加载（而不是「没东西可沉淀」）。
+  {
+    const c = settings.get() ?? {}
+    logCapture('system', 'boot', `记忆核心 v${versionRef || '?'} 已加载：自动沉淀 ${c.enabled !== false && c.autoCapture !== false ? '开' : '关'} · 库 ${vaultDir()}`)
+  }
+  const lastCaptureAt = new Map() // sessionId -> 上次实际发起蒸馏的时间戳
+
+  const scheduleCapture = (agent, events) => {
     const cfg = settings.get() ?? {}
-    if (!cfg.enabled || !cfg.autoCapture) return
     const sessionId = agent?.session?.id ?? agent?.id ?? 'unknown'
-    const newEvents = sliceNewEvents(events, lastSeq)
-    if (newEvents.length === 0) return
-    const existing = pending.get(sessionId)
-    if (existing) {
-      // 连续轮次合并：把新事件接到待处理队列尾，一次 LLM 调用处理。
-      pending.set(sessionId, [...existing, ...newEvents])
+    if (!cfg.enabled || !cfg.autoCapture) return
+    if (!Array.isArray(events) || events.length === 0) {
+      logCapture(sessionId, 'listen', '读不到会话事件：agent.session 无 events/snapshotEvents（DSH 版本不匹配）')
       return
     }
-    pending.set(sessionId, newEvents)
-    captureQueue = captureQueue.then(() => runCapture(agent, pending.get(sessionId) ?? newEvents))
+    const existing = pending.get(sessionId)
+    // 连续轮次合并：把新事件接到待处理队列尾，一次 LLM 调用处理。
+    if (existing) {
+      existing.events.push(...events)
+      return
+    }
+    const job = { events }
+    pending.set(sessionId, job)
+    captureQueue = captureQueue.then(() => runCapture(agent, job))
   }
+
+  // 日配额：滚动 24h 内的「实际写卡」计数。只在真的写卡/追加后记一笔——
+  // 之前是「每发起一次判定就记一笔」，模型回 {save:false} 也照样扣配额，
+  // 40 次低价值判定就能把配额耗光、之后 24h 全部静默不再沉淀。
+  const lastDayStamps = []
+  const countWrite = () => { lastDayStamps.push(Date.now()) }
+  const quotaUsed = () => {
+    const dayStart = Date.now() - 86400000
+    while (lastDayStamps.length && lastDayStamps[0] < dayStart) lastDayStamps.shift()
+    return lastDayStamps.length
+  }
+  const underDailyQuota = (max) => quotaUsed() < (max ?? 60)
 
   // 自动审核：根据配置决定新卡 status（免审→approved，否则 pending）
   const resolveAuditStatus = (cfg, kind, submittedBy) => {
@@ -178,19 +221,39 @@ export function apply(ctx, config) {
     return 'pending'
   }
 
-  const runCapture = async (agent, events) => {
+  const runCapture = async (agent, job) => {
+    const sessionId = agent?.session?.id ?? agent?.id ?? 'unknown'
+    const events = Array.isArray(job?.events) ? job.events : []
     try {
       const cfg = settings.get() ?? {}
       if (!cfg.enabled || !cfg.autoCapture) return
       const llm = ctx.get('llm')
-      const text = extractLastTurn(events)
-      if (text.length < (cfg.captureMinChars ?? 200)) return
-      // 日配额：防止一次大扫荡烧光 token。
-      if (!(await underDailyQuota(cfg.maxCardsPerDay))) return
+      // 水位从 0 开始的那一轮（重启后同一会话的第一轮）会把整段历史切进来——
+      // 只取尾部，避免一次超大 LLM 调用（超上下文/超时）。
+      const raw = extractLastTurn(events)
+      const text = raw.length > CAPTURE_TEXT_MAX ? raw.slice(-CAPTURE_TEXT_MAX) : raw
+      logCapture(sessionId, 'listen', `会话事件 ${events.length} 条 → 有效对话 ${text.length} 字${raw.length > text.length ? '（超长已截尾）' : ''}`, { preview: preview(text) })
+      if (text.length < (cfg.captureMinChars ?? 200)) {
+        logCapture(sessionId, 'skip', `内容太短：${text.length} < ${cfg.captureMinChars ?? 200} 字（调小「捕获最小长度」可放宽）`)
+        return
+      }
+      // 会话冷却：同一会话频繁收尾时避免每轮都烧一次 LLM。
+      const cooldown = Number(cfg.captureCooldownMs) || 0
+      const lastAt = lastCaptureAt.get(sessionId) ?? 0
+      if (cooldown > 0 && Date.now() - lastAt < cooldown) {
+        logCapture(sessionId, 'skip', `冷却中：距上次沉淀 ${Math.round((Date.now() - lastAt) / 1000)}s < ${Math.round(cooldown / 1000)}s`)
+        return
+      }
+      // 日配额：防止一次大扫荡烧光 token（只统计真正写卡/追加的次数）。
+      if (!underDailyQuota(cfg.maxCardsPerDay)) {
+        logCapture(sessionId, 'skip', `日配额已满（24h 已写 ${quotaUsed()} 张 / 上限 ${cfg.maxCardsPerDay ?? 60}）`)
+        return
+      }
+      lastCaptureAt.set(sessionId, Date.now())
       // 成本控制：distillEnabled=false 时不调 LLM，直接存原文卡（零蒸馏成本）
       const source = DSH_AGENT
       if (cfg.distillEnabled === false || !llm) {
-        await captureCard(vaultDir(), {
+        const out = await captureCard(vaultDir(), {
           kind: 'content',
           title: text.replace(/\s+/g, ' ').slice(0, 40) || '未命名记录',
           tags: ['raw'],
@@ -201,19 +264,25 @@ export function apply(ctx, config) {
           severity: 'info',
           reason: 'AI 自动沉淀（原文卡）',
         }, { threshold: cfg.dedupThreshold })
+        if (out.ok) { countWrite(); logCapture(sessionId, 'created', '原文卡（蒸馏已关闭）', { path: out.path ?? out.rel, kind: 'content' }) }
+        else if (out.duplicate) { countWrite(); logCapture(sessionId, 'appended', '与已有卡重复 → 追加更新记录', { path: out.duplicate.path }) }
+        else logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`)
         return
       }
       const route = await resolveRoute(llm)
-      if (!route) return
+      if (!route) { logCapture(sessionId, 'fail', '取不到模型路由（llm.listProviders 为空）'); return }
       // 语义去重近邻：把已有卡片索引喂给模型，让模型决定新建 vs 追加。
       // 成本控制：dedupByLLM=false 时跳过喂 LLM 的近邻采样（纯词法去重兜底）。
       const draft = { title: '', body: text.slice(0, 400) }
       const neighbors = cfg.dedupByLLM === false ? [] : await pickNeighbors(vaultDir(), draft, 8)
       const result = await summarizeTurn(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens: cfg.captureMaxTokens ?? 900 })
-      if (!result || result.save !== true) return
+      if (!result) { logCapture(sessionId, 'skip', '模型无输出或 JSON 解析失败', { model: route.model }); return }
+      if (result.save !== true) { logCapture(sessionId, 'skip', '模型判定不值得保存', { model: route.model }); return }
       if (result.append_to) {
         // 模型判定属于已有卡 → 追加更新记录，不新建（boujoy 语义）。
         await captureUpdate(vaultDir(), result.append_to, result.update, { threshold: cfg.dedupThreshold })
+        countWrite()
+        logCapture(sessionId, 'appended', '模型判定属于已有卡 → 追加更新', { path: result.append_to, model: route.model })
         return
       }
       const card = {
@@ -228,38 +297,70 @@ export function apply(ctx, config) {
         reason: 'AI 自动沉淀（蒸馏卡）',
       }
       const out = await captureCard(vaultDir(), card, { threshold: cfg.dedupThreshold })
-      if (!out.ok && out.duplicate) {
+      if (out.ok) {
+        countWrite()
+        logCapture(sessionId, 'created', `新卡：${card.title}（${card.status === 'approved' ? '已入库' : '待审核'}）`, { path: out.path ?? out.rel, kind: card.kind, model: route.model })
+        return
+      }
+      if (out.duplicate) {
         // 词法兜底：高度相似 → 追加更新记录而不是再建一张重复卡。
         await captureUpdate(vaultDir(), out.duplicate.path, `${result.title}：${result.body.slice(0, 400)}`, {
           threshold: cfg.dedupThreshold,
         })
+        countWrite()
+        logCapture(sessionId, 'appended', '词法去重命中 → 追加更新记录', { path: out.duplicate.path, model: route.model })
+        return
       }
+      logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`)
     } catch (error) {
+      logCapture(sessionId, 'fail', `异常：${error?.message || error}`)
       console.error('[memory-eternal] capture failed:', error)
     } finally {
-      const sessionId = agent?.session?.id ?? agent?.id ?? 'unknown'
-      pending.delete(sessionId)
+      // 运行期间若又累积了新事件，保留队列给下一轮 run 处理，避免丢事件。
+      if (pending.get(sessionId) === job) pending.delete(sessionId)
     }
   }
 
-  const lastDayStamps = []
-  const underDailyQuota = async (max) => {
-    const now = Date.now()
-    const dayStart = now - 86400000
-    while (lastDayStamps.length && lastDayStamps[0] < dayStart) lastDayStamps.shift()
-    if (lastDayStamps.length >= (max ?? 60)) return false
-    lastDayStamps.push(now)
-    return true
-  }
-
-  const lastSeqs = new Map() // sessionId -> last processed seq
+  const lastSeqs = new Map() // sessionId -> 已处理到的 seq 水位
+  const lastTouched = new Map() // sessionId -> 上次监听时间（用于清理，避免 Map 无界增长）
+  // 轮次计数：inbox/claimed 每轮必发（不依赖 turn-stopping），两个计数器对不上
+  // 就说明收尾事件没到——这是「监听器整个没被调用」这类静默死亡的兜底探测。
+  let turnsStarted = 0
+  let turnsStopped = 0
+  let lastClaimAt = 0
+  ctx.on('agent/inbox/claimed', () => { turnsStarted += 1; lastClaimAt = Date.now() })
   ctx.on('agent/turn-stopping', ({ agent }) => {
-    const events = agent?.session?.events
-    if (!Array.isArray(events)) return
+    turnsStopped += 1
     const sessionId = agent?.session?.id ?? agent?.id ?? 'unknown'
-    const lastSeq = lastSeqs.get(sessionId) ?? 0
-    scheduleCapture(agent, events, lastSeq)
-    lastSeqs.set(sessionId, events.length ? events[events.length - 1].seq : lastSeq)
+    try {
+      const api = sessionEventApi(agent?.session)
+      const first = !lastTouched.has(sessionId)
+      const all = sessionEvents(agent?.session)
+      // 水位默认 -1：新会话「已处理到」的位置在第一条事件之前，seq 0 不该被跳过。
+      const lastSeq = lastSeqs.get(sessionId) ?? -1
+      const fresh = sliceNewEvents(all, lastSeq)
+      if (all.length) lastSeqs.set(sessionId, Math.max(lastSeq, all[all.length - 1].seq ?? lastSeq))
+      // 每个会话第一次收尾留一条接入记录：接口名 + 事件数 + 新增数。
+      // 这样「面板一条都没有」只会意味着监听器没跑，而不是看不出所以然。
+      if (first) {
+        logCapture(sessionId, api ? 'listen' : 'fail', api
+          ? `会话接入：事件接口 ${api}，事件 ${all.length} 条，新增 ${fresh.length} 条`
+          : '会话对象没有事件接口（events/ownEvents/snapshotEvents 都不认识）——DSH 改了接口，需要适配')
+      }
+      lastTouched.set(sessionId, Date.now())
+      if (fresh.length) scheduleCapture(agent, fresh)
+      // 1 天没动静的会话水位清理掉（长跑进程里会话数会一直涨）。
+      if (lastTouched.size > 200) {
+        const cut = Date.now() - 86400000
+        for (const [id, t] of lastTouched) {
+          if (t < cut) { lastTouched.delete(id); lastSeqs.delete(id); lastCaptureAt.delete(id) }
+        }
+      }
+    } catch (error) {
+      // 监听器里抛异常等于管线静默死亡（页面只表现为「一直不写卡」）——记进日志。
+      logCapture(sessionId, 'fail', `监听异常：${error?.message || error}`)
+      console.error('[memory-eternal] turn-stopping listener failed:', error)
+    }
   })
 
   // -- 2. 自动召回：systemPrompt 分段 + memory_recall 工具 -----------------
@@ -279,16 +380,27 @@ export function apply(ctx, config) {
         '2. 当任务需要项目背景、历史决策、之前讨论过的方案或领域知识时，先调用 memory_recall 检索相关卡片，再作答。',
         '3. 若检索结果为空，就诚实说明当前记忆库没有相关内容，不要编造。',
         '4. 知识卡存储在 SQLite 数据库中（memory-eternal.db），**禁止**用文件工具直接读写 vault 目录下的任何文件。沉淀记忆必须通过 memory_recall 工具或 /memory-eternal/api/write API。',
+        '5. 若下方出现「自动沉淀异常」，必须在本次回复的第一句用中文转述该异常并提醒用户处理，不要自行猜测或尝试修复。',
+      ].join('\n')
+      // 异常提示：沉淀管线坏了，靠这一句把消息送到用户面前（不依赖用户去翻页面）。
+      const h = health.snapshot()
+      const alert = h.ok ? '' : [
+        '',
+        '⚠ 自动沉淀异常（记忆核心 memory-eternal）——' + h.reason,
+        '（发生时间：' + new Date(h.since).toLocaleString() + '。请在回复第一句提醒用户：自动沉淀异常 + 上述原因；'
+          + '并可提示用户打开 设置→记忆→用量/今日 查看「自动沉淀日志」；若原因是接口/版本不匹配，需更新 memory-eternal 插件。）',
       ].join('\n')
       disposeSection = ctx.systemPrompt.section({
         name: 'memory-eternal: auto-recall',
         order: 600,
-        text,
+        text: text + alert,
       })
     }
+    refreshPrompt = refresh
     refresh(settings.get())
     const unwatch = settings.watch(refresh)
     return () => {
+      if (refreshPrompt === refresh) refreshPrompt = null
       if (typeof unwatch === 'function') unwatch()
       if (disposeSection) disposeSection()
     }
@@ -333,16 +445,14 @@ export function apply(ctx, config) {
     }))
   }
 
-  // 每日回顾：每 30 分钟检查一次，跨天就生成当日简报文件（幂等，凌晨/首日各一次）。
-  let lastBriefDate = ''
-  const briefTimer = setInterval(() => {
-    const d = new Date()
-    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    if (lastBriefDate === date) return
-    lastBriefDate = date
-    generateDailyBrief(vaultDir()).catch(() => {})
-  }, 30 * 60 * 1000)
-  ctx.effect(() => () => clearInterval(briefTimer), 'memory-eternal: daily brief timer')
+  // 沉淀停滞探测：有轮次开始、却迟迟没有收尾（>15 分钟），说明 turn-stopping 没到。
+  const stallTimer = setInterval(() => {
+    if (turnsStarted > turnsStopped && lastClaimAt && Date.now() - lastClaimAt > 15 * 60 * 1000) {
+      // 经 logCapture 统一走「记日志 + 置异常 + 刷提示段」一条路
+      logCapture('system', 'fail', `轮次收尾事件未触发（agent/turn-stopping 没到）：已开始 ${turnsStarted} / 已收尾 ${turnsStopped}——DSH 可能改了事件名或作用域`)
+    }
+  }, 10 * 60 * 1000)
+  ctx.effect(() => () => clearInterval(stallTimer), 'memory-eternal: capture stall watch')
 
   // 回收站清理：每 30 分钟永久删除超过保留期（默认 30 天）的软删卡。
   const purgeTimer = setInterval(() => {
@@ -376,6 +486,9 @@ export function apply(ctx, config) {
   if (webServer !== undefined) {
     const handleApi = createApi({
       vaultDir, vaultRoots, getSettings: settings.get,
+      // 自动沉淀运行轨迹 + 健康状态：供「用量/今日」页排查「为什么没写卡」，异常时页面顶部亮红。
+      getCaptureLog: () => captureLog.slice().reverse(),
+      getCaptureHealth: () => health.snapshot(),
       getDshInfo: () => ({
         name: 'deepseek-harness',
         label: 'DeepSeek Harness（当前宿主）',
