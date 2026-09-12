@@ -28,7 +28,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { summarizeTurn, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
-import { createApi, json } from './lib/api.js'
+import { createApi, json, encodeBody } from './lib/api.js'
 
 export const name = 'memory-eternal'
 export const inject = ['systemPrompt', 'settings']
@@ -381,6 +381,10 @@ export function apply(ctx, config) {
         '3. 若检索结果为空，就诚实说明当前记忆库没有相关内容，不要编造。',
         '4. 知识卡存储在 SQLite 数据库中（memory-eternal.db），**禁止**用文件工具直接读写 vault 目录下的任何文件。沉淀记忆必须通过 memory_recall 工具或 /memory-eternal/api/write API。',
         '5. 若下方出现「自动沉淀异常」，必须在本次回复的第一句用中文转述该异常并提醒用户处理，不要自行猜测或尝试修复。',
+        // 审核红线（主上 2026-09-12 强制要求）：只在审核真正生效时注入。
+        ...((cfg.auditMode ?? 'all') === 'none' ? [] : [
+          '6. **审核红线（强制）**：写卡一律停在 pending，由用户在「审核中心」审批。**禁止**调用 /memory-eternal/api/audit/approve 或 /audit/reject 代替用户审批，也不得用任何等价方式绕过审核；用户说「记录一下 / 增加记忆」不等于允许免审入库。需要立刻可用时，写卡后明确告知用户「已进审核中心，待批准」。',
+        ]),
       ].join('\n')
       // 异常提示：沉淀管线坏了，靠这一句把消息送到用户面前（不依赖用户去翻页面）。
       const h = health.snapshot()
@@ -600,8 +604,13 @@ export function apply(ctx, config) {
             const webRoot = path.join(PACKAGE_ROOT, 'web')
             if (pathname.endsWith('app.js')) {
               const buf = await readFile(path.join(webRoot, 'app.js'))
-              res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' })
-              return res.end(buf)
+              // client bundle 270KB，每次打开配置页都要重下 —— 支持 gzip 的客户端走压缩
+              const headers = { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store', 'Vary': 'Accept-Encoding' }
+              const { body: out, encoding } = encodeBody(res, buf)
+              if (encoding) headers['Content-Encoding'] = encoding
+              headers['Content-Length'] = out.length
+              res.writeHead(200, headers)
+              return res.end(out)
             }
             const buf = await readFile(path.join(webRoot, 'index.html'))
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })

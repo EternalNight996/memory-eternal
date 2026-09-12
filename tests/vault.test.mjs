@@ -7,7 +7,7 @@ import path from 'node:path'
 import {
   parseCard, safeSlug, textSimilarity, queryTerms, ensureVault, listCards,
   writeCard, readCard, appendUpdate, search, graph, overview, dedupCheck,
-  stats, optimizeCandidates, searchAll, graphAll, readFeedback, addFeedback, mergeCards,
+  stats, optimizeCandidates, searchAll, graphAll, readFeedback, addFeedback, mergeCards, countCards,
 } from '../lib/vault.js'
 import { closeAllDb } from '../lib/db.js'
 
@@ -190,6 +190,44 @@ test('cross-vault searchAll + graphAll aggregate multiple roots', async () => {
   const g = await graphAll(roots)
   assert.ok(Array.isArray(g.nodes))
   assert.ok(g.nodes.length >= 1)
+})
+
+test('listCards 真分页：offset/limit/total 一致、无重叠、标题排序跨页全局有序', async () => {
+  const root = await freshRoot()
+  const titles = ['丙卡', '甲卡', '乙卡', '丁卡', '戊卡']
+  for (const t of titles) await writeCard(root, { kind: 'knowledge', title: t, tags: ['p'], body: `${t}的正文内容，用于分页测试，足够长以便入库。`, status: 'approved' }, { dedup: false })
+
+  assert.equal(await countCards(root, {}), 5)
+  const p1 = await listCards(root, { limit: 2, offset: 0 })
+  const p2 = await listCards(root, { limit: 2, offset: 2 })
+  const p3 = await listCards(root, { limit: 2, offset: 4 })
+  assert.equal(p1.length, 2); assert.equal(p2.length, 2); assert.equal(p3.length, 1)
+  const seen = new Set([...p1, ...p2, ...p3].map((c) => c.path))
+  assert.equal(seen.size, 5, '分页结果不得重叠或漏卡')
+
+  const byTitle = await listCards(root, { sort: 'title' })
+  const sorted = byTitle.map((c) => c.title)
+  assert.deepEqual(sorted, [...sorted].sort((a, b) => a.localeCompare(b)), '标题排序应全局有序')
+
+  // 服务端署名过滤：session:* / 空署名 归入 deepseek-harness
+  await writeCard(root, { kind: 'knowledge', title: '宿主卡', tags: ['p'], body: '宿主自动沉淀的卡片正文内容足够长以便入库。', status: 'approved', submittedBy: 'deepseek-harness' }, { dedup: false })
+  await writeCard(root, { kind: 'knowledge', title: '外部卡', tags: ['p'], body: '外部 MCP 客户端写入的卡片正文内容足够长以便入库。', status: 'approved', submittedBy: 'claude-code' }, { dedup: false })
+  // 空署名（上面 5 张）+ 显式 deepseek-harness（宿主卡）= 同一归属桶；claude-code 归 claude
+  assert.equal(await countCards(root, { agent: 'deepseek-harness' }), 6)
+  assert.equal(await countCards(root, { agent: 'claude' }), 1)
+  assert.equal(await countCards(root, { agent: 'codex' }), 0)
+})
+
+test('graph 缓存：指纹失效（写卡/审核后必须重建，不给陈旧数据）', async () => {
+  const root = await freshRoot()
+  await writeCard(root, { kind: 'knowledge', title: '甲', tags: ['t1'], body: '甲卡正文，内容与乙卡不同，用于验证图谱缓存失效。', status: 'approved' }, { dedup: false })
+  const g1 = await graph(root)
+  assert.equal(g1.nodes.length, 1)
+  assert.equal((await graph(root)).nodes.length, 1, '重复调用命中缓存，结果一致')
+  await writeCard(root, { kind: 'knowledge', title: '乙', tags: ['t1'], body: '乙卡正文，与甲卡内容完全不同，写完应立即可见。', status: 'approved' }, { dedup: false })
+  const g2 = await graph(root)
+  assert.equal(g2.nodes.length, 2, '写卡后必须重建（不能返回陈旧图谱）')
+  assert.ok(g2.edges.some((e) => e.type === 'tag:t1'), '共享标签应产生标签边')
 })
 
 test('mergeCards: 合并两张同 kind 卡为一张（保留 kind/并集标签/删除原卡）', async () => {

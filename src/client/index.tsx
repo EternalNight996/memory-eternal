@@ -12,6 +12,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExtern
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
+// 真分页页大小：首屏只拉一页（服务端 offset/limit），滚到底再续拉下一页
+const PAGE_SIZE = 100
 
 export const inject = ['settingsScope', 'slots', 'locale', 'connection', 'remote']
 
@@ -849,6 +851,13 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
     } catch {}
     return 'cards'
   })
+  // 懒挂载：面板首次切到该视图才 mount，之后保持 mount（切页不丢状态）。
+  // 目的：打开「设置 / 配置」不该顺带拉 250KB 卡片列表 + 890KB 知识图谱。
+  const [visited, setVisited] = useState(() => new Set([view]))
+  const goView = useCallback((v) => {
+    setVisited((s) => (s.has(v) ? s : new Set(s).add(v)))
+    setView(v)
+  }, [])
   const [sort, setSort] = useState('recent') // 'recent' | 'title' | 'hot'
   const [libToast, setLibToast] = useState(null)
   const libToastTimer = useRef(null)
@@ -861,51 +870,63 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const [dataVer, setDataVer] = useState(0)
   const bump = useCallback(() => setDataVer((v) => v + 1), [])
   const searchTimer = useRef(null)
-  const [visibleCount, setVisibleCount] = useState(100)
+  const [cardTotal, setCardTotal] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
   const sentinelRef = useRef(null)
   const mainRef = useRef(null)
 
   // 无限滚动：滚动到底部哨兵进入视口时再加载一批。root 指向实际滚动容器(.mc-main)，
   // 否则 IntersectionObserver 默认 viewport 基准在内部滚动容器里判定失效，导致不触发。
   useEffect(() => {
-    if (view !== 'cards') return
+    if (view !== 'cards' || loading || loadingMore) return
+    if (cards.length >= cardTotal) return // 已加载完（total 由服务端返回）
     const el = sentinelRef.current
     const root = mainRef.current
     if (!el) return
-    const io = new IntersectionObserver((entries) => { if (entries[0] && entries[0].isIntersecting) setVisibleCount((v) => v + 24) }, { root: root || null, rootMargin: '400px' })
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0] && entries[0].isIntersecting) loadCards(kind, query, statusFilter, { append: true, offset: cards.length })
+    }, { root: root || null, rootMargin: '400px' })
     io.observe(el)
     return () => io.disconnect()
-  }, [view, cards, kind, query])
+  }, [view, cards, cardTotal, loading, loadingMore, kind, query, statusFilter, loadCards])
 
-  const loadCards = useCallback(async (nextKind = kind, nextQuery = query, nextStatus = statusFilter) => {
+  const loadCards = useCallback(async (nextKind = kind, nextQuery = query, nextStatus = statusFilter, opts = {}) => {
+    const append = opts.append === true
     try {
-      setLoading(true)
-      setError('')
+      if (append) setLoadingMore(true)
+      else { setLoading(true); setError('') }
       const qs = new URLSearchParams()
       if (nextKind && nextKind !== 'all') qs.set('kind', nextKind)
       if (nextQuery.trim()) qs.set('q', nextQuery.trim())
       qs.set('status', nextStatus || 'all')
-      qs.set('limit', '500')
+      qs.set('limit', String(PAGE_SIZE))
+      qs.set('offset', String(opts.offset || 0))
+      // 标题排序必须由服务端做，否则只对已加载的那一页有序
+      if (sort === 'title') qs.set('sort', 'title')
       const res = await fetch(`${API}/cards?${qs.toString()}`)
       const data = await res.json()
-      if (data.ok) { setCards(data.cards || []); setVisibleCount(100) }
+      if (data.ok) {
+        const list = data.cards || []
+        setCards((prev) => (append ? [...prev, ...list.filter((c) => !prev.some((p) => p.path === c.path))] : list))
+        setCardTotal(Number(data.total) || list.length)
+      }
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
     } finally {
-      setLoading(false)
+      if (append) setLoadingMore(false)
+      else setLoading(false)
     }
-  }, [kind, query, statusFilter])
+  }, [kind, query, statusFilter, sort])
 
   const loadAll = useCallback(async () => {
     try {
-      const [ov, cardsRes, capRes] = await Promise.all([
+      // 只拉轻量数据（<1KB）：概览 + 沉淀健康状态。
+      // 卡片列表（250KB）/ 图谱（890KB）改由各自视图按需拉取——设置页不该付这份代价。
+      const [ov, capRes] = await Promise.all([
         fetch(`${API}/overview`).then((r) => r.json()),
-        fetch(`${API}/cards?status=all&limit=500`).then((r) => r.json()),
-        // 自动沉淀健康状态：异常时页面顶部亮红条（不依赖用户自己去翻日志）
         fetch(`${API}/capture-log`).then((r) => r.json()).catch(() => null),
       ])
       if (ov.ok) setOverview(ov)
-      if (cardsRes.ok) { setCards(cardsRes.cards || []); setVisibleCount(100) }
       setCapHealth(capRes && capRes.ok && capRes.available ? (capRes.health || null) : null)
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
@@ -919,7 +940,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
     try {
       const res = await fetch(`${API}/delete?path=${encodeURIComponent(path)}`)
       const data = await res.json()
-      if (data.ok) { setLibToast({ ok: true, msg: t('deleted') }); await loadAll() }
+      if (data.ok) { setLibToast({ ok: true, msg: t('deleted') }); await loadAll(); bump() }
       else setLibToast({ ok: false, msg: (data.error || t('deleteFail')) })
     } catch (e) {
       setLibToast({ ok: false, msg: t('deleteFail') })
@@ -945,7 +966,11 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   }
 
   // 状态筛选变更 → 按该状态重新拉取（pending/rejected 走 /cards?status=）
-  useEffect(() => { loadCards(kind, query, statusFilter) }, [statusFilter])
+  // 只在真正看「知识卡」视图时拉卡片；切回来或数据变更（dataVer）时刷新。
+  useEffect(() => {
+    if (view !== 'cards') return
+    loadCards(kind, query, statusFilter)
+  }, [statusFilter, view, dataVer, sort])
 
   const openCard = async (card) => {
     try {
@@ -1037,27 +1062,27 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
       <div className="me-modal-body">
         <div className={`mc-rail${railOpen ? ' open' : ''}`}>
           <button type="button" className="mc-rail-collapse" onClick={() => setRailOpen((v) => !v)} aria-label={railOpen ? t('collapse') : t('expand')} title={railOpen ? t('collapse') : t('expand')}>{railOpen ? '«' : '»'}</button>
-          <button type="button" className={`mc-railbtn${view === 'cards' ? ' active' : ''}`} onClick={() => setView('cards')} title={t('cardsTab')}>
+          <button type="button" className={`mc-railbtn${view === 'cards' ? ' active' : ''}`} onClick={() => goView('cards')} title={t('cardsTab')}>
             <span className="mc-rail-ico">🧠</span>
             {railOpen && <span className="mc-rail-label">{t('cardsTab')}</span>}
           </button>
-          <button type="button" className={`mc-railbtn${view === 'graph' ? ' active' : ''}`} onClick={() => setView('graph')} title={t('graphTab')}>
+          <button type="button" className={`mc-railbtn${view === 'graph' ? ' active' : ''}`} onClick={() => goView('graph')} title={t('graphTab')}>
             <span className="mc-rail-ico">🔮</span>
             {railOpen && <span className="mc-rail-label">{t('graphTab')}</span>}
           </button>
-          <button type="button" className={`mc-railbtn${view === 'stats' ? ' active' : ''}`} onClick={() => setView('stats')} title={t('tabUsage')}>
+          <button type="button" className={`mc-railbtn${view === 'stats' ? ' active' : ''}`} onClick={() => goView('stats')} title={t('tabUsage')}>
             <span className="mc-rail-ico">📈</span>
             {railOpen && <span className="mc-rail-label">{t('tabUsage')}</span>}
           </button>
-          <button type="button" className={`mc-railbtn${view === 'audit' ? ' active' : ''}`} onClick={() => setView('audit')} title={t('tabAudit')}>
+          <button type="button" className={`mc-railbtn${view === 'audit' ? ' active' : ''}`} onClick={() => goView('audit')} title={t('tabAudit')}>
             <span className="mc-rail-ico">🔍</span>
             {railOpen && <span className="mc-rail-label">{t('tabAudit')}</span>}
           </button>
-          <button type="button" className={`mc-railbtn${view === 'optimize' ? ' active' : ''}`} onClick={() => setView('optimize')} title={t('tabRecycle')}>
+          <button type="button" className={`mc-railbtn${view === 'optimize' ? ' active' : ''}`} onClick={() => goView('optimize')} title={t('tabRecycle')}>
             <span className="mc-rail-ico">♻️</span>
             {railOpen && <span className="mc-rail-label">{t('tabRecycle')}</span>}
           </button>
-          <button type="button" className={`mc-railbtn${view === 'config' ? ' active' : ''}`} onClick={() => setView('config')} title={t('tabConfig')}>
+          <button type="button" className={`mc-railbtn${view === 'config' ? ' active' : ''}`} onClick={() => goView('config')} title={t('tabConfig')}>
             <span className="mc-rail-ico">⚙️</span>
             {railOpen && <span className="mc-rail-label">{t('tabConfig')}</span>}
           </button>
@@ -1124,23 +1149,24 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
               ? <div className="mc-empty">{t('error')}：{error} <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('retry')}</button></div>
             : cards.length === 0
               ? <div className="mc-empty">{t('empty')}</div>
-              : <><div className="mc-grid">{sortedCards.slice(0, visibleCount).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} />)}</div>{sortedCards.length > visibleCount && <div ref={sentinelRef} style={{ height: 1 }} />}</>
+              : <><div className="mc-grid">{sortedCards.map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
           }
         </div>
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
-          <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={true} visible={view === 'graph'} />
+          {/* active 必须跟着视图走：以前恒为 true → 打开任何视图都拉 890KB 图谱（约 3.5s） */}
+          {visited.has('graph') && <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} visible={view === 'graph'} />}
         </div>
         <div style={{ display: view === 'config' ? 'contents' : 'none' }}>
-          <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />
+          {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />}
         </div>
         <div style={{ display: view === 'stats' ? 'contents' : 'none' }}>
-          <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} />
+          {visited.has('stats') && <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} />}
         </div>
         <div style={{ display: view === 'audit' ? 'contents' : 'none' }}>
-          <AuditPanel t={t} onReload={() => loadAll()} version={dataVer} />
+          {visited.has('audit') && <AuditPanel t={t} onReload={() => loadAll()} version={dataVer} />}
         </div>
         <div style={{ display: view === 'optimize' ? 'contents' : 'none' }}>
-          <RecoverPanel t={t} onReload={() => loadAll()} version={dataVer} />
+          {visited.has('optimize') && <RecoverPanel t={t} onReload={() => loadAll()} version={dataVer} />}
         </div>
 
         {reader && <CardReader t={t} card={reader} query={query.trim()} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />}
@@ -1627,16 +1653,17 @@ function LibraryAdmin({ t, tab, onReload, version }) {
       const rs = await Promise.all([
         fetch(`${API}/stats`),
         fetch(`${API}/budget`),
-        // 自动沉淀日志：确认「agent 真的在写卡」；顺手取它写过的卡（按智能体过滤）
+        // 自动沉淀日志：确认「agent 真的在写卡」
         fetch(`${API}/capture-log`),
-        fetch(`${API}/cards?status=all&limit=500`),
+        // 宿主自动沉淀的卡：服务端按署名过滤取 30 条（约 15KB），不再拉全量 500 卡
+        fetch(`${API}/cards?status=all&limit=30&agent=${DSH_AGENT}`),
       ])
       const [s, b, c, k] = await Promise.all(rs.map((r) => r.json()))
-      if (s.ok) setStats(s)
-      if (b.ok) setBudget(b)
-      if (c.ok) setCaptureLog(c)
-      if (k.ok) setAgentCards((k.cards || []).filter((x) => normAgent(x.submittedBy) === DSH_AGENT).sort((a, z) => String(z.updated || '').localeCompare(String(a.updated || ''))).slice(0, 30))
-      setErr(!s.ok ? t('adminLoadFail') : '')
+      if (s && s.ok) setStats(s)
+      if (b && b.ok) setBudget(b)
+      if (c && c.ok) setCaptureLog(c)
+      if (k && k.ok) setAgentCards(k.cards || [])
+      setErr(!s || !s.ok ? t('adminLoadFail') : '')
     } catch (e) { setErr(t('adminLoadFail')) }
   }
   // 手动「一键搜索和整理」：扫描相似卡对 + 陈旧卡
