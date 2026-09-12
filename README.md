@@ -37,6 +37,13 @@ dsh plugin --profile web add memory-eternal
 
 # 或直接在 profile（pnpm workspace）里更新。注意用 pnpm，npm install 会报 EUNSUPPORTEDPROTOCOL
 cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
+
+# 刚发新版时 @latest 可能被 pnpm 的最小发布年龄门槛/元数据缓存挡住（静默停在旧版）：
+# 直接指定版本号最快，pnpm 会自动把它加进 workspace 的 minimumReleaseAgeExclude
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.9.0
+
+# 验版本（应等于上面装的号），然后重启 dsh web 生效
+node -e "console.log(require('memory-eternal/package.json').version)"
 ```
 
 **重启 dsh web** 后，三样东西立即生效：

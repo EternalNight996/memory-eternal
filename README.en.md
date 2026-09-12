@@ -37,6 +37,14 @@ dsh plugin --profile web add memory-eternal
 
 # or update directly in the profile (pnpm workspace). Use pnpm — `npm install` throws EUNSUPPORTEDPROTOCOL
 cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
+
+# right after a release, @latest can be held back by pnpm's minimum-release-age gate or a cached
+# packument (it silently stays on the old version): pin the version instead — pnpm adds it to the
+# workspace's minimumReleaseAgeExclude automatically
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.9.0
+
+# verify the version, then restart dsh web
+node -e "console.log(require('memory-eternal/package.json').version)"
 ```
 
 After **restarting dsh web**, three things are live immediately:
