@@ -29,6 +29,7 @@ import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { summarizeTurn, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
+import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 
 export const name = 'memory-eternal'
 export const inject = ['systemPrompt', 'settings']
@@ -164,11 +165,23 @@ export function apply(ctx, config) {
     if (typeof refreshPrompt !== 'function') return
     try { refreshPrompt(settings.get()) } catch { /* 提示段刷新失败不影响沉淀 */ }
   }
+  let logWrites = 0                // 累计写入行数（每 100 行裁剪一次日志文件）
+  let lastActivityAt = Date.now() // 最近一次「管线有活口」的时间（见下：listen/读事件/写卡都算）
+  let stallAlerted = false        // 停滞告警只在状态翻转时报一次，不刷屏
   const logCapture = (sessionId, action, reason, extra = {}) => {
-    captureLog.push({ time: Date.now(), sessionId: String(sessionId || 'unknown').slice(0, 40), action, reason, ...extra })
+    const entry = { time: Date.now(), sessionId: String(sessionId || 'unknown').slice(0, 40), action, reason, ...extra }
+    captureLog.push(entry)
     if (captureLog.length > CAPTURE_LOG_MAX) captureLog.splice(0, captureLog.length - CAPTURE_LOG_MAX)
+    // 落盘：独立 Web 页 + 宿主重启后都还能看到这段历史（失败静默，不影响沉淀）
+    appendCaptureLog(entry, process.env).catch(() => {})
+    if (++logWrites % 100 === 0) rotateCaptureLog(process.env).catch(() => {})
     if (action === 'fail') { health.fail(reason); touchPrompt() }
     else if (action === 'created' || action === 'appended') { health.succeed(); touchPrompt() }
+    // 只要监听器还在拿到轮次（listen 行）就说明管线活着 —— 停滞告警自动撤销。
+    if (action !== 'fail') {
+      lastActivityAt = Date.now()
+      if (stallAlerted && health.snapshot().ok === false) { stallAlerted = false; health.succeed(); touchPrompt() }
+    }
   }
   const preview = (text) => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60)
   // 单次沉淀送进 LLM 的对话上限（字符）：够覆盖一轮长对话，又不会把整段历史塞进去。
@@ -176,6 +189,11 @@ export function apply(ctx, config) {
   // 启动留痕：面板里看不到这条 = host 半边没加载（而不是「没东西可沉淀」）。
   {
     const c = settings.get() ?? {}
+    // 先把上次进程的历史读回面板（重启不丢记录），再写下本次 boot 行
+    readCaptureLog(CAPTURE_LOG_MAX, process.env).then((old) => {
+      for (const e of old.reverse()) captureLog.unshift(e)
+      if (captureLog.length > CAPTURE_LOG_MAX) captureLog.splice(0, captureLog.length - CAPTURE_LOG_MAX)
+    }).catch(() => {})
     logCapture('system', 'boot', `记忆核心 v${versionRef || '?'} 已加载：自动沉淀 ${c.enabled !== false && c.autoCapture !== false ? '开' : '关'} · 库 ${vaultDir()}`)
   }
   const lastCaptureAt = new Map() // sessionId -> 上次实际发起蒸馏的时间戳
@@ -276,7 +294,24 @@ export function apply(ctx, config) {
       const draft = { title: '', body: text.slice(0, 400) }
       const neighbors = cfg.dedupByLLM === false ? [] : await pickNeighbors(vaultDir(), draft, 8)
       const result = await summarizeTurn(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens: cfg.captureMaxTokens ?? 900 })
-      if (!result) { logCapture(sessionId, 'skip', '模型无输出或 JSON 解析失败', { model: route.model }); return }
+      if (!result) {
+        // 蒸馏失败不能让内容白丢：退成原文卡（与「关闭蒸馏」同一条降级路径）。
+        const raw = await captureCard(vaultDir(), {
+          kind: 'content',
+          title: text.replace(/\s+/g, ' ').slice(0, 40) || '未命名记录',
+          tags: ['raw'],
+          body: text,
+          source,
+          status: resolveAuditStatus(cfg, 'content', source),
+          submittedBy: source,
+          severity: 'info',
+          reason: 'AI 自动沉淀（蒸馏无输出 → 原文卡兜底）',
+        }, { threshold: cfg.dedupThreshold })
+        if (raw.ok) { countWrite(); logCapture(sessionId, 'created', '蒸馏无输出 → 原文卡兜底', { path: raw.path ?? raw.rel, kind: 'content', model: route.model }) }
+        else if (raw.duplicate) { countWrite(); logCapture(sessionId, 'appended', '蒸馏无输出 + 与已有卡重复 → 追加更新', { path: raw.duplicate.path, model: route.model }) }
+        else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || '未知原因'}`, { model: route.model })
+        return
+      }
       if (result.save !== true) { logCapture(sessionId, 'skip', '模型判定不值得保存', { model: route.model }); return }
       if (result.append_to) {
         // 模型判定属于已有卡 → 追加更新记录，不新建（boujoy 语义）。
@@ -449,11 +484,15 @@ export function apply(ctx, config) {
     }))
   }
 
-  // 沉淀停滞探测：有轮次开始、却迟迟没有收尾（>15 分钟），说明 turn-stopping 没到。
+  // 沉淀停滞探测：只有「有轮次在跑」且「管线 15 分钟一个活口都没有」才报（真死才报）。
+  // 计数器对不上是常态（子代理轮次、被取消的轮次都不发 turn-stopping），单看计数会误报刷屏。
   const stallTimer = setInterval(() => {
-    if (turnsStarted > turnsStopped && lastClaimAt && Date.now() - lastClaimAt > 15 * 60 * 1000) {
-      // 经 logCapture 统一走「记日志 + 置异常 + 刷提示段」一条路
-      logCapture('system', 'fail', `轮次收尾事件未触发（agent/turn-stopping 没到）：已开始 ${turnsStarted} / 已收尾 ${turnsStopped}——DSH 可能改了事件名或作用域`)
+    const idleMs = Date.now() - lastActivityAt
+    const claimIdleMs = lastClaimAt ? Date.now() - lastClaimAt : 0
+    const suspicious = turnsStarted > turnsStopped && claimIdleMs > 15 * 60 * 1000 && idleMs > 15 * 60 * 1000
+    if (suspicious && !stallAlerted) {
+      stallAlerted = true
+      logCapture('system', 'fail', `轮次收尾事件未触发（agent/turn-stopping 没到）：已开始 ${turnsStarted} / 已收尾 ${turnsStopped}，且 15 分钟无任何沉淀活动——DSH 可能改了事件名或作用域`)
     }
   }, 10 * 60 * 1000)
   ctx.effect(() => () => clearInterval(stallTimer), 'memory-eternal: capture stall watch')
