@@ -875,21 +875,6 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const sentinelRef = useRef(null)
   const mainRef = useRef(null)
 
-  // 无限滚动：滚动到底部哨兵进入视口时再加载一批。root 指向实际滚动容器(.mc-main)，
-  // 否则 IntersectionObserver 默认 viewport 基准在内部滚动容器里判定失效，导致不触发。
-  useEffect(() => {
-    if (view !== 'cards' || loading || loadingMore) return
-    if (cards.length >= cardTotal) return // 已加载完（total 由服务端返回）
-    const el = sentinelRef.current
-    const root = mainRef.current
-    if (!el) return
-    const io = new IntersectionObserver((entries) => {
-      if (entries[0] && entries[0].isIntersecting) loadCards(kind, query, statusFilter, { append: true, offset: cards.length })
-    }, { root: root || null, rootMargin: '400px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [view, cards, cardTotal, loading, loadingMore, kind, query, statusFilter, loadCards])
-
   const loadCards = useCallback(async (nextKind = kind, nextQuery = query, nextStatus = statusFilter, opts = {}) => {
     const append = opts.append === true
     try {
@@ -971,6 +956,23 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
     if (view !== 'cards') return
     loadCards(kind, query, statusFilter)
   }, [statusFilter, view, dataVer, sort])
+
+  // 无限滚动：滚动到底部哨兵进入视口时再续拉一页。root 指向实际滚动容器(.mc-main)，
+  // 否则 IntersectionObserver 以 viewport 为基准在内部滚动容器里判定失效，导致不触发。
+  // ⚠ 必须放在 loadCards 定义之后：依赖数组在渲染期求值，写在前面会因 TDZ 抛
+  //   "Cannot access 'loadCards' before initialization" 把整个记忆页渲染搞崩。
+  useEffect(() => {
+    if (view !== 'cards' || loading || loadingMore) return
+    if (cards.length >= cardTotal) return // 已加载完（total 由服务端返回）
+    const el = sentinelRef.current
+    const root = mainRef.current
+    if (!el) return
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0] && entries[0].isIntersecting) loadCards(kind, query, statusFilter, { append: true, offset: cards.length })
+    }, { root: root || null, rootMargin: '400px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [view, cards, cardTotal, loading, loadingMore, kind, query, statusFilter, loadCards])
 
   const openCard = async (card) => {
     try {
