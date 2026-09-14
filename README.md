@@ -257,6 +257,8 @@ npm run build   # 构建 lib/client.js（DSH 内嵌）+ web/app.js（独立 web 
 
 ## 📋 更新日志
 
+> **版本撤回说明**：**v0.9.1 / v0.9.2 已从 npm 标记 deprecated 并从 git 取回（release tag 已删除）** —— 这两版带记忆页白屏缺陷，请使用 **v0.9.3+**（`npm i memory-eternal@latest`）。v0.9.0 同样标记 deprecated（沉淀告警会误报刷屏）。
+
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
 | **v0.9.3** | 2026-09-12 | **修复记忆页白屏（"没画面"）**：v0.9.1 把「滚动续拉」的 `useEffect` 写在了 `loadCards` 定义**之前**——React 在渲染期求值依赖数组，触发 TDZ（`Cannot access 'loadCards' before initialization`），**整个记忆页一渲染就崩**；现已移到定义之后。**新增渲染冒烟测试**（`tests/ssr.test.mjs`：真跑打包产物、把卡片/设置/用量/图谱四个入口各渲染一遍，已并入 `npm test`）——「构建全绿、页面白屏」这类 bug 以后发不出去 |

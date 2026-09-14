@@ -244,6 +244,8 @@ npm run build   # builds lib/client.js (DSH embed) + web/app.js (standalone web 
 
 ## 📋 Changelog
 
+> **Withdrawn versions**: **v0.9.1 / v0.9.2 are deprecated on npm and their release tags have been removed from git** — both ship the blank-memory-page defect. Use **v0.9.3+** (`npm i memory-eternal@latest`). v0.9.0 is deprecated too (its capture alerts false-alarm).
+
 | Version | Date | Highlights |
 |---|---|---|
 | **v0.9.3** | 2026-09-12 | **Fixed the blank memory page ("no UI")**: v0.9.1 placed the infinite-scroll `useEffect` **before** the `loadCards` definition — React evaluates the dependency array during render, hitting a TDZ error (`Cannot access 'loadCards' before initialization`) that **crashed the whole memory page on first render**. It now comes after the definition. Added a **render smoke test** (`tests/ssr.test.mjs`: renders the built bundle through all four entry points — cards / settings / usage / graph — wired into `npm test`) so "green build, blank page" bugs cannot ship again |
