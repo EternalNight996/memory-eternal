@@ -96,6 +96,35 @@
       "requiresBuildApproval": false,
       "requiresRestart": true,
       "manualSteps": false
+    },
+    "permissions": {
+      "level": "medium",
+      "files": "read-write",
+      "network": "none",
+      "commands": "node",
+      "credentials": [],
+      "externalServices": [],
+      "notes": "Read/write under ~/.dsh/memory-vault only (plugin-private Markdown vault). No outbound network, no credentials, no shell. Hooks/MCP run via the `node` binary that hosts the DSH process."
+    },
+    "lifecycle": {
+      "scripts": ["prepare", "prepublishOnly"],
+      "details": {
+        "prepare": "node build.mjs",
+        "prepublishOnly": "node build.mjs"
+      },
+      "notes": "Only `prepare` and `prepublishOnly` run `node build.mjs` (esbuild client bundling). No preinstall/install/postinstall hooks, no remote downloads, no native builds."
+    },
+    "compatibility": {
+      "dsh": ">=0.1.5-alpha.2 <0.2.0",
+      "dshReleases": {
+        "0.1.5-alpha.2": "compatible",
+        "0.1.5-rc.1": "compatible",
+        "0.1.5-rc.2": "compatible"
+      },
+      "node": ">=22",
+      "profiles": [
+        "web"
+      ]
     }
   }
 }
