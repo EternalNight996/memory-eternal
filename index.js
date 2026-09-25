@@ -30,6 +30,8 @@ import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { summarizeTurn, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
+import { createSettingsHandle } from './lib/settings-compat.js'
+import { nodeBinary, childEnv } from './lib/node-bin.js'
 
 export const name = 'memory-eternal'
 export const inject = ['systemPrompt', 'settings']
@@ -96,7 +98,10 @@ const API_PREFIX = '/memory-eternal/api'
 const DSH_AGENT = 'deepseek-harness'
 
 export function apply(ctx, config) {
-  const settings = ctx.settings.register('memory-eternal', Config, { base: config ?? {} })
+  // 跨 dsh 两代的设置句柄：0.1.6 及更早走 ctx.settings.register()，
+  // 0.1.7+（register 已被移除）走 apply 传入的 config + configEditor 写回。
+  // 详见 lib/settings-compat.js。
+  const settings = createSettingsHandle(ctx, 'memory-eternal', Config, config)
 
   // 首次激活：自动从 .md 文件迁移到 SQLite（幂等，已有数据则跳过）
   const vaultDir = () => {
@@ -525,8 +530,12 @@ export function apply(ctx, config) {
   let webInfo = { url: 'http://127.0.0.1:7999', port: 7999, alive: false }
   const refreshWebInfo = (info) => { if (info && info.url) webInfo = { ...info, alive: true } }
 
-  const webServer = ctx.get('webServer')
-  if (webServer !== undefined) {
+  // webServer 是一个「可能晚到」的服务：apply 执行时它往往尚未挂载，同步
+  // ctx.get() 拿不到就整段跳过、且不留任何日志——表现就是 /memory-eternal/api/*
+  // 恒 404，客户端设置页永远停在「加载中…」（桌面端会提示「host 需加载新版
+  // /memory-eternal 路由」）。所以改成 ctx.inject() 等它就绪后再注册：
+  // 没有该服务的 profile（如 TUI）里子 fiber 保持 pending，主插件照常激活。
+  const registerApiRoutes = (webServer) => {
     const handleApi = createApi({
       vaultDir, vaultRoots, getSettings: settings.get,
       // 自动沉淀运行轨迹 + 健康状态：供「用量/今日」页排查「为什么没写卡」，异常时页面顶部亮红。
@@ -663,6 +672,15 @@ export function apply(ctx, config) {
     })
   }
 
+  // 等 webServer 就绪再注册宿主侧 API（见上面的注释）。注册成功会留一条 boot 记录，
+  // 便于在「设置 → 记忆 → 用量/今日」里确认路由到底有没有挂上。
+  ctx.inject(['webServer'], (ctx) => {
+    const webServer = ctx.get('webServer')
+    if (webServer === undefined) return
+    registerApiRoutes(webServer)
+    logCapture('system', 'boot', '记忆 API 路由已注册（/memory-eternal/api）')
+  })
+
   // -- 4. 多宿主常驻：MCP 挂载 + web server 保活（按设置项分层） -----------------
   // 全部后台异步、静默失败：插件激活不能被外部环境问题卡住。
   let intervalTimer = null
@@ -729,16 +747,29 @@ export function apply(ctx, config) {
       import('./lib/watchdog.js')
         .then((m) => {
           const port = Number(cfg0.webPort) || 7999
+          // 用 nodeBinary() 而非 process.execPath：Electron 宿主下后者是 Electron
+          // 主程序，spawn 出来不会执行 watchdog.js（见 lib/node-bin.js）。
+          const bin = nodeBinary()
           const wd = spawn(
-            process.execPath,
+            bin,
             [path.join(PACKAGE_ROOT, 'lib', 'watchdog.js'), '--port', String(port), '--interval', String(cfg0.webCheckIntervalMs || 5000), '--max-restart', String(cfg0.webMaxRestart || 10)],
-            { detached: true, stdio: 'ignore', env: { ...process.env, MEMORY_VAULT_DIR: vaultDir() }, windowsHide: true },
+            { detached: true, stdio: 'ignore', env: childEnv({ MEMORY_VAULT_DIR: vaultDir() }), windowsHide: true },
           )
+          // spawn 失败默认静默：既写 stderr，也进自动沉淀日志（面板可见）
+          wd.on('error', (error) => {
+            const why = `watchdog spawn 失败（${bin}）：${error?.message || error}`
+            console.error(`[memory-eternal] ${why}`)
+            logCapture('system', 'fail', why)
+          })
           wd.unref()
           watchdogProc = wd
-          console.error(`[memory-eternal] watchdog spawned pid=${wd.pid} port=${port}`)
+          console.error(`[memory-eternal] watchdog spawned pid=${wd.pid} bin=${bin} port=${port}`)
         })
-        .catch(() => {})
+        .catch((error) => {
+          const why = `watchdog 模块加载失败：${error?.message || error}`
+          console.error(`[memory-eternal] ${why}`)
+          logCapture('system', 'fail', why)
+        })
     }
 
     return () => {

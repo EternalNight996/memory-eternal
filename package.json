@@ -59,7 +59,7 @@
     "build": "node build.mjs",
     "build:client": "node build.mjs",
     "prepublishOnly": "node build.mjs",
-    "test": "node build.mjs && node tests/vault.test.mjs && node tests/capture.test.mjs && node tests/api.test.mjs && node tests/ssr.test.mjs"
+    "test": "node build.mjs && node tests/vault.test.mjs && node tests/capture.test.mjs && node tests/api.test.mjs && node tests/ssr.test.mjs && node tests/settings-compat.test.mjs && node tests/node-bin.test.mjs"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1"

@@ -15,7 +15,11 @@ const API = '/memory-eternal/api'
 // 真分页页大小：首屏只拉一页（服务端 offset/limit），滚到底再续拉下一页
 const PAGE_SIZE = 100
 
-export const inject = ['settingsScope', 'slots', 'locale', 'connection', 'remote']
+// dsh 0.1.7-alpha.1 把浏览器侧的设置绑定服务从 `settingsScope` 改名为 `configForms`。
+// 本插件从未使用过这个服务（设置 UI 走 slot 注册，见下面的 slots.inject），
+// 所以直接不再注入它：硬注入一个不存在的服务会让 client entry 永久 pending——
+// web 侧表现为「waiting for service」，desktop 侧直接判定 renderer boot failed。
+export const inject = ['slots', 'locale', 'connection', 'remote']
 
 export const ZH = {
   nav: '记忆',
