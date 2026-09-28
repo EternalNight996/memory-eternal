@@ -28,6 +28,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
+import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
@@ -211,17 +212,18 @@ export function apply(ctx, config) {
   const settings = bindSettings(ctx, Config, config)
 
   // 首次激活：自动从 .md 文件迁移到 SQLite（幂等，已有数据则跳过）
-  const vaultDir = () => {
-    const cfg = settings.get() ?? {}
-    // 多 Vault：若配了 vaultProfiles 且选中了 activeVault，则用该 profile 的目录。
-    const profiles = Array.isArray(cfg.vaultProfiles) ? cfg.vaultProfiles : []
-    const active = String(cfg.activeVault || '').trim()
-    const hit = active && profiles.find((p) => p.name === active)
-    if (hit && hit.path && hit.path.trim()) return path.resolve(hit.path.trim())
-    if (cfg.vaultDir && cfg.vaultDir.trim()) return path.resolve(cfg.vaultDir.trim())
-    const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-    return path.join(home, 'memory-vault')
-  }
+  // vault 解析与所有独立进程共用同一套优先级（见 lib/vault-resolve.js）：
+  // MEMORY_VAULT_DIR → activeVault → vaultProfiles[].match.workspace → vaultDir → 默认库。
+  const vaultDir = () => resolveVaultDir({
+    profiles: (settings.get() ?? {}).vaultProfiles,
+    activeVault: (settings.get() ?? {}).activeVault,
+    configured: (settings.get() ?? {}).vaultDir,
+  }).root
+  const vaultInfo = () => resolveVaultDir({
+    profiles: (settings.get() ?? {}).vaultProfiles,
+    activeVault: (settings.get() ?? {}).activeVault,
+    configured: (settings.get() ?? {}).vaultDir,
+  })
 
   // 自动迁移：从 .md 文件导入 SQLite（幂等，DB 有数据则跳过）
   try { migrateFromMarkdown(vaultDir()).catch(() => {}) } catch {}
@@ -589,6 +591,7 @@ export function apply(ctx, config) {
       parameters: {
         query: { type: 'string', required: true, description: '检索关键词或自然语言描述，如「数据库选型」「用户偏好」' },
         limit: { type: 'number', description: '返回卡片数上限，默认 5' },
+        scope: { type: 'string', description: '可选作用域：库名（vaultProfiles 里的 name）、路径前缀，或 all 跨全部库聚合；留空 = 当前激活库' },
       },
       output: {
         schema: { type: 'string' },
@@ -605,15 +608,46 @@ export function apply(ctx, config) {
         const defLen = Number(cfg2.recallSummaryLen) || 130
         const includeBody = cfg2.recallIncludeBody === true
         const limit = Math.min(Math.max(Number(args.limit) || defLimit, 1), 20)
-        const hits = await search(vaultDir(), query, { limit, minScore: 2 })
+        // 作用域（#10）：留空 = 当前激活库；all = 跨库聚合；库名 = 指定 profile；路径前缀 = 命中多个库
+        const scope = String(args.scope || '').trim()
+        const roots = vaultRoots()
+        let targets = [{ name: '', root: vaultDir() }]
+        let scoped = false
+        if (scope) {
+          const want = scope.toLowerCase()
+          if (want === 'all') {
+            targets = roots
+            scoped = true
+          } else {
+            const byName = roots.filter((r) => String(r.name || '').toLowerCase() === want)
+            const prefix = scope.replace(/\\/g, '/').toLowerCase()
+            const byPath = roots.filter((r) => r.root.replace(/\\/g, '/').toLowerCase().startsWith(prefix))
+            targets = byName.length ? byName : byPath
+            if (!targets.length) {
+              return `未找到匹配「${scope}」的记忆库。可用：${roots.map((r) => r.name || r.root).join('、')}（也可用 scope=\"all\" 跨库检索）`
+            }
+            scoped = true
+          }
+        }
+        const multi = scoped
+        let hits = []
+        for (const target of targets) {
+          try {
+            const part = await search(target.root, query, { limit, minScore: 2 })
+            for (const h of part) hits.push(multi ? { ...h, vault: target.name || target.root } : h)
+          } catch { /* 单个库失败不影响其它库 */ }
+        }
+        if (multi) hits = hits.slice(0, limit)
         if (hits.length === 0) return `记忆库中没有与「${query}」相关的内容。`
         const lines = hits.map((h, i) => {
           const tags = h.tags.length ? ` [${h.tags.join(', ')}]` : ''
           const snippet = String(h.summary || '').replace(/\s+/g, ' ').trim().slice(0, defLen)
           const body = includeBody ? `\n${String(h.excerpt || '').slice(0, 800)}` : ''
-          return `### ${i + 1}. ${h.title}${tags}\n路径：${h.path}\n${snippet}${body}`
+          const from = h.vault ? `（库：${h.vault}）` : ''
+          return `### ${i + 1}. ${h.title}${tags}${from}\n路径：${h.path}\n${snippet}${body}`
         })
-        return `从记忆核心检索到 ${hits.length} 条相关卡片：\n\n${lines.join('\n\n')}`
+        const where = multi ? `（作用域 ${scope || 'all'}，共 ${targets.length} 个库）` : ''
+        return `从记忆核心检索到 ${hits.length} 条相关卡片${where}：\n\n${lines.join('\n\n')}`
       },
     }))
   }
@@ -729,6 +763,9 @@ export function apply(ctx, config) {
                 distillEnabled: cfg.distillEnabled, dedupByLLM: cfg.dedupByLLM, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
                 autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoMcpSetup: cfg.autoMcpSetup,
                 auditMode: cfg.auditMode ?? 'all', auditExemptAgents: cfg.auditExemptAgents || [], auditExemptKinds: cfg.auditExemptKinds || [], recycleRetentionDays: cfg.recycleRetentionDays ?? 30,
+                // 多库（#10）：配置页可直接编辑
+                vaultProfiles: Array.isArray(cfg.vaultProfiles) ? cfg.vaultProfiles : [],
+                activeVault: cfg.activeVault || '',
               }
               const descriptor = (ctx.get('settings') ?? {}).describe?.({ redactSecrets: true }) ?? []
               const me = descriptor.find((d) => d.ns === 'memory-eternal')
@@ -740,6 +777,9 @@ export function apply(ctx, config) {
                 autoCapture: cfg.autoCapture !== false,
                 autoRecall: cfg.autoRecall !== false,
                 vaultDir: vaultDir(),
+                vaultName: vaultInfo().name,
+                vaultSource: vaultInfo().source,
+                workspace: vaultInfo().workspace,
                 version: versionRef,
               }
               return json(res, 200, { ok: true, config: safe, revision: me?.revision ?? 0, writable: true, readonly: false, schema: me?.schema ?? null, dsh: dshInfo, version: versionRef })

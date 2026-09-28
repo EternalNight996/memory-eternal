@@ -208,6 +208,22 @@ export const ZH = {
   maxCardsPerDay: '日配额',
   dedupThreshold: '去重阈值',
   recallLimit: '召回条数',
+  vaultMulti: '多库（按项目隔离）',
+  vaultMultiHint: '留空即单库，老配置不受影响',
+  vaultNow: '当前生效',
+  vaultSource: '来源',
+  vaultWorkspace: '当前 workspace',
+  vaultNamePh: '库名，如 work',
+  vaultPathPh: '目录，如 D:/vaults/work',
+  vaultMatchPh: '项目目录（可选，按 workspace 自动选库）',
+  vaultAdd: '添加一个库',
+  vaultActive: '激活库',
+  vaultActiveNone: '默认库（不指定）',
+  vaultSrcEnv: '环境变量 MEMORY_VAULT_DIR',
+  vaultSrcProfile: '激活库配置',
+  vaultSrcWorkspace: '按项目目录自动命中',
+  vaultSrcVaultDir: '单库配置 vaultDir',
+  vaultSrcDefault: '默认目录',
   recallSummaryLen: '召回摘要长度',
   recallBody: '召回含正文',
   autoWeb: 'Web server',
@@ -471,6 +487,22 @@ export const EN = {
   maxCardsPerDay: 'Daily quota',
   dedupThreshold: 'Dedup threshold',
   recallLimit: 'Recall limit',
+  vaultMulti: 'Multiple vaults (per project)',
+  vaultMultiHint: 'Empty = single vault; existing setups unaffected',
+  vaultNow: 'Active now',
+  vaultSource: 'Source',
+  vaultWorkspace: 'Current workspace',
+  vaultNamePh: 'Name, e.g. work',
+  vaultPathPh: 'Directory, e.g. D:/vaults/work',
+  vaultMatchPh: 'Project dir (optional, auto-select by workspace)',
+  vaultAdd: 'Add a vault',
+  vaultActive: 'Active vault',
+  vaultActiveNone: 'Default vault (unset)',
+  vaultSrcEnv: 'env MEMORY_VAULT_DIR',
+  vaultSrcProfile: 'activeVault profile',
+  vaultSrcWorkspace: 'matched by project dir',
+  vaultSrcVaultDir: 'vaultDir setting',
+  vaultSrcDefault: 'default directory',
   recallSummaryLen: 'Recall summary len',
   recallBody: 'Recall with body',
   autoWeb: 'Web server',
@@ -1311,7 +1343,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
     if (readonly) { notify(t('editInSetting'), false); return }
     setBusy('save')
     try {
-      const r = await fetch(`${API}/config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch: form, expectedRevision: revision }) })
+      // 空行（没填名字也没填目录）不要提交：schema 会拒绝，且会让用户莫名其妙
+      const payload = { ...form }
+      if (Array.isArray(payload.vaultProfiles)) {
+        payload.vaultProfiles = payload.vaultProfiles.filter((p) => p && (String(p.name || '').trim() || String(p.path || '').trim()))
+      }
+      const r = await fetch(`${API}/config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch: payload, expectedRevision: revision }) })
       const d = await r.json()
       if (d && d.ok) { setSaved(t('savedOk') + (d.note ? ` · ${t('restartHint')}` : '')); notify(t('savedOk')); await load() }
       else { const msg = r.status === 409 ? t('conflictRefresh') : (d?.error || t('saveFail')); setErr(msg); notify(msg, false) }
@@ -1319,6 +1356,22 @@ function ConfigPanel({ t, onReload, version, compact }) {
     finally { setBusy('') }
   }
   const resetForm = () => { setForm({ ...(cfg?.config ?? {}) }); setSaved('') }
+  // -- 多库（#10）：vaultProfiles / activeVault 的可视化编辑 --
+  const VAULT_SRC_KEYS = { env: 'vaultSrcEnv', profile: 'vaultSrcProfile', workspace: 'vaultSrcWorkspace', vaultDir: 'vaultSrcVaultDir', default: 'vaultSrcDefault' }
+  const profilesOf = (f) => (Array.isArray(f?.vaultProfiles) ? f.vaultProfiles : [])
+  const updateProfile = (i, key, value) => setForm((f) => {
+    const list = profilesOf(f).map((x) => ({ ...(x || {}) }))
+    const row = { ...(list[i] || {}) }
+    if (key === 'match') {
+      if (String(value).trim()) row.match = { ...(row.match || {}), workspace: value }
+      else delete row.match
+    } else row[key] = value
+    list[i] = row
+    return { ...(f ?? {}), vaultProfiles: list }
+  })
+  const addProfile = () => setForm((f) => ({ ...(f ?? {}), vaultProfiles: [...profilesOf(f), { name: '', path: '' }] }))
+  const removeProfile = (i) => setForm((f) => ({ ...(f ?? {}), vaultProfiles: profilesOf(f).filter((_, k) => k !== i) }))
+  const vaultInput = { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 12, minWidth: 0 }
   // 三套推荐方案值（A轻量/B省钱/C高质量）——一键填充表单
   const PLANS = {
     A: { label: t('planA'), autoWebMode: 'init', watchdogAutoSpawn: false, distillEnabled: true, dedupByLLM: true, captureMaxTokens: 900, recallMinScore: 2, recallLimit: 5, recallSummaryLen: 130, recallIncludeBody: false, captureCooldownMs: 300000 },
@@ -1446,6 +1499,38 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="recallLimit" label={t('recallLimit')} type="number" />
                 <F k="recallSummaryLen" label={t('recallSummaryLen')} type="number" />
                 <Bool k="recallIncludeBody" label={t('recallBody')} />
+              </div>
+            </div>
+            {/* 多库（按项目隔离记忆）—— #10 */}
+            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px', borderLeft: '3px solid #06b6d4' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <b style={{ fontSize: 12 }}>🗂️ {t('vaultMulti')}</b>
+                <div style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, opacity: 0.6 }}>{t('vaultMultiHint')}</span>
+              </div>
+              <div style={{ fontSize: 11.5, opacity: 0.85, marginBottom: 8, lineHeight: 1.7 }}>
+                {t('vaultNow')}：<code>{dsh?.vaultDir || '—'}</code>
+                {dsh?.vaultName ? `（${dsh.vaultName}）` : ''}
+                {' · '}{t('vaultSource')}：{t(VAULT_SRC_KEYS[dsh?.vaultSource] || 'vaultSrcDefault')}
+                {dsh?.workspace ? <><br />{t('vaultWorkspace')}：<code>{dsh.workspace}</code></> : null}
+              </div>
+              {profilesOf(form).map((p, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 1.5fr auto', gap: 6, marginBottom: 6 }}>
+                  <input value={p.name || ''} placeholder={t('vaultNamePh')} onChange={(e) => updateProfile(i, 'name', e.target.value)} style={vaultInput} disabled={readonly} />
+                  <input value={p.path || ''} placeholder={t('vaultPathPh')} onChange={(e) => updateProfile(i, 'path', e.target.value)} style={vaultInput} disabled={readonly} />
+                  <input value={(p.match && p.match.workspace) || ''} placeholder={t('vaultMatchPh')} onChange={(e) => updateProfile(i, 'match', e.target.value)} style={vaultInput} disabled={readonly} />
+                  <button type="button" className="mc-btn" onClick={() => removeProfile(i)} disabled={readonly} title={t('delete')}>✕</button>
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+                <button type="button" className="mc-btn" onClick={addProfile} disabled={readonly}>＋ {t('vaultAdd')}</button>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                  <span style={{ opacity: 0.6 }}>{t('vaultActive')}</span>
+                  <select value={form.activeVault || ''} onChange={(e) => set('activeVault', e.target.value)} disabled={readonly} style={vaultInput}>
+                    <option value="">{t('vaultActiveNone')}</option>
+                    {profilesOf(form).filter((p) => p && p.name).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                  </select>
+                </label>
               </div>
             </div>
             {/* 成本控制（省钱、控 LLM 消耗） */}
@@ -2244,6 +2329,23 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       else ctx.arc(x, y, r, 0, Math.PI * 2)
     }
 
+    // 渐变缓存：原来每帧每节点都 createRadialGradient（593 卡 = 593 次/帧）。
+    // 渐变对象在**填充时**按当前变换生效，所以按「颜色|半径」缓存一份局部坐标的渐变，
+    // 绘制时把 ctx 平移到节点位置即可复用 —— 首帧之后基本零创建。
+    const gradCache = new Map()
+    const gradientFor = (color, r) => {
+      const key = color + '|' + Math.round(r)
+      let g = gradCache.get(key)
+      if (!g) {
+        const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
+        g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r * 1.2)
+        g.addColorStop(0, 'rgba(' + Math.min(255,cr+70) + ',' + Math.min(255,cg+70) + ',' + Math.min(255,cb+70) + ',0.95)')
+        g.addColorStop(1, color)
+        gradCache.set(key, g)
+      }
+      return g
+    }
+
     const fit = () => {
       if (!sim.nodes.length) return
       let minX = 1/0, maxX = -1/0, minY = 1/0, maxY = -1/0
@@ -2282,7 +2384,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       const dense = sim.nodes.length > 40
       const labelThreshold = dense ? 1.5 : 0.55
       const focusId = sim.selectedId || sim.hoverId
-      // edges
+      // 边按「颜色 + 透明度 + 线宽」分桶，用 Path2D 一次描边：
+      // 原来每条边一次 beginPath/stroke（2.7k 条 = 2.7k 次绘制调用），现在只按配色桶数描边。
+      const edgeBuckets = new Map()
       sim.edges.forEach((e) => {
         const s = nodeMap[e.sourceNodeId], t = nodeMap[e.targetNodeId]
         if (!s || !t) return
@@ -2297,10 +2401,17 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         const focused = focusId && (e.sourceNodeId === focusId || e.targetNodeId === focusId)
         const alpha = focusId ? (focused ? 0.6 : 0.08) : (dense ? 0.14 : 0.24)
         const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
-        ctx.strokeStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',' + alpha + ')'
-        ctx.lineWidth = focused ? 1.6 + (e.weight||1) : 0.8 + (e.weight||1)*0.5
-        ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.quadraticCurveTo(cpx, cpy, t.x, t.y); ctx.stroke()
+        const width = focused ? 1.6 + (e.weight||1) : 0.8 + (e.weight||1)*0.5
+        const key = cr + ',' + cg + ',' + cb + ',' + alpha + ',' + width
+        let bucket = edgeBuckets.get(key)
+        if (!bucket) {
+          bucket = { path: new Path2D(), stroke: 'rgba(' + cr + ',' + cg + ',' + cb + ',' + alpha + ')', width }
+          edgeBuckets.set(key, bucket)
+        }
+        bucket.path.moveTo(s.x, s.y)
+        bucket.path.quadraticCurveTo(cpx, cpy, t.x, t.y)
       })
+      edgeBuckets.forEach((b) => { ctx.strokeStyle = b.stroke; ctx.lineWidth = b.width; ctx.stroke(b.path) })
       // 邻接索引：dim 判定原本是 O(节点 × 边) —— 593 卡 × 1.2 万条边、每帧几百万次比较，
       // 实测 52ms/帧。先把 focusId 的邻居收进 Set，判定降为 O(1)，每帧只多一次 O(E) 建表。
       let focusNeighbors = null
@@ -2327,12 +2438,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         ctx.save()
         ctx.globalAlpha = dimmed ? 0.08 : 1
         if (isSel || isHov) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 20 : 14 }
-        drawShape(n.x, n.y, n.r, shape)
-        const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
-        const grad = ctx.createRadialGradient(n.x - n.r*0.3, n.y - n.r*0.3, 0, n.x, n.y, n.r*1.2)
-        grad.addColorStop(0, 'rgba(' + Math.min(255,cr+70) + ',' + Math.min(255,cg+70) + ',' + Math.min(255,cb+70) + ',0.95)')
-        grad.addColorStop(1, color)
-        ctx.fillStyle = grad; ctx.fill(); ctx.restore()
+        ctx.translate(n.x, n.y) // 局部坐标 → 渐变可跨节点复用
+        drawShape(0, 0, n.r, shape)
+        ctx.fillStyle = gradientFor(color, n.r); ctx.fill(); ctx.restore()
         if (isSel) { ctx.save(); drawShape(n.x, n.y, n.r+3, shape); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.stroke(); ctx.restore() }
         else if (isHov) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
         else if (searchTerm && searchHit) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
