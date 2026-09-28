@@ -29,10 +29,14 @@
 
 ### 🟦 DeepSeek Harness (DSH) — focus
 
-**Install** (dsh-desktop via DSH CLI, one command):
+**Install** (official desktop app via the plugin marketplace, `dsh web` via one CLI line):
 
 ```bash
-# dsh-desktop (recommended): install via DSH CLI into the profile
+# 1) Official DeepSeek Harness desktop app (recommended): Settings -> Plugins -> search memory-eternal
+#    Equivalent CLI (that shell's profile is named "desktop"):
+dsh plugin --profile desktop add memory-eternal
+
+# 2) dsh web (browser):
 dsh plugin --profile web add memory-eternal
 
 # or update directly in the profile (pnpm workspace). Use pnpm — `npm install` throws EUNSUPPORTEDPROTOCOL
@@ -41,13 +45,19 @@ cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
 # right after a release, @latest can be held back by pnpm's minimum-release-age gate or a cached
 # packument (it silently stays on the old version): pin the version instead — pnpm adds it to the
 # workspace's minimumReleaseAgeExclude automatically
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.9.0
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.9.6
 
-# verify the version, then restart dsh web
+# verify the version, then restart the host
 node -e "console.log(require('memory-eternal/package.json').version)"
 ```
 
-After **restarting dsh web**, three things are live immediately:
+#### 🖥️ Desktop support policy (read this first)
+
+- **The official DeepSeek Harness desktop build is the priority — and the only guaranteed target** (the official Electron release; its profile is named `desktop`). The v0.9.4 → v0.9.6 fixes all target it: the 0.1.7 settings-service rewrite, `schemastery 3.18.4` volatile live references, and window-titlebar avoidance (`data-windows-titlebar`, so a full-screen overlay can no longer cover minimize/maximize/close).
+- **The author's own `dsh-desktop` (`dsh-desktop-shell` / `dsh-ui-*` / `dsh-plugin-marketplace`) is discontinued** and is no longer a support target — the official desktop build covers the same ground, and maintaining two shells only splits compatibility. Note that its profile still pins `dsh-desktop-shell@0.3.0`, which has been unpublished from npm and makes `pnpm install` fail outright; migrating to the official desktop build and dropping those dependencies is recommended.
+- Compatibility matrix (both verified): the official `desktop` profile (schemastery **3.18.4**) and the `web` profile behind `dsh web` (schemastery **3.18.1**) share the same code path.
+
+After **restarting the host**, three things are live immediately:
 
 | Effect | Where |
 |---|---|

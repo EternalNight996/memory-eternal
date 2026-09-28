@@ -29,24 +29,34 @@
 
 ### 🟦 DeepSeek Harness（DSH）—— 重点
 
-**装**（dsh-desktop 用 DSH CLI，一条命令）：
+**装**（官方桌面版走插件市场，`dsh web` 用一条 CLI）：
 
 ```bash
-# dsh-desktop 用户（推荐）：DSH CLI 直接装进 profile
+# ① 官方 DeepSeek Harness 桌面版（推荐）：设置 → 插件 → 搜 memory-eternal 安装
+#    等价 CLI（该壳的 profile 名就是 desktop）：
+dsh plugin --profile desktop add memory-eternal
+
+# ② dsh web（浏览器端）：
 dsh plugin --profile web add memory-eternal
 
-# 或直接在 profile（pnpm workspace）里更新。注意用 pnpm，npm install 会报 EUNSUPPORTEDPROTOCOL
+# 或在 profile（pnpm workspace）里直接更新。注意用 pnpm，npm install 会报 EUNSUPPORTEDPROTOCOL
 cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
 
 # 刚发新版时 @latest 可能被 pnpm 的最小发布年龄门槛/元数据缓存挡住（静默停在旧版）：
 # 直接指定版本号最快，pnpm 会自动把它加进 workspace 的 minimumReleaseAgeExclude
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.9.0
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.9.6
 
-# 验版本（应等于上面装的号），然后重启 dsh web 生效
+# 验版本（应等于上面装的号），然后重启对应宿主生效
 node -e "console.log(require('memory-eternal/package.json').version)"
 ```
 
-**重启 dsh web** 后，三样东西立即生效：
+#### 🖥️ 桌面版支持策略（先看这条）
+
+- **优先、且只保证支持官方 DeepSeek Harness 桌面版**（官方 Electron 发行版，profile 名 `desktop`）。v0.9.4 → v0.9.6 三轮修复全部围绕它：0.1.7 设置服务换血、`schemastery 3.18.4` 的 volatile 活引用、以及窗口标题栏避让（`data-windows-titlebar`，避免全屏浮层压住最小化/最大化/关闭）。
+- **作者自研的 `dsh-desktop`（`dsh-desktop-shell` / `dsh-ui-*` / `dsh-plugin-marketplace` 那一套）已停止维护**，不再作为支持目标 —— 官方桌面版已覆盖同样能力，继续维护两条壳只会分裂兼容性。注意它的 profile 依赖里还钉着已从 npm 撤下的 `dsh-desktop-shell@0.3.0`，会让 `pnpm install` 直接失败；**建议迁到官方桌面版，并从 profile 里删掉这套依赖**。
+- 兼容矩阵（均已实测）：官方桌面版 `desktop` profile（schemastery **3.18.4**）＋ `dsh web` 的 `web` profile（schemastery **3.18.1**），两条路径共用同一份代码。
+
+**重启宿主**后，三样东西立即生效：
 
 | 效果 | 在哪看 |
 |---|---|

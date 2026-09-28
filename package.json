@@ -89,7 +89,8 @@
     },
     "marketplace": {
       "profiles": [
-        "web"
+        "web",
+        "desktop"
       ],
       "requiresBuildApproval": false,
       "requiresRestart": true,
@@ -122,7 +123,8 @@
       },
       "node": ">=22",
       "profiles": [
-        "web"
+        "web",
+        "desktop"
       ]
     }
   }
