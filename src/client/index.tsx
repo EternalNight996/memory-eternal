@@ -2296,6 +2296,16 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         ctx.lineWidth = focused ? 1.6 + (e.weight||1) : 0.8 + (e.weight||1)*0.5
         ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.quadraticCurveTo(cpx, cpy, t.x, t.y); ctx.stroke()
       })
+      // 邻接索引：dim 判定原本是 O(节点 × 边) —— 593 卡 × 1.2 万条边、每帧几百万次比较，
+      // 实测 52ms/帧。先把 focusId 的邻居收进 Set，判定降为 O(1)，每帧只多一次 O(E) 建表。
+      let focusNeighbors = null
+      if (focusId) {
+        focusNeighbors = new Set()
+        sim.edges.forEach((ed) => {
+          if (ed.sourceNodeId === focusId) focusNeighbors.add(ed.targetNodeId)
+          else if (ed.targetNodeId === focusId) focusNeighbors.add(ed.sourceNodeId)
+        })
+      }
       // nodes
       const drawn = []
       sim.nodes.forEach((n) => {
@@ -2308,7 +2318,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         const searchHit = !searchTerm || (n.name || '').toLowerCase().includes(searchTerm) || String(KIND_LABELS[kind] || '').toLowerCase().includes(searchTerm) || String(kind).toLowerCase().includes(searchTerm)
         const kindOk = kf === 'all' || kind === kf
         const tagOk = !kfTag || ((info.tags || []).includes(kfTag))
-        const dimmed = (focusId && n.id !== focusId && !sim.edges.some((ed) => (ed.sourceNodeId === focusId && ed.targetNodeId === n.id) || (ed.targetNodeId === focusId && ed.sourceNodeId === n.id))) || (searchTerm && !searchHit) || !kindOk || !tagOk
+        const dimmed = (focusId && n.id !== focusId && !(focusNeighbors && focusNeighbors.has(n.id))) || (searchTerm && !searchHit) || !kindOk || !tagOk
         ctx.save()
         ctx.globalAlpha = dimmed ? 0.08 : 1
         if (isSel || isHov) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 20 : 14 }

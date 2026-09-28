@@ -165,6 +165,23 @@ dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
 | 自动召回 | 开 | AI 需要历史时自动帮你查记忆 |
 | 记忆库目录 | `~/.dsh/memory-vault` | 记忆存哪，纯 Markdown 可 git 管理 |
 
+#### 多库（按项目隔离记忆）
+
+配置里还有两个字段（写在 `memory-eternal-config.json`，或设置面板同步过来的共享配置）：
+
+```json
+{
+  "vaultProfiles": [{ "name": "work", "path": "D:/vaults/work" }],
+  "activeVault": "work"
+}
+```
+
+解析顺序：`MEMORY_VAULT_DIR` 环境变量 → `activeVault` 命中 `vaultProfiles[].name` 的 `path` → `vaultDir` → 默认 `~/.dsh/memory-vault`。
+
+**v0.9.8 起，CLI / MCP / hooks / 独立 web / sweep 与 DSH 宿主共用同一套顺序**：以前只有宿主认 `activeVault`，切库后终端与 hooks 仍往默认库写，记忆会被劈成两份。
+
+> 说明：配置页目前还没有 `vaultProfiles` / `activeVault` 的可视化表单（要手工写配置文件），按 workspace 自动选库也还没做。
+
 ### 二、省钱包（重要）
 
 | 配置项 | 默认 | 大白话说明 |
@@ -273,6 +290,7 @@ npm run build   # 构建 lib/client.js（DSH 内嵌）+ web/app.js（独立 web 
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.9.8** | 2026-09-28 | **集中解决存量问题**。① **采集可信性**（issue #3 / #4）：蒸馏路由不再写死 `providers[0]` —— 新增 `captureProvider` / `captureModel` 配置，并按注册顺序**依次重试**；**流末尾 `finish` 块里的适配器错误**（缺凭证 `MISSING_CREDENTIAL`、限流等）现在成为**可见失败**（沉淀日志写明 code/message + 健康态亮红 + 兜底原文卡注明原因），不再笼统记成「蒸馏无输出」；停滞探测从「累积计数差额」改为**滑动窗口**（20 分钟内持续开始且零收尾才告警），误报与漏报一并修掉。② **独立进程 vault 一致性**（dsh-memory-eternal#5）：CLI / MCP / hooks / 独立 web / sweep 与宿主共用同一套优先级（`MEMORY_VAULT_DIR` → `activeVault` → `vaultDir` → 默认库），切库后不再数据分裂。③ **看门狗单例锁**（dsh-memory-eternal#6）：同端口已有活着的 watchdog 时新进程直接退出并清理陈旧 pid 记录，止住「每次重启多一个孤儿进程」。④ **图谱性能**：标签边改「共享标签数 Top-K」（593 卡实测 **24,193 → 2,763** 条边）、相似度改**稀有 bigram 倒排候选**（冷启动 **948 → ~520ms**，warm 2-4ms）、payload **3,531KB → 579KB**；客户端 dim 判定改**邻接 Set**（每帧 **52ms → <1ms**）。⑤ 新增 5 个测试文件（路由/finish、停滞窗口、vault 解析、看门狗锁、图谱性能基线），`npm test` **85 项** |
 | **v0.9.7** | 2026-09-28 | **打开卡片默认全部展开（可收起）＋ 正文排版重做**：卡片阅读器不再默认折成 300px，而是**打开即读全文**，长卡可一键收起（折叠后底部给「展开 ⌄」提示）。frontmatter 从正文里抽出来，改成 kind / 审核状态 / 标签 / 时间 / 来源的**彩色 chips**（kind 沿用图谱配色），不再把一段 YAML 当正文露出来。正文排版换成新方案（`src/client/markdown.js`，宿主与独立 web 共用同一套）：小标题按语义自动配 **emoji + 颜色分组**（结论 ✅绿 / 风险 ⚠️琥珀 / 根因 🔍蓝 / 方案 🛠️紫 / 示例 💡粉），连续 `- ` 合成真正的 `<ul>`、`1.` 合成带圆形序号的 `<ol>`、`- [x]` 变复选框、`>` 引用升级成带 emoji 的 callout、`---` 变分隔线、行首「短键：值」渲染成对齐样式、`**加粗**` 加荧光笔下划线；围栏代码整段保护，内部 `#` / `-` 不再被误排版。**新增 7 项排版单测**（含 XSS 转义、链接协议白名单、散文冒号不得误判成 key/value）。另含 PR #8 移植：Electron 宿主下的子进程 node 解析（`lib/node-bin.js`，修「独立 web server 拉不起来 → 侧边栏弹窗白屏」）与 `webServer` 就绪后再注册 API 路由（修「设置页永远加载中」） |
 | **v0.9.6** | 2026-09-28 | **修复官方桌面版全屏浮层挡住窗口控制面板（点「关闭」会退出整个桌面壳）**：桌面壳把「最小化 / 最大化 / 关闭」画在页面顶部，并按 DSH 约定在 `<html>` 上打 `data-windows-titlebar` + 给出 `--dsh-windows-titlebar-height`（已在官方桌面版 `app.asar` 里确认这两个标记确实存在）；记忆库全屏浮层原本是 `inset:0` + 内联 `100vh`，整条盖住标题栏，而我们右上角的「×」恰好压在窗口「关闭」上 —— 用户一点就直接退出整个桌面壳。现全屏态改用 `.me-modal-full` 类（不再写死内联 `100vh`：内联样式无法被 CSS 覆盖），并在 `[data-windows-titlebar]` 下把 `.me-overlay-top` / `.me-overlay` / `.me-modal-full` 一律下移 `--dsh-windows-titlebar-height`、高度改为 `calc(100vh - 该高度)`；浏览器里没有该属性时偏移 0px，行为与之前完全一致。导出图谱的全屏预览同步从 `100vh` 改为 `100%`，避免在缩短后的浮层里溢出。新增 1 项渲染回归断言（三处让位规则必须出现在打包产物中） |
 | **v0.9.5** | 2026-09-28 | **修复官方桌面版（schemastery 3.18.4）下插件整体挂不上**：桌面版 profile 解析到的是 **schemastery 3.18.4**，它会把标了 `volatile` 的 Config 字段解析成 cosmokit 的**活引用**（`{ get(): snapshot }`，品牌 `Symbol.for('cosmokit.volatile.write')`），而 0.9.4 的业务代码把字段当普通值用 —— `cfg.vaultDir.trim()` 当场抛 `TypeError: cfg.vaultDir.trim is not a function`，插件在 `apply` 里就崩（桌面版实测报错原文）。现按 cosmokit 协议统一**深解引用**（引用取快照、数组/对象递归展开），`settings.get()` 对外只给普通值；每次读取都重新解，loader 原地提交的 volatile 热更新照样立刻可见，`JSON.stringify` 写共享配置也不再变成 `{}`。新增 2 项回归（3.18.4 真实引用形态 + 嵌套数组/对象），并用**桌面版真实模块解析布局**（schemastery 3.18.4 + 真 cosmokit）跑通 `apply` 验证 |
