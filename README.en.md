@@ -269,6 +269,41 @@ npm run build   # builds lib/client.js (DSH embed) + web/app.js (standalone web 
 
 ---
 
+## 🐞 Reporting a bug
+
+The left rail has a **🐞 Report a bug** entry: describe the problem, then either
+
+- **Open prefilled issue on GitHub** — title, body, diagnostics and the `bug` label are filled in; one more click on **Submit** files it;
+- **Copy AI prompt** — paste it into your AI chat and it will run `gh` to de-duplicate, file the issue and report the URL back.
+
+> **Why not one-click submission?** GitHub forbids anonymous issue creation, a token inside the plugin would be extracted by decompiling, and OAuth / a relay needs hosted infrastructure — hence "pre-fill + one click".
+> Diagnostics are **auto-redacted** (home directory → `~`; `sk-` / `ghp_` / `github_pat_` / `api_key:` → `***`), but do skim them before posting publicly.
+
+If you cannot reach the UI, paste the prompt below into your AI chat and replace the last placeholder with your problem:
+
+```text
+I hit a problem while using memory-eternal (a DeepSeek Harness memory plugin). Please file it on GitHub for me.
+
+Repo: https://github.com/EternalNight996/memory-eternal
+
+Workflow:
+
+1. Run `gh issue list --repo EternalNight996/memory-eternal --state open --limit 50` first: if a matching issue exists, add a comment with `gh issue comment <n> --body-file <file>` instead of opening a duplicate.
+2. Otherwise create it with `gh issue create --repo EternalNight996/memory-eternal --title "[Bug] <one-line summary>" --body-file <file>`, using sections: Symptoms / Steps to reproduce / Expected / Actual / Environment (plugin, DSH, OS, Node) / Diagnostics.
+3. If `gh` is not authenticated or unavailable, do NOT try to submit: output a GitHub new-issue link with the title and body pre-filled instead, and I will click submit myself.
+4. Report the resulting issue URL back to me.
+
+Keep my description verbatim - do not rewrite or summarise it. Put the diagnostics under the Diagnostics section as-is.
+
+My description:
+<write your problem here>
+
+Diagnostics:
+<paste the diagnostics copied from the in-app Report-a-bug dialog>
+```
+
+---
+
 ## 📋 Changelog
 
 > **Withdrawn versions**: **v0.9.0 – v0.9.5 are all deprecated on npm, and the release tags for v0.9.1 / v0.9.2 / v0.9.3 / v0.9.4 have been removed from git** (v0.9.5 is merely superseded, so its tag stays) — v0.9.1/v0.9.2 ship the blank-memory-page defect, v0.9.0 false-alarms its capture warnings, v0.9.3 does not support DSH v0.1.7-rc.2 (the plugin stops mounting entirely: the settings service changed and the client-side `settingsScope` is gone), v0.9.4 crashes under the official desktop build (schemastery 3.18.4 volatile live references) with `cfg.vaultDir.trim is not a function`, and **v0.9.5's full-screen overlay covers the desktop shell's window controls (its top-right "×" sits on the window Close button — one click quits the whole shell)**. Use **v0.9.6+** (`npm i memory-eternal@latest`).

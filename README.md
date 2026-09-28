@@ -282,6 +282,52 @@ npm run build   # 构建 lib/client.js（DSH 内嵌）+ web/app.js（独立 web 
 
 ---
 
+## 🐞 反馈问题
+
+插件左栏有 **🐞 反馈异常** 入口：填完问题描述后可以
+
+- **在 GitHub 提交（已预填）** —— 标题 / 正文 / 诊断信息 / `bug` 标签都填好，再点一次 **Submit** 即提交；
+- **复制给 AI 的提示词** —— 粘进 AI 对话框，让它用 `gh` 查重后建 issue 并回报链接。
+
+> **为什么不能「点一下自动提交」**：GitHub 不允许匿名创建 issue；插件里内置 token 会被反编译提取；OAuth / 自建中转需要服务器。所以实现为「预填 + 一次点击」。
+> 诊断信息会**自动脱敏**（home 目录 → `~`，`sk-` / `ghp_` / `github_pat_` / `api_key:` 等 → `***`），但公开提交前仍建议自己扫一眼。
+
+如果你拿不到插件界面，也可以直接把下面这段贴给 AI（把「我的问题描述」换成你的问题即可）：
+
+```text
+我在使用 memory-eternal（DeepSeek Harness 的记忆插件）时遇到了问题，请你帮我把这个问题提交到 GitHub。
+
+仓库：https://github.com/EternalNight996/memory-eternal
+
+请按这个流程做：
+
+1. 先跑 `gh issue list --repo EternalNight996/memory-eternal --state open --limit 50`，看是否已有相同问题：
+   - 已有 → 用 `gh issue comment <编号> --body-file <文件>` 补充现象，不要重复开新 issue；
+   - 没有 → 继续第 2 步。
+2. 把正文写成文件，然后 `gh issue create --repo EternalNight996/memory-eternal --title "[Bug] <一句话概括>" --body-file <文件>`；正文用这个结构：
+   现象 / 复现步骤 / 期望行为 / 实际行为 / 环境（插件版本 / DSH 版本 / 操作系统 / Node）/ 诊断信息。
+3. 如果 `gh` 没登录或不可用，不要尝试提交，改为输出一条「标题与正文都已预填」的 GitHub 新建 issue 链接给我，我自己点提交。
+4. 提交成功后，把 issue 链接发给我。
+
+注意：我的问题描述请原样照录，不要替我美化或省略细节；诊断信息原样放进「诊断信息」一节。
+
+我的问题描述：
+<在这里写你的问题>
+
+诊断信息：
+<把「反馈异常」弹窗里复制的诊断信息粘到这里>
+```
+
+### 环境自检（贴问题时附上更快定位）
+
+```bash
+dsh plugin list                      # 插件版本
+node -v                              # Node 版本
+curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活着
+```
+
+---
+
 ## 📋 更新日志
 
 > **版本撤回说明**：**v0.9.0 – v0.9.5 均已在 npm 标记 deprecated；v0.9.1 / v0.9.2 / v0.9.3 / v0.9.4 的 release tag 已从 git 移除**（v0.9.5 只是被取代、tag 保留）—— v0.9.1/v0.9.2 带记忆页白屏缺陷，v0.9.0 沉淀告警误报刷屏，v0.9.3 不支持 DSH v0.1.7-rc.2（升级后插件整体挂不上：设置服务换血 + 客户端 `settingsScope` 消失），v0.9.4 在官方桌面版（schemastery 3.18.4 的 volatile 活引用）下抛 `cfg.vaultDir.trim is not a function`、插件整体挂不上，**v0.9.5 的全屏浮层会盖住桌面版的窗口控制面板（右上角「×」压在窗口「关闭」上，点一下会退出整个桌面壳）**。请一律使用 **v0.9.6+**（`npm i memory-eternal@latest`）。
