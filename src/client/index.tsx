@@ -633,10 +633,15 @@ const CSS = `
 .mc-flag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); margin-left: 6px; }
 
 /* ---- sidebar footer button ---- */
-/* 让「记忆」按钮独占一行：让容器可换行，本按钮 flex-basis:100% 占满整行。
-   同时命中「footerActions 直接包含」与「中间隔一层 wrapper」两种情况（:has 在 WebView2/Chromium 均支持）。 */
-[class*="footerActions"]:has(.me-footer), :has(> .me-footer) { flex-wrap: wrap; width: 100%; }
-.me-footer { width: 100%; flex: 1 1 100%; }
+/* 让「记忆」按钮独占一行。注意：槽位宿主有两种形态 ——
+   ① 壳自己的横向行容器（.footerActions），这里要 flex-wrap + width:100% 才能让入口独占一行；
+   ② 被别的插件（dsh-diff-approval / dsh-footer-order 等）改成 flex-direction:column 的
+      div[data-slot="sidebar.footer.action"]。纵向容器里 wrap 的语义是「换列」，
+      而 flex-basis:100% 指的是「高度 100%」——两者叠加会把按钮挤进右侧溢出列，
+      最终裁切到只剩右边缘一条缝（issue #2）。所以这两条只用在 ①，② 只给宽度。 */
+[class*="footerActions"]:has(.me-footer), :has(> .me-footer) { width: 100%; }
+[class*="footerActions"]:has(.me-footer) { flex-wrap: wrap; }
+.me-footer { width: 100%; flex: 0 0 auto; min-width: 0; }
 .me-footer-btn { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border: 1px solid var(--dsw-alias-border-l1, rgba(127,127,127,0.14)); background: var(--dsw-alias-bg-layer-1, rgba(255,255,255,0.04)); color: var(--dsw-alias-label-secondary, #6b7280); font: inherit; font-size: 13.5px; line-height: 18px; border-radius: 8px; cursor: pointer; text-align: left; }
 .me-footer-btn:hover { background: var(--dsw-alias-bg-layer-1, rgba(255,255,255,0.06)); color: var(--dsw-alias-label-primary, #111); }
 .me-footer-btn:active { transform: translateY(0.5px); }
