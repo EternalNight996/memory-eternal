@@ -10,6 +10,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
+// 「反馈异常」纯函数层（与宿主/独立 web 共用同一套脱敏与预填逻辑）
+import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
@@ -224,6 +226,21 @@ export const ZH = {
   vaultSrcWorkspace: '按项目目录自动命中',
   vaultSrcVaultDir: '单库配置 vaultDir',
   vaultSrcDefault: '默认目录',
+  fbNav: '反馈异常',
+  fbTitle: '反馈异常（提交到 GitHub）',
+  fbDesc: '描述你遇到的问题（现象 / 复现步骤 / 期望行为）',
+  fbDiag: '诊断信息（已自动脱敏：home 目录与 key/token 已替换）',
+  fbCopyDiag: '复制诊断信息',
+  fbOpenIssue: '在 GitHub 提交（已预填）',
+  fbCopyPrompt: '复制给 AI 的提示词',
+  fbCopiedDiag: '诊断信息已复制',
+  fbCopiedPrompt: '提示词已复制，粘进 AI 对话框即可',
+  fbCopyFail: '复制失败，请手动选中复制',
+  fbWhy: 'GitHub 不允许匿名创建 issue，插件里也不应内置 token：所以这里把标题 / 正文 / 诊断都预填好，你只需再点一次 Submit。',
+  fbNeedDesc: '请先描述你遇到的问题',
+  fbLoading: '正在收集诊断信息…',
+  fbDiagFail: '诊断接口不可用（独立 web 或旧版宿主），请手动补充环境信息',
+  fbOr: '或者',
   recallSummaryLen: '召回摘要长度',
   recallBody: '召回含正文',
   autoWeb: 'Web server',
@@ -503,6 +520,21 @@ export const EN = {
   vaultSrcWorkspace: 'matched by project dir',
   vaultSrcVaultDir: 'vaultDir setting',
   vaultSrcDefault: 'default directory',
+  fbNav: 'Report a bug',
+  fbTitle: 'Report a bug (files on GitHub)',
+  fbDesc: 'Describe the problem (symptoms / steps / expected)',
+  fbDiag: 'Diagnostics (auto-redacted: home dir and keys/tokens replaced)',
+  fbCopyDiag: 'Copy diagnostics',
+  fbOpenIssue: 'Open prefilled issue on GitHub',
+  fbCopyPrompt: 'Copy AI prompt',
+  fbCopiedDiag: 'Diagnostics copied',
+  fbCopiedPrompt: 'Prompt copied — paste it into your AI chat',
+  fbCopyFail: 'Copy failed; please select and copy manually',
+  fbWhy: 'GitHub does not allow anonymous issue creation and the plugin must not ship a token: so the title, body and diagnostics are pre-filled — you just click Submit.',
+  fbNeedDesc: 'Please describe the problem first',
+  fbLoading: 'Collecting diagnostics…',
+  fbDiagFail: 'Diagnostics endpoint unavailable (standalone web or older host); please add environment info manually',
+  fbOr: 'or',
   recallSummaryLen: 'Recall summary len',
   recallBody: 'Recall with body',
   autoWeb: 'Web server',
@@ -967,6 +999,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const [exporting, setExporting] = useState(false)
   const [reader, setReader] = useState(null)
   const [allVaults, setAllVaults] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [railOpen, setRailOpen] = useState(true)
   const [newCard, setNewCard] = useState(null)
   const [dataVer, setDataVer] = useState(0)
@@ -1190,6 +1223,10 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
             <span className="mc-rail-ico">⚙️</span>
             {railOpen && <span className="mc-rail-label">{t('tabConfig')}</span>}
           </button>
+          <button type="button" className="mc-railbtn" onClick={() => setFeedbackOpen(true)} title={t('fbNav')}>
+            <span className="mc-rail-ico">🐞</span>
+            {railOpen && <span className="mc-rail-label">{t('fbNav')}</span>}
+          </button>
         </div>
         <div className="mc-main" ref={mainRef}>
         {view === 'cards' && (
@@ -1273,6 +1310,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
           {visited.has('optimize') && <RecoverPanel t={t} onReload={() => loadAll()} version={dataVer} />}
         </div>
 
+        {feedbackOpen && <FeedbackModal t={t} onClose={() => setFeedbackOpen(false)} />}
         {reader && <CardReader t={t} card={reader} query={query.trim()} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />}
         <NewCardModal t={t} newCard={newCard} setNewCard={setNewCard} onCreated={() => { loadAll(); bump(); setLibToast({ ok: true, msg: t('created') }); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />
         </div>
@@ -2080,6 +2118,83 @@ function NewCardModal({ t, newCard, setNewCard, onCreated }) {
 }
 
 // （旧 CardReader 片段已由新版替换。）
+/**
+ * 「反馈异常」弹窗。
+ *
+ * 为什么不是「点一下自动提交」：GitHub 不允许匿名创建 issue，插件里也不能内置 token
+ * （asar/JS 反编译即可提取）。所以这里把标题 / 正文 / 诊断全部预填进 GitHub 的新建 issue 链接，
+ * 用户点一次 Submit 才算提交；同时提供「复制给 AI 的提示词」，让 AI 用 gh 直接建 issue。
+ */
+function FeedbackModal({ t, onClose }) {
+  const [text, setText] = useState('')
+  const [diag, setDiag] = useState('')
+  const [version, setVersion] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
+  const [toast, setToast] = useState('')
+  const toastTimer = useRef(null)
+  const notify = (msg) => { setToast(msg); if (toastTimer.current) clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 2400) }
+  useEffect(() => {
+    let alive = true
+    fetch(API + '/diagnostics')
+      .then((r) => r.json())
+      .then((d) => { if (!alive) return; if (d && d.ok) { setDiag(String(d.diagnostics || '')); setVersion(String(d.version || '')) } else setFailed(true) })
+      .catch(() => { if (alive) setFailed(true) })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [])
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); if (toastTimer.current) clearTimeout(toastTimer.current) }
+  }, [onClose])
+  // 语言用于选提示词模板；DSH 未把 locale 传到这里，用浏览器语言兜底
+  const lang = (() => { try { return String(navigator.language || '').toLowerCase().startsWith('en') ? 'en' : 'zh' } catch { return 'zh' } })()
+  const openIssue = () => {
+    const first = text.trim().split('\n')[0] || ''
+    const url = buildIssueUrl({ title: '[Bug] ' + (first.slice(0, 60) || 'memory-eternal 问题'), body: buildIssueBody({ description: text, diagnostics: diag, version }) })
+    try { window.open(url, '_blank', 'noopener') } catch { notify(t('fbCopyFail')) }
+  }
+  const copyDiag = async () => {
+    try { await navigator.clipboard.writeText(diag); notify(t('fbCopiedDiag')) } catch { notify(t('fbCopyFail')) }
+  }
+  const copyPrompt = async () => {
+    const prompt = buildAgentPrompt({ lang, description: text, diagnostics: diag })
+    try { await navigator.clipboard.writeText(prompt); notify(t('fbCopiedPrompt')) } catch { notify(t('fbCopyFail')) }
+  }
+  const inputStyle = { width: '100%', resize: 'vertical', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 13 }
+  const preStyle = { margin: 0, maxHeight: 170, overflow: 'auto', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', borderRadius: 10, background: 'var(--dsw-alias-bg-layer-1, rgba(127,127,127,0.08))', whiteSpace: 'pre-wrap' }
+  return (
+    <div className="me-overlay" onClick={onClose}>
+      <style>{CSS}</style>
+      <div className="me-dialog" style={{ maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
+        <div className="me-dialog-head">
+          <h3>🐞 {t('fbTitle')}</h3>
+          <button type="button" className="mc-btn" onClick={onClose}>{t('close')}</button>
+        </div>
+        <div className="me-dialog-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 12, opacity: 0.72, lineHeight: 1.6 }}>{t('fbWhy')}</div>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={t('fbDesc')} rows={5} style={inputStyle} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <b style={{ fontSize: 12 }}>{t('fbDiag')}</b>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="mc-btn" onClick={copyDiag} disabled={!diag}>{t('fbCopyDiag')}</button>
+            </div>
+            <pre style={preStyle}>{loading ? t('fbLoading') : (failed ? t('fbDiagFail') : diag)}</pre>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button type="button" className="mc-btn" onClick={() => { if (!text.trim()) { notify(t('fbNeedDesc')); return } openIssue() }} style={{ borderColor: 'var(--dsw-alias-brand-primary, #3b82f6)', color: 'var(--dsw-alias-brand-primary, #3b82f6)', fontWeight: 600 }}>🚀 {t('fbOpenIssue')}</button>
+            <span style={{ opacity: 0.5, fontSize: 12 }}>{t('fbOr')}</span>
+            <button type="button" className="mc-btn" onClick={copyPrompt}>🤖 {t('fbCopyPrompt')}</button>
+          </div>
+          {toast && <div style={{ fontSize: 12, color: 'var(--dsw-alias-brand-primary, #3b82f6)' }}>{toast}</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
