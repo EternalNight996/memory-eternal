@@ -5,8 +5,10 @@
 # 开通后再去掉下面的注释并填用户名，否则仓库页会出现一个无意义的 Sponsor 按钮。
 # github: EternalNight996
 
-# 自定义渠道：微信收款码 / 微信赞赏码（图片链接，点开即扫码）
+# 自定义渠道。注意：GitHub 的 FUNDING 只接受链接、不能嵌图，所以第一项指向 SPONSOR.md
+# ——点开就是一个直接显示两个收款码的页面，比裸图片链接更清楚。
 custom:
+  - https://github.com/EternalNight996/memory-eternal/blob/main/SPONSOR.md
   - https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg
   - https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg
 

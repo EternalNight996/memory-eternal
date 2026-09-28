@@ -81,3 +81,15 @@ test('官方桌面版：全屏浮层必须让开窗口标题栏', () => {
   assert.ok(html.includes('.me-modal-full'), '全屏态必须走 me-modal-full 类：内联 100vh 无法被 CSS 覆盖')
   assert.ok(!html.includes("'100vh', borderRadiu"), '全屏不应再写死内联 100vh')
 })
+// issue #2 回归：槽位宿主可能被别的插件改成 flex-direction:column。
+// 纵向容器里 flex-wrap 的语义是「换列」、flex-basis:100% 指的是「高度 100%」，
+// 两者叠加会把「记忆」入口挤进右侧溢出列，裁切到只剩右边缘一条缝。
+test('sidebar footer：纵向 flex 宿主下不得使用 wrap / basis:100%', () => {
+  const html = render('')
+  assert.ok(html.includes('.me-footer { width: 100%; flex: 0 0 auto'), '.me-footer 必须用方向无关的 flex: 0 0 auto')
+  assert.ok(!html.includes('flex: 1 1 100%'), 'flex:1 1 100% 在纵向宿主里会变成高度 100% → 按钮被裁切')
+  // 注意：React 渲染 <style> 子节点时会转义双引号，断言里不要带 " 
+  assert.ok(!html.includes('> .me-footer) { flex-wrap'), '通用 :has(> .me-footer) 宿主不得带 flex-wrap（纵向容器里=换列）')
+  assert.ok(html.includes(':has(.me-footer) { flex-wrap: wrap; }'), '横向 .footerActions 行容器仍需 wrap 才能独占一行')
+})
+
