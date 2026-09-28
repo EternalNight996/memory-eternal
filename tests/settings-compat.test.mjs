@@ -24,7 +24,11 @@ process.env.DSH_HOME = tmpHome
 const { Config, apply } = await import('../index.js')
 const { closeAllDb } = await import('../lib/db.js')
 
+// 断言失败时测试可能提前退出，插件里的 setInterval 会把进程挂住 —— 这里统一兜底释放。
+const harnesses = []
+
 after(async () => {
+  for (const h of harnesses) h.disposeAll()
   closeAllDb()
   await fs.rm(tmpHome, { recursive: true, force: true })
 })
@@ -84,6 +88,14 @@ function makeHarness({ legacy = false, raw = {}, entryId = 'memory-eternal', liv
   const ctx = {
     fiber: { entry: { options: { id: entryId } } },
     get: (name) => services[name],
+    // 真 cordis 的 ctx.inject(deps, cb)：依赖就绪后回调一个子上下文。
+    // index.js 用 ctx.inject(['webServer'], …) 等 webServer 就绪再注册 /memory-eternal/api 路由，
+    // 这里服务是现成的，直接同步回调（不吞异常：真出错要让断言暴露出来）。
+    inject(names, callback) {
+      const child = { get: (name) => services[name], ...services }
+      callback(child)
+      return () => {}
+    },
     // 真 cordis 把服务挂在 ctx 上（ctx.systemPrompt.section(...)）；这里两种访问都要能走。
     ...services,
     on(name, fn) {
@@ -95,7 +107,9 @@ function makeHarness({ legacy = false, raw = {}, entryId = 'memory-eternal', liv
     emit(name, ...args) { for (const fn of [...(state.listeners.get(name) ?? [])]) fn(...args) },
     effect(fn) { const dispose = fn(); if (typeof dispose === 'function') state.effects.push(dispose); return dispose },
   }
-  return { ctx, state, live, disposeAll: () => { for (const d of state.effects.splice(0)) { try { d() } catch { /* 忽略 */ } } } }
+  const harness = { ctx, state, live, disposeAll: () => { for (const d of state.effects.splice(0)) { try { d() } catch { /* 忽略 */ } } } }
+  harnesses.push(harness)
+  return harness
 }
 
 /** 假 res：json() 只用到 writeHead/end/req.headers。 */
