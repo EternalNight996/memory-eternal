@@ -12,6 +12,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExtern
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 // 「反馈异常」纯函数层（与宿主/独立 web 共用同一套脱敏与预填逻辑）
 import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
+// 图谱 LOD：视口剔除 + 标签预算（放大后卡顿的根治手段）
+import { visibleWorldRect, inRect, pickLabelIds, labelBudget } from './graph-lod.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
@@ -241,6 +243,29 @@ export const ZH = {
   fbLoading: '正在收集诊断信息…',
   fbDiagFail: '诊断接口不可用（独立 web 或旧版宿主），请手动补充环境信息',
   fbOr: '或者',
+  fbSelectAll: '全选',
+  toastApproved: '已批准',
+  toastRejected: '已驳回',
+  toastCardDeleted: '已删除',
+  toastRestored: '已恢复',
+  toastPurged: '已彻底删除',
+  toastPurgedExpired: '已清理过期回收站',
+  toastFailed: '操作失败',
+  noSelection: '请先选择要处理的卡片',
+  actionRunning: '处理中…',
+  recycleEmptyHint: '回收站为空：删掉的卡片会先放到这里，保留 {days} 天后自动清理。',
+  recyclePurgeAll: '清空回收站',
+  fbCopyManual: '自动复制被浏览器拦截，已把内容放在下面：点「全选」再按 Ctrl+C',
+  vcLoaded: '运行中（宿主加载）',
+  vcOnDisk: '磁盘安装',
+  vcLatest: 'npm 最新',
+  vcStale: '磁盘已安装 {disk}，但当前 DSH 进程仍加载 {loaded} —— 重启桌面版 / DSH 后才生效',
+  vcOutdated: '有新版本',
+  vcUpToDate: '已是最新',
+  vcCheck: '检查更新',
+  checking: '检查中…',
+  vcCheckFail: '检查更新失败',
+  saving: '保存中…',
   recallSummaryLen: '召回摘要长度',
   recallBody: '召回含正文',
   autoWeb: 'Web server',
@@ -535,6 +560,29 @@ export const EN = {
   fbLoading: 'Collecting diagnostics…',
   fbDiagFail: 'Diagnostics endpoint unavailable (standalone web or older host); please add environment info manually',
   fbOr: 'or',
+  fbSelectAll: 'Select all',
+  toastApproved: 'approved',
+  toastRejected: 'rejected',
+  toastCardDeleted: 'deleted',
+  toastRestored: 'restored',
+  toastPurged: 'permanently deleted',
+  toastPurgedExpired: 'expired recycle entries purged',
+  toastFailed: 'Action failed',
+  noSelection: 'Select the cards to act on first',
+  actionRunning: 'Working…',
+  recycleEmptyHint: 'Recycle bin is empty: deleted cards land here first and are purged automatically after {days} days.',
+  recyclePurgeAll: 'Empty recycle bin',
+  fbCopyManual: 'Auto-copy was blocked by the browser — the text is below: click Select all, then Ctrl+C',
+  vcLoaded: 'running (loaded by host)',
+  vcOnDisk: 'on disk',
+  vcLatest: 'npm latest',
+  vcStale: '{disk} is installed on disk but the running DSH process still has {loaded} loaded — restart the desktop app / DSH to apply',
+  vcOutdated: 'update available',
+  vcUpToDate: 'up to date',
+  vcCheck: 'Check for updates',
+  checking: 'Checking…',
+  vcCheckFail: 'Update check failed',
+  saving: 'Saving…',
   recallSummaryLen: 'Recall summary len',
   recallBody: 'Recall with body',
   autoWeb: 'Web server',
@@ -939,7 +987,7 @@ function WebModal({ t, locale, onClose, tab }) {
             <button type="button" onClick={() => setFull((f) => !f)} aria-label={full ? t('exitFullscreen') : t('enterFullscreen')} title={full ? t('exitFullscreen') : t('enterFullscreen')} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{full ? '⤡' : '⤢'}</button>
             <button type="button" onClick={onClose} aria-label={t('close')} title={t('close')} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
           </div>
-          <iframe ref={iframeRef} src={url} title="memory-eternal" style={{ width: '100%', flex: 1, border: 0, borderRadius: 'inherit', background: 'var(--dsw-alias-bg-base, #fff)' }} />
+          <iframe ref={iframeRef} src={url} title="memory-eternal" allow="clipboard-write; clipboard-read" style={{ width: '100%', flex: 1, border: 0, borderRadius: 'inherit', background: 'var(--dsw-alias-bg-base, #fff)' }} />
         </div>
       </div>
     </div>
@@ -1319,6 +1367,13 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   )
 }
 
+/** 面板内联提示条：操作结果就地反馈（比 fixed toast 可靠，不受滚动/裁剪影响）。 */
+const InlineToast = ({ toast }) => (toast ? (
+  <div className="mc-card" style={{ marginBottom: 10, padding: '8px 12px', fontSize: 12, borderLeft: '4px solid ' + (toast.ok ? '#10b981' : '#ef4444'), background: toast.ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)' }}>
+    {toast.ok ? '✅' : '⚠'} {toast.msg}
+  </div>
+) : null)
+
 const StatCell = ({ label, value }) => (
   <div className="mc-stat mc-card">
     <b>{value}</b>
@@ -1338,6 +1393,19 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState('')
   const [saved, setSaved] = useState('')
+  const [vc, setVc] = useState(null)   // 版本跟踪：运行中 / 磁盘 / npm 最新
+  // 界面显示旧版本号 = 宿主进程还在用启动时加载的那份（磁盘更新了也没用），所以这里三版本对照
+  const checkVersion = useCallback(async (force) => {
+    setBusy('version')
+    try {
+      const d = await fetch(API + '/version-check' + (force ? '?force=1' : '')).then((r) => r.json())
+      if (d && d.ok) {
+        setVc(d)
+        if (force) notify(d.updateAvailable ? t('vcLatest') + ' v' + d.latest : t('vcUpToDate'))
+      } else if (force) notify(t('vcCheckFail'), false)
+    } catch { if (force) notify(t('vcCheckFail'), false) } finally { setBusy('') }
+  }, [t])
+  useEffect(() => { checkVersion(false) }, [version, checkVersion])
   const [runSetup, setRunSetup] = useState('')
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
@@ -1409,6 +1477,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   })
   const addProfile = () => setForm((f) => ({ ...(f ?? {}), vaultProfiles: [...profilesOf(f), { name: '', path: '' }] }))
   const removeProfile = (i) => setForm((f) => ({ ...(f ?? {}), vaultProfiles: profilesOf(f).filter((_, k) => k !== i) }))
+  const vcChip = { fontSize: 11, padding: '2px 8px', background: 'var(--dsw-alias-bg-layer-2, #f3f4f6)', borderRadius: 6 }
   const vaultInput = { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 12, minWidth: 0 }
   // 三套推荐方案值（A轻量/B省钱/C高质量）——一键填充表单
   const PLANS = {
@@ -1462,13 +1531,22 @@ function ConfigPanel({ t, onReload, version, compact }) {
         </div>}
         {readonly && <div className="mc-card" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#b45309' }}>ℹ️ {t('configNeedsDsh')} —— {t('editInSetting')}</div>}
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
-        {/* 插件信息：版本 + 记忆库目录 */}
+        {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
         {(cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
-          <div className="mc-card" style={{ marginBottom: 10, padding: '10px 14px', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-            <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
-            <span style={{ fontSize: 12, opacity: 0.7 }}>{t('dshHostLabel')}</span>
-            {cfg.version && <code style={{ fontSize: 11, padding: '2px 8px', background: 'var(--dsw-alias-bg-layer-2, #f3f4f6)', borderRadius: 6 }}>v{cfg.version}</code>}
-            {cfg.dsh?.vaultDir && <span style={{ fontSize: 11, opacity: 0.6 }}>📁 {cfg.dsh.vaultDir}</span>}
+          <div className="mc-card" style={{ marginBottom: 10, padding: '10px 14px' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
+              <span style={{ fontSize: 12, opacity: 0.7 }}>{t('dshHostLabel')}</span>
+              {cfg.version && <code style={vcChip}>{t('vcLoaded')} v{cfg.version}</code>}
+              {vc && vc.onDisk && <code style={vcChip}>{t('vcOnDisk')} v{vc.onDisk}</code>}
+              {vc && vc.latest && <code style={vcChip}>{t('vcLatest')} v{vc.latest}</code>}
+              {cfg.dsh?.vaultDir && <span style={{ fontSize: 11, opacity: 0.6 }}>📁 {cfg.dsh.vaultDir}</span>}
+              <div style={{ flex: 1 }} />
+              <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
+            </div>
+            {vc && vc.stale && <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>⚠️ {tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })}</div>}
+            {vc && vc.updateAvailable && <div style={{ marginTop: 8, fontSize: 11.5, opacity: 0.88 }}>⬆ {t('vcOutdated')} → <code>{vc.updateCommand}</code></div>}
+            {vc && vc.checkError && <div style={{ marginTop: 8, fontSize: 11.5, color: '#b91c1c' }}>{t('vcCheckFail')}：{vc.checkError}</div>}
           </div>
         )}
         {/* DSH / Agent 状态面板（含 DSH 宿主行） */}
@@ -1637,9 +1715,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <Bool k="autoMcpSetup" label={t('autoMcpSetup')} />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+              {/* 即时状态：紧贴按钮，不必往上滚去找横幅（用户反馈「保存没有任何提示」） */}
+              {busy === 'save' && <span style={{ fontSize: 11.5, opacity: 0.75 }}>⏳ {t('saving')}</span>}
+              {saved && busy !== 'save' && <span style={{ fontSize: 11.5, color: '#10b981' }}>✅ {saved}</span>}
+              {err && busy !== 'save' && <span style={{ fontSize: 11.5, color: '#b91c1c' }}>⚠ {err}</span>}
               <button type="button" className="mc-btn" onClick={resetForm} disabled={!!busy}>{t('reset')}</button>
-              <button type="button" className="mc-btn me-on" onClick={save} disabled={!!busy || busy === 'save' || readonly}>{busy === 'save' ? t('exporting') : '💾 ' + t('saveConfig')}</button>
+              <button type="button" className="mc-btn me-on" onClick={save} disabled={!!busy || readonly}>{busy === 'save' ? '⏳ ' + t('saving') : '💾 ' + t('saveConfig')}</button>
             </div>
           </>
         ) : <div style={{ fontSize: 12, opacity: 0.6 }}>{t('loading')}</div>}
@@ -1657,7 +1739,9 @@ function AuditPanel({ t, onReload, version }) {
   const [dateF, setDateF] = useState('')
   const [sel, setSel] = useState(new Set())
   const [busy, setBusy] = useState('')
+  const [toast, setToast] = useState(null)
   const [tab, setTab] = useState('pending')
+  const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000) }
   const agents = [...new Set([...pending, ...rejected].map((c) => c.submittedBy).filter(Boolean))]
   const load = useCallback(async () => {
     try { const r = await fetch(`${API}/audit/list`).then((x) => x.json()); if (r.ok) { setPending(r.pending || []); setRejected(r.rejected || []); setSel(new Set()) } } catch {}
@@ -1671,20 +1755,31 @@ function AuditPanel({ t, onReload, version }) {
   })
   const toggle = (p) => setSel((s) => { const n = new Set(s); if (n.has(p)) { n.delete(p) } else { n.add(p) }; return n })
   const applyStatus = async (status, paths) => {
+    const list = paths || [...sel]
+    if (!list.length) { notify(t('noSelection'), false); return }
     setBusy('apply')
+    const verb = status === 'approved' ? t('toastApproved') : status === 'rejected' ? t('toastRejected') : t('toastCardDeleted')
     try {
-      for (const p of (paths || [...sel])) {
+      let failed = 0
+      for (const p of list) {
         const ep = status === 'approved' ? 'audit/approve' : status === 'rejected' ? 'audit/reject' : 'delete'
-        await fetch(`${API}/${ep}?path=${encodeURIComponent(p)}${status === 'delete' ? '&permanent=0' : ''}`)
+        try {
+          const r = await fetch(API + '/' + ep + '?path=' + encodeURIComponent(p) + (status === 'delete' ? '&permanent=0' : ''))
+          if (!r.ok) failed++
+        } catch { failed++ }
       }
       await load(); if (onReload) onReload()
-    } catch {} finally { setBusy('') }
+      // 必须给反馈：以前这里 catch{} 吞掉一切，用户点了没反应（用户反馈）
+      if (failed) notify(t('toastFailed') + '（' + failed + '/' + list.length + '）', false)
+      else notify(verb + ' ' + list.length + ' 张')
+    } catch (e) { notify(t('toastFailed') + ': ' + String((e && e.message) || e), false) } finally { setBusy('') }
   }
   const toggled = [...sel]
   return (
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1, minHeight: 0 }}>
       <style>{CSS}</style>
       <div style={{ overflow: 'auto', padding: 4 }}>
+        <InlineToast toast={toast} />
         <div className="mc-card" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <b style={{ fontSize: 12 }}>🛡️ {t('tabAudit')}</b>
           <div style={{ flex: 1 }} />
@@ -1744,27 +1839,35 @@ function AuditPanel({ t, onReload, version }) {
 function RecoverPanel({ t, onReload, version }) {
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState('')
+  const [toast, setToast] = useState(null)
+  const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3200) }
   const load = useCallback(async () => {
     try { const r = await fetch(`${API}/recycle/list`).then((x) => x.json()); if (r.ok) setItems(r.items || []) } catch {}
   }, [])
   useEffect(() => { load() }, [version, load])
   const action = async (act, p) => {
+    const title = (items.find((x) => x.path === p) || {}).title || p
     setBusy(act + p)
     try {
-      if (act === 'restore') await fetch(`${API}/recycle/restore?path=${encodeURIComponent(p)}`)
-      else if (act === 'purge') await fetch(`${API}/recycle/purge?path=${encodeURIComponent(p)}`)
+      const url = act === 'restore' ? '/recycle/restore' : '/recycle/purge'
+      const r = await fetch(API + url + '?path=' + encodeURIComponent(p))
+      const d = await r.json().catch(() => null)
       await load(); if (onReload) onReload()
-    } catch {} finally { setBusy('') }
+      // 以前这里 catch{} 吞掉一切 + 不给成功提示，用户看到的就是「点了没反应」
+      if (r.ok && (!d || d.ok !== false)) notify((act === 'restore' ? t('toastRestored') : t('toastPurged')) + '：' + title)
+      else notify(t('toastFailed') + '：' + ((d && d.error) || ('HTTP ' + r.status)), false)
+    } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') }
   }
   return (
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1, minHeight: 0 }}>
       <style>{CSS}</style>
       <div style={{ overflow: 'auto', padding: 4 }}>
+        <InlineToast toast={toast} />
         <div className="mc-card" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <b style={{ fontSize: 12 }}>🗑️ {t('tabRecycle')}</b>
           <span style={{ fontSize: 11, opacity: 0.6 }}>{t('recycleHint')}</span>
           <div style={{ flex: 1 }} />
-          <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => { setBusy('purgeAll'); try { await fetch(`${API}/recycle/purge-expired?days=0`); await load() } catch {} finally { setBusy('') } }}>{t('emptyRecycle')}</button>
+          <button type="button" className="mc-btn" disabled={!!busy || items.length === 0} title={items.length ? '' : t('emptyRecycle')} onClick={async () => { setBusy('purgeAll'); try { const r = await fetch(API + '/recycle/purge-expired?days=0'); const d = await r.json().catch(() => null); await load(); notify(r.ok ? t('toastPurgedExpired') + (d && d.purged != null ? '（' + d.purged + '）' : '') : t('toastFailed'), r.ok) } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') } }}>{t('emptyRecycle')}</button>
         </div>
         {items.length ? (
           <div className="mc-card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1778,7 +1881,7 @@ function RecoverPanel({ t, onReload, version }) {
               </div>
             ))}
           </div>
-        ) : <div style={{ opacity: 0.6, fontSize: 12, padding: 20, textAlign: 'center' }}>{t('emptyRecycle')}</div>}
+        ) : <div className="mc-card" style={{ padding: 18, fontSize: 12.5, opacity: 0.78, textAlign: 'center', lineHeight: 1.9 }}>🗑️ {t('emptyRecycle')}<br /><span style={{ fontSize: 11.5 }}>{t('recycleEmptyHint').split('{days}').join('30')}</span></div>}
       </div>
     </div>
   )
@@ -2125,6 +2228,36 @@ function NewCardModal({ t, newCard, setNewCard, onCreated }) {
  * （asar/JS 反编译即可提取）。所以这里把标题 / 正文 / 诊断全部预填进 GitHub 的新建 issue 链接，
  * 用户点一次 Submit 才算提交；同时提供「复制给 AI 的提示词」，让 AI 用 gh 直接建 issue。
  */
+/**
+ * 复制到剪贴板。
+ *
+ * 为什么要兜底：记忆弹窗跑在 **iframe** 里，iframe 默认没有 clipboard-write 权限，
+ * navigator.clipboard.writeText() 会直接 reject —— 用户看到的就是「复制失败」。
+ * 所以先试 Clipboard API，失败再退到 document.execCommand('copy')（不需要权限，只要有用户手势）。
+ * @returns {Promise<boolean>} 是否复制成功
+ */
+async function copyToClipboard(text) {
+  const s = String(text || '')
+  if (!s) return false
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(s); return true }
+  } catch { /* 落到 execCommand */ }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = s
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.left = '-9999px'
+    ta.style.top = '0'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    const ok = !!(document.execCommand && document.execCommand('copy'))
+    document.body.removeChild(ta)
+    return ok
+  } catch { return false }
+}
+
 function FeedbackModal({ t, onClose }) {
   const [text, setText] = useState('')
   const [diag, setDiag] = useState('')
@@ -2132,7 +2265,10 @@ function FeedbackModal({ t, onClose }) {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [toast, setToast] = useState('')
+  const [fallback, setFallback] = useState('')
+  const taRef = useRef(null)
   const toastTimer = useRef(null)
+  const selectAll = () => { const el = taRef.current; if (el) { try { el.focus(); el.select() } catch {} } }
   const notify = (msg) => { setToast(msg); if (toastTimer.current) clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 2400) }
   useEffect(() => {
     let alive = true
@@ -2156,11 +2292,13 @@ function FeedbackModal({ t, onClose }) {
     try { window.open(url, '_blank', 'noopener') } catch { notify(t('fbCopyFail')) }
   }
   const copyDiag = async () => {
-    try { await navigator.clipboard.writeText(diag); notify(t('fbCopiedDiag')) } catch { notify(t('fbCopyFail')) }
+    const ok = await copyToClipboard(diag)
+    if (ok) { setFallback(''); notify(t('fbCopiedDiag')) } else { setFallback(diag); notify(t('fbCopyManual')) }
   }
   const copyPrompt = async () => {
     const prompt = buildAgentPrompt({ lang, description: text, diagnostics: diag })
-    try { await navigator.clipboard.writeText(prompt); notify(t('fbCopiedPrompt')) } catch { notify(t('fbCopyFail')) }
+    const ok = await copyToClipboard(prompt)
+    if (ok) { setFallback(''); notify(t('fbCopiedPrompt')) } else { setFallback(prompt); notify(t('fbCopyManual')) }
   }
   const inputStyle = { width: '100%', resize: 'vertical', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 13 }
   const preStyle = { margin: 0, maxHeight: 170, overflow: 'auto', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', borderRadius: 10, background: 'var(--dsw-alias-bg-layer-1, rgba(127,127,127,0.08))', whiteSpace: 'pre-wrap' }
@@ -2189,6 +2327,18 @@ function FeedbackModal({ t, onClose }) {
             <button type="button" className="mc-btn" onClick={copyPrompt}>🤖 {t('fbCopyPrompt')}</button>
           </div>
           {toast && <div style={{ fontSize: 12, color: 'var(--dsw-alias-brand-primary, #3b82f6)' }}>{toast}</div>}
+          {/* 复制被拦截时的兜底：把内容摊开，用户点「全选」再 Ctrl+C 一定能成 */}
+          {fallback && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <b style={{ fontSize: 12, color: '#b45309' }}>⚠ {t('fbCopyFail')}</b>
+                <span style={{ fontSize: 11.5, opacity: 0.75 }}>{t('fbCopyManual')}</span>
+                <div style={{ flex: 1 }} />
+                <button type="button" className="mc-btn" onClick={selectAll}>{t('fbSelectAll')}</button>
+              </div>
+              <textarea ref={taRef} readOnly value={fallback} rows={7} style={inputStyle} />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2499,12 +2649,40 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       const dense = sim.nodes.length > 40
       const labelThreshold = dense ? 1.5 : 0.55
       const focusId = sim.selectedId || sim.hoverId
+      // ---- LOD：先算出视口对应的世界矩形，后面节点/边/标签都按它剔除 ----
+      const viewRect = visibleWorldRect({ panX: sim.panX, panY: sim.panY, zoom: sim.zoom, w: sim.w, h: sim.h, margin: 80 })
+      const searchHits = (() => {
+        const term = (sim.searchTerm || '').toLowerCase()
+        if (!term) return null
+        const ids = []
+        for (const n of sim.nodes) {
+          const info = sim.domainById[n.id] || {}
+          const kind = info.kind || 'other'
+          const hit = (n.name || '').toLowerCase().includes(term) || String(KIND_LABELS[kind] || '').toLowerCase().includes(term) || String(kind).toLowerCase().includes(term)
+          if (hit) ids.push(n.id)
+          if (ids.length > 200) break
+        }
+        return ids
+      })()
+      const labelIds = pickLabelIds(sim.nodes, { limit: labelBudget(sim.nodes.length), focusId, hoverId: sim.hoverId, searchHits, degree: deg })
+      // 文本宽度缓存：原来每帧每个标签都要 measureText（589 个标签时是大头）
+      const measureCache = new Map()
+      const measureText = (font, text) => {
+        const key = font + '|' + text
+        let w = measureCache.get(key)
+        if (w === undefined) { ctx.font = font; w = ctx.measureText(text).width; measureCache.set(key, w) }
+        return w
+      }
+      // 大图关阴影：视觉损失可接受，换来成倍的帧时间（用户明确同意牺牲部分美化）
+      const paintShadows = sim.nodes.length <= 250
       // 边按「颜色 + 透明度 + 线宽」分桶，用 Path2D 一次描边：
       // 原来每条边一次 beginPath/stroke（2.7k 条 = 2.7k 次绘制调用），现在只按配色桶数描边。
       const edgeBuckets = new Map()
       sim.edges.forEach((e) => {
         const s = nodeMap[e.sourceNodeId], t = nodeMap[e.targetNodeId]
         if (!s || !t) return
+        // 视口剔除：两端都在屏幕外就不画（放大后大部分边都被剔掉）
+        if (!inRect(s.x, s.y, 10, viewRect) && !inRect(t.x, t.y, 10, viewRect)) return
         if (kf !== 'all') { const sK = sim.domainById[e.sourceNodeId] && sim.domainById[e.sourceNodeId].kind; const tK = sim.domainById[e.targetNodeId] && sim.domainById[e.targetNodeId].kind; if (sK !== kf && tK !== kf) return }
         if (kfTag) { const sT = sim.domainById[e.sourceNodeId] && (sim.domainById[e.sourceNodeId].tags || []).includes(kfTag); const tT = sim.domainById[e.targetNodeId] && (sim.domainById[e.targetNodeId].tags || []).includes(kfTag); if (!sT && !tT) return }
         let dr = t.x - s.x, dy = t.y - s.y
@@ -2540,6 +2718,8 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       // nodes
       const drawn = []
       sim.nodes.forEach((n) => {
+        // 视口剔除：屏幕外的节点连渐变/形状/标签都不必画
+        if (!inRect(n.x, n.y, n.r + 2, viewRect)) return
         const info = sim.domainById[n.id] || {}
         const kind = info.kind || 'other'
         const color = sim.timeMode ? recencyColor(info.updated) : KG.colors[kind]
@@ -2552,7 +2732,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         const dimmed = (focusId && n.id !== focusId && !(focusNeighbors && focusNeighbors.has(n.id))) || (searchTerm && !searchHit) || !kindOk || !tagOk
         ctx.save()
         ctx.globalAlpha = dimmed ? 0.08 : 1
-        if (isSel || isHov) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 20 : 14 }
+        if ((isSel || isHov) && paintShadows) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 20 : 14 }
         ctx.translate(n.x, n.y) // 局部坐标 → 渐变可跨节点复用
         drawShape(0, 0, n.r, shape)
         ctx.fillStyle = gradientFor(color, n.r); ctx.fill(); ctx.restore()
@@ -2562,11 +2742,15 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         else if (sim.multi.indexOf(n.id) >= 0) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2; ctx.shadowColor = '#60a5fa'; ctx.shadowBlur = 8; ctx.stroke(); ctx.restore() }
         // pill label
         const label = truncate(n.name, 16)
-        const showLab = (isSel || isHov || sim.zoom > labelThreshold || (!dense && sim.zoom > 0.6)) && kindOk && tagOk
+        // 标签预算：大图只画「焦点/悬停/搜索命中/度数最高」的若干节点。
+        // 原来 zoom > labelThreshold 时 589 个标签全画（每个都要 measureText + 圆角矩形 + fillText），
+        // 这正是「放大后卡顿、缩小正常」的原因。
+        const showLab = (isSel || isHov || (labelIds.has(n.id) && sim.zoom > labelThreshold) || (!dense && sim.zoom > 0.6)) && kindOk && tagOk
         if (showLab) {
           const zi = 1 / sim.zoom
-          ctx.font = '500 ' + (12 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
-          const tw = ctx.measureText(label).width
+          const font = '500 ' + (12 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+          ctx.font = font
+          const tw = measureText(font, label)
           const lw = tw + 16 * zi, lh = 18 * zi
           const ly = n.y + n.r + 8 * zi
           let fits = true
