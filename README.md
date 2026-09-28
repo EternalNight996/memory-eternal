@@ -257,7 +257,7 @@ npm run build   # 构建 lib/client.js（DSH 内嵌）+ web/app.js（独立 web 
 
 ## 📋 更新日志
 
-> **版本撤回说明**：**v0.9.0 / v0.9.1 / v0.9.2 / v0.9.3 均已在 npm 标记 deprecated；v0.9.1 / v0.9.2 / v0.9.3 的 release tag 已从 git 移除** —— v0.9.1/v0.9.2 带记忆页白屏缺陷，v0.9.0 沉淀告警误报刷屏，**v0.9.3 不支持 DSH v0.1.7-rc.2**（升级后插件整体挂不上：设置服务换血 + 客户端 `settingsScope` 消失）。请使用 **v0.9.4+**（`npm i memory-eternal@latest`）。
+> **版本撤回说明**：**v0.9.0 – v0.9.4 均已在 npm 标记 deprecated；v0.9.1 / v0.9.2 / v0.9.3 / v0.9.4 的 release tag 已从 git 移除** —— v0.9.1/v0.9.2 带记忆页白屏缺陷，v0.9.0 沉淀告警误报刷屏，v0.9.3 不支持 DSH v0.1.7-rc.2（升级后插件整体挂不上：设置服务换血 + 客户端 `settingsScope` 消失），**v0.9.4 在官方桌面版（schemastery 3.18.4 的 volatile 活引用）下抛 `cfg.vaultDir.trim is not a function`、插件整体挂不上**。请使用 **v0.9.5+**（`npm i memory-eternal@latest`）。
 
 > **DSH 兼容性**：`>=0.1.5-alpha.2 <0.2.0`。**v0.9.4 起适配 DSH v0.1.7-rc.2**（该版本把设置服务换成纯表单 API，并移除了 `@deepseek-ai/dsh-client-runtime` 与 `settingsScope`）；**v0.9.5 起兼容 schemastery ≥3.18.4 的 volatile 活引用**（官方桌面版 profile 即此形态，web profile 仍是 3.18.1，两者都支持）。0.1.5 系列仍走旧的 `settings.register` 路径，两条路径都保留。
 

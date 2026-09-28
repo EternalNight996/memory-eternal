@@ -244,7 +244,7 @@ npm run build   # builds lib/client.js (DSH embed) + web/app.js (standalone web 
 
 ## 📋 Changelog
 
-> **Withdrawn versions**: **v0.9.0 / v0.9.1 / v0.9.2 / v0.9.3 are all deprecated on npm, and the release tags for v0.9.1 / v0.9.2 / v0.9.3 have been removed from git** — v0.9.1/v0.9.2 ship the blank-memory-page defect, v0.9.0 false-alarms its capture warnings, and **v0.9.3 does not support DSH v0.1.7-rc.2** (the plugin stops mounting entirely: the settings service changed and the client-side `settingsScope` is gone). Use **v0.9.4+** (`npm i memory-eternal@latest`).
+> **Withdrawn versions**: **v0.9.0 – v0.9.4 are all deprecated on npm, and the release tags for v0.9.1 / v0.9.2 / v0.9.3 / v0.9.4 have been removed from git** — v0.9.1/v0.9.2 ship the blank-memory-page defect, v0.9.0 false-alarms its capture warnings, v0.9.3 does not support DSH v0.1.7-rc.2 (the plugin stops mounting entirely: the settings service changed and the client-side `settingsScope` is gone), and **v0.9.4 crashes under the official desktop build** (schemastery 3.18.4 volatile live references) with `cfg.vaultDir.trim is not a function`. Use **v0.9.5+** (`npm i memory-eternal@latest`).
 
 > **DSH compatibility**: `>=0.1.5-alpha.2 <0.2.0`. **v0.9.4 adds support for DSH v0.1.7-rc.2**, which replaced the settings service with a forms-only API and removed `@deepseek-ai/dsh-client-runtime` / `settingsScope`; **v0.9.5 adds support for schemastery ≥3.18.4 volatile live references** (the shape the official desktop profile uses, while the web profile still ships 3.18.1 — both work). The 0.1.5 line still uses the legacy `settings.register` path; both paths are kept.
 
