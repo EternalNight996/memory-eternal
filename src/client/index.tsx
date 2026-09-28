@@ -9,6 +9,7 @@
 // 数据全部来自 host 的 /memory-eternal/api/* JSON 路由（同源 fetch），不引入额外依赖。
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
@@ -663,17 +664,53 @@ const CSS = `
 .me-dialog { background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border-radius: 14px; max-width: 760px; width: 100%; max-height: 84vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.5); border: 1px solid var(--dsw-alias-border-l1, #2c333c); }
 .me-dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
 .me-dialog-head h3 { margin: 0; font-size: 15px; }
-.me-dialog-body { padding: 14px 18px; overflow: auto; font-size: 13px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+.me-dialog-body { padding: 14px 18px; overflow: auto; font-size: 13.5px; line-height: 1.78; white-space: normal; word-break: break-word; position: relative; }
 .me-dialog-body h3 { font-size: 15px; margin: 10px 0 6px; color: var(--dsw-alias-label-primary, #111); }
 .me-dialog-body h4 { font-size: 13px; margin: 8px 0 4px; color: var(--dsw-alias-label-primary, #111); }
-.me-dialog-body b, .me-dialog-body strong { font-weight: 700; }
-.me-dialog-body code { background: var(--dsw-alias-bg-layer-1, rgba(127,127,127,0.14)); border-radius: 4px; padding: 1px 5px; font-size: 0.9em; font-family: ui-monospace, SFMono-Regular, monospace; }
-.me-dialog-body pre { background: var(--dsw-alias-bg-layer-1, rgba(127,127,127,0.1)); border-radius: 8px; padding: 10px; overflow: auto; margin: 8px 0; }
-.me-dialog-body pre code { background: none; padding: 0; }
-.me-dialog-body ul, .me-dialog-body ol { margin: 6px 0; padding-left: 20px; }
 .me-dialog-body a { color: var(--dsw-alias-accent, #2563eb); }
-.me-dialog-body blockquote { border-left: 3px solid var(--dsw-alias-border-l2, #d1d5db); margin: 6px 0; padding: 2px 12px; opacity: 0.85; }
-
+/* ---- 卡片正文排版（.md-doc）：emoji 小标题 + 颜色分组 + 真正的列表 ---- */
+.md-doc { max-width: 78ch; }
+.md-doc > *:first-child { margin-top: 0 !important; }
+.md-p { margin: 8px 0; }
+.md-h { display: flex; align-items: center; gap: 7px; margin: 15px 0 7px; font-size: 14.5px; font-weight: 700; letter-spacing: .2px; }
+.md-h .md-ico { font-size: 15px; line-height: 1; }
+.md-h .md-hx { min-width: 0; }
+.md-h::after { content: ''; flex: 1; height: 1px; background: currentColor; opacity: .16; border-radius: 1px; }
+.md-h-h1 { font-size: 16px; }
+.md-c-ok { color: #10B981; }
+.md-c-warn { color: #F59E0B; }
+.md-c-info { color: var(--dsw-alias-label-primary, #3B82F6); }
+.md-c-plan { color: #A855F7; }
+.md-c-idea { color: #EC4899; }
+.md-c-bad { color: #EF4444; }
+.md-ul, .md-ol { margin: 8px 0; padding-left: 0; list-style: none; }
+.md-ul > li, .md-ol > li { position: relative; padding-left: 19px; margin: 5px 0; }
+.md-ul > li::before { content: ''; position: absolute; left: 5px; top: .72em; width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-brand-primary, #3B82F6); opacity: .8; }
+.md-ol { counter-reset: mdol; }
+.md-ol > li { padding-left: 27px; }
+.md-ol > li::before { counter-increment: mdol; content: counter(mdol); position: absolute; left: 0; top: .2em; width: 18px; height: 18px; border-radius: 50%; background: var(--dsw-alias-bg-layer-1, rgba(127,127,127,.16)); font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.md-b { font-weight: 700; background: linear-gradient(transparent 64%, rgba(59,130,246,.24) 64%); border-radius: 2px; }
+.md-code { background: var(--dsw-alias-bg-layer-1, rgba(127,127,127,.14)); border: 1px solid var(--dsw-alias-border-l1, rgba(127,127,127,.18)); border-radius: 5px; padding: .5px 5px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: .92em; }
+.md-pre { background: var(--dsw-alias-bg-layer-1, rgba(127,127,127,.1)); border: 1px solid var(--dsw-alias-border-l1, rgba(127,127,127,.16)); border-radius: 10px; padding: 10px 12px; overflow: auto; margin: 10px 0; }
+.md-pre code { background: none; border: 0; padding: 0; font-size: 12.5px; line-height: 1.6; }
+.md-callout { margin: 10px 0; padding: 9px 12px; border-radius: 10px; border-left: 3px solid currentColor; background: var(--dsw-alias-bg-layer-1, rgba(127,127,127,.08)); }
+.md-callout .md-ico { margin-right: 6px; }
+.md-kv { display: inline-flex; gap: 8px; align-items: baseline; margin: 3px 0; max-width: 100%; }
+.md-k { flex: none; min-width: 4.5em; font-weight: 600; opacity: .72; }
+.md-v { min-width: 0; word-break: break-word; }
+.md-hr { border: 0; border-top: 1px dashed var(--dsw-alias-border-l1, rgba(127,127,127,.28)); margin: 14px 0; }
+.md-task { margin-right: 2px; }
+.md-link { color: var(--dsw-alias-accent, #2563eb); text-decoration: none; border-bottom: 1px solid currentColor; }
+/* 元信息 chips（kind / 状态 / 标签 / 时间 / 来源） */
+.md-meta { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 18px 0; }
+.md-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1, rgba(127,127,127,.24)); background: var(--dsw-alias-bg-layer-1, rgba(127,127,127,.08)); white-space: nowrap; max-width: 22em; overflow: hidden; text-overflow: ellipsis; }
+.md-chip-kind { font-weight: 600; }
+.md-chip-st-ok { color: #10B981; border-color: rgba(16,185,129,.35); background: rgba(16,185,129,.1); }
+.md-chip-st-warn { color: #F59E0B; border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.1); }
+.md-chip-st-bad { color: #EF4444; border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.1); }
+.md-date { opacity: .65; }
+.md-collapsed-hint { text-align: center; font-size: 12px; padding: 7px; cursor: pointer; opacity: .72; border-top: 1px dashed var(--dsw-alias-border-l1, rgba(127,127,127,.28)); }
+.md-collapsed-hint:hover { opacity: 1; color: var(--dsw-alias-accent, #2563eb); }
 /* ---- enhanced graph ---- */
 .me-graph { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
 .me-graph-toolbar { display: flex; align-items: center; gap: 8px; }
@@ -1952,33 +1989,51 @@ function NewCardModal({ t, newCard, setNewCard, onCreated }) {
   )
 }
 
+// （旧 CardReader 片段已由新版替换。）
 function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-  const [expanded, setExpanded] = useState(false)
-  const long = (card.text || '').length > 460
+  // frontmatter 单独渲染成 chips：直接丢进正文会露出一段 YAML，一眼就"像机器输出"。
+  const { meta, body } = useMemo(() => splitFrontmatter(card.text || ''), [card.text])
+  const metaOf = (key) => { const hit = meta.find(([k]) => String(k).toLowerCase() === key); return hit ? hit[1] : '' }
+  const tags = parseTags(metaOf('tags'))
+  const kind = metaOf('kind') || 'knowledge'
+  const status = (metaOf('status') || 'approved').toLowerCase()
+  const kindColor = KIND_COLORS[kind] || '#6B7280'
+  const long = (body || '').length > 460
+  // 默认「全部展开」，可收起（用户要求：打开卡片即读全文，需要时再折起来）。
+  const [expanded, setExpanded] = useState(true)
   return (
     <div className="me-overlay" onClick={onClose}>
       <style>{CSS}</style>
       <div className="me-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="me-dialog-head">
-          <h3>{card.title}</h3>
+          <h3><span style={{ marginRight: 6 }}>{KIND_EMOJI[kind] || '📎'}</span>{card.title}</h3>
           <div style={{ display: 'flex', gap: 8 }}>
-            {query && <><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbIrr')}</button></>}
-            {long && <button type="button" className="mc-btn" onClick={() => setExpanded((v) => !v)}>{expanded ? t('collapse') : t('expand')}</button>}
+            {query && <><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbNotUseful')}</button></>}
+            {long && <button type="button" className="mc-btn" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>{expanded ? t('collapse') : t('expand')}</button>}
             <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => { if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>{t('delete')}</button>
             <button type="button" className="mc-btn" onClick={onClose}>{t('close')}</button>
           </div>
         </div>
-        <div className="me-dialog-body" style={expanded ? {} : { maxHeight: 300, overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: renderMd(card.text) }} />
+        <div className="md-meta">
+          <span className="md-chip md-chip-kind" style={{ color: kindColor, borderColor: kindColor + '59', background: kindColor + '1a' }}>{KIND_EMOJI[kind] || '📎'} {t(KIND_LABELS[kind] || 'kindKnowledge')}</span>
+          <span className={'md-chip ' + (status === 'approved' ? 'md-chip-st-ok' : status === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad')}>{status === 'approved' ? '✅' : status === 'pending' ? '⏳' : '⛔'} {t(status === 'approved' ? 'statusApproved' : status === 'pending' ? 'statusPending' : 'statusRejected')}</span>
+          {tags.slice(0, 8).map((tag) => <span key={tag} className="md-chip md-chip-tag">🏷 {tag}</span>)}
+          {!!metaOf('updated') && <span className="md-chip md-date">🕒 {t('updated')} {fmtDate(metaOf('updated'))}</span>}
+          {!!metaOf('source') && <span className="md-chip md-date">📥 {metaOf('source')}</span>}
+        </div>
+        <div className="me-dialog-body" style={expanded ? {} : { maxHeight: 300, overflow: 'hidden' }} onClick={expanded ? undefined : (e) => { e.stopPropagation(); setExpanded(true) }}>
+          <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(body) }} />
+        </div>
+        {!expanded && <div className="md-collapsed-hint" onClick={(e) => { e.stopPropagation(); setExpanded(true) }}>{t('expand')} ⌄</div>}
       </div>
     </div>
   )
 }
-
 // -- Enhanced knowledge graph ------------------------------------------------
 
 function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
@@ -2798,23 +2853,7 @@ function highlightMatches(text, q) {
   return out
 }
 
-// 轻量安全 Markdown 渲染：先整体 HTML 转义，再套受控标签（本地记忆文本，白名单标签 + 校验链接协议）。
-function renderMd(text) {
-  if (!text) return ''
-  let s = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const blocks = []
-  s = s.replace(/```([\w-]*)\n([\s\S]*?)```/g, function (m, lang, code) { blocks.push('<pre><code>' + code + '</code></pre>'); return '\u0000' + (blocks.length - 1) + '\u0000' })
-  s = s.replace(/^(#{1,3})\s+(.+)$/gm, function (m, h, t) { return '<h' + h.length + '>' + t + '</h' + h.length + '>' })
-  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>')
-  s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
-  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (m, txt, url) { if (!/^(https?:|\/)/.test(url)) return txt; return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + txt + '</a>' })
-  s = s.replace(/^(-)\s+(.+)$/gm, '• $2')
-  s = s.replace(/^\s*(&gt;)\s*(.+)$/gm, '<blockquote>$2</blockquote>')
-  s = s.replace(/\n/g, '<br/>')
-  s = s.replace(/\u0000(\d+)\u0000/g, function (m, i) { return blocks[i] })
-  return s
-}
+// renderMd / splitFrontmatter / parseTags 已抽到 ./markdown.js（便于单测，宿主与独立 web 共用同一套排版）。
 
 function fmtDate(iso) {
   if (!iso) return ''
