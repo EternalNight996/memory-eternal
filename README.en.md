@@ -296,6 +296,22 @@ npm run build   # builds lib/client.js (DSH embed) + web/app.js (standalone web 
 
 ---
 
+## 💬 Community & Support
+
+**Questions, feature requests, or just want to talk about DSH plugin development — join the group chat:**
+
+<img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="260" alt="DeepSeek Harness community group QR code" />
+
+**If this plugin saved you some time, you can buy the author a coffee (either code works):**
+
+| WeChat Pay | WeChat Reward |
+|---|---|
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg" width="230" alt="WeChat Pay QR code" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="230" alt="WeChat reward QR code" /> |
+
+> Donations are entirely optional and change nothing about the plugin; it stays open source and free (MIT).
+
+---
+
 ## 📄 License
 
 MIT
