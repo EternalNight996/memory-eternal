@@ -15,7 +15,10 @@ const API = '/memory-eternal/api'
 // 真分页页大小：首屏只拉一页（服务端 offset/limit），滚到底再续拉下一页
 const PAGE_SIZE = 100
 
-export const inject = ['settingsScope', 'slots', 'locale', 'connection', 'remote']
+// dsh ≥0.1.7 的客户端服务表：settingsScope 已随 @deepseek-ai/dsh-client-runtime 一起移除
+// （设置域改为 configForms / settingsSchema + settings.section 插槽），本插件只用到
+// slots（注册设置页与侧边栏按钮）和 locale（i18n 字典），因此 inject 收窄到这两个。
+export const inject = ['slots', 'locale']
 
 export const ZH = {
   nav: '记忆',
