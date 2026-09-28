@@ -84,6 +84,14 @@ test('官方桌面版：全屏浮层必须让开窗口标题栏', () => {
 // issue #2 回归：槽位宿主可能被别的插件改成 flex-direction:column。
 // 纵向容器里 flex-wrap 的语义是「换列」、flex-basis:100% 指的是「高度 100%」，
 // 两者叠加会把「记忆」入口挤进右侧溢出列，裁切到只剩右边缘一条缝。
+// 「反馈异常」：左栏必须有入口（GitHub 不允许匿名建 issue，所以入口负责预填 + 复制提示词）。
+// SSR 只能验证入口存在与图标渲染；弹窗里的 /diagnostics 拉取在打开时才发生。
+test('反馈异常入口：左栏按钮存在', () => {
+  const html = render('')
+  assert.ok(html.includes('🐞'), '左栏应有 🐞 反馈入口')
+  assert.ok(html.includes('fbNav') || html.includes('反馈异常') || html.includes('Report a bug'), '入口要有标题/文案')
+})
+
 test('sidebar footer：纵向 flex 宿主下不得使用 wrap / basis:100%', () => {
   const html = render('')
   assert.ok(html.includes('.me-footer { width: 100%; flex: 0 0 auto'), '.me-footer 必须用方向无关的 flex: 0 0 auto')
