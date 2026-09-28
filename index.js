@@ -132,13 +132,41 @@ function settingsEntryId(ctx) {
   return entry?.options?.id || 'memory-eternal'
 }
 
+// schemastery ≥3.18.4 会把 Config 里标了 volatile 的字段解析成 cosmokit 的「活引用」
+// （形如 { get(): snapshot }，品牌是全局注册的 Symbol.for('cosmokit.volatile.write')），
+// 而 ≤3.18.1 完全忽略 volatile、直接给普通值 —— 同一份 Config 在两种宿主上形状不同：
+//   • 官方桌面版 profile 解析到 schemastery 3.18.4 → cfg.vaultDir 是引用对象，
+//     旧代码 cfg.vaultDir.trim() 当场抛 "trim is not a function"，插件整体挂不上；
+//   • 早期 web profile 解析到 3.18.1 → 普通值，碰巧能跑（所以一开始没暴露）。
+// 官方插件的写法是每次取用都 .get()（如 dsh-agent-default-model 的 this.config.model.get()）。
+// 业务代码要的是普通值，这里统一深解引用：既拿到快照，又因为每次读都重新解，
+// loader 原地提交的 volatile 热更新依然立刻可见。JSON.stringify 也因此不再写出 {}。
+const VOLATILE_WRITE = Symbol.for('cosmokit.volatile.write')
+
+function isVolatileRef(value) {
+  return typeof value === 'object' && value !== null && VOLATILE_WRITE in value
+}
+
+/** 深拷贝一份「普通值」配置：volatile 引用解引用，数组 / 对象递归展开。 */
+function plainConfig(value, depth = 0) {
+  if (depth > 8) return value
+  if (isVolatileRef(value)) return plainConfig(value.get(), depth + 1)
+  if (Array.isArray(value)) return value.map((item) => plainConfig(item, depth + 1))
+  if (value !== null && typeof value === 'object') {
+    const out = {}
+    for (const [key, item] of Object.entries(value)) out[key] = plainConfig(item, depth + 1)
+    return out
+  }
+  return value
+}
+
 // 无 Loader 挂载、apply 又没拿到 config 时，用标准 schema 校验空对象取默认值。
 function schemaDefaults(schema) {
   try {
     const std = schema?.['~standard']
     if (std && typeof std.validate === 'function') {
       const result = std.validate({})
-      if (result && !result.issues) return result.value
+      if (result && !result.issues) return plainConfig(result.value)
     }
   } catch { /* 拿不到默认值就用空对象 */ }
   return {}
@@ -150,7 +178,7 @@ function bindSettings(ctx, schema, config) {
     return service.register('memory-eternal', schema, { base: config ?? {} })
   }
   const fallback = schemaDefaults(schema)
-  const read = () => config ?? fallback
+  const read = () => (config === undefined || config === null ? fallback : plainConfig(config))
   const entryId = settingsEntryId(ctx)
   // dsh ≥0.1.7 的表单页策略：本插件自带「记忆」设置页（client 侧注册 settings.section），
   // 声明 auto:false，免得宿主再按 schema 自动生成一张重复的表单页。

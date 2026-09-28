@@ -67,8 +67,8 @@ function registryService(state) {
   }
 }
 
-function makeHarness({ legacy = false, raw = {}, entryId = 'memory-eternal' } = {}) {
-  const live = resolveConfig({ autoWeb: false, watchdogAutoSpawn: false, autoMcpSetup: false, ...raw })
+function makeHarness({ legacy = false, raw = {}, entryId = 'memory-eternal', liveConfig = null } = {}) {
+  const live = liveConfig ?? resolveConfig({ autoWeb: false, watchdogAutoSpawn: false, autoMcpSetup: false, ...raw })
   const state = {
     live, revision: 7, updates: [], configureCalls: [], configureDisposals: 0,
     legacyWatches: 0, legacyUnwatches: 0, registered: null, failWith: null,
@@ -216,3 +216,77 @@ test('≤0.1.5 兼容：老 register 路径原样保留（不登记 configure，
   assert.equal(h.state.sections.length, 1)
   h.disposeAll()
 })
+
+// -- schemastery ≥3.18.4：volatile 字段是 cosmokit「活引用」而非普通值 -------------
+// 官方桌面版 profile 解析到的是 schemastery 3.18.4，它会把 meta.volatile 字段解析成
+// 引用对象（{ get(): snapshot }，品牌 Symbol.for('cosmokit.volatile.write')）。
+// 0.9.4 在这里翻车：cfg.vaultDir.trim is not a function → 插件整体挂不上（桌面版实测）。
+// web profile 当时解析到 3.18.1（忽略 volatile）所以碰巧没暴露。
+const VOLATILE_WRITE = Symbol.for('cosmokit.volatile.write')
+
+/** 按 cosmokit src/volatile.ts 的形状造引用；盒子可变，用于验证热更新。 */
+function wrapVolatile(config) {
+  const boxes = {}
+  const wrapped = {}
+  for (const [key, value] of Object.entries(config)) {
+    const box = { value }
+    boxes[key] = box
+    wrapped[key] = { get: () => box.value, [VOLATILE_WRITE]: (next) => { box.value = next } }
+  }
+  return { wrapped, boxes }
+}
+
+async function getConfig(h) {
+  const route = h.state.routes.find((r) => r.path === '/memory-eternal/api' && r.kind === 'prefix')
+  const res = fakeRes()
+  await route.handler({ method: 'GET', url: '/memory-eternal/api/config', headers: {} }, res)
+  return { status: res.status, body: res.json() }
+}
+
+test('schemastery ≥3.18.4：volatile 字段是活引用 —— apply 不得抛错，对外只暴露普通值', async () => {
+  const plain = resolveConfig({ autoWeb: false, watchdogAutoSpawn: false, autoMcpSetup: false, vaultDir: path.join(tmpHome, 'vault-volatile') })
+  const { wrapped, boxes } = wrapVolatile(plain)
+  assert.equal(typeof wrapped.vaultDir, 'object')
+  // 崩溃锚点：0.9.4 正是死在这一句上（cfg.vaultDir.trim is not a function）。
+  assert.throws(() => wrapped.vaultDir.trim(), TypeError)
+
+  const h = makeHarness({ liveConfig: wrapped })
+  assert.doesNotThrow(() => apply(h.ctx, wrapped), 'volatile 引用形态下 apply 不得抛错')
+
+  const first = await getConfig(h)
+  assert.equal(first.status, 200)
+  assert.equal(typeof first.body.dsh.vaultDir, 'string', 'vaultDir 必须解引用成普通字符串')
+  assert.equal(first.body.config.recallLimit, 5, '默认值应来自解引用后的快照')
+
+  // 共享配置文件（独立 web / MCP hook 读它）也必须是普通值，不能变成 {}
+  const cfgFile = path.join(tmpHome, 'memory-eternal-config.json')
+  let written = null
+  for (let i = 0; i < 40 && !written; i++) {
+    try { written = JSON.parse(await fs.readFile(cfgFile, 'utf8')) } catch { await new Promise((r) => setTimeout(r, 25)) }
+  }
+  assert.ok(written, '应写出 memory-eternal-config.json')
+  assert.equal(typeof written.vaultDir, 'string', 'JSON.stringify 不能把 volatile 引用写成 {}')
+
+  // 热更新：loader 原地改引用内部的值，每次读取都必须看到新值（不能缓存快照）
+  boxes.recallLimit.value = 12
+  const second = await getConfig(h)
+  assert.equal(second.body.config.recallLimit, 12, 'volatile 热更新必须立刻可见')
+  h.disposeAll()
+})
+
+test('schemastery ≥3.18.4：volatile 引用里的对象 / 数组也要递归解引用', async () => {
+  const plain = resolveConfig({
+    autoWeb: false, watchdogAutoSpawn: false, autoMcpSetup: false,
+    vaultDir: path.join(tmpHome, 'vault-nested'),
+    vaultProfiles: [{ name: 'work', path: path.join(tmpHome, 'vault-work') }],
+    activeVault: 'work',
+  })
+  const { wrapped } = wrapVolatile(plain)
+  const h = makeHarness({ liveConfig: wrapped })
+  assert.doesNotThrow(() => apply(h.ctx, wrapped))
+  const res = await getConfig(h)
+  assert.equal(res.status, 200)
+  assert.equal(res.body.dsh.vaultDir, path.join(tmpHome, 'vault-work'), '数组元素也应解引用后参与计算')
+  h.disposeAll()
+})
+
