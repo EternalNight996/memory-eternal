@@ -27,7 +27,8 @@ import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
-import { summarizeTurn, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
+import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
+import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { nodeBinary, childEnv } from './lib/node-bin.js'
@@ -57,6 +58,10 @@ export const Config = z.object({
   distillEnabled: z.boolean().default(true),
   // 语义去重：true=把已有卡索引喂 LLM 决定「新建 vs 追加」；false=纯词法去重（省一次蒸馏前的 LLM 调用）
   dedupByLLM: z.boolean().default(true),
+  // 蒸馏用的 provider / model（留空 = 按注册顺序自动挑，见 routeCandidates）
+  // 多 provider 环境下务必显式指定，否则可能撞上没配 key 的官方 provider（issue #3）
+  captureProvider: z.string().default(''),
+  captureModel: z.string().default(''),
   // 蒸馏单次输出上限（token），越高越准越贵
   captureMaxTokens: z.number().min(100).max(4000).default(900),
   // 召回相关性阈值（minScore），越高召回越少越精越省
@@ -394,13 +399,30 @@ export function apply(ctx, config) {
         else logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`)
         return
       }
-      const route = await resolveRoute(llm)
-      if (!route) { logCapture(sessionId, 'fail', '取不到模型路由（llm.listProviders 为空）'); return }
+      // 候选路由：显式配置优先，其余按注册顺序兜底（多 provider 下 providers[0] 可能是没配 key 的官方 provider → issue #3）。
+      const routes = await routeCandidates(llm, { provider: cfg.captureProvider, model: cfg.captureModel })
+      if (!routes.length) { logCapture(sessionId, 'fail', '取不到模型路由（llm.listProviders 为空）'); return }
       // 语义去重近邻：把已有卡片索引喂给模型，让模型决定新建 vs 追加。
       // 成本控制：dedupByLLM=false 时跳过喂 LLM 的近邻采样（纯词法去重兜底）。
       const draft = { title: '', body: text.slice(0, 400) }
       const neighbors = cfg.dedupByLLM === false ? [] : await pickNeighbors(vaultDir(), draft, 8)
-      const result = await summarizeTurn(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens: cfg.captureMaxTokens ?? 900 })
+      let route = routes[0]
+      let result = null
+      let failure = null
+      for (let i = 0; i < routes.length; i++) {
+        route = routes[i]
+        const detailed = await summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens: cfg.captureMaxTokens ?? 900 })
+        if (detailed.card !== undefined) { result = detailed.card; failure = null; break }
+        if (detailed.failure) {
+          failure = { ...detailed.failure, provider: route.provider, model: route.model }
+          const more = i < routes.length - 1
+          logCapture(sessionId, 'fail', `蒸馏调用失败（${route.provider}/${route.model}）：${failure.code} ${failure.message}${more ? ' → 换下一个 provider 重试' : ''}`)
+          if (more) continue
+        }
+        break // skip（太短 / 不值得保存）或没有更多候选
+      }
+      // 真失败要亮红并进提示段：此前只有笼统的「蒸馏无输出」，真实原因（如缺凭证）完全不可见。
+      if (failure) { health.fail(`蒸馏失败（${failure.provider}）：${failure.code} ${failure.message}`); touchPrompt() }
       if (!result) {
         // 蒸馏失败不能让内容白丢：退成原文卡（与「关闭蒸馏」同一条降级路径）。
         const raw = await captureCard(vaultDir(), {
@@ -414,7 +436,8 @@ export function apply(ctx, config) {
           severity: 'info',
           reason: 'AI 自动沉淀（蒸馏无输出 → 原文卡兜底）',
         }, { threshold: cfg.dedupThreshold })
-        if (raw.ok) { countWrite(); logCapture(sessionId, 'created', '蒸馏无输出 → 原文卡兜底', { path: raw.path ?? raw.rel, kind: 'content', model: route.model }) }
+        const why = failure ? `${failure.code} ${failure.message}` : '无可用产出'
+        if (raw.ok) { countWrite(); logCapture(sessionId, 'created', `蒸馏失败（${why}）→ 原文卡兜底`, { path: raw.path ?? raw.rel, kind: 'content', model: route.model }) }
         else if (raw.duplicate) { countWrite(); logCapture(sessionId, 'appended', '蒸馏无输出 + 与已有卡重复 → 追加更新', { path: raw.duplicate.path, model: route.model }) }
         else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || '未知原因'}`, { model: route.model })
         return
@@ -469,10 +492,14 @@ export function apply(ctx, config) {
   // 就说明收尾事件没到——这是「监听器整个没被调用」这类静默死亡的兜底探测。
   let turnsStarted = 0
   let turnsStopped = 0
-  let lastClaimAt = 0
-  ctx.on('agent/inbox/claimed', () => { turnsStarted += 1; lastClaimAt = Date.now() })
+  // 滑动窗口用的时间戳（旧版只留累积计数，导致误报+漏报，见 lib/stall.js）
+  const claimedAt = []
+  const stoppedAt = []
+  const stamp = (arr) => { arr.push(Date.now()); if (arr.length > MAX_STAMPS) arr.shift() }
+  ctx.on('agent/inbox/claimed', () => { turnsStarted += 1; stamp(claimedAt) })
   ctx.on('agent/turn-stopping', ({ agent }) => {
     turnsStopped += 1
+    stamp(stoppedAt)
     const sessionId = agent?.session?.id ?? agent?.id ?? 'unknown'
     try {
       const api = sessionEventApi(agent?.session)
@@ -594,14 +621,12 @@ export function apply(ctx, config) {
   // 沉淀停滞探测：只有「有轮次在跑」且「管线 15 分钟一个活口都没有」才报（真死才报）。
   // 计数器对不上是常态（子代理轮次、被取消的轮次都不发 turn-stopping），单看计数会误报刷屏。
   const stallTimer = setInterval(() => {
-    const idleMs = Date.now() - lastActivityAt
-    const claimIdleMs = lastClaimAt ? Date.now() - lastClaimAt : 0
-    const suspicious = turnsStarted > turnsStopped && claimIdleMs > 15 * 60 * 1000 && idleMs > 15 * 60 * 1000
-    if (suspicious && !stallAlerted) {
+    const { alert, started, stopped, windowMs } = evaluateStall({ claimedAt, stoppedAt })
+    if (alert && !stallAlerted) {
       stallAlerted = true
-      logCapture('system', 'fail', `轮次收尾事件未触发（agent/turn-stopping 没到）：已开始 ${turnsStarted} / 已收尾 ${turnsStopped}，且 15 分钟无任何沉淀活动——DSH 可能改了事件名或作用域`)
+      logCapture('system', 'fail', `轮次收尾事件疑似失效：最近 ${Math.round(windowMs / 60000)} 分钟内开始 ${started} 个轮次、收尾 ${stopped} 个（累计 ${turnsStarted}/${turnsStopped}）——DSH 可能改了事件名或作用域`)
     }
-  }, 10 * 60 * 1000)
+  }, 5 * 60 * 1000)
   ctx.effect(() => () => clearInterval(stallTimer), 'memory-eternal: capture stall watch')
 
   // 回收站清理：每 30 分钟永久删除超过保留期（默认 30 天）的软删卡。
