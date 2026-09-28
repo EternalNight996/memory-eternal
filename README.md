@@ -309,6 +309,22 @@ npm run build   # 构建 lib/client.js（DSH 内嵌）+ web/app.js（独立 web 
 
 ---
 
+## 💬 交流群 & 打赏
+
+**遇到问题、想提需求、或者想聊聊 DSH 插件开发 —— 欢迎进群：**
+
+<img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="260" alt="DeepSeek Harness 交流群二维码" />
+
+**如果这个插件帮你省了时间，可以请作者喝杯咖啡（两个码任选其一）：**
+
+| 微信收款码 | 微信赞赏码 |
+|---|---|
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg" width="230" alt="微信收款码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="230" alt="微信赞赏码" /> |
+
+> 打赏完全自愿，不影响任何功能；插件本体始终开源免费（MIT）。
+
+---
+
 ## 📄 License
 
 MIT

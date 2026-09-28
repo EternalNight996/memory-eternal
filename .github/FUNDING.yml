@@ -1,0 +1,24 @@
+# 赞助渠道 —— GitHub 会据此在仓库页显示 Sponsor 按钮 / FUNDING 面板。
+# 本插件永久开源免费（MIT），赞助完全自愿，不影响任何功能。
+
+# GitHub Sponsors：该账号尚未开通（github.com/sponsors/EternalNight996 会跳回个人主页），
+# 开通后再去掉下面的注释并填用户名，否则仓库页会出现一个无意义的 Sponsor 按钮。
+# github: EternalNight996
+
+# 自定义渠道：微信收款码 / 微信赞赏码（图片链接，点开即扫码）
+custom:
+  - https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg
+  - https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg
+
+# 以下平台均未开通，保持注释；将来开通后去掉 # 并填值即可：
+# patreon: # Replace with a single Patreon username
+# open_collective: # Replace with a single Open Collective username
+# ko_fi: # Replace with a single Ko-fi username
+# tidelift: # Replace with a single Tidelift platform-name/package-name e.g., npm/babel
+# community_bridge: # Replace with a single Community Bridge project-name e.g., cloud-foundry
+# liberapay: # Replace with a single Liberapay username
+# issuehunt: # Replace with a single IssueHunt username
+# lfx_crowdfunding: # Replace with a single LFX Crowdfunding project-name e.g., cloud-foundry
+# polar: # Replace with a single Polar username
+# buy_me_a_coffee: # Replace with a single Buy Me a Coffee username
+# thanks_dev: # Replace with a single thanks.dev username
