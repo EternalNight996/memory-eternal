@@ -68,21 +68,28 @@ test('parseWatchdogProcesses：POSIX 与 Windows 输出都能解析，且只认 
 
 test('reapStaleWatchdogs：只杀同端口、不在锁里的孤儿（kill 注入，不会真杀）', async () => {
   const env2 = { DSH_HOME: path.join(tmp, 'reap') }
-  const killed = []
-  const out = await reapStaleWatchdogs({
-    port: 7999,
-    keepPid: process.pid,
-    env: env2,
-    list: async () => [
-      { pid: process.ppid, port: 7999, command: 'node watchdog.js --port 7999' }, // 活着的孤儿 → 清
-      { pid: process.pid, port: 7999, command: 'node watchdog.js --port 7999' },  // 自己 → 留
-      { pid: process.ppid, port: 8000, command: 'node watchdog.js --port 8000' }, // 别的端口 → 留
-    ],
-    kill: (pid) => { killed.push(pid); return true },
-  })
-  assert.deepEqual(killed, [process.ppid])
-  assert.equal(out.scanned, 3)
-  assert.ok(out.skipped.includes(process.pid))
+  // 需要一个「真实存活、且不是自己/父进程」的 pid：起一个空转的子进程
+  const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' })
+  await new Promise((r) => setTimeout(r, 300))
+  try {
+    const killed = []
+    const out = await reapStaleWatchdogs({
+      port: 7999,
+      keepPid: process.pid,
+      env: env2,
+      list: async () => [
+        { pid: child.pid, port: 7999, command: 'node watchdog.js --port 7999' },          // 活着的孤儿 → 清
+        { pid: process.pid, port: 7999, command: 'node watchdog.js --port 7999 --reap' },  // 自己（正 reap）→ 必须留
+        { pid: process.ppid, port: 8000, command: 'node watchdog.js --port 8000' },        // 其它端口 → 留
+      ],
+      kill: (pid) => { killed.push(pid); return true },
+    })
+    assert.deepEqual(killed, [child.pid], '只应清掉那个孤儿')
+    assert.equal(out.scanned, 3)
+    assert.ok(out.skipped.includes(process.pid) && out.skipped.includes(process.ppid), '自己与父进程都不得被杀')
+  } finally {
+    try { child.kill('SIGKILL') } catch {}
+  }
 })
 
 test('reapStaleWatchdogs：锁里登记且活着的实例不得被误杀', async () => {
