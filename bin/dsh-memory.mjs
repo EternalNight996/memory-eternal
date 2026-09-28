@@ -109,9 +109,14 @@ async function main() {
       return
     }
     case 'watchdog': {
-      const { startWatchdog } = await import('../lib/watchdog.js')
+      const { startWatchdog, reapStaleWatchdogs } = await import('../lib/watchdog.js')
       const { defaultVaultDir } = await import('../lib/capture-run.js')
       const port = Number(argOf('--port')) || 7999
+      if (has('--reap')) {
+        const out = await reapStaleWatchdogs({ port, keepPid: 0 })
+        console.log(`扫描到 ${out.scanned} 个 watchdog 进程，清理孤儿 ${out.killed.length} 个${out.killed.length ? '（pid ' + out.killed.join(', ') + '）' : ''}，保留 ${out.skipped.length} 个（锁中登记的活跃实例 / 其它端口不会被动）`)
+        return
+      }
       const interval = Number(argOf('--interval')) || 5000
       const maxRestart = Number(argOf('--max-restart')) || 10
       const vaultRoot = argOf('--vault') ? path.resolve(argOf('--vault')) : defaultVaultDir()
