@@ -70,3 +70,14 @@ test('记忆页渲染冒烟：卡片视图渲染出「空库」占位而不是�
   const html = render('')
   assert.ok(html.includes('mc-empty') || html.includes('mc-grid'), '卡片视图应有卡片网格或空态占位')
 })
+
+// 官方桌面版回归：桌面壳把「最小化 / 最大化 / 关闭」画在页面顶部，并按 DSH 的约定在
+// <html> 上打 data-windows-titlebar + --dsh-windows-titlebar-height。全屏浮层若不让开，
+// 我们右上角的「×」会压在窗口「关闭」上 —— 点下去直接退出整个桌面壳（用户实测反馈）。
+test('官方桌面版：全屏浮层必须让开窗口标题栏', () => {
+  const html = render('')
+  assert.ok(html.includes('[data-windows-titlebar]'), '缺少 [data-windows-titlebar] 让位规则：会盖住桌面壳的窗口控制按钮')
+  assert.ok(html.includes('--dsh-windows-titlebar-height'), '应使用 DSH 约定的窗口标题栏高度变量')
+  assert.ok(html.includes('.me-modal-full'), '全屏态必须走 me-modal-full 类：内联 100vh 无法被 CSS 覆盖')
+  assert.ok(!html.includes("'100vh', borderRadiu"), '全屏不应再写死内联 100vh')
+})

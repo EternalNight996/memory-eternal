@@ -702,6 +702,31 @@ const CSS = `
 .me-graph-ctxmenu button { display: block; width: 100%; text-align: left; padding: 7px 10px; border: none; border-radius: 7px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .me-graph-ctxmenu button:hover { background: rgba(255,255,255,0.1); }
 .me-graph-hint { font-size: 11px; opacity: 0.6; margin-left: auto; }
+/* ---- 官方桌面版：让开窗口标题栏 ----------------------------------------------
+   桌面壳（Electron）把「最小化 / 最大化 / 关闭」画在页面顶部，并按 DSH 的约定在
+   <html> 上打 data-windows-titlebar、给出 --dsh-windows-titlebar-height
+   （DSH 自己的全屏浮层也是这么让位的；已在官方桌面版的 app.asar 里确认这两个标记存在）。
+   记忆库浮层必须整条让开：一来盖住窗口控制面板很难看，二来我们自己右上角的「×」
+   恰好压在窗口「关闭」上 —— 点下去会直接退出整个桌面壳（实测踩坑）。
+   浏览器里没有该属性 → 偏移 0px，行为与之前完全一致。 */
+[data-windows-titlebar] .me-overlay-top,
+[data-windows-titlebar] .me-overlay {
+  top: var(--dsh-windows-titlebar-height, 0px);
+}
+.me-modal-full {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
+}
+[data-windows-titlebar] .me-modal-full {
+  top: var(--dsh-windows-titlebar-height, 0px);
+  height: calc(100vh - var(--dsh-windows-titlebar-height, 0px));
+  max-height: calc(100vh - var(--dsh-windows-titlebar-height, 0px));
+}
 `
 
 export function apply(ctx) {
@@ -801,7 +826,7 @@ function WebModal({ t, locale, onClose, tab }) {
   return (
     <div className="me-overlay-top" onClick={onClose}>
       <style>{CSS}</style>
-      <div className="me-modal" onClick={(e) => e.stopPropagation()} style={full ? { position: 'fixed', inset: 0, width: '100vw', height: '100vh', maxWidth: '100vw', maxHeight: '100vh', borderRadius: 0 } : {}}>
+      <div className={'me-modal' + (full ? ' me-modal-full' : '')} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
           {/* 右上角控制条：全屏 toggle + 关闭。浮在 iframe 上方，半透明背景。 */}
           <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 4, padding: '4px 6px', background: 'var(--dsw-alias-bg-overlay, rgba(17,24,39,0.45))', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
@@ -2512,7 +2537,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       {exportData && (
         <div className="me-overlay" onClick={() => { if (exportData.url) URL.revokeObjectURL(exportData.url); setExportData(null); setExportFull(false) }}>
           <style>{CSS}</style>
-          <div className="me-dialog" style={{ maxWidth: exportFull ? '100vw' : 900, width: exportFull ? '100vw' : '92vw', maxHeight: exportFull ? '100vh' : '90vh', height: exportFull ? '100vh' : undefined, borderRadius: exportFull ? 0 : 14 }} onClick={(e) => e.stopPropagation()}>
+          <div className="me-dialog" style={{ maxWidth: exportFull ? '100vw' : 900, width: exportFull ? '100vw' : '92vw', maxHeight: exportFull ? '100%' : '90vh', height: exportFull ? '100%' : undefined, borderRadius: exportFull ? 0 : 14 }} onClick={(e) => e.stopPropagation()}>
             <div className="me-dialog-head">
               <h3>{t('exportGraph')}</h3>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -2523,7 +2548,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
               </div>
             </div>
             <div className="me-dialog-body" style={{ display: 'flex', justifyContent: 'center', background: exportFull ? 'var(--dsw-alias-bg-base, #0b0d10)' : 'var(--dsw-alias-bg-base, #f3f4f6)' }}>
-              <img src={exportData.url} alt={t('exportGraph')} style={{ maxWidth: '100%', maxHeight: exportFull ? 'calc(100vh - 64px)' : '70vh', borderRadius: exportFull ? 0 : 8, cursor: 'zoom-in' }} onClick={() => setExportFull((f) => !f)} />
+              <img src={exportData.url} alt={t('exportGraph')} style={{ maxWidth: '100%', maxHeight: exportFull ? 'calc(100% - 64px)' : '70vh', borderRadius: exportFull ? 0 : 8, cursor: 'zoom-in' }} onClick={() => setExportFull((f) => !f)} />
             </div>
           </div>
         </div>
