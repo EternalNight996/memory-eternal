@@ -11,17 +11,15 @@ const PACKAGE_ID = 'memory-eternal'
 
 // 共享运行时一律 external：由 DSH 的 __ModuleLoader__ 在运行时 require 注入，
 // 绝不能打进 bundle（否则会复制 React/Cordis 运行时身份）。
+// 只列 dsh ≥0.1.7 客户端真的提供、且是「平台基线」的模块名（PLATFORM_MODULES：
+// React / Cordis / 静态 UI 库）。旧版曾把 @deepseek-ai/dsh-client-runtime、
+// dsh-client-schema-form 等当作 external —— 这两个包在 0.1.7 已被移除，留着只会
+// 让 build 产出一个运行时必然 require 失败的包。
 const externals = [
   'react',
   'react/jsx-runtime',
   'react-dom',
   '@deepseek-ai/cordis',
-  '@deepseek-ai/dsh-client-runtime',
-  '@deepseek-ai/dsh-client-runtime/client',
-  '@deepseek-ai/dsh-client-ui-slots',
-  '@deepseek-ai/dsh-client-ui-settings',
-  '@deepseek-ai/dsh-client-schema-form',
-  '@deepseek-ai/dsh-api-remotes',
 ]
 
 const tmp = 'lib/client.tmp.js'

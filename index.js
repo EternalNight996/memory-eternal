@@ -34,6 +34,14 @@ import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/captur
 export const name = 'memory-eternal'
 export const inject = ['systemPrompt', 'settings']
 
+// 所有字段都要能被「记忆配置」页写回：dsh ≥0.1.7 的设置服务只把 schema.meta.volatile
+// 为真的字段投影成可编辑表单，保存走 settings.update(条目 id, patch) —— 非 volatile
+// 字段会被拒写。volatile 变更不重挂插件，而是把新值提交进 apply 收到的活引用（见 bindSettings）。
+//
+// 为什么不直接链式写 .volatile()：schemastery ≥3.18.4 才有这个方法，而插件在宿主里解析到的
+// 是 profile 层的 schemastery（本机实测仍是 3.18.1）。链式调用会在 import 期抛
+// "TypeError: ...volatile is not a function"，把整个插件打挂；这里统一在构造后打标记，
+// 新旧版本行为一致（.volatile() 本身就等价于 .extra('volatile', true)，只写 meta）。
 export const Config = z.object({
   enabled: z.boolean().default(true),
   autoCapture: z.boolean().default(true),
@@ -91,12 +99,82 @@ export const Config = z.object({
   auditExemptKinds: z.array(z.string()).default([]),
 })
 
+/**
+ * 把对象 schema 的每个字段标成 volatile（等价于逐字段 .volatile()，但不依赖该方法存在）。
+ * 注意 schemastery 的 Schema 是**可调用对象**（typeof === 'function'），别用 typeof 过滤。
+ */
+function markAllVolatile(schema) {
+  for (const field of Object.values(schema?.dict ?? {})) {
+    if (field === null || field === undefined) continue
+    field.meta = { ...(field.meta ?? {}), volatile: true }
+  }
+  return schema
+}
+
+markAllVolatile(Config)
+
 const API_PREFIX = '/memory-eternal/api'
 // DSH 宿主自动沉淀卡的署名：用可读名而非 agent 会话 id，便于在智能体筛选中归组。
 const DSH_AGENT = 'deepseek-harness'
 
+// 设置读写兼容层（跨 dsh 版本）：
+//   dsh ≤0.1.5：ctx.settings 是"设置命名空间注册表"，register(ns, Config, { base })
+//               返回带 get()/watch()/update() 的句柄；配置存在 settings.yaml。
+//   dsh ≥0.1.7：ctx.settings 只剩表单服务（describe/update/replace/mutate/configure），
+//               没有 register。Config 由 cordis / loader 按 schema 校验后作为**活引用**
+//               传进 apply()；volatile 字段变更由 loader 原地提交到该引用并发
+//               'loader/volatile-update'；写回走 settings.update(条目 id, patch, revision)。
+// 旧版行为原样保留，新版做等价映射，业务代码继续只依赖 get/watch/update 三个方法。
+function settingsEntryId(ctx) {
+  // settings.describe() 以 **Loader 条目的 options.id** 作 ns（见 dsh-settings 实现：
+  // `ns: entry.options.id`），所以这里必须取 options.id，而不是带父级前缀的 Entry.id。
+  const entry = ctx?.fiber?.entry ?? ctx?.[Symbol.for('cordis.entry')]
+  return entry?.options?.id || 'memory-eternal'
+}
+
+// 无 Loader 挂载、apply 又没拿到 config 时，用标准 schema 校验空对象取默认值。
+function schemaDefaults(schema) {
+  try {
+    const std = schema?.['~standard']
+    if (std && typeof std.validate === 'function') {
+      const result = std.validate({})
+      if (result && !result.issues) return result.value
+    }
+  } catch { /* 拿不到默认值就用空对象 */ }
+  return {}
+}
+
+function bindSettings(ctx, schema, config) {
+  const service = typeof ctx.get === 'function' ? ctx.get('settings') : ctx.settings
+  if (service && typeof service.register === 'function') {
+    return service.register('memory-eternal', schema, { base: config ?? {} })
+  }
+  const fallback = schemaDefaults(schema)
+  const read = () => config ?? fallback
+  const entryId = settingsEntryId(ctx)
+  // dsh ≥0.1.7 的表单页策略：本插件自带「记忆」设置页（client 侧注册 settings.section），
+  // 声明 auto:false，免得宿主再按 schema 自动生成一张重复的表单页。
+  if (service && typeof service.configure === 'function') {
+    ctx.effect(() => {
+      try { return service.configure({ auto: false }, ctx.fiber) } catch { return () => {} }
+    }, 'memory-eternal: settings presentation')
+  }
+  return {
+    get: read,
+    watch(listener) {
+      const handler = () => { try { listener(read()) } catch { /* 监听器异常不影响宿主 */ } }
+      ctx.on('loader/volatile-update', handler)
+      return () => { try { ctx.off('loader/volatile-update', handler) } catch { /* 已卸载 */ } }
+    },
+    async update(patch, expectedRevision) {
+      if (!service || typeof service.update !== 'function') throw new Error('当前 DSH 版本不支持写配置')
+      await service.update(entryId, patch, expectedRevision)
+    },
+  }
+}
+
 export function apply(ctx, config) {
-  const settings = ctx.settings.register('memory-eternal', Config, { base: config ?? {} })
+  const settings = bindSettings(ctx, Config, config)
 
   // 首次激活：自动从 .md 文件迁移到 SQLite（幂等，已有数据则跳过）
   const vaultDir = () => {
@@ -623,7 +701,7 @@ export function apply(ctx, config) {
               if (Object.keys(clean).length === 0) return json(res, 400, { ok: false, error: '无可写入字段' })
               if (typeof settings.update === 'function') {
                 try {
-                  await settings.update(clean)
+                  await settings.update(clean, expectedRevision)
                   // 把完整配置写入共享文件，让独立 web / MCP hook 与 DSH 设置同步（不同步修复）
                   syncConfigFile()
                   return json(res, 200, { ok: true, applied: Object.keys(clean), note: '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效' })
