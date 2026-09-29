@@ -14,6 +14,8 @@ import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
 // 图谱 LOD：视口剔除 + 标签预算（放大后卡顿的根治手段）
 import { visibleWorldRect, inRect, pickLabelIds, labelBudget } from './graph-lod.js'
+// P1-2：节点精灵 + 标签位图缓存（把每帧的 path/gradient/measureText/fillText 换成 drawImage）
+import { nodeSpriteKey, labelSpriteKey, SpriteCache, staticLayerKey, zoomBucket } from './graph-sprites.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
@@ -2586,13 +2588,16 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
 
     const truncate = (s, n) => (s && s.length > n ? s.slice(0, n) + '…' : s)
 
-    const drawShape = (x, y, r, shape) => {
-      ctx.beginPath()
-      if (shape === 'rect') ctx.rect(x - r, y - r * 0.75, r * 2, r * 1.5)
-      else if (shape === 'diamond') { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath() }
-      else if (shape === 'hexagon') { for (let i = 0; i < 6; i++) { const a = (Math.PI / 3) * i - Math.PI / 2; const hx = x + r * Math.cos(a), hy = y + r * Math.sin(a); if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy) } ctx.closePath() }
-      else ctx.arc(x, y, r, 0, Math.PI * 2)
+    // 允许指定上下文：节点精灵要画到离屏 canvas 上，几何必须完全一致
+    const drawShapeOn = (c, x, y, r, shape) => {
+      c.beginPath()
+      if (shape === 'rect') c.rect(x - r, y - r * 0.75, r * 2, r * 1.5)
+      else if (shape === 'diamond') { c.moveTo(x, y - r); c.lineTo(x + r, y); c.lineTo(x, y + r); c.lineTo(x - r, y); c.closePath() }
+      else if (shape === 'hexagon') { for (let i = 0; i < 6; i++) { const a = (Math.PI / 3) * i - Math.PI / 2; const hx = x + r * Math.cos(a), hy = y + r * Math.sin(a); if (i === 0) c.moveTo(hx, hy); else c.lineTo(hx, hy) } c.closePath() }
+      else c.arc(x, y, r, 0, Math.PI * 2)
     }
+    // 主上下文上的便捷包装（原有调用点全部走这里，行为不变）
+    const drawShape = (x, y, r, shape) => drawShapeOn(ctx, x, y, r, shape)
 
     // 渐变缓存：原来每帧每节点都 createRadialGradient（593 卡 = 593 次/帧）。
     // 渐变对象在**填充时**按当前变换生效，所以按「颜色|半径」缓存一份局部坐标的渐变，
@@ -2624,6 +2629,23 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       sim.panY = sim.h / 2 - ((minY + maxY) / 2) * sim.zoom
     }
     fitRef.current = fit
+
+    // ---- P1-2/P1-3：渲染缓存 ----
+    // 节点精灵与标签位图缓存（跨帧复用），静态层画布在 render 内按需重建。
+    const makeCanvas = (w, h) => {
+      const c = document.createElement('canvas')
+      c.width = Math.max(1, Math.ceil(w))
+      c.height = Math.max(1, Math.ceil(h))
+      return c
+    }
+    const nodeSprites = new SpriteCache({ createCanvas: makeCanvas, max: 400 })
+    const labelSprites = new SpriteCache({ createCanvas: makeCanvas, max: 600 })
+    const labelWidth = new Map() // label|ratio -> 精灵里的文字宽度（避免每帧 measureText）
+    let staticCanvas = makeCanvas(1, 1)
+    let staticKey = ''
+    // P2-2：打开后 800ms 与拖拽/滚轮期间走骨架模式
+    sim.wheelUntil = 0
+    sim.createdAt = Date.now()
 
     const render = () => {
       ctx.clearRect(0, 0, sim.w, sim.h)
@@ -2665,6 +2687,14 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         return ids
       })()
       const labelIds = pickLabelIds(sim.nodes, { limit: labelBudget(sim.nodes.length), focusId, hoverId: sim.hoverId, searchHits, degree: deg })
+      // P2-2：首屏/拖拽/滚轮期间降级（骨架），停手后自动恢复全质量
+      const fast = (Date.now() - sim.createdAt < 800) || sim.dragging === true || (sim.wheelUntil || 0) > Date.now()
+      const isDark = degrade()
+      const useSprites = !sim.timeMode && !fast
+      const lighterOf = (color) => {
+        const r0 = parseInt(color.slice(1, 3), 16), g0 = parseInt(color.slice(3, 5), 16), b0 = parseInt(color.slice(5, 7), 16)
+        return 'rgba(' + Math.min(255, r0 + 70) + ',' + Math.min(255, g0 + 70) + ',' + Math.min(255, b0 + 70) + ',0.95)'
+      }
       // 文本宽度缓存：原来每帧每个标签都要 measureText（589 个标签时是大头）
       const measureCache = new Map()
       const measureText = (font, text) => {
@@ -2675,12 +2705,35 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       }
       // 大图关阴影：视觉损失可接受，换来成倍的帧时间（用户明确同意牺牲部分美化）
       const paintShadows = sim.nodes.length <= 250
+      // ---- P1-3：边画进「静态层」位图 ----
+      // 静态层只在「变换 / 尺寸 / 过滤 / 主题 / 布局 tick」变化时重建；悬停、选中这类
+      // 高频交互直接复用位图 —— 2.7k 条边的 path 构建与描边全部省掉。
+      const staticKeyNow = staticLayerKey({
+        panX: sim.panX, panY: sim.panY, zoom: sim.zoom, w: sim.w, h: sim.h, dpr,
+        tick: sim.tickCount, filter: kf + '|' + (kfTag || '') + '|' + (sim.timeMode ? 't' : '') + '|' + (fast ? 'fast' : 'full'), dark: isDark, dataVersion: 0,
+      })
+      const staticSizeChanged = staticCanvas.width !== Math.ceil(sim.w * dpr) || staticCanvas.height !== Math.ceil(sim.h * dpr)
+      const rebuildStatic = fast || staticSizeChanged || staticKeyNow !== staticKey
+      if (rebuildStatic) {
+        staticKey = staticKeyNow
+        if (staticSizeChanged) staticCanvas = makeCanvas(sim.w * dpr, sim.h * dpr)
+      }
+      const sctx = rebuildStatic ? staticCanvas.getContext('2d') : null
+      if (sctx) {
+        sctx.setTransform(1, 0, 0, 1, 0, 0)
+        sctx.clearRect(0, 0, staticCanvas.width, staticCanvas.height)
+        sctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        sctx.translate(sim.panX, sim.panY)
+        sctx.scale(sim.zoom, sim.zoom)
+      }
       // 边按「颜色 + 透明度 + 线宽」分桶，用 Path2D 一次描边：
       // 原来每条边一次 beginPath/stroke（2.7k 条 = 2.7k 次绘制调用），现在只按配色桶数描边。
       const edgeBuckets = new Map()
+      let edgeSeq = 0
       sim.edges.forEach((e) => {
         const s = nodeMap[e.sourceNodeId], t = nodeMap[e.targetNodeId]
         if (!s || !t) return
+        if (fast && (edgeSeq++ % 3 !== 0)) return // 骨架模式：只画 1/3 的边
         // 视口剔除：两端都在屏幕外就不画（放大后大部分边都被剔掉）
         if (!inRect(s.x, s.y, 10, viewRect) && !inRect(t.x, t.y, 10, viewRect)) return
         if (kf !== 'all') { const sK = sim.domainById[e.sourceNodeId] && sim.domainById[e.sourceNodeId].kind; const tK = sim.domainById[e.targetNodeId] && sim.domainById[e.targetNodeId].kind; if (sK !== kf && tK !== kf) return }
@@ -2704,7 +2757,37 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         bucket.path.moveTo(s.x, s.y)
         bucket.path.quadraticCurveTo(cpx, cpy, t.x, t.y)
       })
-      edgeBuckets.forEach((b) => { ctx.strokeStyle = b.stroke; ctx.lineWidth = b.width; ctx.stroke(b.path) })
+      if (sctx) edgeBuckets.forEach((b) => { sctx.strokeStyle = b.stroke; sctx.lineWidth = b.width; sctx.stroke(b.path) })
+      // 合成静态层（边在网格之上、节点之下），再按需补画焦点邻边
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.drawImage(staticCanvas, 0, 0)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      if (focusId && !fast) {
+        // 有焦点时统一压暗静态层的边（近似原来的「非邻边变淡」），再把焦点邻边画亮 ——
+        // 这样悬停/选中都不需要重建静态层。
+        ctx.fillStyle = isDark ? 'rgba(18,18,22,0.55)' : 'rgba(255,255,255,0.55)'
+        ctx.fillRect(0, 0, sim.w, sim.h)
+        const fpath = new Path2D()
+        sim.edges.forEach((e) => {
+          if (e.sourceNodeId !== focusId && e.targetNodeId !== focusId) return
+          const s = nodeMap[e.sourceNodeId], t = nodeMap[e.targetNodeId]
+          if (!s || !t) return
+          const dr = t.x - s.x, dy = t.y - s.y
+          const len = Math.sqrt(dr * dr + dy * dy) || 1
+          const curve = dense ? 12 : 18
+          const ox = -dy / len * curve, oy = dr / len * curve
+          fpath.moveTo(s.x, s.y)
+          fpath.quadraticCurveTo((s.x + t.x) / 2 + ox, (s.y + t.y) / 2 + oy, t.x, t.y)
+        })
+        ctx.save()
+        ctx.translate(sim.panX, sim.panY); ctx.scale(sim.zoom, sim.zoom)
+        ctx.strokeStyle = 'rgba(96,165,250,0.65)'
+        ctx.lineWidth = 1.8
+        ctx.stroke(fpath)
+        ctx.restore()
+      }
+      // 注意：这里不能再 ctx.save()（原来的 S1 由节点后的 restore 收尾），只需重设变换
+      ctx.translate(sim.panX, sim.panY); ctx.scale(sim.zoom, sim.zoom)
       // 邻接索引：dim 判定原本是 O(节点 × 边) —— 593 卡 × 1.2 万条边、每帧几百万次比较，
       // 实测 52ms/帧。先把 focusId 的邻居收进 Set，判定降为 O(1)，每帧只多一次 O(E) 建表。
       let focusNeighbors = null
@@ -2734,8 +2817,32 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         ctx.globalAlpha = dimmed ? 0.08 : 1
         if ((isSel || isHov) && paintShadows) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 20 : 14 }
         ctx.translate(n.x, n.y) // 局部坐标 → 渐变可跨节点复用
-        drawShape(0, 0, n.r, shape)
-        ctx.fillStyle = gradientFor(color, n.r); ctx.fill(); ctx.restore()
+        if (fast) {
+          // 骨架模式：一个小圆即可（省掉形状/渐变/标签）
+          ctx.fillStyle = color
+          ctx.beginPath(); ctx.arc(0, 0, Math.max(2, n.r * 0.55), 0, Math.PI * 2); ctx.fill()
+        } else if (useSprites) {
+          // P1-2：节点主体走精灵缓存（每帧一次 drawImage 取代 path+gradient）
+          const size = Math.ceil(n.r * 2 + 6)
+          const ratio = Math.max(1, Math.min(3, Math.round(sim.zoom * dpr)))
+          const key = nodeSpriteKey({ kind, radius: n.r, zoom: sim.zoom, dark: isDark })
+          const sp = nodeSprites.get(key, size * ratio, size * ratio, (c2, w2) => {
+            const k = w2 / size
+            const half = w2 / 2
+            c2.setTransform(k, 0, 0, k, half, half) // 原点 = 节点中心
+            drawShapeOn(c2, 0, 0, n.r, shape)
+            const g2 = c2.createRadialGradient(-n.r * 0.3, -n.r * 0.3, 0, 0, 0, n.r * 1.2)
+            g2.addColorStop(0, lighterOf(color))
+            g2.addColorStop(1, color)
+            c2.fillStyle = g2
+            c2.fill()
+          })
+          ctx.drawImage(sp.canvas, -size / 2, -size / 2, size, size)
+        } else {
+          drawShape(0, 0, n.r, shape)
+          ctx.fillStyle = gradientFor(color, n.r); ctx.fill()
+        }
+        ctx.restore()
         if (isSel) { ctx.save(); drawShape(n.x, n.y, n.r+3, shape); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.stroke(); ctx.restore() }
         else if (isHov) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
         else if (searchTerm && searchHit) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
@@ -2743,26 +2850,42 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         // pill label
         const label = truncate(n.name, 16)
         // 标签预算：大图只画「焦点/悬停/搜索命中/度数最高」的若干节点。
-        // 原来 zoom > labelThreshold 时 589 个标签全画（每个都要 measureText + 圆角矩形 + fillText），
-        // 这正是「放大后卡顿、缩小正常」的原因。
-        const showLab = (isSel || isHov || (labelIds.has(n.id) && sim.zoom > labelThreshold) || (!dense && sim.zoom > 0.6)) && kindOk && tagOk
+        // 骨架模式下完全不画标签（拖拽/滚轮/首屏）。
+        const showLab = !fast && (isSel || isHov || (labelIds.has(n.id) && sim.zoom > labelThreshold) || (!dense && sim.zoom > 0.6)) && kindOk && tagOk
         if (showLab) {
           const zi = 1 / sim.zoom
-          const font = '500 ' + (12 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
-          ctx.font = font
-          const tw = measureText(font, label)
-          const lw = tw + 16 * zi, lh = 18 * zi
+          const ratio = Math.max(1, Math.min(4, Math.round(zi * dpr)))
+          const fontSprite = '500 ' + (12 * ratio).toFixed(0) + 'px -apple-system,Segoe UI,sans-serif'
+          // 文字宽度只在首次测量（按 label|ratio 缓存），不再每帧 measureText
+          const wk = label + '|' + ratio
+          let twS = labelWidth.get(wk)
+          if (twS === undefined) { ctx.font = fontSprite; twS = ctx.measureText(label).width; labelWidth.set(wk, twS) }
+          const sw = Math.ceil(twS + 16 * ratio), sh = Math.ceil(18 * ratio)
+          const sel = isSel || isHov
+          // 选中/悬停的标签配色不同 → 单独一份精灵
+          const key = labelSpriteKey({ text: label, fontPx: 12, dark: isDark }) + (sel ? '|sel' : '')
+          const entry = labelSprites.get(key, sw, sh, (c2, w2, h2) => {
+            c2.setTransform(1, 0, 0, 1, 0, 0)
+            c2.clearRect(0, 0, w2, h2)
+            c2.font = fontSprite
+            c2.textAlign = 'center'
+            c2.textBaseline = 'middle'
+            c2.fillStyle = isDark ? 'rgba(30,30,35,0.92)' : 'rgba(255,255,255,0.92)'
+            c2.beginPath()
+            if (c2.roundRect) c2.roundRect(0.5, 0.5, w2 - 1, h2 - 1, 4 * ratio); else c2.rect(0.5, 0.5, w2 - 1, h2 - 1)
+            c2.fill()
+            c2.strokeStyle = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+            c2.lineWidth = Math.max(1, ratio); c2.stroke()
+            c2.fillStyle = isDark ? (sel ? '#eee' : '#bbb') : (sel ? '#111' : '#444')
+            c2.fillText(label, w2 / 2, h2 / 2 + 0.5)
+          })
+          const lw = sw / ratio * zi, lh = sh / ratio * zi
           const ly = n.y + n.r + 8 * zi
           let fits = true
           for (const r of drawn) { if (n.x - lw/2 < r.x + r.w && n.x + lw/2 > r.x && ly < r.y + r.h && ly + lh > r.y) { fits = false; break } }
           if (!fits && !isSel && !isHov) return
           drawn.push({ x: n.x - lw/2, y: ly, w: lw, h: lh })
-          ctx.fillStyle = degrade() ? 'rgba(30,30,35,0.92)' : 'rgba(255,255,255,0.92)'
-          ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(n.x - lw/2, ly, lw, lh, 4*zi); else ctx.rect(n.x - lw/2, ly, lw, lh); ctx.fill()
-          ctx.strokeStyle = degrade() ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
-          ctx.lineWidth = 1 * zi; ctx.stroke()
-          ctx.fillStyle = degrade() ? (isSel||isHov ? '#eee' : '#bbb') : (isSel||isHov ? '#111' : '#444')
-          ctx.textAlign = 'center'; ctx.fillText(label, n.x, ly + 13 * zi)
+          ctx.drawImage(entry.canvas, n.x - lw/2, ly, lw, lh)   // P1-2：一次 drawImage 取代 roundRect+fillText
         }
       })
       ctx.restore()
@@ -2898,6 +3021,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     }
     const onWheel = (e) => {
       e.preventDefault()
+      sim.wheelUntil = Date.now() + 160 // P2-2：滚轮期间降级为骨架，停手 160ms 后恢复
       const rect = canvas.getBoundingClientRect()
       const wx = (e.clientX - rect.left - sim.panX) / sim.zoom
       const wy = (e.clientY - rect.top - sim.panY) / sim.zoom
