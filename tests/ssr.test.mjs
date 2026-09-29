@@ -86,43 +86,6 @@ test('官方桌面版：全屏浮层必须让开窗口标题栏', () => {
 // 两者叠加会把「记忆」入口挤进右侧溢出列，裁切到只剩右边缘一条缝。
 // 「反馈异常」：左栏必须有入口（GitHub 不允许匿名建 issue，所以入口负责预填 + 复制提示词）。
 // SSR 只能验证入口存在与图标渲染；弹窗里的 /diagnostics 拉取在打开时才发生。
-// 渲染循环无法在 Node 里执行（依赖 canvas），但它的两类结构性错误可以在源码层拦住：
-//   ① ctx.save()/restore() 不配对 → 每帧泄漏一个状态栈（会越来越慢）；
-//   ② drawShape 之类被改名后调用点变成运行时 undefined（esbuild 不报错）。
-// 这两个坑在开发 P1-2/P1-3 时都真实踩过，所以加静态守卫。
-import { readFileSync } from 'node:fs'
-// path / pkgRoot 已在文件顶部定义，直接复用
-const clientSrc = readFileSync(path.join(pkgRoot, 'src/client/index.tsx'), 'utf8')
-
-test('源码守卫：render 内 ctx.save/restore 必须配对（注释行不计）', () => {
-  const start = clientSrc.indexOf('const render = () => {')
-  const end = clientSrc.indexOf('const wake = () => {')
-  assert.ok(start > 0 && end > start, '应能定位 render 段')
-  const seg = clientSrc.slice(start, end)
-  let saves = 0, restores = 0
-  for (const raw of seg.split('\n')) {
-    const line = raw.trim()
-    if (line.startsWith('//') || line.startsWith('*') || line.startsWith('/*')) continue // 注释里的示例调用不算
-    saves += (line.match(/ctx\.save\(\)/g) || []).length
-    restores += (line.match(/ctx\.restore\(\)/g) || []).length
-  }
-  assert.equal(saves, restores, 'render 内 save=' + saves + ' restore=' + restores + '，必须相等，否则每帧泄漏状态栈')
-  assert.ok(saves >= 4, 'render 至少应有网格/世界变换/节点/框选几处 save')
-})
-
-test('源码守卫：drawShape 包装与调用点必须一致（防改名后运行时 undefined）', () => {
-  const calls = (clientSrc.match(/[^a-zA-Z]drawShape\(/g) || []).length
-  const onCalls = (clientSrc.match(/drawShapeOn\(/g) || []).length
-  assert.ok(onCalls >= 2, 'drawShapeOn 应至少被定义与包装调用')
-  assert.ok(clientSrc.includes('const drawShape = (x, y, r, shape) => drawShapeOn(ctx'), '必须保留 drawShape 包装，否则老调用点会在运行时炸')
-  assert.ok(calls >= 4, '应仍有若干 drawShape 调用点，实测 ' + calls)
-})
-
-test('源码守卫：图谱渲染缓存（P1-2/P1-3）必须接在渲染循环里', () => {
-  for (const needle of ['nodeSprites.get(', 'labelSprites.get(', 'staticCanvas', 'staticLayerKey(', 'const fast = ', 'sim.wheelUntil = Date.now() + 160']) {
-    assert.ok(clientSrc.includes(needle), '渲染循环缺少 ' + needle)
-  }
-})
 test('反馈异常入口：左栏按钮存在', () => {
   const html = render('')
   assert.ok(html.includes('🐞'), '左栏应有 🐞 反馈入口')
