@@ -42,7 +42,7 @@ test('API data shapes: cards list with filter', async () => {
 
 test('API data shapes: card text', async () => {
   const cards = await listCards(root)
-  const text = await readCard(root, cards[0].path)
+  const text = (await readCard(root, cards[0].path)).text
   assert.ok(text.includes('---'))
   assert.ok(text.includes('#'))
 })

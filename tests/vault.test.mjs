@@ -77,7 +77,7 @@ test('writeCard + listCards + readCard roundtrip', async () => {
   assert.equal(cards.length, 1)
   assert.equal(cards[0].title, '强化学习基础')
   assert.deepEqual(cards[0].tags, ['rl', '机器学习'])
-  const text = await readCard(root, out.path)
+  const text = (await readCard(root, out.path)).text
   assert.ok(text.includes('策略梯度'))
 })
 
@@ -100,7 +100,7 @@ test('appendUpdate appends update record and bumps updated', async () => {
   const out = await writeCard(root, { kind: 'knowledge', title: '部署方案', body: '使用Docker Compose部署三个服务，Nginx做反代，配置了健康检查。', status: 'approved' })
   const updated = await appendUpdate(root, out.path, '补充：增加自动扩容策略，基于CPU使用率。')
   assert.equal(updated.ok, true)
-  const text = await readCard(root, out.path)
+  const text = (await readCard(root, out.path)).text
   assert.ok(text.includes('## 更新记录'))
   assert.ok(text.includes('自动扩容策略'))
 })
@@ -241,7 +241,8 @@ test('mergeCards: 合并两张同 kind 卡为一张（保留 kind/并集标签/�
   const cards = await listCards(root, { status: ['approved', 'pending', 'rejected'] })
   assert.equal(cards.length, 1)
   // 新卡应保留 kind=knowledge、标签并集、含原文 + 分隔符
-  const text = await readCard(root, cards[0].path)
+  // 合并产物默认进审核队列（pending），读取需显式放行未审核卡
+  const text = (await readCard(root, cards[0].path, { allowUnapproved: true })).text
   const { meta, body } = parseCard(text)
   assert.equal(meta.kind, 'knowledge')
   assert.ok(meta.tags.includes('t1') && meta.tags.includes('t2'))

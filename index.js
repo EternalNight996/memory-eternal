@@ -30,7 +30,7 @@ import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
-import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
+import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { nodeBinary, childEnv } from './lib/node-bin.js'
@@ -435,6 +435,12 @@ export function apply(ctx, config) {
       const raw = extractLastTurn(events)
       const text = raw.length > CAPTURE_TEXT_MAX ? raw.slice(-CAPTURE_TEXT_MAX) : raw
       logCapture(sessionId, 'listen', `会话事件 ${events.length} 条 → 有效对话 ${text.length} 字${raw.length > text.length ? '（超长已截尾）' : ''}`, { preview: preview(text) })
+      // 噪声闸门（P0）：extractLastTurn 已剥掉运行时注入（环境快照 / team 广播 / 工具说明），
+      // 这里再判一次「剥完还有没有真实内容」——只有注入残留的轮次不进 LLM、不写卡。
+      if (!hasUsableContent(text)) {
+        logCapture(sessionId, 'skip', `有效内容不足：剥离运行时注入后只剩 ${text.trim().length} 字（多为环境快照 / 广播 / 工具说明）`)
+        return
+      }
       if (text.length < (cfg.captureMinChars ?? 200)) {
         logCapture(sessionId, 'skip', `内容太短：${text.length} < ${cfg.captureMinChars ?? 200} 字（调小「捕获最小长度」可放宽）`)
         return
@@ -455,9 +461,10 @@ export function apply(ctx, config) {
       // 成本控制：distillEnabled=false 时不调 LLM，直接存原文卡（零蒸馏成本）
       const source = DSH_AGENT
       if (cfg.distillEnabled === false || !llm) {
+        const rawTitle = deriveTitle(text)
         const out = await captureCard(vaultDir(), {
           kind: 'content',
-          title: text.replace(/\s+/g, ' ').slice(0, 40) || '未命名记录',
+          title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
           tags: ['raw'],
           body: text,
           source,
@@ -497,9 +504,10 @@ export function apply(ctx, config) {
       if (failure) { health.fail(`蒸馏失败（${failure.provider}）：${failure.code} ${failure.message}`); touchPrompt() }
       if (!result) {
         // 蒸馏失败不能让内容白丢：退成原文卡（与「关闭蒸馏」同一条降级路径）。
+        const rawTitle = deriveTitle(text)
         const raw = await captureCard(vaultDir(), {
           kind: 'content',
-          title: text.replace(/\s+/g, ' ').slice(0, 40) || '未命名记录',
+          title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
           tags: ['raw'],
           body: text,
           source,
