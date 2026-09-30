@@ -265,10 +265,12 @@ export const ZH = {
   recycleEmptyHint: '回收站为空：删掉的卡片会先放到这里，保留 {days} 天后自动清理。',
   recyclePurgeAll: '清空回收站',
   fbCopyManual: '自动复制被浏览器拦截，已把内容放在下面：点「全选」再按 Ctrl+C',
+  vcPage: '页面脚本',
+  vcPageStale: '⚠ 当前页面仍在运行旧版脚本（页面 v{page} / 磁盘 v{disk}）：按 Ctrl+F5 刷新页面即生效；若「运行中」仍是旧版号，则还需重启桌面版 / DSH',
   vcLoaded: '运行中（宿主加载）',
   vcOnDisk: '磁盘安装',
   vcLatest: 'npm 最新',
-  vcStale: '磁盘已安装 {disk}，但当前 DSH 进程仍加载 {loaded} —— 重启桌面版 / DSH 后才生效',
+  vcStale: '磁盘已安装 {disk}，但当前 DSH 进程仍加载 {loaded} —— 先刷新页面（Ctrl+F5）；宿主半未更新还需重启桌面版 / DSH',
   vcOutdated: '有新版本',
   vcUpToDate: '已是最新',
   vcCheck: '检查更新',
@@ -594,7 +596,9 @@ export const EN = {
   vcLoaded: 'running (loaded by host)',
   vcOnDisk: 'on disk',
   vcLatest: 'npm latest',
-  vcStale: '{disk} is installed on disk but the running DSH process still has {loaded} loaded — restart the desktop app / DSH to apply',
+  vcStale: '{disk} is installed on disk but the running DSH process still has {loaded} loaded — refresh the page (Ctrl+F5) first; restart the desktop app / DSH if the host half is still old',
+  vcPage: 'Page script',
+  vcPageStale: '⚠ This page is still running an older script (page v{page} / disk v{disk}): press Ctrl+F5 to refresh. If the running version is still old, restart the desktop app / DSH as well',
   vcOutdated: 'update available',
   vcUpToDate: 'up to date',
   vcCheck: 'Check for updates',
@@ -1031,6 +1035,9 @@ function DatabaseIcon() {
 }
 
 // -- Shared library content (inline settings page + modal) ------------------
+
+// 构建期由 build.mjs 注入（esbuild define）；直接跑源码（如 SSR 测试）时为 undefined，用 typeof 安全降级。
+const CLIENT_VERSION = typeof __ME_CLIENT_VERSION__ === 'string' ? __ME_CLIENT_VERSION__ : ''
 
 export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const [overview, setOverview] = useState(null)
@@ -1563,6 +1570,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
               <span style={{ fontSize: 12, opacity: 0.7 }}>{t('dshHostLabel')}</span>
               {cfg.version && <code style={vcChip}>{t('vcLoaded')} v{cfg.version}</code>}
+              {CLIENT_VERSION && <code style={vcChip}>{t('vcPage')} v{CLIENT_VERSION}</code>}
               {vc && vc.onDisk && <code style={vcChip}>{t('vcOnDisk')} v{vc.onDisk}</code>}
               {vc && vc.latest && <code style={vcChip}>{t('vcLatest')} v{vc.latest}</code>}
               {cfg.dsh?.vaultDir && <span style={{ fontSize: 11, opacity: 0.6 }}>📁 {cfg.dsh.vaultDir}</span>}
@@ -1570,6 +1578,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
             </div>
             {vc && vc.stale && <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>⚠️ {tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })}</div>}
+            {/* 最常见的困惑：更新了插件但「当前页面」跑的还是旧脚本 —— 直接告诉用户按刷新 */}
+            {CLIENT_VERSION && vc && vc.onDisk && CLIENT_VERSION !== vc.onDisk && (
+              <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px', lineHeight: 1.7 }}>
+                {t('vcPageStale', { page: CLIENT_VERSION, disk: vc.onDisk })}
+              </div>
+            )}
             {vc && vc.updateAvailable && <div style={{ marginTop: 8, fontSize: 11.5, opacity: 0.88 }}>⬆ {t('vcOutdated')} → <code>{vc.updateCommand}</code></div>}
             {vc && vc.checkError && <div style={{ marginTop: 8, fontSize: 11.5, color: '#b91c1c' }}>{t('vcCheckFail')}：{vc.checkError}</div>}
           </div>
