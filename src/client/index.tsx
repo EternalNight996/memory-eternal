@@ -777,6 +777,9 @@ const CSS = `
 .mc-kind { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .mc-empty { text-align: center; padding: 40px 10px; opacity: 0.6; font-size: 13px; }
 .mc-flag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); margin-left: 6px; }
+/* 侧栏按钮上的计数徽标（审核中心 = 隔离区待审数，回收中心 = 回收站数） */
+.mc-dot { position: absolute; top: 2px; right: 2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 9.5px; line-height: 15px; font-weight: 700; text-align: center; box-shadow: 0 0 0 2px var(--dsw-alias-bg-base, rgba(0,0,0,.35)); }
+.mc-railbtn { position: relative; }
 
 /* ---- sidebar footer button ---- */
 /* 让「记忆」按钮独占一行。注意：槽位宿主有两种形态 ——
@@ -1089,6 +1092,9 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const [newCard, setNewCard] = useState(null)
   const [dataVer, setDataVer] = useState(0)
   const bump = useCallback(() => setDataVer((v) => v + 1), [])
+  // 两套存储：隔离区计数（审核中心 / 回收中心徽标）。overview.quarantine 由服务端给出。
+  const quarantinePending = overview?.quarantine?.pending ?? 0
+  const quarantineDeleted = overview?.quarantine?.deleted ?? 0
   const searchTimer = useRef(null)
   const [cardTotal, setCardTotal] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -1196,9 +1202,22 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
 
   const openCard = async (card) => {
     try {
-      const res = await fetch(`${API}/card?path=${encodeURIComponent(card.path || card.id)}`)
+      // 两套存储：未审核 / 回收站卡在隔离区，读取必须显式声明 status，
+      // 否则服务端按「只读主库」处理并返回 403（CARD_NOT_APPROVED）。
+      // 列表来自 /cards（带 status），但审核中心 / 回收站的卡片对象不一定带 —— 两侧都兜住。
+      let st = card.status
+      if (!st && card.path) {
+        try {
+          const r = await fetch(`${API}/cards?status=all&q=${encodeURIComponent(card.title || '')}&limit=50`).then((x) => x.json())
+          const hit = (r.cards || []).find((c) => c.path === card.path)
+          if (hit) st = hit.status
+        } catch { /* 取不到就按主库处理 */ }
+      }
+      const qs = st && st !== 'approved' ? `&status=${encodeURIComponent(st)}` : ''
+      const res = await fetch(`${API}/card?path=${encodeURIComponent(card.path || card.id)}${qs}`)
       const data = await res.json()
       if (data.ok) setReader({ path: data.path, title: card.title, text: data.text })
+      else setError(data.error || `HTTP ${res.status}`)
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
     }
@@ -1299,10 +1318,12 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
           <button type="button" className={`mc-railbtn${view === 'audit' ? ' active' : ''}`} onClick={() => goView('audit')} title={t('tabAudit')}>
             <span className="mc-rail-ico">🔍</span>
             {railOpen && <span className="mc-rail-label">{t('tabAudit')}</span>}
+            {quarantinePending > 0 && <span className="mc-dot">{quarantinePending > 99 ? '99+' : quarantinePending}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'optimize' ? ' active' : ''}`} onClick={() => goView('optimize')} title={t('tabRecycle')}>
             <span className="mc-rail-ico">♻️</span>
             {railOpen && <span className="mc-rail-label">{t('tabRecycle')}</span>}
+            {quarantineDeleted > 0 && <span className="mc-dot" style={{ background: '#6b7280' }}>{quarantineDeleted > 99 ? '99+' : quarantineDeleted}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'config' ? ' active' : ''}`} onClick={() => goView('config')} title={t('tabConfig')}>
             <span className="mc-rail-ico">⚙️</span>
@@ -1319,8 +1340,9 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
           <StatCell label={t('total')} value={overview ? overview.total : '—'} />
           <StatCell label={t('recent')} value={overview ? overview.recent : '—'} />
           <StatCell label={t('tags')} value={overview ? overview.tags : '—'} />
-          <StatCell label={t('pending')} value={overview?.status?.pending ?? 0} />
-          <StatCell label={t('rejected')} value={overview?.status?.rejected ?? 0} />
+          {/* 两套存储：待审/驳回在隔离区（overview.quarantine），主库 total 只含 approved */}
+          <StatCell label={t('pending')} value={overview?.quarantine?.pending ?? overview?.status?.pending ?? 0} />
+          <StatCell label={t('rejected')} value={overview?.quarantine?.rejected ?? overview?.status?.rejected ?? 0} />
           <StatCell label={t('cardCount')} value={overview ? overview.byKind?.knowledge ?? 0 : '—'} />
         </div>
         )}

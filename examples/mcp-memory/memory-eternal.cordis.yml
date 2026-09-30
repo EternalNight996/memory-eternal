@@ -1,0 +1,59 @@
+# 记忆核心（memory-eternal）· MCP 对外通道示例 overlay
+#
+# 用途：把 memory-eternal 的 MCP stdio 服务挂进 DSH —— 让 **DSH 自己**也能通过官方
+# `@deepseek-ai/dsh-mcp-client` 使用记忆库（与 Claude Code / Codex / Cursor 走同一条协议路径）。
+#
+# 什么时候需要它：
+#   · 你没装 memory-eternal 插件本体，只想用它的记忆库 → 用这个 overlay；
+#   · 你已经装了插件（推荐）：插件是「一等公民」，这条 MCP 通道**不需要**，因为插件
+#     自带 memory_recall 工具与系统提示段，还能拿到会话事件做自动沉淀。
+#
+# 用法（示例文件不在交付包里自动生效，必须显式 --patch 或合并进用户 patch 层）：
+#   dsh web --patch "<仓库>/examples/mcp-memory/memory-eternal.cordis.yml"
+#   或把下面的 insert 合并进 $DSH_HOME/cordis.patch.yml（本机所有 profile 生效）
+#   或 $DSH_HOME/profiles/<name>/cordis.patch.yml（只对该 profile 生效）
+#
+# 前置条件（二进制已随包提供，无需额外安装）：
+#   · Node 22+（memory-eternal engines 要求）
+#   · 全局安装或 profile 内安装 memory-eternal（提供 bin/dsh-memory.mjs）
+#       全局：npm i -g memory-eternal
+#       profile 内：cd ~/.dsh/profiles/<name> && pnpm add memory-eternal
+#   下面的 args 用的是「profile 内安装」路径；全局安装请改成
+#   args: ['dsh-memory', 'mcp']（Windows 下为 dsh-memory.cmd）。
+
+- insert:
+    - id: memory-eternal-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: eternal
+        transport: stdio
+        command: node
+        args:
+          # 如果是全局安装，改成 ['dsh-memory', 'mcp']
+          - 'C:/Users/<你>/.dsh/profiles/web/node_modules/memory-eternal/bin/dsh-memory.mjs'
+          - 'mcp'
+        # 注意：stdio 桥接会主动**剥离名字像凭据的环境变量以及所有 DSH_* 变量**，其余继承。
+        # 因此：
+        #   · 想让 MCP 进程用哪个库，显式在这里写 MEMORY_VAULT_DIR（不要依赖继承）；
+        #   · 想让 MCP 的 memory_capture 具备「LLM 蒸馏」能力，需要在这里显式传 MEMORY_LLM_*
+        #     （这类变量名字含 KEY/TOKEN，很可能被桥接当凭据剥掉）；
+        #   · 不传就是「原文卡」降级模式，仍然可用，只是不压缩。
+        env:
+          # 留空 = 用插件自己的解析顺序（共享配置 memory-eternal-config.json → 默认 ~/.dsh/memory-vault）
+          MEMORY_VAULT_DIR: ''
+          # 可选：MCP 侧蒸馏用的 OpenAI 兼容端点
+          # MEMORY_LLM_BASE_URL: 'https://api.deepseek.com'
+          # MEMORY_LLM_MODEL: 'deepseek-chat'
+          # MEMORY_LLM_API_KEY: '<在此填 key>'
+        cwd: !!js process.cwd()
+
+# 挂上之后 DSH 侧会看到这些工具（前缀由 serverName 决定）：
+#   mcp__eternal__memory_recall   —— 检索记忆（CJK 整词 + 字符 bigram，只读主库/approved）
+#   mcp__eternal__memory_capture  —— 手动沉淀一段内容（走审核闸门，默认落隔离区 pending）
+#   mcp__eternal__memory_stats    —— 记忆库概览
+#
+# 验证（与官方文档同一套三步骤）：
+#   1) 会话 A：让模型调用 mcp__eternal__memory_capture 写入一个唯一值；
+#   2) 新建会话 B（不必重启宿主）：问「我的验证饮料是什么？查记忆」→ 应调用 memory_recall 并返回该值；
+#   3) 继续在 B 里用该偏好做一次推断。
+#   本仓库 tests/e2e-recall.test.mjs 是同一套步骤的自动化版本（走 vault API）。

@@ -232,6 +232,14 @@ dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
 
 > **v0.3.0 起：审核守卫下沉到数据库层。** 所有写入路径（自动沉淀 / MCP / UI 新建 / 导入）强制经过 `enforceAudit()`，调用方无法绕过。`setCardStatus()` 是唯一审核操作入口，每次变更写入 `audit_log` 审计日志（who/what/when/why），不可篡改。
 
+> **v0.10.0 起：升级为「两套存储」——未审核内容物理隔离。**
+> `cards`（**主库 / 正常区**）物理上**只存 approved**；`quarantine`（**隔离区 / 异常区**）存 `pending` / `rejected` / `deleted`。
+> 意义：召回、检索、知识图谱、去重池、导出这些读路径**查主库即安全**——不再依赖「每处 SQL 都记得写 `WHERE status='approved'`」。
+> （v0.9 审计实测漏过三处：去重池会把新知识追加进待审卡、`readCard` 可按 path 直读未审核正文、`/card` 接口无状态校验。）
+> 审核流转 = **跨表搬家**：批准 → 搬进主库，驳回/软删 → 搬进隔离区；搬家在一个事务里完成，更新记录与审计日志跟着走。
+> 升级说明：首次启动会自动把存量非 approved 卡搬进隔离区（**不删除任何内容**，都在同一个 `.db` 文件里）。
+> 若回滚到旧版本，审核队列会显示为空（旧代码看不到隔离区表），升级回来即恢复。
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-center.png" width="880" alt="审核中心" />
 </p>
@@ -335,6 +343,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.10.0** | 2026-09-30 | **两套存储：未审核内容物理隔离**。① `cards`（主库）只存 `approved`，新增 `quarantine`（隔离区，含 `quarantined_at` / `quarantine_reason`）存 `pending`/`rejected`/`deleted`；② 召回/检索/图谱/去重/导出等读路径**不再需要状态条件**（查主库即安全），根治 v0.9 审计出的三处绕过审核漏洞（去重池把新知识写进待审卡、`readCard` 直读未审核正文、`/card` 无状态校验）；③ 审核流转改为**跨表搬家**（事务内完成，id 由新增的 `card_sequence` 单一发号器分配，`card_updates` 随卡改绑）；④ 首次启动**自动迁移**存量非 approved 卡（不删内容，幂等）；⑤ 新增 `checkMainStoreInvariant()` 不变量体检与 `tests/two-store.test.mjs`（15 条）；⑥ 入料噪声闸门：剥离 DSH 运行时注入（环境快照 / team 广播 / teammate 原文 / 工具说明），挡住碎片卡与糊标题；⑦ 修 `settings-compat` 在 Windows 上的原生崩溃（`fs.watch` 父目录 → 改监听文件） |
 | **v0.9.23** | 2026-09-30 | **保存不再闪烁**。保存成功后客户端会立刻重拉 `/config`，而宿主 volatile 回流是滞后的 → 输入框会「先退回原配置、再跳回修改后的值」。现在客户端把「已保存但宿主未回显」的字段做**本地叠加**（新增 `src/client/config-merge.js` 纯函数 + 4 项单测），宿主回显一致后自动摘除，之后仍跟随宿主权威值；重置表单会清空叠加层。`npm test` 共 **139 项** |
 
 <details>

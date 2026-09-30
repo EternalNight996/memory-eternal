@@ -93,6 +93,18 @@ npm publish              # 重新发布
 git push --follow-tags   # 同步 tag 到 GitHub
 ```
 
+> ⚠️ **桌面版走的是 GitHub 主分支**：`~/.dsh/profiles/desktop/package.json` 里
+> `memory-eternal` 的依赖是 `github:EternalNight996/memory-eternal`，所以
+> **只发 npm 不会更新桌面版用户**——必须把 commit **push 到 GitHub `main`** 才能被拉到。
+> `dsh web` 的 `web` profile 走 npm 版本号，所以两条链路都要发。
+> 发完提醒用户：`cd ~/.dsh/profiles/desktop && pnpm update memory-eternal` 后重启宿主。
+
+## 6.1 可选的 MCP 对外通道
+
+`examples/mcp-memory/memory-eternal.cordis.yml` 是给 DSH 自己挂本插件 MCP 服务的示例 overlay
+（配合官方 `@deepseek-ai/dsh-mcp-client`）。已装插件本体的用户不需要它；未装插件、
+只想用记忆库的场景可用（用法与验证步骤写在文件注释里）。
+
 ---
 
 ## 一句话总览

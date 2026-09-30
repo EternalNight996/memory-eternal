@@ -273,7 +273,7 @@ test('captureCard writes with dedup; duplicate appends update instead', async ()
   // 追加更新记录
   const upd = await captureUpdate(freshRoot, dup.duplicate.path, '补充：增加随机过期防止缓存雪崩。')
   assert.equal(upd.ok, true)
-  const text = await readCard(freshRoot, dup.duplicate.path)
+  const text = (await readCard(freshRoot, dup.duplicate.path)).text
   assert.ok(text.includes('## 更新记录'))
   const cards = await listCards(freshRoot)
   assert.equal(cards.length, 1, '不应产生重复卡')
