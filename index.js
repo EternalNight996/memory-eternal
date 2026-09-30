@@ -179,7 +179,7 @@ function schemaDefaults(schema) {
   return {}
 }
 
-function bindSettings(ctx, schema, config) {
+export function bindSettings(ctx, schema, config) {
   const service = typeof ctx.get === 'function' ? ctx.get('settings') : ctx.settings
   if (service && typeof service.register === 'function') {
     return service.register('memory-eternal', schema, { base: config ?? {} })
@@ -194,16 +194,57 @@ function bindSettings(ctx, schema, config) {
       try { return service.configure({ auto: false }, ctx.fiber) } catch { return () => {} }
     }, 'memory-eternal: settings presentation')
   }
+  // 宿主「volatile 回流」可能滞后甚至不回流（issue #12：改了保存不上）。两步兜底：
+  //   ① 写成功后把 patch 叠加在本地视图上 → 面板重新加载立刻是新值；
+  //   ② 等宿主快照追上（值相等）后自动摘除，避免长期掩盖宿主的真实状态。
+  const overlay = {}
+  const snapshotWithoutOverlay = () => (config === undefined || config === null ? fallback : plainConfig(config))
+  const pruneOverlay = (snapshot) => {
+    for (const key of Object.keys(overlay)) {
+      if (snapshot && snapshot[key] !== undefined && JSON.stringify(snapshot[key]) === JSON.stringify(overlay[key])) delete overlay[key]
+    }
+  }
+  const readMerged = () => {
+    const base = snapshotWithoutOverlay()
+    pruneOverlay(base)
+    return Object.keys(overlay).length ? { ...base, ...overlay } : base
+  }
   return {
-    get: read,
+    get: readMerged,
     watch(listener) {
-      const handler = () => { try { listener(read()) } catch { /* 监听器异常不影响宿主 */ } }
+      const handler = () => { try { listener(readMerged()) } catch { /* 监听器异常不影响宿主 */ } }
       ctx.on('loader/volatile-update', handler)
       return () => { try { ctx.off('loader/volatile-update', handler) } catch { /* 已卸载 */ } }
     },
+    /**
+     * 写配置。
+     * 宿主 write() 用「describe 返回的 revision 必须完全一致」做乐观并发（dsh-settings
+     * SettingsConflictError），而面板持有的 revision 可能已经过期（上一次写入、宿主重建配置等）。
+     * 这里遇到冲突就取一次最新 revision 重试一次，而不是把 409 直接抛给用户。
+     * @returns {Promise<{revision:number, retried:boolean}>}
+     */
     async update(patch, expectedRevision) {
       if (!service || typeof service.update !== 'function') throw new Error('当前 DSH 版本不支持写配置')
-      await service.update(entryId, patch, expectedRevision)
+      const call = (rev) => service.update(entryId, patch, rev)
+      let retried = false
+      let used = expectedRevision
+      try {
+        await call(expectedRevision)
+      } catch (error) {
+        const msg = String((error && error.message) || error)
+        if (!/revision|changed since|conflict/i.test(msg)) throw error
+        let fresh
+        try {
+          const list = typeof service.describe === 'function' ? service.describe() : []
+          fresh = (list.find((d) => d && d.ns === entryId) || {}).revision
+        } catch { fresh = undefined }
+        if (fresh === undefined) throw error
+        used = fresh
+        retried = true
+        await call(fresh)
+      }
+      Object.assign(overlay, patch)
+      return { revision: used, retried }
     },
   }
 }
@@ -766,6 +807,13 @@ export function apply(ctx, config) {
                 // 多库（#10）：配置页可直接编辑
                 vaultProfiles: Array.isArray(cfg.vaultProfiles) ? cfg.vaultProfiles : [],
                 activeVault: cfg.activeVault || '',
+                // 配置覆盖补齐（用户要求「配置按钮全覆盖」）：这些以前只能手改配置文件
+                enabled: cfg.enabled !== false,
+                vaultDir: cfg.vaultDir || '',
+                captureProvider: cfg.captureProvider || '',
+                captureModel: cfg.captureModel || '',
+                recallEmbedding: cfg.recallEmbedding || '',
+                sessionBudgetChars: cfg.sessionBudgetChars ?? 80000,
               }
               const descriptor = (ctx.get('settings') ?? {}).describe?.({ redactSecrets: true }) ?? []
               const me = descriptor.find((d) => d.ns === 'memory-eternal')
@@ -799,10 +847,21 @@ export function apply(ctx, config) {
               if (Object.keys(clean).length === 0) return json(res, 400, { ok: false, error: '无可写入字段' })
               if (typeof settings.update === 'function') {
                 try {
-                  await settings.update(clean, expectedRevision)
+                  const writeResult = await settings.update(clean, expectedRevision)
                   // 把完整配置写入共享文件，让独立 web / MCP hook 与 DSH 设置同步（不同步修复）
                   syncConfigFile()
-                  return json(res, 200, { ok: true, applied: Object.keys(clean), note: '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效' })
+                  // 回读校验：宿主 volatile 回流可能滞后（issue #12），此时明确告知而不是假装成功
+                  const now = settings.get() ?? {}
+                  const pending = Object.keys(clean).filter((k) => JSON.stringify(now[k]) !== JSON.stringify(clean[k]))
+                  return json(res, 200, {
+                    ok: true,
+                    applied: Object.keys(clean),
+                    pending,
+                    retried: !!(writeResult && writeResult.retried),
+                    note: pending.length
+                      ? '已写入；宿主尚未回流这些值（面板已本地生效，重启 DSH 后以配置文件为准）'
+                      : '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效',
+                  })
                 } catch (e) {
                   if (e && e.code === 'SETTINGS_CONFLICT') return json(res, 409, { ok: false, error: '配置已被外部修改，请刷新后重试（revision conflict）' })
                   return json(res, 500, { ok: false, error: String(e?.message || e) })
