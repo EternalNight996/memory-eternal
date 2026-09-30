@@ -52,3 +52,14 @@ test('clear：不存在也算成功', async () => {
   const home = await tmpHome()
   assert.equal(clearPendingConfig({ DSH_HOME: home }), false)
 })
+
+test('drain：连续失败到上限后放弃并删除（避免每 5 秒无限重试）', async () => {
+  const home = await tmpHome()
+  const env = { DSH_HOME: home }
+  writePendingConfig(env, { recycleRetentionDays: 0 })
+  const fail = async () => { throw new Error('值不合法') }
+  await assert.rejects(() => drainPendingConfig(env, fail, 2), /值不合法/)
+  assert.ok(readPendingConfig(env), '第 1 次失败应保留（下一轮重试）')
+  await assert.rejects(() => drainPendingConfig(env, fail, 2), /已放弃/)
+  assert.equal(readPendingConfig(env), null, '达到上限必须删除，不能永久重试')
+})
