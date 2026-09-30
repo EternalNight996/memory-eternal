@@ -264,7 +264,7 @@ export const ZH = {
   recallEmbedding: '语义召回 provider（可选）',
   sessionBudgetChars: '会话预算 (字符)',
   saving: '保存中…',
-  savePending: '已写入；宿主尚未回流（重启 DSH 后以配置文件为准）',
+  savePending: '已写入配置文件；宿主仍是旧版，重启 DSH 后即以新值为准（本面板已生效）',
   actionRunning: '处理中…',
   recycleEmptyHint: '回收站为空：删掉的卡片会先放到这里，保留 {days} 天后自动清理。',
   recyclePurgeAll: '清空回收站',
@@ -596,7 +596,7 @@ export const EN = {
   recallEmbedding: 'Semantic recall provider (optional)',
   sessionBudgetChars: 'Session budget (chars)',
   saving: 'Saving…',
-  savePending: 'Written, but the host has not echoed it back yet (restart DSH to apply from the config file)',
+  savePending: 'Saved to the config file; the host half is still the old build, so restart DSH to make it effective (already applied in this panel)',
   saveInvalid: 'Some field values are invalid; nothing was submitted',
   invalidField: '"{field}" must be a number between {min} and {max} (now: {value})',
   actionRunning: 'Working…',
@@ -1522,7 +1522,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
         const extra = (Array.isArray(d.pending) && d.pending.length) ? ' · ' + t('savePending') : (d.note ? ' · ' + t('restartHint') : '')
         const msg = (d.retried ? '♻ ' : '') + t('savedOk') + extra
         setSaved(t('savedOk') + extra)
-        notify(msg, !(Array.isArray(d.pending) && d.pending.length))
+        // 保存成功就是成功：宿主未回流只代表「尚未重启生效」，绝不能用失败样式弹（用户会读成「保存失败」）
+        notify(msg, true)
         await load()
       }
       else { const msg = r.status === 409 ? t('conflictRefresh') : (d?.error || t('saveFail')); setErr(msg); notify(msg, false) }
@@ -1571,8 +1572,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
     finally { setBusy('') }
   }
   const F = ({ k, label, type = 'text', step, min, max }) => (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
-      <span style={{ opacity: 0.6 }}>{label || k}</span>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, minWidth: 0 }}>
+      <span style={{ opacity: 0.6, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{label || k}</span>
       <input
         type={type}
         step={step} min={min} max={max}
@@ -1587,9 +1588,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
     </label>
   )
   const Bool = ({ k, label }) => (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-      <input type="checkbox" checked={!!(form&&form[k])} onChange={(e) => set(k, e.target.checked)} />
-      <span>{label || k}</span>
+    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, minWidth: 0, lineHeight: 1.5 }}>
+      <input type="checkbox" checked={!!(form&&form[k])} onChange={(e) => set(k, e.target.checked)} style={{ marginTop: 2, flex: '0 0 auto' }} />
+      <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{label || k}</span>
     </label>
   )
   return (
@@ -1686,7 +1687,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <b style={{ fontSize: 12 }}>🧠 {t('dshMemoryConfig')}</b>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
                 <Bool k="autoCapture" label={t('autoCapture')} />
                 <Bool k="autoRecall" label={t('autoRecall')} />
                 <F k="captureMinChars" label={t('captureMinChars')} type="number" />
@@ -1744,7 +1745,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <div style={{ flex: 1 }} />
                 <span style={{ fontSize: 11, opacity: 0.6 }}>{t('costHint')}</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8, marginTop: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8, marginTop: 6 }}>
                 <Bool k="distillEnabled" label={t('distillEnabled')} />
                 <Bool k="dedupByLLM" label={t('dedupByLLM')} />
                 <F k="captureMaxTokens" label={t('captureMaxTokens')} type="number" />
@@ -1762,9 +1763,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <div style={{ flex: 1 }} />
                 <span style={{ fontSize: 11, opacity: 0.6 }}>{t('auditHint')}</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
-                  <span style={{ opacity: 0.6 }}>{t('auditMode')}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, minWidth: 0 }}>
+                  <span style={{ opacity: 0.6, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{t('auditMode')}</span>
                   <select value={form.auditMode ?? 'all'} onChange={(e) => set('auditMode', e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}>
                     <option value="all">{t('auditAll')}</option>
                     <option value="none">{t('auditNone')}</option>
@@ -1790,7 +1791,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <b style={{ fontSize: 12 }}>🛠 {t('serviceConfig')}</b>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
                 <Bool k="autoWeb" label={t('autoWeb')} />
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
                   <span style={{ opacity: 0.6 }}>{t('autoWebMode')}</span>
@@ -3315,9 +3316,9 @@ function MultiDD({ label, value = [], options, onChange, placeholder, z = 20 }) 
   const allOpt = options.find((o) => o.value === '__all__')
   const normalOpts = options.filter((o) => o.value !== '__all__')
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
-      <span style={{ opacity: 0.6 }}>{label}</span>
-      <div ref={boxRef} style={{ position: 'relative' }}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, minWidth: 0 }}>
+      <span style={{ opacity: 0.6, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{label}</span>
+      <div ref={boxRef} style={{ position: 'relative', minWidth: 0 }}>
         <button type="button" onClick={() => setOpen((o) => !o)} style={{ width: '100%', textAlign: 'left', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text || placeholder || '—'}</span>
           <span style={{ fontSize: 10, opacity: 0.7 }}>▾</span>
