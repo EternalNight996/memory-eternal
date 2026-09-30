@@ -8,6 +8,10 @@ import { build } from 'esbuild'
 import { readFile, writeFile, rm, stat } from 'node:fs/promises'
 
 const PACKAGE_ID = 'memory-eternal'
+// 把插件版本注入客户端：面板据此显示「页面脚本版本」，并在页面脚本落后于磁盘时直接提示刷新
+// （否则用户更新后看到的仍是旧页面 JS，会误以为「改了没生效」，例如配置保存无反馈）。
+const pkg = JSON.parse(await readFile('package.json', 'utf8'))
+const clientDefine = { __ME_CLIENT_VERSION__: JSON.stringify(pkg.version) }
 
 // 共享运行时一律 external：由 DSH 的 __ModuleLoader__ 在运行时 require 注入，
 // 绝不能打进 bundle（否则会复制 React/Cordis 运行时身份）。
@@ -34,6 +38,7 @@ await build({
   external: externals,
   jsx: 'automatic',
   minify: true,
+  define: clientDefine,
   logLevel: 'info',
 })
 
@@ -68,6 +73,7 @@ await build({
   target: 'es2022',
   jsx: 'automatic',
   minify: true,
+  define: clientDefine,
   logLevel: 'info',
 })
 const webStats = await stat('web/app.js')
