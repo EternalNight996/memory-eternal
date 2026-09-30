@@ -252,6 +252,15 @@ export const ZH = {
   toastPurgedExpired: '已清理过期回收站',
   toastFailed: '操作失败',
   noSelection: '请先选择要处理的卡片',
+  enabledLabel: '启用记忆核心',
+  vaultDirLabel: '记忆库目录（单库）',
+  captureCooldownMs: '沉淀冷却 (ms)',
+  captureProvider: '蒸馏 provider（留空自动）',
+  captureModel: '蒸馏 model（留空自动）',
+  recallEmbedding: '语义召回 provider（可选）',
+  sessionBudgetChars: '会话预算 (字符)',
+  saving: '保存中…',
+  savePending: '已写入；宿主尚未回流（重启 DSH 后以配置文件为准）',
   actionRunning: '处理中…',
   recycleEmptyHint: '回收站为空：删掉的卡片会先放到这里，保留 {days} 天后自动清理。',
   recyclePurgeAll: '清空回收站',
@@ -569,6 +578,15 @@ export const EN = {
   toastPurgedExpired: 'expired recycle entries purged',
   toastFailed: 'Action failed',
   noSelection: 'Select the cards to act on first',
+  enabledLabel: 'Enable memory core',
+  vaultDirLabel: 'Vault directory (single)',
+  captureCooldownMs: 'Capture cooldown (ms)',
+  captureProvider: 'Distill provider (auto if empty)',
+  captureModel: 'Distill model (auto if empty)',
+  recallEmbedding: 'Semantic recall provider (optional)',
+  sessionBudgetChars: 'Session budget (chars)',
+  saving: 'Saving…',
+  savePending: 'Written, but the host has not echoed it back yet (restart DSH to apply from the config file)',
   actionRunning: 'Working…',
   recycleEmptyHint: 'Recycle bin is empty: deleted cards land here first and are purged automatically after {days} days.',
   recyclePurgeAll: 'Empty recycle bin',
@@ -1456,7 +1474,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
       }
       const r = await fetch(`${API}/config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch: payload, expectedRevision: revision }) })
       const d = await r.json()
-      if (d && d.ok) { setSaved(t('savedOk') + (d.note ? ` · ${t('restartHint')}` : '')); notify(t('savedOk')); await load() }
+      if (d && d.ok) {
+        // 把「是否回读一致 / 是否用了 revision 重试」如实告诉用户（issue #12 的排查关键）
+        const extra = (Array.isArray(d.pending) && d.pending.length) ? ' · ' + t('savePending') : (d.note ? ' · ' + t('restartHint') : '')
+        const msg = (d.retried ? '♻ ' : '') + t('savedOk') + extra
+        setSaved(t('savedOk') + extra)
+        notify(msg, !(Array.isArray(d.pending) && d.pending.length))
+        await load()
+      }
       else { const msg = r.status === 409 ? t('conflictRefresh') : (d?.error || t('saveFail')); setErr(msg); notify(msg, false) }
     } catch { setErr(t('saveFail')); notify(t('saveFail'), false) }
     finally { setBusy('') }
@@ -1615,6 +1640,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="recallLimit" label={t('recallLimit')} type="number" />
                 <F k="recallSummaryLen" label={t('recallSummaryLen')} type="number" />
                 <Bool k="recallIncludeBody" label={t('recallBody')} />
+                <F k="recallEmbedding" label={t('recallEmbedding')} />
               </div>
             </div>
             {/* 多库（按项目隔离记忆）—— #10 */}
@@ -1649,6 +1675,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 </label>
               </div>
             </div>
+            {/* 总开关 + 单库目录（配置覆盖补齐） */}
+            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+                <Bool k="enabled" label={t('enabledLabel')} />
+                <F k="vaultDir" label={t('vaultDirLabel')} />
+              </div>
+            </div>
             {/* 成本控制（省钱、控 LLM 消耗） */}
             <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px', borderLeft: '3px solid #f59e0b' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -1661,6 +1694,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <Bool k="dedupByLLM" label={t('dedupByLLM')} />
                 <F k="captureMaxTokens" label={t('captureMaxTokens')} type="number" />
                 <F k="recallMinScore" label={t('recallMinScore')} type="number" />
+                <F k="captureCooldownMs" label={t('captureCooldownMs')} type="number" />
+                <F k="captureProvider" label={t('captureProvider')} />
+                <F k="captureModel" label={t('captureModel')} />
+                <F k="sessionBudgetChars" label={t('sessionBudgetChars')} type="number" />
               </div>
             </div>
             {/* 自动审核配置 */}
