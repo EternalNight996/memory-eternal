@@ -1424,6 +1424,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [form, setForm] = useState(null)
   const [readonly, setReadonly] = useState(false)
   const [viaPending, setViaPending] = useState(false) // 独立 Web 页：改动经「待应用文件」由 DSH 同步
+  // 即时同步（SSE）：别处改了配置 → 已打开的页面自动更新；正在编辑时不覆盖用户输入
+  const dirtyRef = useRef(false)
+  const reloadRef = useRef(null)
   const [dsh, setDsh] = useState(null)
   const [setupStatus, setSetupStatus] = useState(null)
   const [err, setErr] = useState('')
@@ -1462,8 +1465,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
         setForm({ ...(c.config ?? {}) })
         setDsh(c.dsh ?? null)
         setReadonly(c.writable === false)
-      setViaPending(c.viaPending === true)
+        setViaPending(c.viaPending === true)
         setErr('')
+        dirtyRef.current = false // 已与服务端对齐，后续 SSE 推送可以安全覆盖
       } else {
         // /config 不可用（如独立 web server 7999 无 DSH settings）：降级用 /budget 展示 + 提示
         if (b && b.ok) {
@@ -1479,7 +1483,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
     } catch (e) { setErr(t('adminLoadFail')) }
   }, [t])
   useEffect(() => { load() }, [version, load])
-  const set = (k, v) => setForm((f) => ({ ...(f ?? {}), [k]: v }))
+  const set = (k, v) => { dirtyRef.current = true; setForm((f) => ({ ...(f ?? {}), [k]: v })) }
+  useEffect(() => { reloadRef.current = load }, [load])
+  // SSE 订阅：配置变更即时到达（不依赖手动刷新）
+  useEffect(() => {
+    if (typeof EventSource === 'undefined') return undefined
+    let es = null
+    try { es = new EventSource(API + '/events') } catch { return undefined }
+    const onConfig = () => { if (!dirtyRef.current && typeof reloadRef.current === 'function') reloadRef.current() }
+    try { es.addEventListener('config', onConfig) } catch { /* 老浏览器忽略 */ }
+    return () => { try { es.close() } catch { /* 已关闭 */ } }
+  }, [])
   const NUM_KEYS_LIKE = new Set(['dedupThreshold', 'captureMinChars', 'captureCooldownMs', 'maxCardsPerDay', 'captureMaxTokens', 'recallMinScore', 'recallLimit', 'recallSummaryLen', 'recycleRetentionDays', 'webPort', 'webCheckIntervalMs', 'webMaxRestart', 'sessionBudgetChars'])
   const autoWebModeLabel = (m) => ({ init: t('modeInit'), interval: t('modeInterval'), manual: t('modeManual') }[m] || m)
   const save = async () => {

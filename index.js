@@ -29,6 +29,7 @@ import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
+import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
@@ -251,6 +252,9 @@ export function bindSettings(ctx, schema, config) {
 
 export function apply(ctx, config) {
   const settings = bindSettings(ctx, Config, config)
+  // SSE：配置变更即时推送到所有已打开的页面（DSH 内嵌页 + 独立 Web 页），不必手动刷新
+  const hub = createHub()
+  ctx.effect(() => () => hub.close(), 'memory-eternal: sse hub')
 
   // 首次激活：自动从 .md 文件迁移到 SQLite（幂等，已有数据则跳过）
   // vault 解析与所有独立进程共用同一套优先级（见 lib/vault-resolve.js）：
@@ -290,8 +294,18 @@ export function apply(ctx, config) {
     } catch { /* 失败保留文件，下一轮重试 */ }
   }
   drainPending()
+  // 5 秒轮询只是兜底；真正让它「准即时」的是下面这个文件监听（毫秒级）
   const pendingTimer = setInterval(drainPending, 5000)
   ctx.effect(() => () => clearInterval(pendingTimer), 'memory-eternal: pending config sync')
+  ctx.effect(() => {
+    let stop = () => {}
+    import('./lib/config-sync.js').then(({ watchPendingConfig }) => {
+      stop = watchPendingConfig(process.env, () => {
+        drainPending().then(() => hub.broadcast('config', { at: Date.now(), source: 'pending' })).catch(() => {})
+      })
+    }).catch(() => {})
+    return () => { try { stop() } catch { /* 已停止 */ } }
+  }, 'memory-eternal: pending config watch')
 
   // 所有 profile 目录（当前激活 + 其余命名的），供跨库聚合。
   const vaultRoots = () => {
@@ -778,6 +792,11 @@ export function apply(ctx, config) {
           if (pathname === API_PREFIX + '/web-info') {
             return json(res, 200, { ok: true, ...webInfo })
           }
+          if (pathname === API_PREFIX + '/events') {
+            // SSE 长连接：不 end，保持推送（EventSource 自动重连）
+            hub.add(res)
+            return
+          }
           if (pathname === API_PREFIX + '/setup-run') {
             // 「补全 MCP」：真正执行 runSetup（写外部 agent 配置），返回每项结果，成功/失败可见
             if (req.method !== 'POST') return json(res, 405, { ok: false, error: '需 POST' })
@@ -870,6 +889,7 @@ export function apply(ctx, config) {
                   // 把完整配置写入共享文件，让独立 web / MCP hook 与 DSH 设置同步（不同步修复）
                   syncConfigFile()
                   // 回读校验：宿主 volatile 回流可能滞后（issue #12），此时明确告知而不是假装成功
+                  hub.broadcast('config', { at: Date.now(), source: 'dsh', applied: Object.keys(clean) })
                   const now = settings.get() ?? {}
                   const pending = Object.keys(clean).filter((k) => JSON.stringify(now[k]) !== JSON.stringify(clean[k]))
                   return json(res, 200, {
