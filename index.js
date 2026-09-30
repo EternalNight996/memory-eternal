@@ -848,6 +848,7 @@ export function apply(ctx, config) {
               return json(res, 200, { ok: true, config: safe, revision: me?.revision ?? 0, writable: true, readonly: false, schema: me?.schema ?? null, dsh: dshInfo, version: versionRef })
             }
             if (method === 'POST') {
+              try {
               const cfgChunks = []
               for await (const chunk of req) cfgChunks.push(chunk)
               const raw = Buffer.concat(cfgChunks).toString('utf8')
@@ -860,6 +861,9 @@ export function apply(ctx, config) {
               const clean = {}
               for (const k of Object.keys(patch)) { if (allowed.has(k)) clean[k] = patch[k] }
               if (Object.keys(clean).length === 0) return json(res, 400, { ok: false, error: '无可写入字段' })
+              // 数值字段前置校验：空串/NaN/非数字直接给「哪个字段不合法」，而不是让宿主 schema 抛错
+              const badNum = Object.entries(clean).filter(([k, v]) => typeof v === 'string' && v.trim() === '' && !/^(vaultDir|captureProvider|captureModel|recallEmbedding|activeVault)$/.test(k))
+              if (badNum.length) return json(res, 400, { ok: false, error: '字段不能为空：' + badNum.map(([k]) => k).join('、'), fields: badNum.map(([k]) => k) })
               if (typeof settings.update === 'function') {
                 try {
                   const writeResult = await settings.update(clean, expectedRevision)
@@ -883,6 +887,10 @@ export function apply(ctx, config) {
                 }
               }
               return json(res, 501, { ok: false, error: '当前环境不支持写配置' })
+              } catch (e) {
+                // 绝不返回空响应体：客户端拿到空 body 只能显示通用「保存失败」，无法定位（issue #12）
+                try { return json(res, 400, { ok: false, error: '配置写入失败：' + String(e?.message || e) }) } catch { return }
+              }
             }
             return json(res, 405, { ok: false, error: 'method not allowed' })
           }

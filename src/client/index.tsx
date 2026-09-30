@@ -597,6 +597,8 @@ export const EN = {
   sessionBudgetChars: 'Session budget (chars)',
   saving: 'Saving…',
   savePending: 'Written, but the host has not echoed it back yet (restart DSH to apply from the config file)',
+  saveInvalid: 'Some field values are invalid; nothing was submitted',
+  invalidField: '"{field}" must be a number between {min} and {max} (now: {value})',
   actionRunning: 'Working…',
   recycleEmptyHint: 'Recycle bin is empty: deleted cards land here first and are purged automatically after {days} days.',
   recyclePurgeAll: 'Empty recycle bin',
@@ -1478,19 +1480,43 @@ function ConfigPanel({ t, onReload, version, compact }) {
   }, [t])
   useEffect(() => { load() }, [version, load])
   const set = (k, v) => setForm((f) => ({ ...(f ?? {}), [k]: v }))
+  const NUM_KEYS_LIKE = new Set(['dedupThreshold', 'captureMinChars', 'captureCooldownMs', 'maxCardsPerDay', 'captureMaxTokens', 'recallMinScore', 'recallLimit', 'recallSummaryLen', 'recycleRetentionDays', 'webPort', 'webCheckIntervalMs', 'webMaxRestart', 'sessionBudgetChars'])
   const autoWebModeLabel = (m) => ({ init: t('modeInit'), interval: t('modeInterval'), manual: t('modeManual') }[m] || m)
   const save = async () => {
     if (!form) return
     if (readonly) { notify(t('editInSetting'), false); return }
+    // 数字字段先按 schema 范围自检：宿主对非法值只回空 500，用户只会看到「保存失败」（issue #12 复现）
+    const NUM_RANGE = {
+      dedupThreshold: [0, 1], captureMinChars: [0, 1000000], captureCooldownMs: [0, 1000000000],
+      maxCardsPerDay: [0, 1000000], captureMaxTokens: [100, 4000], recallMinScore: [0, 50],
+      recallLimit: [1, 20], recallSummaryLen: [40, 400], recycleRetentionDays: [1, 3650],
+      webPort: [1, 65535], webCheckIntervalMs: [1000, 600000], webMaxRestart: [1, 1000],
+      sessionBudgetChars: [0, 1000000000],
+    }
+    const badFields = []
+    for (const [k, [lo, hi]] of Object.entries(NUM_RANGE)) {
+      if (!(k in form)) continue
+      const raw = form[k]
+      const n = typeof raw === 'number' ? raw : Number(raw)
+      if (raw === '' || raw === null || raw === undefined || !Number.isFinite(n) || n < lo || n > hi) {
+        badFields.push(t('invalidField', { field: k, min: lo, max: hi, value: String(raw === '' ? '空' : raw) }))
+      }
+    }
+    if (badFields.length) { const msg = t('saveInvalid') + '：' + badFields.join('；'); setErr(msg); notify(msg, false); return }
     setBusy('save')
     try {
       // 空行（没填名字也没填目录）不要提交：schema 会拒绝，且会让用户莫名其妙
       const payload = { ...form }
+      for (const k of Object.keys(form)) if (k in payload && typeof payload[k] === 'string' && payload[k].trim() !== '' && NUM_KEYS_LIKE.has(k)) payload[k] = Number(payload[k])
       if (Array.isArray(payload.vaultProfiles)) {
         payload.vaultProfiles = payload.vaultProfiles.filter((p) => p && (String(p.name || '').trim() || String(p.path || '').trim()))
       }
       const r = await fetch(`${API}/config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patch: payload, expectedRevision: revision }) })
-      const d = await r.json()
+      // 宿主对非法值可能回「空响应体 500」：兜底解析，避免只显示无信息量的「保存失败」
+      const rawText = await r.text()
+      let d = null
+      try { d = rawText ? JSON.parse(rawText) : null } catch { d = null }
+      if (!d) d = { error: 'HTTP ' + r.status + (rawText ? '：' + rawText.slice(0, 200) : '（宿主未返回原因，请检查是否有数字字段为空或超出范围）') }
       if (d && d.ok) {
         // 把「是否回读一致 / 是否用了 revision 重试」如实告诉用户（issue #12 的排查关键）
         const extra = (Array.isArray(d.pending) && d.pending.length) ? ' · ' + t('savePending') : (d.note ? ' · ' + t('restartHint') : '')
@@ -1551,7 +1577,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
         type={type}
         step={step} min={min} max={max}
         value={form ? (form[k] ?? '') : ''}
-        onChange={(e) => set(k, type === 'number' ? Number(e.target.value) : e.target.value)}
+        onChange={(e) => {
+          const raw = e.target.value
+          // 清空时保留空串（Number('') === 0 会静默变成 0，再被 schema 以 min 拒绝 → 用户只看到「保存失败」）
+          set(k, type === 'number' ? (raw === '' ? '' : Number(raw)) : raw)
+        }}
         style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}
       />
     </label>
