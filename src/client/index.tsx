@@ -14,6 +14,8 @@ import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
 // 图谱 LOD：视口剔除 + 标签预算（放大后卡顿的根治手段）
 import { visibleWorldRect, inRect, pickLabelIds, labelBudget } from './graph-lod.js'
+// 保存后不闪烁：宿主 volatile 回流滞后期间，用本地叠加层顶住输入框的值
+import { mergeLocalOverlay } from './config-merge.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
@@ -1427,6 +1429,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 即时同步（SSE）：别处改了配置 → 已打开的页面自动更新；正在编辑时不覆盖用户输入
   const dirtyRef = useRef(false)
   const reloadRef = useRef(null)
+  // 已保存、但宿主还没回显的字段 → 渲染时用本地值，避免「先退回旧值再跳回新值」
+  const savedOverlayRef = useRef({})
   const [dsh, setDsh] = useState(null)
   const [setupStatus, setSetupStatus] = useState(null)
   const [err, setErr] = useState('')
@@ -1462,7 +1466,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
         setCfg(c)
         setRevision(c.revision ?? 0)
         setSchema(c.schema ?? null)
-        setForm({ ...(c.config ?? {}) })
+        // 宿主快照 + 本地叠加层：宿主尚未回流的字段继续用本地值（否则会闪一下旧值）
+        const merged = mergeLocalOverlay(c.config ?? {}, savedOverlayRef.current)
+        savedOverlayRef.current = merged.overlay
+        setForm({ ...merged.values })
         setDsh(c.dsh ?? null)
         setReadonly(c.writable === false)
         setViaPending(c.viaPending === true)
@@ -1535,6 +1542,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
         // 把「是否回读一致 / 是否用了 revision 重试」如实告诉用户（issue #12 的排查关键）
         const extra = (Array.isArray(d.pending) && d.pending.length) ? ' · ' + t('savePending') : (d.note ? ' · ' + t('restartHint') : '')
         const msg = (d.retried ? '♻ ' : '') + t('savedOk') + extra
+        savedOverlayRef.current = { ...savedOverlayRef.current, ...payload }
         setSaved(t('savedOk') + extra)
         // 保存成功就是成功：宿主未回流只代表「尚未重启生效」，绝不能用失败样式弹（用户会读成「保存失败」）
         notify(msg, true)
@@ -1544,7 +1552,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     } catch { setErr(t('saveFail')); notify(t('saveFail'), false) }
     finally { setBusy('') }
   }
-  const resetForm = () => { setForm({ ...(cfg?.config ?? {}) }); setSaved('') }
+  const resetForm = () => { savedOverlayRef.current = {}; setForm({ ...(cfg?.config ?? {}) }); setSaved('') }
   // -- 多库（#10）：vaultProfiles / activeVault 的可视化编辑 --
   const VAULT_SRC_KEYS = { env: 'vaultSrcEnv', profile: 'vaultSrcProfile', workspace: 'vaultSrcWorkspace', vaultDir: 'vaultSrcVaultDir', default: 'vaultSrcDefault' }
   const profilesOf = (f) => (Array.isArray(f?.vaultProfiles) ? f.vaultProfiles : [])
