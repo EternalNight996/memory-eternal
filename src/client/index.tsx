@@ -204,6 +204,10 @@ export const ZH = {
   allExempt: '全部免审',
   recycleDays: '回收保留天数',
   editInSetting: '编辑请到 DSH 设置 → 记忆',
+  pendingSyncNote: '此页是独立 Web 页：保存会写入「待应用」文件，由 DSH 端自动同步（DSH 未运行时下次启动生效）。想立刻生效可直接在 DSH 设置 → 记忆里改。',
+  readonlyTitle: '当前页面只读，无法保存配置',
+  readonlyBody: '这个进程没有 DSH 的设置服务（settings.update 不存在），配置只能在本机 DSH 里修改：桌面版 → 设置 → 记忆。',
+  readonlyBtn: '只读',
   setupRunInTerminal: '请复制以下命令到终端执行：',
   dshMemoryConfig: 'DSH 记忆配置',
   autoCapture: '自动沉淀',
@@ -532,6 +536,10 @@ export const EN = {
   allExempt: 'Exempt all',
   recycleDays: 'Recycle retention days',
   editInSetting: 'Edit in DSH Settings → Memory',
+  pendingSyncNote: 'This is the standalone web page: saving writes a "pending" file that the DSH host applies automatically (on next start if DSH is not running). For immediate effect edit it under DSH Settings → Memory.',
+  readonlyTitle: 'This page is read-only; config cannot be saved here',
+  readonlyBody: 'This process has no DSH settings service (settings.update is unavailable). Edit the config in DSH: desktop app → Settings → Memory.',
+  readonlyBtn: 'Read-only',
   setupRunInTerminal: 'Copy this command to your terminal:',
   dshMemoryConfig: 'DSH Memory Config',
   autoCapture: 'Auto capture',
@@ -1413,6 +1421,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [schema, setSchema] = useState(null)
   const [form, setForm] = useState(null)
   const [readonly, setReadonly] = useState(false)
+  const [viaPending, setViaPending] = useState(false) // 独立 Web 页：改动经「待应用文件」由 DSH 同步
   const [dsh, setDsh] = useState(null)
   const [setupStatus, setSetupStatus] = useState(null)
   const [err, setErr] = useState('')
@@ -1451,6 +1460,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
         setForm({ ...(c.config ?? {}) })
         setDsh(c.dsh ?? null)
         setReadonly(c.writable === false)
+      setViaPending(c.viaPending === true)
         setErr('')
       } else {
         // /config 不可用（如独立 web server 7999 无 DSH settings）：降级用 /budget 展示 + 提示
@@ -1561,6 +1571,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
           <div style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600, marginBottom: 6 }}>⚠ {err}</div>
           <button type="button" className="mc-btn" onClick={load}>↻ {t('retry')}</button>
         </div>}
+        {viaPending && <div className="mc-card" style={{ borderLeft: '4px solid #3b82f6', background: 'rgba(59,130,246,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#1d4ed8', lineHeight: 1.7 }}>ℹ {t('pendingSyncNote')}</div>}
         {readonly && <div className="mc-card" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#b45309' }}>ℹ️ {t('configNeedsDsh')} —— {t('editInSetting')}</div>}
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
         {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
@@ -1772,7 +1783,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {saved && busy !== 'save' && <span style={{ fontSize: 11.5, color: '#10b981' }}>✅ {saved}</span>}
               {err && busy !== 'save' && <span style={{ fontSize: 11.5, color: '#b91c1c' }}>⚠ {err}</span>}
               <button type="button" className="mc-btn" onClick={resetForm} disabled={!!busy}>{t('reset')}</button>
-              <button type="button" className="mc-btn me-on" onClick={save} disabled={!!busy || readonly}>{busy === 'save' ? '⏳ ' + t('saving') : '💾 ' + t('saveConfig')}</button>
+              {/* readonly 时也保持可点击：点了必须给出明确原因，不能像以前那样「毫无反应」 */}
+              <button
+                type="button"
+                className="mc-btn me-on"
+                onClick={readonly ? () => notify(t('readonlyTitle') + '：' + t('readonlyBody'), false) : save}
+                disabled={busy === 'save'}
+                title={readonly ? t('readonlyBody') : t('saveConfig')}
+              >
+                {busy === 'save' ? '⏳ ' + t('saving') : (readonly ? '🔒 ' + t('readonlyBtn') : '💾 ' + t('saveConfig'))}
+              </button>
             </div>
           </>
         ) : <div style={{ fontSize: 12, opacity: 0.6 }}>{t('loading')}</div>}

@@ -277,6 +277,21 @@ export function apply(ctx, config) {
   }
   syncAudit()
   settings.watch(syncAudit)
+  // 独立 Web 页保存的配置：它写「待应用」文件，这边应用后删除（DSH 没运行时下次启动生效）
+  const drainPending = async () => {
+    try {
+      const { drainPendingConfig } = await import('./lib/config-sync.js')
+      const applied = await drainPendingConfig(process.env, (patch) => settings.update(patch, undefined))
+      if (applied) {
+        syncConfigFile()
+        syncAudit()
+        try { console.error('[memory-eternal] 已应用独立 Web 端的配置改动: ' + Object.keys(applied).join(',')) } catch { /* 日志失败无妨 */ }
+      }
+    } catch { /* 失败保留文件，下一轮重试 */ }
+  }
+  drainPending()
+  const pendingTimer = setInterval(drainPending, 5000)
+  ctx.effect(() => () => clearInterval(pendingTimer), 'memory-eternal: pending config sync')
 
   // 所有 profile 目录（当前激活 + 其余命名的），供跨库聚合。
   const vaultRoots = () => {
