@@ -338,6 +338,8 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 ## 📋 更新日志
 
+> **发布规则（2026-09-30 起）**：正式版一律**三端同步发布** —— `npm publish` + **GitHub Release** + **Gitee Release**，并保证 `vX.Y.Z` tag 在三端一致。桌面版 profile 依赖 `github:EternalNight996/memory-eternal`、`dsh web` 走 npm 版本号，少任何一端都会出现「npm 上是新版、桌面版还是旧的」。统一入口：`npm run release:dry`（预演）→ `npm run release`（正式）。详见 [PUBLISH.md](./PUBLISH.md)。
+>
 > **版本撤回说明**：**v0.9.16 – v0.9.22 已全部撤回**（问题期间版本：git tag 已删除、npm 已标记 deprecated，请使用 **v0.9.23**）。**v0.9.14 已 deprecated**（客户端渲染改动降低手感，已回退；其服务器侧算法优化并入 **v0.9.15**，渲染与 v0.9.13 完全一致）。**v0.9.0 – v0.9.5 均已在 npm 标记 deprecated；v0.9.1 / v0.9.2 / v0.9.3 / v0.9.4 的 release tag 已从 git 移除**（v0.9.5 只是被取代、tag 保留）—— v0.9.1/v0.9.2 带记忆页白屏缺陷，v0.9.0 沉淀告警误报刷屏，v0.9.3 不支持 DSH v0.1.7-rc.2（升级后插件整体挂不上：设置服务换血 + 客户端 `settingsScope` 消失），v0.9.4 在官方桌面版（schemastery 3.18.4 的 volatile 活引用）下抛 `cfg.vaultDir.trim is not a function`、插件整体挂不上，**v0.9.5 的全屏浮层会盖住桌面版的窗口控制面板（右上角「×」压在窗口「关闭」上，点一下会退出整个桌面壳）**。请一律使用 **v0.9.6+**（`npm i memory-eternal@latest`）。
 > **DSH 兼容性**：`>=0.1.5-alpha.2 <0.2.0`。**v0.9.4 起适配 DSH v0.1.7-rc.2**（该版本把设置服务换成纯表单 API，并移除了 `@deepseek-ai/dsh-client-runtime` 与 `settingsScope`）；**v0.9.5 起兼容 schemastery ≥3.18.4 的 volatile 活引用**（官方桌面版 profile 即此形态，web profile 仍是 3.18.1，两者都支持）；**v0.9.6 起全屏浮层自动让开桌面壳的窗口标题栏**（不再压住最小化/最大化/关闭）。0.1.5 系列仍走旧的 `settings.register` 路径，两条路径都保留。
 

@@ -85,19 +85,67 @@ npm publish        # 触发 prepublishOnly 自动 build，然后发布
 
 五维评分靠 README 质量：**用途一句话 + 真实截图 + 安装命令 + 目录结构 + 待办**（本插件 README 已按此结构写好）。
 
-## 6. 更新版本
+## 6. 更新版本（正式版必须三端同步）
+
+**规则（2026-09-30 起强制）：正式版 = npm 发布 + GitHub Release + Gitee Release，tag 三端同步。**
+少任何一端都算未发布完成 —— 桌面版 profile 依赖 `github:EternalNight996/memory-eternal`、
+`dsh web` profile 走 npm 版本号、Gitee 是镜像与 Release 归档；任一端漏掉就会出现
+「npm 上有新版、桌面版还是旧的」这类不一致（v0.9.16–v0.9.23 就漏打了 tag，导致 `latest` 长期指向 0.9.15）。
+
+用统一脚本走完全流程（推荐）：
 
 ```bash
-npm version patch        # 0.1.0 → 0.1.1（自动改 package.json + git tag）
-npm publish              # 重新发布
-git push --follow-tags   # 同步 tag 到 GitHub
+# 1) 改版本号 + 在 README 更新日志里写这一版（脚本会从日志里抽发布说明）
+#    也可以 npm version patch（会改 package.json 并打 tag）
+
+# 2) 预演：检查工作区 / 测试 / 版本与 tag 一致性，仅打印将执行的动作
+node scripts/release.mjs --dry-run
+
+# 3) 正式发布：npm publish → git push(origin + gitee) → GitHub Release → Gitee Release
+node scripts/release.mjs
+
+# 常用变体
+node scripts/release.mjs --skip-npm        # 只同步 git / GitHub / Gitee
+node scripts/release.mjs --only-gitee      # 只补建漏掉的 Gitee Release
+node scripts/release.mjs --notes-file=notes.md
+```
+
+**Gitee Release 需要 token**（脚本找不到 token 时会明确打印「未同步」，不会假装成功）：
+
+```bash
+# 方式一：环境变量（Windows 用 setx，新开终端生效）
+setx GITEE_TOKEN "<你的私人令牌>"
+export GITEE_TOKEN="<你的私人令牌>"          # bash
+
+# 方式二：文件（更省事，一行 token）
+#   %USERPROFILE%\.config\memory-eternal\gitee-token
+```
+令牌在 Gitee → 设置 → 私人令牌 生成，勾选 **projects**（仓库读写）权限。**不要提交进仓库。**
+
+手工等价命令（不想用脚本时）：
+
+```bash
+npm publish --access public
+git push origin main && git push origin vX.Y.Z
+git push gitee  main && git push gitee  vX.Y.Z
+gh release create vX.Y.Z --repo EternalNight996/memory-eternal --title "vX.Y.Z — …" --notes-file notes.md
+# Gitee：POST https://gitee.com/api/v5/repos/EternalNight996/memory-eternal/releases
+#        （tag_name / name / body / target_commitish=main / access_token）
 ```
 
 > ⚠️ **桌面版走的是 GitHub 主分支**：`~/.dsh/profiles/desktop/package.json` 里
 > `memory-eternal` 的依赖是 `github:EternalNight996/memory-eternal`，所以
-> **只发 npm 不会更新桌面版用户**——必须把 commit **push 到 GitHub `main`** 才能被拉到。
-> `dsh web` 的 `web` profile 走 npm 版本号，所以两条链路都要发。
-> 发完提醒用户：`cd ~/.dsh/profiles/desktop && pnpm update memory-eternal` 后重启宿主。
+> **只发 npm 不会更新桌面版用户**——必须 push 到 GitHub `main`。
+> 发布后提醒用户：`cd ~/.dsh/profiles/desktop && pnpm update memory-eternal` 后重启宿主；
+> `dsh web` 用户：`cd ~/.dsh/profiles/web && pnpm add memory-eternal@X.Y.Z`。
+
+### 6.0 发布前自检清单
+
+- [ ] `npm test` 全绿（脚本会再跑一次，`--skip-tests` 可跳过）
+- [ ] 工作区干净（脚本默认拒绝带未提交改动发布）
+- [ ] `package.json` 版本与 tag 一致（脚本会校验）
+- [ ] README 更新日志写了这一版（否则用 `--notes-file`）
+- [ ] 发布后确认 `dist-tags.latest` 指向新版本：`npm view memory-eternal dist-tags`
 
 ## 6.1 可选的 MCP 对外通道
 
@@ -110,5 +158,7 @@ git push --follow-tags   # 同步 tag 到 GitHub
 ## 一句话总览
 
 ```
-本地验证 → GitHub 建仓打 dsh-plugin topic → npm login + npm publish → 市场自动收录
+本地验证（npm test 全绿）→ npm publish → git push origin+gitee（含 tag）
+   → GitHub Release → Gitee Release → 市场自动收录 → 提醒用户更新 profile
+一条命令跑完：node scripts/release.mjs（先 --dry-run 预演）
 ```
