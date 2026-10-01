@@ -1,7 +1,7 @@
 {
   "name": "memory-eternal",
-  "version": "0.9.23",
-  "description": "璁板繂鏍稿績锛圡emory Eternal锛夛細鐭ヨ瘑鍗¤嚜鍔ㄦ矇娣€/鍙洖锛岀粺涓€ ~/.dsh/memory-vault锛屼細璇濈粨鏉熻嚜鍔ㄥ叆搴撹繘寰呭鏍搞€?,
+  "version": "0.10.1",
+  "description": "记忆核心（Memory Eternal）：对话结束后自动沉淀知识卡到本地记忆库（~/.dsh/memory-vault），支持检索 / 召回 / 审核中心。",
   "author": {
     "name": "EternalNight996",
     "url": "https://github.com/EternalNight996"
@@ -12,17 +12,3 @@
   "mcpServers": "./.mcp.json",
   "hooks": "./hooks/hooks.cursor.json"
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
