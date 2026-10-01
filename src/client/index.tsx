@@ -117,7 +117,12 @@ export const ZH = {
   exportFail: '导出失败',
   importVault: '导入',
   importedVault: '导入完成',
-  importedSkipped: '（跳过重复 ',
+  importedTotal: ' 张 / 文件共 ',
+  importedTotalTail: ' 张',
+  importedQuarantine: ' · 待审核 ',
+  importedQuarantineTail: ' 张（隔离区，批准后才参与召回）',
+  importedSkipped: ' · 跳过 ',
+  importedSkippedTail: ' 张（重复或空）',
   importFail: '导入失败',
   location: '自选位置',
   saveAs: '另存为',
@@ -449,7 +454,12 @@ export const EN = {
   exportFail: 'Export failed',
   importVault: 'Import',
   importedVault: 'Import complete',
-  importedSkipped: ' (skipped dup ',
+  importedTotal: ' / of ',
+  importedTotalTail: '',
+  importedQuarantine: ' · pending review ',
+  importedQuarantineTail: ' (quarantined until approved)',
+  importedSkipped: ' · skipped ',
+  importedSkippedTail: ' (duplicate or empty)',
   importFail: 'Import failed',
   location: 'Choose location',
   saveAs: 'Save as',
@@ -720,6 +730,7 @@ const CAPTURE_ACTIONS = {
   created: ['✅', '#10b981'],
   appended: ['➕', '#3b82f6'],
   skip: ['⏭', '#f59e0b'],
+  warn: ['⚠️', '#f59e0b'],
   fail: ['❌', '#ef4444'],
 }
 
@@ -1231,7 +1242,19 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
       const data = await res.json()
       if (!data.ok) throw new Error(data.error || 'export failed')
       let content, name, mime
-      if (format === 'json') { name = 'memory-vault.json'; mime = 'application/json'; content = JSON.stringify(data.cards.map((c) => ({ path: c.path, title: c.title, kind: c.kind, text: c.text })), null, 2) }
+      // JSON 备份写成带信封的对象（老版本只认 payload.cards，所以信封比裸数组更互通）；
+      // /import 同时兼容裸数组，v0.10.0 及以前导出的备份仍能导回。
+      if (format === 'json') {
+        name = 'memory-vault.json'; mime = 'application/json'
+        const cards = data.cards.map((c) => ({ path: c.path, title: c.title, kind: c.kind, status: c.status, store: c.store, text: c.text }))
+        content = JSON.stringify({
+          format: data.format || 'memory-eternal-vault',
+          formatVersion: data.formatVersion || 1,
+          exportedAt: data.exportedAt || new Date().toISOString(),
+          count: cards.length,
+          cards,
+        }, null, 2)
+      }
       else { name = 'memory-vault.md'; mime = 'text/markdown;charset=utf-8'; content = data.cards.map((c) => c.text.trim()).filter(Boolean).join('\n\n---\n\n') }
       const blob = new Blob([content], { type: mime })
       const r = await saveFile(blob, name, false)
@@ -1254,7 +1277,17 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
       const text = await file.text()
       const res = await fetch(`${API}/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: text })
       const data = await res.json()
-      if (data.ok) { await loadAll(); setLibToast({ ok: true, msg: t('importedVault') + '：' + (data.imported || 0) + (data.skipped ? t('importedSkipped') + (data.skipped) : '') }) }
+      if (data.ok) {
+        await loadAll()
+        const n = data.imported || 0
+        let msg = t('importedVault') + '：' + n
+        if (data.total) msg += t('importedTotal') + data.total + t('importedTotalTail')
+        if (data.quarantined) msg += t('importedQuarantine') + data.quarantined + t('importedQuarantineTail')
+        if (data.skipped) msg += t('importedSkipped') + data.skipped + t('importedSkippedTail')
+        if (data.warning) msg += ' · ' + data.warning
+        // 一张都没进来（且文件本来有卡）时按失败提示：静默的「0 张」正是这次 bug 最难查的地方。
+        setLibToast({ ok: n > 0 || !data.total, msg })
+      }
       else setLibToast({ ok: false, msg: (data.error || t('importFail')) })
     } catch (err) {
       setLibToast({ ok: false, msg: t('importFail') })
