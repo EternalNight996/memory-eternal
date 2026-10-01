@@ -37,9 +37,24 @@ const SKIP_NPM = flag('skip-npm') || flag('only-gitee')
 const ONLY_GITEE = flag('only-gitee')
 const SKIP_TESTS = flag('skip-tests')
 
+// 跨平台「怎么调用 npm」（见下方 run() 的说明）：Windows 走 node + npm-cli.js。
+const NPM = (() => {
+  if (process.platform !== 'win32') return { cmd: 'npm', args: [] }
+  const nodeDir = path.dirname(process.execPath)
+  const hit = [
+    path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(nodeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ].find((p) => fs.existsSync(p))
+  return hit ? { cmd: process.execPath, args: [hit] } : { cmd: 'npm.cmd', args: [] }
+})()
+
 const run = (cmd, argv, { cwd = ROOT, allowFail = false } = {}) => {
+  // Windows 上 npm 只是 .cmd 垫片：execFileSync('npm', …) 直接 ENOENT（Node ≥18 起 spawn
+  // .cmd 还要 shell:true，而 shell 拼参数对含空格/中文的 tag 与说明不安全）。所以优先用
+  // 「当前 node + npm-cli.js」这两个真实文件，找不到才退回 npm.cmd。git / gh 是真实 exe，不受影响。
+  const [realCmd, realArgv] = cmd === 'npm' ? [NPM.cmd, [...NPM.args, ...argv]] : [cmd, argv]
   try {
-    return { ok: true, out: execFileSync(cmd, argv, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() }
+    return { ok: true, out: execFileSync(realCmd, realArgv, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() }
   } catch (e) {
     const out = `${e.stdout || ''}${e.stderr || ''}`.trim() || String(e.message || e)
     if (!allowFail) throw new Error(`${cmd} ${argv.join(' ')} 失败：\n${out}`)
