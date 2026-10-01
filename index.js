@@ -33,6 +33,7 @@ import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
+import { missingWebAssets, missingAssetsReason } from './lib/web-assets.js'
 import { nodeBinary, childEnv } from './lib/node-bin.js'
 
 export const name = 'memory-eternal'
@@ -379,6 +380,14 @@ export function apply(ctx, config) {
       if (captureLog.length > CAPTURE_LOG_MAX) captureLog.splice(0, captureLog.length - CAPTURE_LOG_MAX)
     }).catch(() => {})
     logCapture('system', 'boot', `记忆核心 v${versionRef || '?'} 已加载：自动沉淀 ${c.enabled !== false && c.autoCapture !== false ? '开' : '关'} · 库 ${vaultDir()}`)
+    // 安装完整性自检（issue #14）：插件市场装出来的副本可能缺 web/ 静态资源，那时侧边栏
+    // 「记忆」弹窗只会是一页 ENOENT JSON。启动就写进自动沉淀日志/健康态，别等用户点开才发现。
+    {
+      const missing = missingWebAssets(PACKAGE_ROOT)
+      if (missing.length) {
+        logCapture('system', missing.includes('app.js') ? 'fail' : 'warn', missingAssetsReason(missing, PACKAGE_ROOT))
+      }
+    }
   }
   const lastCaptureAt = new Map() // sessionId -> 上次实际发起蒸馏的时间戳
 
