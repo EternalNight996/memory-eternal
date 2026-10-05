@@ -27,6 +27,19 @@ const argOf = (name) => {
 }
 const has = (name) => argv.includes(name)
 
+/** audit 子命令的位置参数（= 卡片的 vault 相对路径），跳过 flag 与它的值 */
+const auditPaths = () => {
+  const valueFlags = new Set(['--vault', '--kind', '--reason', '--by', '--limit', '--status'])
+  const out = []
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i]
+    if (valueFlags.has(a)) { i++; continue }
+    if (typeof a === 'string' && a.startsWith('--')) continue
+    out.push(a)
+  }
+  return out
+}
+
 /** 取位置参数（跳过子命令、flag 与 flag 的值） */
 const positional = () => {
   const isFlag = (s) => typeof s === 'string' && s.startsWith('--')
@@ -108,6 +121,117 @@ async function main() {
       startMcpServer()
       return
     }
+    case 'status': {
+      const { watchdogStatus } = await import('../lib/watchdog.js')
+      const port = argOf('--port')
+      const st = watchdogStatus({ port: port || undefined })
+      if (has('--json')) { console.log(JSON.stringify({ ok: true, ...st }, null, 2)); return }
+      console.log(`锁文件：${st.lockPath}`)
+      console.log(`本机包版本：${st.pkgVersion || '?'}`)
+      if (!st.watchdogs.length) { console.log('锁文件里没有登记的看门狗（没有常驻实例）。'); return }
+      for (const w of st.watchdogs) {
+        console.log(`- pid ${w.pid} · 端口 ${w.port} · ${w.alive ? '运行中' : '已退出（陈旧记录）'}${w.pkgVersion ? ' · v' + w.pkgVersion : ''}${w.startedAt ? ' · 启动于 ' + w.startedAt : ''}${w.vault ? ' · vault ' + w.vault : ''}`)
+        if (w.webPid) console.log(`    web 子进程：pid ${w.webPid}（端口 ${w.webPort || w.port}，${w.webAlive ? '运行中' : '已退出'}）`)
+        if (w.versionMismatch) console.log(`    ⚠ 常驻实例是旧版本（v${w.pkgVersion} ≠ 本机 v${st.pkgVersion}）→ 执行 dsh-memory restart --port ${w.port} 替换`)
+      }
+      return
+    }
+    case 'stop': {
+      const { stopWatchdogs } = await import('../lib/watchdog.js')
+      const port = argOf('--port')
+      const out = await stopWatchdogs({ port: port || undefined })
+      if (has('--json')) { console.log(JSON.stringify({ ok: out.failed.length === 0, ...out }, null, 2)); return }
+      if (!out.stopped.length && !out.failed.length && !out.webStopped.length) console.log('没有需要停止的常驻看门狗（锁里没有活着的实例）。')
+      if (out.stopped.length) console.log(`已停止看门狗：pid ${out.stopped.join(', ')}`)
+      if (out.webStopped.length) console.log(`已停止它拉起的 web：pid ${out.webStopped.join(', ')}`)
+      if (out.failed.length) { console.error(`未能停止：pid ${out.failed.join(', ')}（可能无权限，请手动任务管理器 / kill 处理）`); process.exitCode = 1 }
+      return
+    }
+    case 'restart': {
+      // 显式替换常驻实例（#19）：同端口已有实例时新进程只会让位，所以必须先停再起。
+      const { stopWatchdogs } = await import('../lib/watchdog.js')
+      const { nodeBinary, childEnv } = await import('../lib/node-bin.js')
+      const { defaultVaultDir } = await import('../lib/capture-run.js')
+      const { spawn } = await import('node:child_process')
+      const { fileURLToPath } = await import('node:url')
+      const port = Number(argOf('--port')) || 7999
+      const interval = Number(argOf('--interval')) || 5000
+      const maxRestart = Number(argOf('--max-restart')) || 10
+      const vaultRoot = argOf('--vault') ? path.resolve(argOf('--vault')) : defaultVaultDir()
+      const stopped = await stopWatchdogs({ port })
+      if (stopped.failed.length) { console.error(`旧实例未能停止：pid ${stopped.failed.join(', ')}，放弃重启`); process.exitCode = 1; return }
+      if (stopped.stopped.length) console.log(`已停止旧实例：pid ${stopped.stopped.join(', ')}`)
+      if (stopped.webStopped && stopped.webStopped.length) console.log(`已停止旧实例拉起的 web：pid ${stopped.webStopped.join(', ')}`)
+      const bin = nodeBinary()
+      const script = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'watchdog.js')
+      const wd = spawn(bin, [script, '--port', String(port), '--interval', String(interval), '--max-restart', String(maxRestart), '--vault', vaultRoot], {
+        detached: true, stdio: 'ignore', env: childEnv({ MEMORY_VAULT_DIR: vaultRoot }), windowsHide: true,
+      })
+      wd.unref()
+      console.log(`已在后台启动新看门狗 pid=${wd.pid} port=${port} vault=${vaultRoot}`)
+      return
+    }
+    case 'audit': {
+      const sub = argv[1] || ''
+      const { listCards, setCardStatus } = await import('../lib/vault.js')
+      const { defaultVaultDir } = await import('../lib/capture-run.js')
+      const root = path.resolve(argOf('--vault') || defaultVaultDir())
+      const asJson = has('--json')
+      if (sub === 'list') {
+        const STATUS = { pending: ['pending'], rejected: ['rejected'], deleted: ['deleted'], all: ['pending', 'rejected'], queue: ['pending', 'rejected'] }
+        const wanted = String(argOf('--status') || 'pending').toLowerCase()
+        const status = STATUS[wanted] || [wanted]
+        const kind = argOf('--kind') || undefined
+        const limit = Math.min(Math.max(Number(argOf('--limit')) || 50, 1), 500)
+        const cards = await listCards(root, { status, kind, limit, sort: 'recent' })
+        if (asJson) {
+          console.log(JSON.stringify({
+            ok: true, vaultDir: root, status: wanted, count: cards.length,
+            cards: cards.map((c) => ({ path: c.path, title: c.title, kind: c.kind, status: c.status, tags: c.tags, reason: c.reason, createdAt: c.createdAt, submittedBy: c.submittedBy })),
+          }, null, 2))
+          return
+        }
+        if (!cards.length) { console.log(`没有 ${wanted} 状态的卡片（库：${root}）`); return }
+        console.log(`${wanted} 共 ${cards.length} 张（库：${root}）：`)
+        for (const c of cards) console.log(`- [${c.status}] ${c.kind} | ${c.title}\n    ${c.path}`)
+        return
+      }
+      if (sub === 'approve' || sub === 'reject') {
+        const paths = auditPaths()
+        if (!paths.length) {
+          console.error(`用法：dsh-memory audit ${sub} <卡片路径...> [--reason "原因"] [--vault DIR]`)
+          process.exitCode = 1
+          return
+        }
+        const status = sub === 'approve' ? 'approved' : 'rejected'
+        const reason = argOf('--reason') || (sub === 'approve' ? 'CLI 人工批准' : 'CLI 人工驳回')
+        const changedBy = argOf('--by') || 'cli'
+        const results = []
+        for (const p of paths) {
+          try {
+            await setCardStatus(root, p, status, { changedBy, reason })
+            results.push({ path: p, ok: true, status })
+            if (!asJson) console.log(`✓ ${status} ${p}`)
+          } catch (error) {
+            results.push({ path: p, ok: false, error: String(error?.message || error) })
+            if (!asJson) console.error(`✗ ${p}：${String(error?.message || error)}`)
+          }
+        }
+        if (asJson) console.log(JSON.stringify({ ok: results.every((r) => r.ok), vaultDir: root, results }, null, 2))
+        else console.log(`完成：${results.filter((r) => r.ok).length}/${results.length}（库：${root}）`)
+        process.exitCode = results.some((r) => !r.ok) ? 1 : 0
+        return
+      }
+      console.error(`用法：
+  dsh-memory audit list [--status pending|rejected|deleted|all] [--kind KIND] [--limit N] [--json] [--vault DIR]
+  dsh-memory audit approve <卡片路径...> [--reason "原因"] [--vault DIR]
+  dsh-memory audit reject  <卡片路径...> [--reason "原因"] [--vault DIR]
+
+说明：审核写入仍走 setCardStatus（DB 层守卫 + 不可变 audit_log 都不绕过）。
+MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显式发起。`)
+      process.exitCode = 1
+      return
+    }
     case 'watchdog': {
       const { startWatchdog, reapStaleWatchdogs } = await import('../lib/watchdog.js')
       const { defaultVaultDir } = await import('../lib/capture-run.js')
@@ -177,6 +301,12 @@ async function main() {
   dsh-memory connect <claude|codex|cursor>   写会话结束自动沉淀 hook（不依赖 plugin，含 Codex Desktop）
   dsh-memory sweep <dir>                      挖掘会话 JSONL
   dsh-memory watchdog [--port N] [--interval MS] [--max-restart N]  看门狗保活 web server
+  dsh-memory watchdog --reap [--port N]      清理不在锁里的孤儿看门狗
+  dsh-memory status [--port N] [--json]      查看常驻看门狗（pid/端口/版本/存活）
+  dsh-memory stop [--port N] [--json]        停止常驻看门狗（显式命令，配置变更不会自动停）
+  dsh-memory restart [--port N] [--vault DIR] 停止并重新拉起看门狗（应用新版本）
+  dsh-memory audit list [--status pending] [--kind K] [--json]  列出待审/驳回卡片
+  dsh-memory audit approve <path...> | reject <path...> [--reason "原因"]  人工批量审批
 
 环境变量：MEMORY_VAULT_DIR / MEMORY_LLM_BASE_URL / MEMORY_LLM_KEY / MEMORY_LLM_MODEL`)
   }
