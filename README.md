@@ -68,7 +68,7 @@ node -e "console.log(require('memory-eternal/package.json').version)"
 
 **界面语言**：全套 UI 中英双语，跟随 **DSH 设置 → 语言** 实时切换（含知识卡 / 知识图谱 / 审核中心 / 新建卡模板）；浏览器直接访问 web 时跟随浏览器语言。
 
-**改配置**：记忆库左栏「记忆配置」（或 DSH 设置 → 记忆）→ DSH 记忆配置 / 成本控制 / 自动审核配置 / 服务自管理，点「保存配置」即写入。`autoWebMode`/`watchdogAutoSpawn` 的改动需重启 DSH 生效。
+**改配置**：记忆库左栏「记忆配置」（或 DSH 设置 → 记忆）→ DSH 记忆配置 / 成本控制 / 自动审核配置 / 服务自管理，点「保存配置」即写入。`autoWebMode`/`watchdogAutoSpawn` 的改动需重启 DSH 生效；注意**已常驻的 watchdog 不会被配置改动自动停掉**，要停止或换新版请执行 `dsh-memory stop` / `dsh-memory restart`（见「服务自管理」）。
 
 ### 🟨 Claude Code
 
@@ -121,6 +121,12 @@ dsh-memory mcp                       # MCP stdio（挂任意 MCP 客户端）
 dsh-memory serve [--port 7999]       # 前台跑 web
 dsh-memory open                      # ensure web 存活 + 开浏览器
 dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
+dsh-memory status [--json]           # 看常驻 watchdog：pid / 端口 / 版本 / 是否存活
+dsh-memory stop [--port 7799]        # 停止常驻 watchdog（配置改动不会自动停；连它拉起的 web 一起停）
+dsh-memory restart [--port 7799]     # 停止并重起 watchdog（升级后换新版）
+dsh-memory audit list [--status pending] [--json]   # 列出待审/驳回卡片（可配 jq 筛）
+dsh-memory audit approve <卡片路径...>              # 人工批量批准
+dsh-memory audit reject <卡片路径...> --reason "..." # 人工批量驳回
 ```
 
 单独装（不发 DSH）时 `dsh-memory` 命令来自 `npm i -g`。
@@ -137,13 +143,18 @@ dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
 
 **改这些**：记忆库左栏「记忆配置」（或 DSH 设置 → 记忆）→ 表格里改，点「保存配置」；`autoWebMode`/`watchdogAutoSpawn` 需重启 DSH 生效。
 
+> ⚠️ **同端口不会自动替换（#19）**：看门狗是**独立进程且故意不杀**（多会话共用一个），所以
+> 关闭 `watchdogAutoSpawn` **不会**停掉已经在跑的那个，改 `webCheckIntervalMs`/`webMaxRestart` 也不会生效。
+> 要停止 / 换新版请显式执行 `dsh-memory stop [--port N]` 与 `dsh-memory restart [--port N]`（`stop` 会**连它拉起的 web 一起停**，不留占端口的孤儿）；
+> `dsh-memory status` 会显示常驻实例的 pid、端口、启动时间与**版本是否落后于本机安装的包**。
+
 **MCP 是协议不是常驻服务**：agent 开会话才 spawn，用完即退，没有「开机自启」一说。
 
 ### 三种部署强度
 
 | 场景 | 配置 | 内存 |
 |---|---|---|
-| 个人开发（默认） | `autoWebMode=init` + `watchdogAutoSpawn=off` | web 47 MB |
+| 个人开发（推荐） | `autoWebMode=init` + **手动**把 `watchdogAutoSpawn` 关掉（默认是**开**，见下方配置表） | web 47 MB |
 | 常驻 7×24 | `watchdogAutoSpawn=on` | web + watchdog 47+47 MB |
 | 真正开机自启（无 DSH） | Windows 计划任务跑 `dsh-memory watchdog --port 7799 --interval 5000 --max-restart 10` | 同上 |
 
@@ -198,7 +209,7 @@ dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
 | 配置项 | 默认 | 大白话说明 |
 |---|---|---|
 | 保活模式 `autoWebMode` | init | `init`=DSH 启动时开一次 web；`interval`=定时检查挂了自动重启；`manual`=全靠手动 |
-| 看门狗 `watchdogAutoSpawn` | 开 | 后台一个**独立进程**保证 web 不死（+47 MB 内存）。个人用可关 |
+| 看门狗 `watchdogAutoSpawn` | 开 | 后台一个**独立进程**保证 web 不死（+47 MB 内存）。个人用可关——但关闭后**既有实例不会自动停**，需 `dsh-memory stop`（#19） |
 | 自动挂载 MCP `autoMcpSetup` | 关 | **让 Claude Code / Codex / Cursor 也能用你的记忆库**。开=自动配好它们；关=不碰你电脑配置，手动跑 `dsh-memory setup` |
 
 > 💰 **想省钱**：把「蒸馏知识卡」关掉、调低「蒸馏输出上限」、调高「召回相关性阈值」。
@@ -209,7 +220,7 @@ dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
 
 | 方案 | 场景 | 保活 | 看门狗 | 蒸馏 | 蒸馏上限 | 召回阈值 | 内存 | LLM 成本 |
 |---|---|---|---|---|---|---|---|---|
-| 🟢 **A 轻量省心** | 个人开发（默认）| init | 关 | 开 | 900 | 2 | ~47 MB | 正常 |
+| 🟢 **A 轻量省心** | 个人开发（推荐）| init | 关 | 开 | 2000 | 2 | ~47 MB | 正常 |
 | 💰 **B 极致省钱** | 预算敏感/多 Agent | init | 关 | **关** | 500 | 3 | ~47 MB | **近 0** |
 | ⭐ **C 高质量** | 长项目/团队 | interval | **开** | 开 | 1200 | 1 | ~94 MB | 高 |
 
@@ -345,6 +356,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.10.2** | 2026-10-06 | **五个存量 issue 集中修复（#15 / #16 / #17 / #18 / #19）**。① **按项目选库在宿主侧终于生效（#15-1）**：宿主过去拿进程 cwd 去匹配 `vaultProfiles[].match.workspace`，而那是「启动 dsh 的目录」——现在从 `session.header.cwd` 取**会话自己的工作区**（capture 与 memory_recall 两条路径都传），CLI/MCP/hooks 行为不变。② **蒸馏不再选错 provider（#15-2）**：声明 `supportsReasoningEffort:false` 的候选不再被传 `reasoningEffort`（能力未知一律按支持处理），并把它们排到支持者之后但**不删除**，避免兜底全无。③ **输出截断不再伪装成解析失败（#18）**：新增独立错误码 `MAX_TOKENS`（含实际上限值），撞上限自动以双倍上限重试同一候选；兜底上报改为**始终以第一候选为主因** + 其余错误按码汇总（不再被最后一个候选覆盖）；默认 `captureMaxTokens` 900 → **2000**；失败兜底的原文卡加 `distill-failed` 标签便于过滤。④ **独立 Web 端保存配置不再静默丢失（#16）**：drain 报错不再被 `catch {}` 吞掉（进 stderr + 自动沉淀日志，5 分钟去重节流），共享配置 `memory-eternal-config.json` 改为 **tmp + rename 原子写**（原先非原子写会在截断窗口内被独立 web / MCP 读到半截内容 → JSON.parse 失败 → 设置静默回落成默认值），重试耗尽后**保留 pending 文件**并标注 `dropped:true` + `lastError`（不再删除用户改动），失败状态进 `/diagnostics` 与 `/config` 响应。⑤ **审核中心有了 CLI（#17）**：`dsh-memory audit list/approve/reject`（多路径批量、`--json` 便于 jq 筛选、复用同一套 `setCardStatus` 守卫与 `audit_log`）；MCP 侧只新增**只读**的 `memory_audit_list`，不暴露 approve/reject。⑥ **看门狗有了生命周期（#19）**：新增 `dsh-memory status/stop/restart`，锁文件写入 `pkgVersion`（status 会提示「常驻实例是旧版」），宿主日志按抢锁结果如实打印 `spawned` / `delegated to existing pid`（不再每次都谎报 spawned），关闭 `watchdogAutoSpawn` 时明确提示既有实例仍在跑；并且 `dsh-memory stop` 会**连同该 watchdog 拉起的 web 一起停**（Windows 上 `process.kill(pid,'SIGTERM')` 是无条件终止，watchdog 的退出处理器根本不会执行 —— 旧写法会在 stop 后留下一个占着端口的孤儿 web；web 子进程 pid 现在记在锁里，杀之前还会用进程命令行确认确实是 `web.js`，防 pid 复用误杀）；README 修正「默认值自相矛盾」与「重启即可关闭」的错误承诺。 |
 | **v0.10.1** | 2026-10-02 | **修复「导出 OK、导入 0 张」**。根因：客户端「导出JSON」写出的是**裸数组**，而 `/import` 只读 `payload.cards` —— 裸数组被静默当成空备份（`ok:true` / `imported:0` / `skipped:0`），UI 只显示「导入完成：0」，看不出是格式不匹配。① `/import` 现在同时接受**裸数组**（v0.10.0 及以前的备份）与**信封对象** `{format, formatVersion, exportedAt, count, cards}`；形状不认识 → **400 + 人话原因**，空文件 → `warning`，坏 JSON → 原有的解析失败提示；② 导出改为**带信封**（老版本只认 `payload.cards`，信封对老版本也互通）并保留每张卡的 `status` / `store`；③ 导入去重基线改为**导入前快照**（`writeCard` 新增 `dedupAgainst`）—— 否则同一份备份里互相近似的卡会在写入过程中互相判重、被自己人吞掉一批（备份是真相源）；④ 导入应答补 `total` / `skipped` / `quarantined` / `failed[]`（含每条未导入原因），提示语改为「导入完成：N 张 / 文件共 M 张 · 待审核 K · 跳过 D」，一张都没进来时按**失败样式**提示；⑤ 新增 `tests/import-roundtrip.test.mjs`（6 项：裸数组 / 信封 / 导出→导入全量往返 / 重复导入如实报重复 / 坏形状 / 审核守卫不可绕过）。⑥ **装坏了也要说人话（issue #14）**：从插件市场装出来的副本可能缺 `web/` 静态资源，那时侧边栏「记忆」只会弹一页 `{"ok":false,"error":"ENOENT …"}` —— 现在缺 `index.html` 但 `app.js` 还在就用**内置外壳**把界面拉起来（自救），缺 `app.js` 则回一段把诊断画进 `#root` 的 JS + 一页含「缺哪个文件 / 绝对路径 / 包版本 / 怎么重装」的说明；两种缺失都写进自动沉淀日志（`app.js` → `fail` 健康态亮红、只缺 `index.html` → `warn`），宿主启动时也自检一次（判据与措辞由新增的 `lib/web-assets.js` 统一，附 `tests/web-assets.test.mjs` 6 项）。⑦ 顺带修 `appendCaptureLog` 在 `DSH_HOME` 目录不存在时静默失败（诊断信息连一条都留不下）。⑧ **DSH 兼容范围放宽到 `>=0.1.5-alpha.2 <0.3.0-0`**：旧上界 `<0.2.0` 按 semver 会把 DSH `0.2.0-rc.x` 排除在外（DSH 守卫用 `includePrerelease:true`，实际装得上，但声明与事实不符）——现在覆盖整个 0.1/0.2 线，`<0.3.0-0` 仍挡住 0.3.0 及其预发布；`dsh.compatibility` 同步补 `"0.2.0-rc.2": "compatible"`（本机在官方桌面版 0.2.0-rc.2 上实测运行）。⑨ **修三个第三方插件清单长期非法 JSON**：`.claude-plugin` / `.codex-plugin` / `.cursor-plugin` 的 `description` 收尾引号被双重编码吃掉（最后改动停在 v0.9.23），DSH 不走这三个文件所以一直没暴露，但 Claude Code / Codex / Cursor 侧安装**必然解析失败**；现已重写为合法 UTF-8 JSON、`version` 跟到 0.10.1，并新增**随包体检守卫** `tests/manifests.test.mjs`（3 项：随包 JSON 全部可解析 / 三清单 `name`+`version` 与 package.json 一致 / 随包文本无编码事故乱码）。实测用户 **661 张真实备份（裸数组、3.9MB）：修复前导入 0 张 → 修复后 661 张**（654 进主库 + 7 进隔离区）。`npm test` 共 **187 项** |
 | **v0.10.0** | 2026-09-30 | **两套存储：未审核内容物理隔离**。① `cards`（主库）只存 `approved`，新增 `quarantine`（隔离区，含 `quarantined_at` / `quarantine_reason`）存 `pending`/`rejected`/`deleted`；② 召回/检索/图谱/去重/导出等读路径**不再需要状态条件**（查主库即安全），根治 v0.9 审计出的三处绕过审核漏洞（去重池把新知识写进待审卡、`readCard` 直读未审核正文、`/card` 无状态校验）；③ 审核流转改为**跨表搬家**（事务内完成，id 由新增的 `card_sequence` 单一发号器分配，`card_updates` 随卡改绑）；④ 首次启动**自动迁移**存量非 approved 卡（不删内容，幂等）；⑤ 新增 `checkMainStoreInvariant()` 不变量体检与 `tests/two-store.test.mjs`（15 条）；⑥ 入料噪声闸门：剥离 DSH 运行时注入（环境快照 / team 广播 / teammate 原文 / 工具说明），挡住碎片卡与糊标题；⑦ 修 `settings-compat` 在 Windows 上的原生崩溃（`fs.watch` 父目录 → 改监听文件） |
 | **v0.9.23** | 2026-09-30 | **保存不再闪烁**。保存成功后客户端会立刻重拉 `/config`，而宿主 volatile 回流是滞后的 → 输入框会「先退回原配置、再跳回修改后的值」。现在客户端把「已保存但宿主未回显」的字段做**本地叠加**（新增 `src/client/config-merge.js` 纯函数 + 4 项单测），宿主回显一致后自动摘除，之后仍跟随宿主权威值；重置表单会清空叠加层。`npm test` 共 **139 项** |

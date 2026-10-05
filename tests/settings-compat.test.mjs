@@ -275,7 +275,10 @@ test('schemastery ≥3.18.4：volatile 字段是活引用 —— apply 不得抛
   // 共享配置文件（独立 web / MCP hook 读它）也必须是普通值，不能变成 {}
   const cfgFile = path.join(tmpHome, 'memory-eternal-config.json')
   let written = null
-  for (let i = 0; i < 40 && !written; i++) {
+  // syncConfigFile() 是 fire-and-forget 的异步写：预算给足，避免机器负载高时
+  // 「文件还没落盘」的假失败。（真正的病根不是预算：共享配置原先用非原子的 writeFile，
+  // 读方会读到截断中的半截内容 → JSON.parse 失败。v0.10.2 起改为 tmp + rename 原子写。）
+  for (let i = 0; i < 200 && !written; i++) {
     try { written = JSON.parse(await fs.readFile(cfgFile, 'utf8')) } catch { await new Promise((r) => setTimeout(r, 25)) }
   }
   assert.ok(written, '应写出 memory-eternal-config.json')

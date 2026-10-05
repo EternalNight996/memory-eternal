@@ -69,7 +69,7 @@ After **restarting the host**, three things are live immediately:
 
 **UI language**: The whole UI is bilingual (English / 中文) and follows **DSH Settings → Language** in real time — Cards, Graph, Audit Center, card templates, config panel all included; the standalone web page follows the browser language.
 
-**Edit config**: Vault left rail "Memory Config" (or DSH Settings → Memory) → DSH memory config / cost control / auto-audit config / self-hosting — just hit "Save Config". `autoWebMode` / `watchdogAutoSpawn` changes require a DSH restart.
+**Edit config**: Vault left rail "Memory Config" (or DSH Settings → Memory) → DSH memory config / cost control / auto-audit config / self-hosting — just hit "Save Config". `autoWebMode` / `watchdogAutoSpawn` changes require a DSH restart — and note an **already running watchdog is never stopped by a config change**: use `dsh-memory stop` / `dsh-memory restart` (see Self-hosting).
 
 ### 🟨 Claude Code
 
@@ -110,6 +110,12 @@ dsh-memory mcp                           # MCP stdio (mount to any MCP client)
 dsh-memory serve [--port 7999]           # run web in foreground
 dsh-memory open                          # ensure web alive + open browser
 dsh-memory watchdog [--port 7799]        # watchdog keep-alive (standalone process)
+dsh-memory status [--json]               # resident watchdog: pid / port / version / alive
+dsh-memory stop [--port 7799]            # stop the resident watchdog (+ the web it spawned)
+dsh-memory restart [--port 7799]         # stop + respawn (apply a new version)
+dsh-memory audit list [--status pending] [--json]    # list pending/rejected cards
+dsh-memory audit approve <card path...>              # human bulk approve
+dsh-memory audit reject <card path...> --reason "..." # human bulk reject
 ```
 
 When not running on DSH, the `dsh-memory` command comes from `npm i -g`.
@@ -126,13 +132,16 @@ Three concepts, don't mix them:
 
 **Change these**: Vault left rail "Memory Config" (or DSH Settings → Memory) → edit the table and save; `autoWebMode` / `watchdogAutoSpawn` need a DSH restart.
 
+> ⚠️ **Same port is never auto-replaced (#19)**: the watchdog is a **standalone process we deliberately never kill** (several sessions share one). So turning `watchdogAutoSpawn` off does **not** stop the running one, and changing `webCheckIntervalMs` / `webMaxRestart` has no effect on it.
+> Stop or upgrade it explicitly with `dsh-memory stop [--port N]` / `dsh-memory restart [--port N]` (`stop` also stops the **web it spawned**, so no orphan keeps holding the port); `dsh-memory status` shows the resident pid, port, start time and whether its **version lags the installed package**.
+
 **MCP is a protocol, not a resident service**: the agent spawns it per session and exits when done — no "auto-start on boot" concept.
 
 ### Three deployment intensities
 
 | Scenario | Config | Memory |
 |---|---|---|
-| Personal dev (default) | `autoWebMode=init` + `watchdogAutoSpawn=off` | web 47 MB |
+| Personal dev (recommended) | `autoWebMode=init` + **manually** turn `watchdogAutoSpawn` off (its default is **on**) | web 47 MB |
 | Resident 7×24 | `watchdogAutoSpawn=on` | web + watchdog 47+47 MB |
 | True boot auto-start (no DSH) | Windows Task Scheduler runs `dsh-memory watchdog --port 7799 --interval 5000 --max-restart 10` | same |
 
@@ -187,7 +196,7 @@ Resolution order: `MEMORY_VAULT_DIR` env → the `path` of the `vaultProfiles` e
 | Setting | Default | In plain words |
 |---|---|---|
 | Keep-alive `autoWebMode` | init | `init`=open web once at DSH start; `interval`=periodically check & restart if dead; `manual`=fully manual |
-| Watchdog `watchdogAutoSpawn` | on | a **standalone process** keeps web alive (+47 MB). Personal use can turn off |
+| Watchdog `watchdogAutoSpawn` | on | a **standalone process** keeps web alive (+47 MB). Personal use can turn off — but an existing instance is **not** stopped automatically, run `dsh-memory stop` (#19) |
 | Auto-mount MCP `autoMcpSetup` | off | **lets Claude Code / Codex / Cursor use your memory**. On = auto-configures them; Off = never touches your config, run `dsh-memory setup` manually |
 
 > 💰 **To save money**: turn `Distill cards` off, lower `Distill output cap`, raise `Recall min score`.
@@ -198,7 +207,7 @@ Top of the config page: **🟢 A Light / 💰 B Budget / ⭐ C Premium** — cli
 
 | Plan | Scenario | Keep-alive | Watchdog | Distill | Distill cap | Recall min | Memory | LLM cost |
 |---|---|---|---|---|---|---|---|---|
-| 🟢 **A Light** | Personal dev (default) | init | off | on | 900 | 2 | ~47 MB | normal |
+| 🟢 **A Light** | Personal dev (recommended) | init | off | on | 2000 | 2 | ~47 MB | normal |
 | 💰 **B Budget** | Tight budget / many Agents | init | off | **off** | 500 | 3 | ~47 MB | **~0** |
 | ⭐ **C Premium** | Long projects / teams | interval | **on** | on | 1200 | 1 | ~94 MB | high |
 
@@ -311,6 +320,7 @@ Diagnostics:
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.10.2** | 2026-10-06 | **Five long-standing issues fixed at once (#15 / #16 / #17 / #18 / #19).** ① **Per-project vaults finally work in the host (#15-1)**: the host matched `vaultProfiles[].match.workspace` against the process cwd (the directory dsh was launched from) — it now uses the **session's own workspace** from `session.header.cwd` (both capture and `memory_recall`), while CLI/MCP/hooks keep their existing cwd behaviour. ② **Distillation stops burning doomed candidates (#15-2)**: providers declaring `supportsReasoningEffort:false` no longer receive a `reasoningEffort` field (unknown = supported), and they move behind supporting candidates instead of being dropped. ③ **Truncated output is no longer misreported as a parse failure (#18)**: a dedicated `MAX_TOKENS` code (with the actual cap in the message), one automatic retry with a doubled cap, failure reporting that **always keeps the first candidate's error as the primary cause** plus a per-code summary of the rest, default `captureMaxTokens` 900 → **2000**, and a `distill-failed` tag on fallback raw cards. ④ **Standalone-web config saves are no longer lost silently (#16)**: drain errors are no longer swallowed (stderr + capture log, throttled), and the shared `memory-eternal-config.json` is now written **atomically (tmp + rename)** — the old non-atomic write could be read mid-truncation by the standalone web / MCP, fail JSON.parse and silently fall back to defaults, the pending file is **kept** with `dropped:true` + `lastError` after retries are exhausted, and the state shows up in `/diagnostics` and `/config`. ⑤ **Audit CLI (#17)**: `dsh-memory audit list/approve/reject` (multiple paths, `--json` for jq) reuses the same `setCardStatus` guard and `audit_log`; MCP gains only a **read-only** `memory_audit_list`. ⑥ **Watchdog lifecycle (#19)**: new `dsh-memory status/stop/restart`, `pkgVersion` recorded in the lock (status warns when the resident instance is outdated), truthful `spawned` vs `delegated to existing pid` host logs, a clear notice when `watchdogAutoSpawn` is off but an instance is still running, `dsh-memory stop` also stops the **web server the watchdog spawned** (on Windows `process.kill(pid,'SIGTERM')` terminates unconditionally, so the watchdog's own exit handler never runs — the old behaviour left an orphan web holding the port; the web pid is recorded in the lock and confirmed against the process command line before killing, avoiding pid-reuse mistakes), plus README fixes for the contradictory default and the "restart turns it off" promise. |
 | **v0.10.1** | 2026-10-02 | **Fixes "export works, import brings in 0 cards".** Root cause: "Export JSON" wrote a **bare array**, while `/import` only read `payload.cards` — a bare array was silently treated as an empty backup (`ok:true` / `imported:0` / `skipped:0`), so the UI only ever said "Import complete: 0". ① `/import` now accepts both a **bare array** (backups from v0.10.0 and earlier) and an **envelope object** `{format, formatVersion, exportedAt, count, cards}`; an unrecognized shape returns **400 with a readable reason**, an empty file returns a `warning`. ② Export now writes the envelope (older builds only read `payload.cards`, so the envelope stays compatible with them) and keeps each card's `status` / `store`. ③ The import dedup baseline is now a **pre-import snapshot** (new `dedupAgainst` option on `writeCard`) — otherwise near-identical cards inside one backup dedup against each other and swallow part of the batch (a backup is the source of truth). ④ The import response adds `total` / `skipped` / `quarantined` / `failed[]` (with a per-card reason), and the toast reads "Import complete: N / of M · pending review K · skipped D"; a run that imports nothing is shown as a failure. ⑤ New `tests/import-roundtrip.test.mjs` (6 checks). ⑥ **A broken install now speaks plainly (issue #14)**: a copy installed from the plugin marketplace can be missing its `web/` assets, and the sidebar then showed a raw `{"ok":false,"error":"ENOENT …"}` page. Now a missing `index.html` with `app.js` still present is covered by a **built-in shell** that boots the UI anyway (self-healing), while a missing `app.js` returns a JS snippet that paints the diagnosis into `#root` plus a page stating which file is gone, its absolute path, the package version and how to reinstall. Both cases land in the auto-capture log (`app.js` → `fail`, health turns red; `index.html` only → `warn`), and the host self-checks the same way at startup (shared predicates and wording in the new `lib/web-assets.js`, with 6 checks in `tests/web-assets.test.mjs`). ⑦ `appendCaptureLog` no longer fails silently when the `DSH_HOME` directory does not exist. ⑧ **DSH compatibility widened to `>=0.1.5-alpha.2 <0.3.0-0`**: the old `<0.2.0` upper bound excludes DSH `0.2.0-rc.x` under plain semver (DSH's guard uses `includePrerelease:true`, so installs still worked, but the declaration did not match reality) — the range now covers the whole 0.1/0.2 line while `<0.3.0-0` still blocks 0.3.0 and its prereleases; `dsh.compatibility` gains `"0.2.0-rc.2": "compatible"` (verified on the official desktop build 0.2.0-rc.2). ⑨ **Fixed three third-party plugin manifests that were invalid JSON**: the closing quote of `description` in `.claude-plugin` / `.codex-plugin` / `.cursor-plugin` had been swallowed by a double-encoding accident (last touched in v0.9.23); DSH never reads those files, so nothing surfaced, but installing through Claude Code / Codex / Cursor **always failed to parse**. They are now valid UTF-8 JSON with `version` bumped to 0.10.1, plus a new **shipped-files health guard** `tests/manifests.test.mjs` (3 checks: every shipped JSON parses / the three manifests' `name`+`version` match package.json / no encoding-accident mojibake in shipped text). Measured on a real **661-card bare-array backup (3.9 MB): 0 cards before the fix → 661 after** (654 into the main store + 7 into quarantine). `npm test` now runs **187 checks** |
 | **v0.9.23** | 2026-09-30 | **No more save flicker.** After a successful save the client immediately re-fetches `/config`, but the host volatile echo lags, so inputs visibly reverted to the old values and then jumped back. The client now keeps a **local overlay** for fields that were saved but not yet echoed (`src/client/config-merge.js`, pure function + 4 checks), dropping each key once the host echoes it, and following the host value afterwards; resetting the form clears the overlay. `npm test` now runs **139 checks** |
 

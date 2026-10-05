@@ -30,7 +30,7 @@ import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
-import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated } from './lib/capture.js'
+import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { missingWebAssets, missingAssetsReason } from './lib/web-assets.js'
@@ -66,7 +66,9 @@ export const Config = z.object({
   captureProvider: z.string().default(''),
   captureModel: z.string().default(''),
   // 蒸馏单次输出上限（token），越高越准越贵
-  captureMaxTokens: z.number().min(100).max(4000).default(900),
+  // 默认值 900 → 2000（issue #18）：prompt 要求 300-800 字正文，900 会让超长会话常态化撞上限，
+  // 输出被截断后旧代码还会把它误报成「解析失败」，最终落一张 raw 噪声卡。
+  captureMaxTokens: z.number().min(100).max(4000).default(DEFAULT_CAPTURE_MAX_TOKENS),
   // 召回相关性阈值（minScore），越高召回越少越精越省
   recallMinScore: z.number().min(0).max(50).default(2),
   // 注入体积可配置（召回）
@@ -122,7 +124,53 @@ function markAllVolatile(schema) {
 
 markAllVolatile(Config)
 
+/**
+ * 取「会话自己的工作区」（issue #15 问题 1）。
+ *
+ * 宿主进程的 cwd 是**启动 dsh 时的目录**，拿它去 match.workspace 永远不命中 ——
+ * 于是按项目隔离的记忆库在宿主侧实际不可用。DSH 把会话目录放在 session.header.cwd，
+ * 这里把它取出来交给 resolveVaultDir。
+ *
+ * 优先级：MEMORY_WORKSPACE（显式覆盖 / 宿主 spawn 子进程时传入）> 会话 cwd > undefined
+ * （undefined 时 resolveVaultDir 会回落进程 cwd，与 CLI / MCP / hooks 的既有行为一致）。
+ *
+ * @param {{session?:{header?:{cwd?:string}}}} [agent]
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string|undefined}
+ */
+export function sessionWorkspaceOf(agent, env = process.env) {
+  const explicit = String((env && env.MEMORY_WORKSPACE) || '').trim()
+  if (explicit) return explicit
+  const cwd = agent && agent.session && agent.session.header && agent.session.header.cwd
+  return typeof cwd === 'string' && cwd.trim() ? cwd.trim() : undefined
+}
+
+/**
+ * 汇总一次蒸馏的全部候选失败（issue #18 根因 2）。
+ *
+ * 旧实现的 failure 每轮被下一个候选覆盖，最终上报的偏偏是**最后一个兜底候选**的错误
+ * （例如一堆网关的 UNSUPPORTED_REASONING_EFFORT），把真正有信息量的主因埋掉。
+ * 这里始终以第一个候选（通常是显式配置的那个）为主因，其余按错误码计数附在后面。
+ *
+ * @param {{code:string,message:string,provider?:string,model?:string}} primary 主失败（第一个候选）
+ * @param {Array<object>} [all] 全部候选的失败
+ * @returns {string}
+ */
+export function describeDistillFailure(primary, all = []) {
+  const head = `${primary.code} ${primary.message}`
+  const rest = Array.isArray(all) ? all.slice(1) : []
+  if (!rest.length) return head
+  const counts = new Map()
+  for (const f of rest) {
+    const key = String((f && f.code) || '未知')
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  const summary = [...counts.entries()].map(([code, n]) => (n > 1 ? `${code}×${n}` : code)).join('、')
+  return `${head}（另有 ${rest.length} 个兜底候选失败：${summary}）`
+}
+
 const API_PREFIX = '/memory-eternal/api'
+
 // DSH 宿主自动沉淀卡的署名：用可读名而非 agent 会话 id，便于在智能体筛选中归组。
 const DSH_AGENT = 'deepseek-harness'
 
@@ -260,39 +308,74 @@ export function apply(ctx, config) {
   // 首次激活：自动从 .md 文件迁移到 SQLite（幂等，已有数据则跳过）
   // vault 解析与所有独立进程共用同一套优先级（见 lib/vault-resolve.js）：
   // MEMORY_VAULT_DIR → activeVault → vaultProfiles[].match.workspace → vaultDir → 默认库。
-  const vaultDir = () => resolveVaultDir({
+  //
+  // issue #15：宿主进程的 cwd 是「启动 dsh 时的目录」，不是会话的工作区，
+  // 所以 match.workspace 在宿主侧永远不命中（配置能写、代码也有，就是取不到工作区）。
+  // DSH 把会话目录放在 session.header.cwd —— 每条会话路径把它显式传下来即可，
+  // CLI / MCP / hooks 仍然按各自 cwd 解析（那条路径本来就正确）。
+  const sessionWorkspace = (agent) => sessionWorkspaceOf(agent, process.env)
+  const vaultDir = (workspace) => resolveVaultDir({
     profiles: (settings.get() ?? {}).vaultProfiles,
     activeVault: (settings.get() ?? {}).activeVault,
     configured: (settings.get() ?? {}).vaultDir,
+    workspace,
   }).root
-  const vaultInfo = () => resolveVaultDir({
+  const vaultInfo = (workspace) => resolveVaultDir({
     profiles: (settings.get() ?? {}).vaultProfiles,
     activeVault: (settings.get() ?? {}).activeVault,
     configured: (settings.get() ?? {}).vaultDir,
+    workspace,
   })
 
   // 自动迁移：从 .md 文件导入 SQLite（幂等，DB 有数据则跳过）
   try { migrateFromMarkdown(vaultDir()).catch(() => {}) } catch {}
   // 同步审核配置到 SQLite config 表（enforceAudit 从此表读取规则）
-  const syncAudit = () => {
+  // 审核配置要写进**会话实际使用的那个库**（#15 的按项目库）：enforceAudit 在 DB 层读的是
+  // 本库的 config 表，只同步激活库会让 profile 库退回「调用方传入的 fallback」。
+  const syncAudit = (root) => {
     try {
       const cfg = settings.get() ?? {}
-      setAuditConfig(vaultDir(), { auditMode: cfg.auditMode, auditExemptAgents: cfg.auditExemptAgents, auditExemptKinds: cfg.auditExemptKinds })
+      setAuditConfig(root || vaultDir(), { auditMode: cfg.auditMode, auditExemptAgents: cfg.auditExemptAgents, auditExemptKinds: cfg.auditExemptKinds })
     } catch {}
   }
   syncAudit()
-  settings.watch(syncAudit)
+  // 注意：watch 的回调会被传入「合并后的配置对象」，而 syncAudit 现在接受的是**库路径** ——
+  // 必须包一层，否则热更新时会把配置对象当成路径传进 setAuditConfig（静默失败）。
+  settings.watch(() => syncAudit())
   // 独立 Web 页保存的配置：它写「待应用」文件，这边应用后删除（DSH 没运行时下次启动生效）
+  // 待应用配置的最近一次失败（#16）：以前这里 catch {} 吞掉一切 —— 独立 Web 端显示
+  // 「已保存」，而 settings.update 的报错、乃至重试耗尽后「改动被放弃」都无人可见。
+  // 现在：报错进 stderr + 自动沉淀日志，并做去重节流（同一错误 5 分钟内只记一次，
+  // 否则 5 秒一轮的轮询会把日志刷爆）。
+  let lastDrainError = ''
+  let lastDrainErrorAt = 0
+  const reportDrainError = (error) => {
+    const dropped = !!(error && error.dropped)
+    const msg = String((error && error.message) || error || '未知错误')
+    const now = Date.now()
+    if (msg === lastDrainError && now - lastDrainErrorAt < 5 * 60 * 1000) return
+    lastDrainError = msg
+    lastDrainErrorAt = now
+    const why = dropped
+      ? '独立 Web 端的配置改动连续失败已放弃（文件保留以便排查）：' + msg
+      : '独立 Web 端的配置改动应用失败，将重试：' + msg
+    try { console.error('[memory-eternal] ' + why) } catch { /* 日志失败无妨 */ }
+    try { logCapture('system', dropped ? 'fail' : 'warn', why) } catch { /* 日志失败无妨 */ }
+  }
   const drainPending = async () => {
     try {
       const { drainPendingConfig } = await import('./lib/config-sync.js')
       const applied = await drainPendingConfig(process.env, (patch) => settings.update(patch, undefined))
       if (applied) {
+        lastDrainError = ''
         syncConfigFile()
         syncAudit()
         try { console.error('[memory-eternal] 已应用独立 Web 端的配置改动: ' + Object.keys(applied).join(',')) } catch { /* 日志失败无妨 */ }
       }
-    } catch { /* 失败保留文件，下一轮重试 */ }
+    } catch (error) {
+      // 失败时保留文件由 config-sync.js 负责；这里只保证「失败可见」
+      reportDrainError(error)
+    }
   }
   drainPending()
   // 5 秒轮询只是兜底；真正让它「准即时」的是下面这个文件监听（毫秒级）
@@ -309,9 +392,9 @@ export function apply(ctx, config) {
   }, 'memory-eternal: pending config watch')
 
   // 所有 profile 目录（当前激活 + 其余命名的），供跨库聚合。
-  const vaultRoots = () => {
+  const vaultRoots = (workspace) => {
     const cfg = settings.get() ?? {}
-    const active = vaultDir()
+    const active = vaultDir(workspace)
     const roots = [{ name: '', root: active }]
     const seen = new Set([active])
     const profiles = Array.isArray(cfg.vaultProfiles) ? cfg.vaultProfiles : []
@@ -329,7 +412,10 @@ export function apply(ctx, config) {
     try {
       const cfg = settings.get() ?? {}
       const { configFilePath } = await import('./lib/capture-run.js')
-      await (await import('node:fs')).promises.writeFile(configFilePath(process.env), JSON.stringify(cfg, null, 2), 'utf8')
+      const { writeFileAtomicSync } = await import('./lib/config-sync.js')
+      // 原子写（tmp + rename，见 lib/config-sync.js 里 writeFileAtomicSync 的说明）：
+      // 这个文件是跨进程共享的读源，非原子写会让独立 web / MCP 读到半截内容并静默回落成默认值。
+      writeFileAtomicSync(configFilePath(process.env), JSON.stringify(cfg, null, 2))
     } catch { /* 静默 */ }
   }
   syncConfigFile()
@@ -438,6 +524,9 @@ export function apply(ctx, config) {
     try {
       const cfg = settings.get() ?? {}
       if (!cfg.enabled || !cfg.autoCapture) return
+      // 本会话实际使用的库（#15）：会话工作区命中 vaultProfiles[].match.workspace 时写进对应项目库。
+      const root = vaultDir(sessionWorkspace(agent))
+      if (root !== vaultDir()) syncAudit(root)
       const llm = ctx.get('llm')
       // 水位从 0 开始的那一轮（重启后同一会话的第一轮）会把整段历史切进来——
       // 只取尾部，避免一次超大 LLM 调用（超上下文/超时）。
@@ -471,7 +560,7 @@ export function apply(ctx, config) {
       const source = DSH_AGENT
       if (cfg.distillEnabled === false || !llm) {
         const rawTitle = deriveTitle(text)
-        const out = await captureCard(vaultDir(), {
+        const out = await captureCard(root, {
           kind: 'content',
           title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
           tags: ['raw'],
@@ -493,39 +582,55 @@ export function apply(ctx, config) {
       // 语义去重近邻：把已有卡片索引喂给模型，让模型决定新建 vs 追加。
       // 成本控制：dedupByLLM=false 时跳过喂 LLM 的近邻采样（纯词法去重兜底）。
       const draft = { title: '', body: text.slice(0, 400) }
-      const neighbors = cfg.dedupByLLM === false ? [] : await pickNeighbors(vaultDir(), draft, 8)
+      const neighbors = cfg.dedupByLLM === false ? [] : await pickNeighbors(root, draft, 8)
       let route = routes[0]
       let result = null
-      let failure = null
+      let failure = null          // 主失败 = **第一个**候选的失败（通常是显式配置的那个，信息量最大）
+      const failures = []         // 全部候选的失败，用于汇总上报（#18 根因 2）
+      const maxTokens = Number(cfg.captureMaxTokens) || DEFAULT_CAPTURE_MAX_TOKENS
       for (let i = 0; i < routes.length; i++) {
         route = routes[i]
-        const detailed = await summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens: cfg.captureMaxTokens ?? 900 })
+        let detailed = await summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens })
+        // #18 建议 3：撞输出上限不是「模型坏了」，直接把上限翻倍再试一次同一候选
+        // （截断的产物既解析不了、也不是「不值得保存」，不该就此退成原文卡）。
+        if (detailed.failure && detailed.failure.code === 'MAX_TOKENS' && maxTokens < MAX_CAPTURE_MAX_TOKENS) {
+          const bigger = Math.min(maxTokens * 2, MAX_CAPTURE_MAX_TOKENS)
+          logCapture(sessionId, 'listen', `输出撞到 maxTokens=${maxTokens} 上限 → 以 ${bigger} 重试同一候选（${route.provider}/${route.model}）`)
+          detailed = await summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens: bigger })
+        }
         if (detailed.card !== undefined) { result = detailed.card; failure = null; break }
         if (detailed.failure) {
-          failure = { ...detailed.failure, provider: route.provider, model: route.model }
+          const f = { ...detailed.failure, provider: route.provider, model: route.model }
+          failures.push(f)
+          // 只保留第一个：旧实现每轮覆盖，最终上报的是**最后一个兜底候选**的错误，
+          // 真正有信息量的主因被彻底丢弃（#18 根因 2）。
+          if (!failure) failure = f
           const more = i < routes.length - 1
-          logCapture(sessionId, 'fail', `蒸馏调用失败（${route.provider}/${route.model}）：${failure.code} ${failure.message}${more ? ' → 换下一个 provider 重试' : ''}`)
+          logCapture(sessionId, 'fail', `蒸馏调用失败（${route.provider}/${route.model}）：${f.code} ${f.message}${more ? ' → 换下一个 provider 重试' : ''}`)
           if (more) continue
         }
         break // skip（太短 / 不值得保存）或没有更多候选
       }
       // 真失败要亮红并进提示段：此前只有笼统的「蒸馏无输出」，真实原因（如缺凭证）完全不可见。
       if (failure) { health.fail(`蒸馏失败（${failure.provider}）：${failure.code} ${failure.message}`); touchPrompt() }
+      // 主因 + 兜底候选失败汇总：卡片 reason 与 created 日志都用这个，避免把排查者引向错误方向。
+      const why = failure ? describeDistillFailure(failure, failures) : '无可用产出'
       if (!result) {
         // 蒸馏失败不能让内容白丢：退成原文卡（与「关闭蒸馏」同一条降级路径）。
         const rawTitle = deriveTitle(text)
-        const raw = await captureCard(vaultDir(), {
+        const raw = await captureCard(root, {
           kind: 'content',
           title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
-          tags: ['raw'],
+          // 蒸馏失败产出的原文卡与被批准的噪声卡是审核中心的主要污染源（#15 评论）：
+          // 打上独立 tag，便于按 tag 过滤 / 批量处理，不再和正常卡混作一团。
+          tags: ['raw', 'distill-failed'],
           body: text,
           source,
           status: resolveAuditStatus(cfg, 'content', source),
           submittedBy: source,
           severity: 'info',
-          reason: 'AI 自动沉淀（蒸馏无输出 → 原文卡兜底）',
+          reason: `AI 自动沉淀（蒸馏无输出 → 原文卡兜底；主因：${why}）`,
         }, { threshold: cfg.dedupThreshold })
-        const why = failure ? `${failure.code} ${failure.message}` : '无可用产出'
         if (raw.ok) { countWrite(); logCapture(sessionId, 'created', `蒸馏失败（${why}）→ 原文卡兜底`, { path: raw.path ?? raw.rel, kind: 'content', model: route.model }) }
         else if (raw.duplicate) { countWrite(); logCapture(sessionId, 'appended', '蒸馏无输出 + 与已有卡重复 → 追加更新', { path: raw.duplicate.path, model: route.model }) }
         else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || '未知原因'}`, { model: route.model })
@@ -534,7 +639,7 @@ export function apply(ctx, config) {
       if (result.save !== true) { logCapture(sessionId, 'skip', '模型判定不值得保存', { model: route.model }); return }
       if (result.append_to) {
         // 模型判定属于已有卡 → 追加更新记录，不新建（boujoy 语义）。
-        await captureUpdate(vaultDir(), result.append_to, result.update, { threshold: cfg.dedupThreshold })
+        await captureUpdate(root, result.append_to, result.update, { threshold: cfg.dedupThreshold })
         countWrite()
         logCapture(sessionId, 'appended', '模型判定属于已有卡 → 追加更新', { path: result.append_to, model: route.model })
         return
@@ -550,7 +655,7 @@ export function apply(ctx, config) {
         severity: 'info',
         reason: 'AI 自动沉淀（蒸馏卡）',
       }
-      const out = await captureCard(vaultDir(), card, { threshold: cfg.dedupThreshold })
+      const out = await captureCard(root, card, { threshold: cfg.dedupThreshold })
       if (out.ok) {
         countWrite()
         logCapture(sessionId, 'created', `新卡：${card.title}（${card.status === 'approved' ? '已入库' : '待审核'}）`, { path: out.path ?? out.rel, kind: card.kind, model: route.model })
@@ -558,7 +663,7 @@ export function apply(ctx, config) {
       }
       if (out.duplicate) {
         // 词法兜底：高度相似 → 追加更新记录而不是再建一张重复卡。
-        await captureUpdate(vaultDir(), out.duplicate.path, `${result.title}：${result.body.slice(0, 400)}`, {
+        await captureUpdate(root, out.duplicate.path, `${result.title}：${result.body.slice(0, 400)}`, {
           threshold: cfg.dedupThreshold,
         })
         countWrite()
@@ -685,11 +790,14 @@ export function apply(ctx, config) {
         render(_a, v) { return [{ type: 'text', text: v }] },
       },
       timeoutMs: 20000,
-      async execute(args) {
+      // 第二个参数是 ToolRunContext（含 caller agent）—— 用它取会话工作区，
+      // 让「当前库」也按项目路由，而不是永远落在进程 cwd 对应的库（#15）。
+      async execute(args, exec) {
         const cfg = settings.get() ?? {}
         if (!cfg.enabled) return '（记忆核心已禁用）'
         const query = String(args.query || '').trim()
         if (!query) return '（未提供检索词）'
+        const workspace = sessionWorkspace(exec && exec.agent)
         const cfg2 = settings.get() ?? {}
         const defLimit = Number(cfg2.recallLimit) || 5
         const defLen = Number(cfg2.recallSummaryLen) || 130
@@ -697,8 +805,8 @@ export function apply(ctx, config) {
         const limit = Math.min(Math.max(Number(args.limit) || defLimit, 1), 20)
         // 作用域（#10）：留空 = 当前激活库；all = 跨库聚合；库名 = 指定 profile；路径前缀 = 命中多个库
         const scope = String(args.scope || '').trim()
-        const roots = vaultRoots()
-        let targets = [{ name: '', root: vaultDir() }]
+        const roots = vaultRoots(workspace)
+        let targets = [{ name: '', root: vaultDir(workspace) }]
         let scoped = false
         if (scope) {
           const want = scope.toLowerCase()
@@ -916,7 +1024,7 @@ export function apply(ctx, config) {
                     retried: !!(writeResult && writeResult.retried),
                     note: pending.length
                       ? '已写入；宿主尚未回流这些值（面板已本地生效，重启 DSH 后以配置文件为准）'
-                      : '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效',
+                      : '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效；若已有常驻 watchdog，关闭/改参不会自动停掉它，需 dsh-memory stop / restart（#19）',
                   })
                 } catch (e) {
                   if (e && e.code === 'SETTINGS_CONFLICT') return json(res, 409, { ok: false, error: '配置已被外部修改，请刷新后重试（revision conflict）' })
@@ -1029,10 +1137,26 @@ export function apply(ctx, config) {
     }
 
     // (3) 看门狗独立进程：默认不 spawn；开启时启动一个与 DSH 解耦的 node watchdog。
+    const wdPort = Number(cfg0.webPort) || 7999
     if (cfg0.watchdogAutoSpawn === true && cfg0.autoWeb !== false) {
       import('./lib/watchdog.js')
         .then((m) => {
-          const port = Number(cfg0.webPort) || 7999
+          // 同端口已有**活着的** watchdog 时不再 spawn（issue #19）：旧实现每次都 spawn 一个、
+          // 每次都打印 "spawned"，而新进程会在锁上让位退出 —— 日志与实际状态完全相反，
+          // 排查时必然误判。这里如实打印 delegated，并提示版本漂移与替换命令。
+          const lock = m.readWatchdogLock(process.env)
+          const existing = lock.watchdogs.find((w) => Number(w.port) === wdPort && m.isPidAlive(w.pid))
+          if (existing) {
+            const cur = m.currentPkgVersion()
+            const stale = !!(existing.pkgVersion && cur && existing.pkgVersion !== cur)
+            const why = stale
+              ? `watchdog delegated to existing pid=${existing.pid} port=${wdPort}（常驻实例是旧版 v${existing.pkgVersion}，当前 v${cur}；如需换新版请执行 dsh-memory restart --port ${wdPort}）`
+              : `watchdog delegated to existing pid=${existing.pid} port=${wdPort}（同端口已有常驻实例，本次不再 spawn）`
+            console.error(`[memory-eternal] ${why}`)
+            logCapture('system', stale ? 'warn' : 'boot', why)
+            return
+          }
+          const port = wdPort
           // 用 nodeBinary() 而非 process.execPath：Electron 宿主下后者是 Electron
           // 主程序，spawn 出来不会执行 watchdog.js（见 lib/node-bin.js）。
           const bin = nodeBinary()
@@ -1056,11 +1180,25 @@ export function apply(ctx, config) {
           console.error(`[memory-eternal] ${why}`)
           logCapture('system', 'fail', why)
         })
+    } else if (cfg0.autoWeb !== false) {
+      // 配置关掉了 watchdogAutoSpawn，但机器上可能仍有常驻实例（#19）：**故意不自动杀**
+      // （多会话共用同一个 watchdog），但必须把「它还在跑」讲清楚，否则用户以为已经关了。
+      import('./lib/watchdog.js')
+        .then((m) => {
+          const alive = m.readWatchdogLock(process.env).watchdogs.filter((w) => Number(w.port) === wdPort && m.isPidAlive(w.pid))
+          if (!alive.length) return
+          const why = `watchdogAutoSpawn 已关闭，但仍有常驻 watchdog pid=${alive.map((w) => w.pid).join(',')} port=${wdPort} 在运行（配置改动不会自动停掉既有实例）；如需停止请执行 dsh-memory stop --port ${wdPort}`
+          console.error(`[memory-eternal] ${why}`)
+          logCapture('system', 'warn', why)
+        })
+        .catch(() => {})
     }
 
     return () => {
       if (intervalTimer) { clearInterval(intervalTimer); intervalTimer = null }
-      // 注意：watchdog 进程是独立的，故意不杀（7×24 用法）—— 配置改变由下次重启 DSH 时重新 spawn 替换
+      // 注意：watchdog 进程是独立的，**故意不杀**（7×24 与多会话共用同一个实例）。
+      // 因此同端口下的配置变更（含关闭 watchdogAutoSpawn）不会自动停掉或替换既有实例，
+      // 需要显式执行 dsh-memory stop / restart（issue #19）。
     }
   }, 'memory-eternal: multi-host ensure')
 

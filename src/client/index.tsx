@@ -348,7 +348,7 @@ export const ZH = {
   mcpUninstalled: '✅ {agent} MCP 已卸载',
   mcpActionFail: '❌ {agent} MCP 操作失败：{error}',
   dshHostLabel: 'DeepSeek Harness（当前宿主）',
-  restartHint: '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效',
+  restartHint: '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效；已有常驻 watchdog 不会被自动停掉，需 dsh-memory stop / restart（#19）',
   conflictRefresh: '配置已被外部修改，请刷新后重试',
   untitled: '无标题',
   tplBlank: '📄 空白',
@@ -687,7 +687,7 @@ export const EN = {
   mcpUninstalled: '✅ {agent} MCP uninstalled',
   mcpActionFail: '❌ {agent} MCP action failed: {error}',
   dshHostLabel: 'DeepSeek Harness (current host)',
-  restartHint: 'Saved. autoWebMode/watchdogAutoSpawn take effect after restarting DSH',
+  restartHint: 'Saved. autoWebMode/watchdogAutoSpawn take effect after restarting DSH; a resident watchdog is never stopped automatically — use dsh-memory stop / restart (#19)',
   conflictRefresh: 'Config changed elsewhere — refresh and retry',
   untitled: 'Untitled',
   tplBlank: '📄 Blank',
@@ -1627,7 +1627,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const vaultInput = { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 12, minWidth: 0 }
   // 三套推荐方案值（A轻量/B省钱/C高质量）——一键填充表单
   const PLANS = {
-    A: { label: t('planA'), autoWebMode: 'init', watchdogAutoSpawn: false, distillEnabled: true, dedupByLLM: true, captureMaxTokens: 900, recallMinScore: 2, recallLimit: 5, recallSummaryLen: 130, recallIncludeBody: false, captureCooldownMs: 300000 },
+    A: { label: t('planA'), autoWebMode: 'init', watchdogAutoSpawn: false, distillEnabled: true, dedupByLLM: true, captureMaxTokens: 2000, recallMinScore: 2, recallLimit: 5, recallSummaryLen: 130, recallIncludeBody: false, captureCooldownMs: 300000 },
     B: { label: t('planB'), autoWebMode: 'init', watchdogAutoSpawn: false, distillEnabled: false, dedupByLLM: false, captureMaxTokens: 500, recallMinScore: 3, recallLimit: 3, recallSummaryLen: 80, recallIncludeBody: false, captureMinChars: 300, maxCardsPerDay: 40, captureCooldownMs: 300000 },
     C: { label: t('planC'), autoWebMode: 'interval', watchdogAutoSpawn: true, distillEnabled: true, dedupByLLM: true, captureMaxTokens: 1200, recallMinScore: 1, recallLimit: 8, recallSummaryLen: 200, recallIncludeBody: true, captureCooldownMs: 120000 },
   }
