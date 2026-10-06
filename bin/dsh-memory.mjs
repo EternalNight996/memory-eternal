@@ -173,27 +173,48 @@ async function main() {
     }
     case 'audit': {
       const sub = argv[1] || ''
-      const { listCards, setCardStatus } = await import('../lib/vault.js')
+      const { listCards, setCardStatus, countCards } = await import('../lib/vault.js')
       const { defaultVaultDir } = await import('../lib/capture-run.js')
       const root = path.resolve(argOf('--vault') || defaultVaultDir())
       const asJson = has('--json')
       if (sub === 'list') {
-        const STATUS = { pending: ['pending'], rejected: ['rejected'], deleted: ['deleted'], all: ['pending', 'rejected'], queue: ['pending', 'rejected'] }
+        // 状态别名：all = 「审核队列」的全部（pending + rejected）。
+        // approved 是已出队状态、deleted 归回收中心，都要显式指定（issue #20 的问号）。
+        const STATUS = { pending: ['pending'], rejected: ['rejected'], deleted: ['deleted'], approved: ['approved'], all: ['pending', 'rejected'], queue: ['pending', 'rejected'] }
         const wanted = String(argOf('--status') || 'pending').toLowerCase()
         const status = STATUS[wanted] || [wanted]
         const kind = argOf('--kind') || undefined
-        const limit = Math.min(Math.max(Number(argOf('--limit')) || 50, 1), 500)
-        const cards = await listCards(root, { status, kind, limit, sort: 'recent' })
+        // issue #20：总数必须与 --limit 解耦。
+        //   旧实现把 listCards(limit) 的**截断后条数**当成「共 N 张」，且默认 limit=50 静默截断 ——
+        //   队列规模被系统性低估（报告者因此把 32 张待审看成 5 张）。
+        //   现在：不给 --limit（或 --limit 0）= 全部；给了只限制**显示条数**，总数永远是匹配总数。
+        const rawLimit = argOf('--limit')
+        const wantedLimit = Number(rawLimit)
+        const limit = rawLimit === null || !Number.isFinite(wantedLimit) || wantedLimit <= 0
+          ? null
+          : Math.min(Math.floor(wantedLimit), 5000)
+        const total = await countCards(root, { status, kind })
+        const cards = await listCards(root, { status, kind, limit: limit ?? undefined, sort: 'recent' })
+        const returned = cards.length
+        const hidden = Math.max(0, total - returned)
         if (asJson) {
           console.log(JSON.stringify({
-            ok: true, vaultDir: root, status: wanted, count: cards.length,
+            ok: true, vaultDir: root, status: wanted,
+            total,                // 匹配总数（与 --limit 无关）
+            returned,             // 本次实际返回条数
+            count: total,         // 兼容别名：0.10.2 起曾误等于 returned，属 bug（issue #20），现与 total 一致
+            limit: limit ?? null, // 生效的显示上限；null = 全部
+            hasMore: hidden > 0,
             cards: cards.map((c) => ({ path: c.path, title: c.title, kind: c.kind, status: c.status, tags: c.tags, reason: c.reason, createdAt: c.createdAt, submittedBy: c.submittedBy })),
           }, null, 2))
           return
         }
-        if (!cards.length) { console.log(`没有 ${wanted} 状态的卡片（库：${root}）`); return }
-        console.log(`${wanted} 共 ${cards.length} 张（库：${root}）：`)
+        if (!total) { console.log(`没有 ${wanted} 状态的卡片（库：${root}）`); return }
+        console.log(hidden > 0
+          ? `${wanted} 共 ${total} 张，显示前 ${returned} 张（库：${root}）：`
+          : `${wanted} 共 ${total} 张（库：${root}）：`)
         for (const c of cards) console.log(`- [${c.status}] ${c.kind} | ${c.title}\n    ${c.path}`)
+        if (hidden > 0) console.log(`… 还有 ${hidden} 张未显示（用 --limit N 调整，--limit 0 = 全部）`)
         return
       }
       if (sub === 'approve' || sub === 'reject') {
@@ -223,11 +244,15 @@ async function main() {
         return
       }
       console.error(`用法：
-  dsh-memory audit list [--status pending|rejected|deleted|all] [--kind KIND] [--limit N] [--json] [--vault DIR]
+  dsh-memory audit list [--status pending|rejected|approved|deleted|all] [--kind KIND] [--limit N] [--json] [--vault DIR]
   dsh-memory audit approve <卡片路径...> [--reason "原因"] [--vault DIR]
   dsh-memory audit reject  <卡片路径...> [--reason "原因"] [--vault DIR]
 
 说明：审核写入仍走 setCardStatus（DB 层守卫 + 不可变 audit_log 都不绕过）。
+      --status all = 审核队列（pending + rejected），不含已出队的 approved / 回收中心的 deleted。
+      --limit 只限制「显示条数」（默认全部显示，--limit 0 同义）；总数始终是匹配总数，不会被 --limit 改写。
+      --json 字段：total（匹配总数）/ returned（本次返回条数）/ count（= total 的兼容别名）
+                    / limit（生效上限，null = 全部）/ hasMore / cards
 MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显式发起。`)
       process.exitCode = 1
       return
