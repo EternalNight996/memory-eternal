@@ -18,11 +18,13 @@ process.env.DSH_HOME = tmpHome
 
 const { sessionWorkspaceOf, describeDistillFailure } = await import('../index.js')
 const { writeCard, listCards, ensureVault } = await import('../lib/vault.js')
-const { closeDb } = await import('../lib/db.js')
-const { MCP_TOOLS } = await import('../lib/mcp.js')
+const { closeAllDb } = await import('../lib/db.js')
+const { MCP_TOOLS, callTool } = await import('../lib/mcp.js')
 
 after(async () => {
-  try { closeDb(vaultRoot) } catch { /* 已关闭 */ }
+  // 本文件会打开多个库（vault / vault-count），必须全部关掉再删目录，
+  // 否则 Windows 上删到还开着的 .db 会 EBUSY（SQLite 句柄未释放）。
+  try { closeAllDb() } catch { /* 已关闭 */ }
   await fs.rm(tmpHome, { recursive: true, force: true })
 })
 
@@ -51,6 +53,21 @@ test('#18：主因 = 第一个候选的失败，兜底候选只做汇总（不�
   assert.match(why, /另有 3 个兜底候选失败：UNSUPPORTED_REASONING_EFFORT×3/)
   assert.equal(describeDistillFailure(primary, []), 'UNPARSEABLE_OUTPUT 模型输出无法解析（疑似输出被截断）')
 })
+
+/** 用子进程跑 CLI（指定 vault），返回 { code, stdout, stderr }。 */
+function runCliIn(vault, args) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [path.join(root, 'bin', 'dsh-memory.mjs'), ...args], {
+      env: { ...process.env, DSH_HOME: tmpHome, MEMORY_VAULT_DIR: vault },
+      windowsHide: true,
+    })
+    let out = ''
+    let err = ''
+    child.stdout.on('data', (d) => { out += d })
+    child.stderr.on('data', (d) => { err += d })
+    child.on('close', (code) => resolve({ code, stdout: out, stderr: err }))
+  })
+}
 
 /** 用子进程跑 CLI，返回 { code, stdout, stderr }。 */
 function runCli(args) {
@@ -101,6 +118,84 @@ test('#17：CLI audit list / approve / reject 真能跑，且写的是同一份 
   // 不存在的路径 → 非 0 退出码，不能静默「成功」
   const bad = await runCli(['audit', 'approve', 'knowledge/不存在.md'])
   assert.equal(bad.code, 1)
+})
+
+test('#20：audit list 的总数与 --limit 解耦，默认不静默截断', async () => {
+  // 单独一个库：造 12 pending + 55 rejected（55 > 0.10.2 的默认 limit=50，才能覆盖静默截断）
+  const bigRoot = path.join(tmpHome, 'vault-count')
+  await ensureVault(bigRoot)
+  const mk = async (status, n, tag) => {
+    for (let i = 1; i <= n; i++) {
+      const out = await writeCard(bigRoot, {
+        kind: 'knowledge', title: `${tag}卡片 ${i}`, tags: ['count'], status, submittedBy: 'test',
+        body: `# ${tag} ${i}\n\n这张卡用于验证 audit list 的计数语义（issue #20），正文需要足够长才能通过写入校验。`,
+      }, { dedup: false })
+      assert.equal(out.ok, true)
+    }
+  }
+  await mk('pending', 12, '待审')
+  await mk('rejected', 55, '驳回')
+
+  const cli = (args) => runCliIn(bigRoot, args)
+
+  // 1) 默认：55 张全列出，不再截断到 50
+  const all = JSON.parse((await cli(['audit', 'list', '--status', 'rejected', '--json'])).stdout)
+  assert.equal(all.total, 55, '总数必须是匹配总数')
+  assert.equal(all.returned, 55, '默认不截断，应全部返回')
+  assert.equal(all.count, 55, 'count 必须与 total 一致（0.10.2 里它等于截断后的条数）')
+  assert.equal(all.hasMore, false)
+  assert.equal(all.cards.length, 55)
+
+  // 2) --limit 只限制显示条数，不改写总数
+  const one = JSON.parse((await cli(['audit', 'list', '--status', 'rejected', '--limit', '1', '--json'])).stdout)
+  assert.equal(one.total, 55, '--limit 不得改写总数')
+  assert.equal(one.returned, 1)
+  assert.equal(one.count, 55)
+  assert.equal(one.limit, 1)
+  assert.equal(one.hasMore, true)
+  assert.equal(one.cards.length, 1)
+
+  // 3) 文本输出：总数 + 「显示前 N 张」+ 剩余提示
+  const limited = await cli(['audit', 'list', '--status', 'pending', '--limit', '5'])
+  const lines = limited.stdout.trim().split('\n')
+  assert.match(lines[0], /pending 共 12 张，显示前 5 张/, '首行要同时给出总数与显示条数')
+  assert.match(lines[lines.length - 1], /还有 7 张未显示/, '要提示还剩多少张')
+  const plain = await cli(['audit', 'list', '--status', 'pending'])
+  assert.match(plain.stdout.trim().split('\n')[0], /pending 共 12 张（/, '不截断时不出现「显示前」')
+
+  // 4) --limit 0 = 全部（显式取消上限）
+  const zero = JSON.parse((await cli(['audit', 'list', '--status', 'rejected', '--limit', '0', '--json'])).stdout)
+  assert.equal(zero.returned, 55)
+  assert.equal(zero.limit, null)
+
+  // 5) --status all = 审核队列（pending + rejected），不含 approved
+  const allStatus = JSON.parse((await cli(['audit', 'list', '--status', 'all', '--json'])).stdout)
+  assert.equal(allStatus.total, 67, 'all = 12 pending + 55 rejected')
+  assert.equal(allStatus.hasMore, false)
+})
+
+test('#20：MCP memory_audit_list 同样报匹配总数，且写明还有多少张未显示', async () => {
+  const mcpRoot = path.join(tmpHome, 'vault-mcp')
+  await ensureVault(mcpRoot)
+  for (let i = 1; i <= 25; i++) {
+    const out = await writeCard(mcpRoot, {
+      kind: 'knowledge', title: `MCP 待审 ${i}`, tags: ['mcp'], status: 'pending', submittedBy: 'test',
+      body: `# MCP 待审 ${i}\n\n用于验证 MCP 工具的计数语义（issue #20），正文需要足够长才能通过写入校验。`,
+    }, { dedup: false })
+    assert.equal(out.ok, true)
+  }
+  const text = (res) => res.content[0].text
+
+  const def = await callTool('memory_audit_list', {}, mcpRoot)
+  assert.match(text(def), /待处理 25 张，显示前 20 张/, '总数必须是 25，而不是默认上限 20')
+  assert.match(text(def), /还有 5 张未显示/)
+
+  const all = await callTool('memory_audit_list', { limit: 500 }, mcpRoot)
+  assert.match(text(all), /待处理 25 张（/, '全部列出时不出现「显示前」')
+  assert.doesNotMatch(text(all), /还有 \d+ 张未显示/)
+
+  const empty = await callTool('memory_audit_list', { status: 'rejected' }, mcpRoot)
+  assert.match(text(empty), /没有 rejected 状态的卡片/)
 })
 
 test('#17：MCP 侧只读 —— 有 memory_audit_list，没有任何 approve/reject 工具', () => {
