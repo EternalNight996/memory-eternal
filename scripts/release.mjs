@@ -88,6 +88,20 @@ if (!SKIP_TESTS) {
   say('（--skip-tests：跳过测试）')
 }
 
+// 构建产物一致性闸门（v0.10.3 踩过的坑）：
+// npm test 会跑 build.mjs 重新生成 lib/client.js 与 web/app.js，而这两个 bundle 内嵌了
+// package.json 的版本号（__ME_CLIENT_VERSION__）。如果改完版本号忘了先 npm run build 就提交，
+// 这一步会把工作区弄脏 —— 结果是 tag/仓库里的 bundle 嵌的是旧版本号，而 npm 上的却是新的。
+// 一旦 tag 与 npm 都发出去就很难收回，所以在打 tag、发布**之前**直接拦住。
+const dirtyAfter = run('git', ['status', '--porcelain']).out
+if (dirtyAfter && !flag('allow-dirty')) {
+  throw new Error(
+    '测试/构建后工作区变脏 —— 多半是改了版本号却没先 npm run build：\n' + dirtyAfter +
+    '\n处理：npm run build 后把产物一起提交，再重新跑发布。\n（确属有意请加 --allow-dirty）',
+  )
+}
+say('构建产物与提交一致 ✓')
+
 // ---- 2. 发布说明 -----------------------------------------------------------
 step(2, '准备发布说明')
 const notesFile = opt('notes-file')
