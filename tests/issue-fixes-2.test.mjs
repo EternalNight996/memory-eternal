@@ -371,11 +371,17 @@ test('#21 独立 Web 端 POST /config：不再无条件声称「已应用」', a
     const res = makeRes()
     const payload = JSON.stringify({ patch: { auditExemptKinds: ['project'] }, expectedRevision: 0 })
     const iter = (async function* () { yield Buffer.from(payload, 'utf8') })()
-    // 这次不消费 pending（模拟 DSH 未运行）→ 必须如实回「排队中」
+    // 这个 DSH_HOME 里没有任何宿主心跳（等价于 Codex / 只跑 dsh-memory serve）：
+    // v0.10.5 起不再回「等下次启动生效」那种空头承诺，而是直接写共享配置（见 issue-fixes-3）。
+    // 宿主活着时仍然只写 pending —— 那一路由 issue-fixes-3 覆盖。
     await handle(Object.assign(iter, { url: API_PREFIX + '/config', method: 'POST', headers: {} }), res)
     assert.equal(res.body.ok, true)
-    assert.equal(res.body.pendingOutcome, 'queued')
-    assert.match(res.body.note, /待应用|自动同步/)
+    assert.equal(res.body.pendingOutcome, 'applied-direct')
+    assert.equal(res.body.appliedDirect, true)
+    assert.match(res.body.note, /直接写入共享配置/)
+    assert.deepEqual(res.body.pending, [], '已直写就不该再留在待应用里')
+    const shared = JSON.parse(await fs.readFile(path.join(home, 'memory-eternal-config.json'), 'utf8'))
+    assert.deepEqual(shared.auditExemptKinds, ['project'], '共享配置必须真的被改到')
   } finally {
     if (prevHome === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = prevHome

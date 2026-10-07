@@ -211,7 +211,7 @@ export const ZH = {
   allExempt: '全部免审',
   recycleDays: '回收保留天数',
   editInSetting: '编辑请到 DSH 设置 → 记忆',
-  pendingSyncNote: '此页是独立 Web 页：保存会写入「待应用」文件，由 DSH 端自动同步（DSH 未运行时下次启动生效）。想立刻生效可直接在 DSH 设置 → 记忆里改。',
+  pendingSyncNote: '此页是独立 Web 页：保存会写「待应用」文件交给 DSH 宿主同步；若本机没有 DSH 宿主在运行，则直接写入共享配置、立即生效。宿主侧不生效时可在 DSH 设置 → 记忆里改同一项。',
   readonlyTitle: '当前页面只读，无法保存配置',
   readonlyBody: '这个进程没有 DSH 的设置服务（settings.update 不存在），配置只能在本机 DSH 里修改：桌面版 → 设置 → 记忆。',
   readonlyBtn: '只读',
@@ -300,6 +300,10 @@ export const ZH = {
   saveConfig: '保存配置',
   saveFail: '保存失败',
   savedOk: '已保存',
+  savedDirect: '本机没有 DSH 宿主在运行，已直接写入共享配置（hooks / MCP / 独立页立即生效）',
+  saveQueued: '已交给 DSH 宿主同步，尚未确认生效',
+  saveHostGuard: '该宿主不允许插件从自己的回调上下文里写配置；请在「DSH 设置 → 记忆」里改同一项，或编辑 profile 的配置补丁层',
+  saveFailHint: '宿主侧未应用，详见「反馈异常」里的诊断信息',
   recallTool: 'recall 工具',
   costControl: '成本控制',
   costHint: '省 token、控 LLM 消耗',
@@ -548,7 +552,7 @@ export const EN = {
   allExempt: 'Exempt all',
   recycleDays: 'Recycle retention days',
   editInSetting: 'Edit in DSH Settings → Memory',
-  pendingSyncNote: 'This is the standalone web page: saving writes a "pending" file that the DSH host applies automatically (on next start if DSH is not running). For immediate effect edit it under DSH Settings → Memory.',
+  pendingSyncNote: 'This is the standalone web page: saving writes a "pending" file that the DSH host applies; when no DSH host is running here the change is written straight into the shared config and takes effect immediately. If the host will not apply it, change the same option under DSH Settings → Memory.',
   readonlyTitle: 'This page is read-only; config cannot be saved here',
   readonlyBody: 'This process has no DSH settings service (settings.update is unavailable). Edit the config in DSH: desktop app → Settings → Memory.',
   readonlyBtn: 'Read-only',
@@ -639,6 +643,10 @@ export const EN = {
   saveConfig: 'Save config',
   saveFail: 'Save failed',
   savedOk: 'Saved',
+  savedDirect: 'No DSH host is running here, so the change went straight into the shared config (hooks / MCP / the standalone page pick it up immediately)',
+  saveQueued: 'Handed to the DSH host for sync — not confirmed applied yet',
+  saveHostGuard: 'This host does not let a plugin write config from its own callback context; change the same option under DSH Settings → Memory, or edit the profile patch layer',
+  saveFailHint: 'the host did not apply it — see Diagnostics under Report a bug',
   recallTool: 'recall tool',
   costControl: 'Cost control',
   costHint: 'save tokens, control LLM usage',
@@ -1594,13 +1602,31 @@ function ConfigPanel({ t, onReload, version, compact }) {
       try { d = rawText ? JSON.parse(rawText) : null } catch { d = null }
       if (!d) d = { error: 'HTTP ' + r.status + (rawText ? '：' + rawText.slice(0, 200) : '（宿主未返回原因，请检查是否有数字字段为空或超出范围）') }
       if (d && d.ok) {
-        // 把「是否回读一致 / 是否用了 revision 重试」如实告诉用户（issue #12 的排查关键）
-        const extra = (Array.isArray(d.pending) && d.pending.length) ? ' · ' + t('savePending') : (d.note ? ' · ' + t('restartHint') : '')
-        const msg = (d.retried ? '♻ ' : '') + t('savedOk') + extra
+        // issue #21：不再一律弹「已保存」。pendingOutcome 有四种可能，只有前两种是真生效：
+        //   applied        = 宿主已应用
+        //   applied-direct = 本机没有 DSH 宿主，独立服务已直接写入共享配置
+        //   queued         = 已交给宿主，尚未确认生效（用非成功样式，别让用户以为已生效）
+        //   failed         = 宿主侧应用失败（守卫类错误给出「去哪改」的指路）
+        const outcome = typeof d.pendingOutcome === 'string' ? d.pendingOutcome : ''
+        let msg
+        let okStyle = true
+        if (outcome === 'queued') {
+          okStyle = false
+          msg = t('saveQueued')
+        } else if (outcome === 'failed') {
+          okStyle = false
+          msg = t('saveFail') + ' · ' + (d.hostGuard ? t('saveHostGuard') : t('saveFailHint'))
+        } else if (outcome === 'applied-direct') {
+          msg = t('savedOk') + ' · ' + t('savedDirect')
+        } else {
+          // 兼容宿主自己拦截实现的 /config（它回的是 pending/retried/note 那套老字段）
+          const extra = (Array.isArray(d.pending) && d.pending.length) ? ' · ' + t('savePending') : (d.note ? ' · ' + t('restartHint') : '')
+          msg = (d.retried ? '♻ ' : '') + t('savedOk') + extra
+        }
         savedOverlayRef.current = { ...savedOverlayRef.current, ...payload }
-        setSaved(t('savedOk') + extra)
-        // 保存成功就是成功：宿主未回流只代表「尚未重启生效」，绝不能用失败样式弹（用户会读成「保存失败」）
-        notify(msg, true)
+        if (okStyle) setSaved(msg)
+        else setErr(msg)
+        notify(msg, okStyle)
         await load()
       }
       else { const msg = r.status === 409 ? t('conflictRefresh') : (d?.error || t('saveFail')); setErr(msg); notify(msg, false) }
