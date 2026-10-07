@@ -448,6 +448,24 @@ export function apply(ctx, config) {
     return roots
   }
   // 把完整配置写入共享文件，使独立 web / MCP hook 捕获与 DSH 设置同步（不同步修复）。
+  //
+  // 2026-10-07：这里原来是 `catch { /* 静默 */ }` —— 正是本项目一直在消灭的静默吞错。它写不进去
+  // 的后果很隐蔽：独立页 / hooks / MCP 读的都是这个文件，于是表现为「配置改了但他们看不到」
+  // （实测到过一次：共享文件的 mtime 停在激活前，而宿主里的值已经变了）。现在失败一律可见。
+  let lastSyncError = ''
+  const reportSyncFailure = (reason) => {
+    const why = String(reason || '')
+    if (!why || why === lastSyncError) return   // 同一原因只报一次，避免 5 秒轮询刷屏
+    lastSyncError = why
+    // 必须延迟一拍：本函数可能在 apply() 的**同步**阶段被调用，而 logCapture 定义在更后面
+    // （const 的 TDZ 会直接抛 ReferenceError）。setImmediate 之后整个 apply() 已执行完毕。
+    const emit = () => {
+      try { console.error('[memory-eternal] 共享配置文件同步失败（独立页 / hooks / MCP 读到的是旧值）：' + why) } catch { /* 无妨 */ }
+      try { logCapture('system', 'warn', '共享配置文件同步失败（独立页 / hooks / MCP 会读到旧值）：' + why) } catch { /* 无妨 */ }
+    }
+    if (typeof setImmediate === 'function') setImmediate(emit)
+    else setTimeout(emit, 0)
+  }
   const syncConfigFile = async () => {
     try {
       const cfg = settings.get() ?? {}
@@ -456,7 +474,10 @@ export function apply(ctx, config) {
       // 原子写（tmp + rename，见 lib/config-sync.js 里 writeFileAtomicSync 的说明）：
       // 这个文件是跨进程共享的读源，非原子写会让独立 web / MCP 读到半截内容并静默回落成默认值。
       writeFileAtomicSync(configFilePath(process.env), JSON.stringify(cfg, null, 2))
-    } catch { /* 静默 */ }
+      lastSyncError = ''
+    } catch (error) {
+      reportSyncFailure(error && error.message ? error.message : error)
+    }
   }
   syncConfigFile()
   // agent/turn-stopping 是 serial 事件：不在监听器里 await LLM（会拖慢收尾），
