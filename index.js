@@ -34,6 +34,7 @@ import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn,
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { missingWebAssets, missingAssetsReason } from './lib/web-assets.js'
+import { writeHostMarker, clearHostMarker } from './lib/host-heartbeat.js'
 import { nodeBinary, childEnv } from './lib/node-bin.js'
 
 export const name = 'memory-eternal'
@@ -405,13 +406,30 @@ export function apply(ctx, config) {
   ctx.effect(() => () => clearInterval(pendingTimer), 'memory-eternal: pending config sync')
   ctx.effect(() => {
     let stop = () => {}
+    // 动态 import 是异步的：若宿主在它 resolve 之前就 dispose（测试里的假 ctx 会立刻 dispose），
+    // 后到的监听器就再也没人清理 —— 会一直挂住事件循环。用一个 disposed 标记堵住这个窗口。
+    let disposed = false
     import('./lib/config-sync.js').then(({ watchPendingConfig }) => {
+      if (disposed) return
       stop = watchPendingConfig(process.env, () => {
         drainPending().then(() => hub.broadcast('config', { at: Date.now(), source: 'pending' })).catch(() => {})
       })
     }).catch(() => {})
-    return () => { try { stop() } catch { /* 已停止 */ } }
+    return () => { disposed = true; try { stop() } catch { /* 已停止 */ } }
   }, 'memory-eternal: pending config watch')
+
+  // 宿主心跳（issue #21）：告诉独立 Web 端「本机有 DSH 宿主在跑」，这样它就不会绕过宿主
+  // 直接写共享配置（绕过会与宿主的 volatile 配置分叉）。心跳必须定期刷新：进程被硬杀时
+  // 没有机会删文件，独立端靠「新鲜度 + pid 存活」两个条件判定，所以宁可多刷几次。
+  ctx.effect(() => {
+    const beat = () => { try { writeHostMarker(process.env, { version: versionRef }) } catch { /* 心跳失败不影响主流程 */ } }
+    beat()
+    // unref：心跳只是「我在跑」的旁证，不该成为阻止进程退出的最后一根钉子
+    // （测试里以假 ctx 跑 apply() 时会因此挂住不退，实测过一次）。
+    const timer = setInterval(beat, 15000)
+    if (typeof timer.unref === 'function') timer.unref()
+    return () => { clearInterval(timer); try { clearHostMarker(process.env) } catch { /* 清理失败无妨 */ } }
+  }, 'memory-eternal: host heartbeat')
 
   // 所有 profile 目录（当前激活 + 其余命名的），供跨库聚合。
   const vaultRoots = (workspace) => {
