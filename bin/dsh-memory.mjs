@@ -122,7 +122,7 @@ async function main() {
       return
     }
     case 'status': {
-      const { watchdogStatus, probeServedVersion, findPortListener } = await import('../lib/watchdog.js')
+      const { watchdogStatus, probeServedVersion, findPortListener, looksLikeOurWeb } = await import('../lib/watchdog.js')
       const port = argOf('--port')
       const st = watchdogStatus({ port: port || undefined })
       // issue #23：锁里的 pkgVersion 是「看门狗自述」，与端口上真正跑着的代码无关 ——
@@ -130,13 +130,16 @@ async function main() {
       const probePort = Number(port) || (st.watchdogs[0] && Number(st.watchdogs[0].port)) || 0
       const served = probePort ? await probeServedVersion(probePort) : ''
       const occupant = probePort && !served ? await findPortListener(probePort) : null
-      if (has('--json')) { console.log(JSON.stringify({ ok: true, ...st, servedPort: probePort, servedVersion: served, portOccupant: occupant }, null, 2)); return }
+      // 旧版（< v0.10.4）的 /overview 里**没有 version 字段**，所以探不到版本不等于「不是我们的服务」。
+      // 这正是 v0.10.3 → v0.10.4 升级时的常见现场，必须说清楚，否则用户会以为端口空着。
+      const oursNoVersion = Boolean(occupant && occupant.pid && looksLikeOurWeb(occupant.command))
+      if (has('--json')) { console.log(JSON.stringify({ ok: true, ...st, servedPort: probePort, servedVersion: served, portOccupant: occupant, portOccupantIsOurs: oursNoVersion }, null, 2)); return }
       console.log(`锁文件：${st.lockPath}`)
       console.log(`本机包版本：${st.pkgVersion || '?'}`)
       if (probePort) {
-        console.log(served
-          ? `端口 ${probePort} 实际服务版本：${served}`
-          : `端口 ${probePort} 上没有本插件的服务在响应${occupant && occupant.pid ? `（被 pid ${occupant.pid} 占用：${occupant.command || '命令行未知'}）` : ''}`)
+        if (served) console.log(`端口 ${probePort} 实际服务版本：${served}`)
+        else if (oursNoVersion) console.log(`端口 ${probePort} 上跑的是本插件的 web（pid ${occupant.pid}），但它不会自报版本 —— 说明是 v0.10.4 之前的旧版，升级尚未生效 → 执行 dsh-memory restart --port ${probePort}`)
+        else console.log(`端口 ${probePort} 上没有本插件的服务在响应${occupant && occupant.pid ? `（被 pid ${occupant.pid} 占用：${occupant.command || '命令行未知'}）` : ''}`)
       }
       if (!st.watchdogs.length) { console.log('锁文件里没有登记的看门狗（没有常驻实例）。'); return }
       for (const w of st.watchdogs) {

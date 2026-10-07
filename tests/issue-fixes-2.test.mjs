@@ -177,9 +177,16 @@ test('#23 parseLsofFields：解析 lsof -Fpcn 输出', () => {
   assert.deepEqual(parseLsofFields(''), [])
 })
 
-test('#23 looksLikeOurWeb：只收本插件拉起的 web', () => {
+test('#23 looksLikeOurWeb：只收本插件自己的 web，别人的 web.js 不许误杀', () => {
+  // ① 安装路径里带包名 → 认（npm / pnpm store / 开发目录都含 memory-eternal）
   assert.equal(looksLikeOurWeb('node /opt/x/memory-eternal/lib/web.js --port 7999'), true)
-  assert.equal(looksLikeOurWeb('node /opt/x/lib/web.js --port 7999'), true)
+  assert.equal(looksLikeOurWeb('"C:\\Program Files\\nodejs\\node.exe" C:\\Users\\me\\.dsh\\profiles\\web\\node_modules\\memory-eternal\\lib\\web.js --port 7999'), true)
+  // ② 带本插件自己的 lib/web.js 绝对路径（大小写 / 斜杠方向都不敏感）
+  assert.equal(looksLikeOurWeb('node E:/Dev/plug/lib/web.js --port 7999', { webJs: 'E:\\Dev\\plug\\lib\\web.js' }), true)
+  // ③ 别人的 web.js：命令行里同样有 web.js，但既不是我们的路径、也不含包名 → 必须 false
+  //    （否则 restart 会误杀恰好占着该端口的外来进程）
+  assert.equal(looksLikeOurWeb('node /opt/x/lib/web.js --port 7999'), false)
+  assert.equal(looksLikeOurWeb('node C:\\other\\project\\web.js'), false)
   assert.equal(looksLikeOurWeb('/usr/sbin/nginx: worker process'), false)
   assert.equal(looksLikeOurWeb(''), false)
 })
