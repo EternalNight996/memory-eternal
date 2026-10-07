@@ -30,7 +30,7 @@ import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
-import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
+import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { missingWebAssets, missingAssetsReason } from './lib/web-assets.js'
@@ -362,10 +362,32 @@ export function apply(ctx, config) {
     try { console.error('[memory-eternal] ' + why) } catch { /* 日志失败无妨 */ }
     try { logCapture('system', dropped ? 'fail' : 'warn', why) } catch { /* 日志失败无妨 */ }
   }
+  // issue #21：dsh-tui 一类宿主的能力守卫会在 settings.update **内部**的 describe() 上抛
+  // 「root.events.emit is unavailable from a plugin activation」（守卫只区分「第三方插件 vs
+  // host 内部代码」，识别不出「官方服务在插件调用链里执行的合法动作」，上游已开 issue）。
+  // 关键点：抛错 ≠ 没写进去 —— 只认有没有抛错，会把其实已经生效的改动重试 5 次后标成
+  // dropped，日志里还报失败。applyPatchVerified 在抛错后回读确认（带守卫的宿主上这是
+  // 唯一能自证的信号），判据与实现都在 lib/config-sync.js 里（有单测）。
+  //
+  // 注意：把 drain 推迟到 activation 之后**解决不了**这个问题 —— 上游 dsh-tui 用
+  // AsyncLocalStorage.run(token) 包住每次插件回调，并 patch 了 Fiber._execute，定时器 /
+  // fs.watch 的每一次回调都带着 activation token（见 ccch1mneyyy/dsh-TUI#1348 的定位）。
+  const applyPendingPatch = async (patch) => {
+    const { applyPatchVerified } = await import('./lib/config-sync.js')
+    return applyPatchVerified(patch, {
+      apply: (p) => settings.update(p, undefined),
+      read: () => settings.get() ?? {},
+      onRepaired: (error) => {
+        try {
+          console.error('[memory-eternal] settings.update 抛错但回读确认改动已生效（宿主守卫误报），按成功处理：' + String((error && error.message) || error))
+        } catch { /* 日志失败无妨 */ }
+      },
+    })
+  }
   const drainPending = async () => {
     try {
       const { drainPendingConfig } = await import('./lib/config-sync.js')
-      const applied = await drainPendingConfig(process.env, (patch) => settings.update(patch, undefined))
+      const applied = await drainPendingConfig(process.env, applyPendingPatch)
       if (applied) {
         lastDrainError = ''
         syncConfigFile()
@@ -591,12 +613,15 @@ export function apply(ctx, config) {
       for (let i = 0; i < routes.length; i++) {
         route = routes[i]
         let detailed = await summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens })
-        // #18 建议 3：撞输出上限不是「模型坏了」，直接把上限翻倍再试一次同一候选
-        // （截断的产物既解析不了、也不是「不值得保存」，不该就此退成原文卡）。
-        if (detailed.failure && detailed.failure.code === 'MAX_TOKENS' && maxTokens < MAX_CAPTURE_MAX_TOKENS) {
-          const bigger = Math.min(maxTokens * 2, MAX_CAPTURE_MAX_TOKENS)
-          logCapture(sessionId, 'listen', `输出撞到 maxTokens=${maxTokens} 上限 → 以 ${bigger} 重试同一候选（${route.provider}/${route.model}）`)
+        // #18 建议 3 + #24：撞输出上限不是「模型坏了」，把上限一路翻倍到 schema 上限。
+        // 旧实现只翻倍**一次**：1200 → 2400 仍不够就照样退成原文卡，尽管 4000 本来装得下
+        // （issue #24 里 9 次失败中有一半正是被这一限制吃掉的）。
+        let prevBudget = maxTokens
+        for (const bigger of maxTokenLadder(maxTokens)) {
+          logCapture(sessionId, 'listen', `输出撞到 maxTokens=${prevBudget} 上限 → 以 ${bigger} 重试同一候选（${route.provider}/${route.model}）`)
           detailed = await summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens: bigger })
+          prevBudget = bigger
+          if (!(detailed.failure && detailed.failure.code === 'MAX_TOKENS')) break
         }
         if (detailed.card !== undefined) { result = detailed.card; failure = null; break }
         if (detailed.failure) {
