@@ -51,6 +51,26 @@ test('结构一一对应：标题层级序列与代码块数量必须一致', ()
   assert.equal(fenceCount(zh), fenceCount(en), '两份 README 的代码块数量必须一致')
 })
 
+test('更新日志默认只露最新两条，其余折叠；中英版本列表必须一致', () => {
+  const versions = (text) => stripFences(text)
+    .split('\n')
+    .map((line) => (/^\|\s*\*\*(v[\d.]+)\*\*/.exec(line) || [])[1])
+    .filter(Boolean)
+  const zhVersions = versions(zh)
+  const enVersions = versions(en)
+  assert.ok(zhVersions.length >= 20, '更新日志条数异常（' + zhVersions.length + '）')
+  assert.deepEqual(zhVersions, enVersions, '两份 README 的更新日志版本列表必须一致（少一条 = 只改了一份）')
+
+  const foldIndex = (text) => text.replace(/\r\n/g, '\n').split('\n').findIndex((line) => line.trim() === '<details>')
+  const visibleRows = (text, at) => text.replace(/\r\n/g, '\n').split('\n').slice(0, at).filter((line) => /^\|\s*\*\*v/.test(line)).length
+  const zhFold = foldIndex(zh)
+  const enFold = foldIndex(en)
+  assert.ok(zhFold > 0 && enFold > 0, '两份都要有「更早的更新日志」折叠块')
+  assert.equal(visibleRows(zh, zhFold), 2, '默认只露最新两条（多的要折进 details）')
+  assert.equal(visibleRows(en, enFold), 2, '默认只露最新两条（多的要折进 details）')
+  assert.ok(zh.includes('</details>') && en.includes('</details>'), '折叠块要闭合')
+})
+
 test('两份都提醒「改一处要同步另一处」（给贡献者的话）', () => {
   assert.ok(zh.includes('README.en.md') && /同步/.test(zh), '中文 README 要写明中英同步要求')
   assert.ok(en.includes('README.md') && /mirror|Mirror/.test(en), '英文 README 要写明它是镜像/需同步')
