@@ -19,6 +19,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { randomBytes } from 'node:crypto'
 const __filename = fileURLToPath(import.meta.url)
 const PACKAGE_ROOT = path.resolve(path.dirname(__filename))
 // 插件版本号（供「记忆配置」页面展示）
@@ -363,6 +364,19 @@ export function apply(ctx, config) {
   // 否则 5 秒一轮的轮询会把日志刷爆）。
   let lastDrainError = ''
   let lastDrainErrorAt = 0
+  // 被本宿主 schema 过滤掉的键（升级期新独立页 + 旧宿主），随 drain 结果回报给独立端
+  let lastDrainIgnored = []
+  // ---- 方案 A：把「应用 pending」搬进宿主允许的上下文（2026-10-08 实测）---------------------------------
+  // 同一个 settings.update：从插件**回调**里调必然被 activation 守卫拒（HMR transactions cannot be
+  // nested，一个字节都不提交）；从插件**HTTP 请求处理器**里调则真的提交（实测 revision 4→6）。
+  // 所以宿主把「自己的监听端口 + 一次性令牌」写进心跳，独立端保存后就地叫醒宿主：
+  // POST /memory-eternal/api/drain-pending（见下面的路由 + lib/config-sync.js 的 triggerHostDrain）。
+  const hostDrainToken = randomBytes(16).toString('hex')
+  let hostDrainPort = 0
+  const beatHostMarker = () => {
+    // 心跳失败不影响主流程：字段缺省时独立端会回落到「等宿主自己 drain」（旧行为）
+    try { writeHostMarker(process.env, { version: versionRef, port: hostDrainPort, token: hostDrainToken }) } catch { /* 心跳失败无妨 */ }
+  }
   const reportDrainError = (error) => {
     const dropped = !!(error && error.dropped)
     const msg = String((error && error.message) || error || '未知错误')
@@ -397,6 +411,7 @@ export function apply(ctx, config) {
     // 「HMR transactions cannot be nested」这种与配置内容无关的报错）。过滤后：旧宿主只应用它认识的
     // 那部分，不认识的记一行日志等宿主升级后再生效。
     const { known: filtered, ignored } = filterKnownKeys(patch, Object.keys(Config.dict || {}))
+    lastDrainIgnored = ignored
     if (ignored.length) {
       try { console.error('[memory-eternal] 待应用配置里有本宿主不认识的键（宿主升级后生效）：' + ignored.join(',')) } catch { /* 日志失败无妨 */ }
     }
@@ -412,7 +427,13 @@ export function apply(ctx, config) {
     })
     return { ...out, ignored }
   }
+  /**
+   * 应用一次 pending，并把结果**返回**给调用方（不再只是写日志）。
+   * 返回结构同时服务两条路：5 秒轮询 / fs.watch（忽略返回值）与 drain 路由（要如实回报给独立端）。
+   * @returns {Promise<{applied:string[], ignored:string[], error:string, dropped:boolean}>}
+   */
   const drainPending = async () => {
+    lastDrainIgnored = []
     try {
       const { drainPendingConfig } = await import('./lib/config-sync.js')
       const applied = await drainPendingConfig(process.env, applyPendingPatch)
@@ -421,10 +442,13 @@ export function apply(ctx, config) {
         syncConfigFile()
         syncAudit()
         try { console.error('[memory-eternal] 已应用独立 Web 端的配置改动: ' + Object.keys(applied).join(',')) } catch { /* 日志失败无妨 */ }
+        return { applied: Object.keys(applied), ignored: lastDrainIgnored, error: '', dropped: false }
       }
+      return { applied: [], ignored: lastDrainIgnored, error: '', dropped: false }
     } catch (error) {
       // 失败时保留文件由 config-sync.js 负责；这里只保证「失败可见」
       reportDrainError(error)
+      return { applied: [], ignored: lastDrainIgnored, error: String((error && error.message) || error), dropped: Boolean(error && error.dropped) }
     }
   }
   drainPending()
@@ -449,7 +473,7 @@ export function apply(ctx, config) {
   // 直接写共享配置（绕过会与宿主的 volatile 配置分叉）。心跳必须定期刷新：进程被硬杀时
   // 没有机会删文件，独立端靠「新鲜度 + pid 存活」两个条件判定，所以宁可多刷几次。
   ctx.effect(() => {
-    const beat = () => { try { writeHostMarker(process.env, { version: versionRef }) } catch { /* 心跳失败不影响主流程 */ } }
+    const beat = () => beatHostMarker()
     beat()
     // unref：心跳只是「我在跑」的旁证，不该成为阻止进程退出的最后一根钉子
     // （测试里以假 ctx 跑 apply() 时会因此挂住不退，实测过一次）。
@@ -990,6 +1014,10 @@ export function apply(ctx, config) {
   // 没有该服务的 profile（如 TUI）里子 fiber 保持 pending，主插件照常激活。
   // （DSH 自身的 dsh-client-modules 也是这么写的：ctx.inject(['webServer'], …)）
   const registerApiRoutes = (webServer) => {
+    // webServer 是晚到服务：它一就绪就把「监听端口」记下来并立刻刷新心跳 —— 独立端靠这个端口
+    // 把 drain 请求发回来（port=0 时独立端自动回落到旧的「等宿主自己 drain」行为）。
+    hostDrainPort = Number(webServer.port) || 0
+    beatHostMarker()
     const handleApi = createApi({
       vaultDir, vaultRoots, getSettings: settings.get,
       // 自动沉淀运行轨迹 + 健康状态：供「用量/今日」页排查「为什么没写卡」，异常时页面顶部亮红。
@@ -1049,6 +1077,23 @@ export function apply(ctx, config) {
               json(res, 500, { ok: false, error: String(e?.message || e) })
             }
             return
+          }
+          if (pathname === API_PREFIX + '/drain-pending') {
+            // 独立端保存后叫醒宿主（#方案 A）：**HTTP 请求上下文**是宿主允许写配置的地方 ——
+            // 实测同一个 settings.update 从回调里调必被 activation 守卫拒、从请求里调则真提交。
+            // 两道闸门写在 lib/config-sync.js（有单测）：只接受本机来源 + 心跳里的一次性令牌。
+            const { drainRequestError } = await import('./lib/config-sync.js')
+            const deny = drainRequestError(
+              { method: req.method, headers: req.headers, remoteAddress: req.socket && req.socket.remoteAddress },
+              hostDrainToken,
+            )
+            if (deny) return json(res, deny === '需 POST' ? 405 : 403, { ok: false, error: deny })
+            // 端口可能刚刚才就绪（webServer 是晚到服务）：顺手把心跳里的端口刷新到最新
+            if (Number(webServer.port) !== hostDrainPort) { hostDrainPort = Number(webServer.port) || 0; beatHostMarker() }
+            const drained = await drainPending()
+            if (drained.applied.length) hub.broadcast('config', { at: Date.now(), source: 'drain-request', applied: drained.applied })
+            // 失败也回 200：调用方要读到具体原因，而不是一个没有 body 的 500
+            return json(res, 200, { ok: !drained.error, ...drained })
           }
           if (pathname === API_PREFIX + '/config') {
             const method = req.method || 'GET'
