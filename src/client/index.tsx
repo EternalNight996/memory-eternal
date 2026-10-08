@@ -211,7 +211,7 @@ export const ZH = {
   allExempt: '全部免审',
   recycleDays: '回收保留天数',
   editInSetting: '编辑请到 DSH 设置 → 记忆',
-  pendingSyncNote: '此页是独立 Web 页：保存会写「待应用」文件交给 DSH 宿主同步；若本机没有 DSH 宿主在运行，则直接写入共享配置、立即生效。宿主侧不生效时可在 DSH 设置 → 记忆里改同一项。',
+  pendingSyncNote: '此页是独立 Web 页：保存后由 DSH 宿主应用（新版宿主会被直接叫醒、在请求上下文里应用，点保存即生效）；若本机没有 DSH 宿主在运行，则直接写入共享配置、立即生效。只有在对接旧版宿主时才会退回「排队等它自己同步」，那时可在 DSH 设置 → 记忆里改同一项。',
   readonlyTitle: '当前页面只读，无法保存配置',
   readonlyBody: '这个进程没有 DSH 的设置服务（settings.update 不存在），配置只能在本机 DSH 里修改：桌面版 → 设置 → 记忆。',
   readonlyBtn: '只读',
@@ -310,6 +310,7 @@ export const ZH = {
   saveFail: '保存失败',
   savedOk: '已保存',
   savedDirect: '本机没有 DSH 宿主在运行，已直接写入共享配置（hooks / MCP / 独立页立即生效）',
+  savedApplied: '已保存并生效（宿主已在请求上下文里应用）',
   saveQueued: '已交给 DSH 宿主同步，尚未确认生效',
   saveHostGuard: '该宿主不允许插件从自己的回调上下文里写配置；请在「DSH 设置 → 记忆」里改同一项，或编辑 profile 的配置补丁层',
   saveFailHint: '宿主侧未应用，详见「反馈异常」里的诊断信息',
@@ -561,7 +562,7 @@ export const EN = {
   allExempt: 'Exempt all',
   recycleDays: 'Recycle retention days',
   editInSetting: 'Edit in DSH Settings → Memory',
-  pendingSyncNote: 'This is the standalone web page: saving writes a "pending" file that the DSH host applies; when no DSH host is running here the change is written straight into the shared config and takes effect immediately. If the host will not apply it, change the same option under DSH Settings → Memory.',
+  pendingSyncNote: 'This is the standalone web page: the DSH host applies a save (a current host is woken up and applies it in a request context, so saving takes effect immediately); when no DSH host is running here the change goes straight into the shared config. Only an older host falls back to "queued until it syncs on its own" — in that case change the same option under DSH Settings → Memory.',
   readonlyTitle: 'This page is read-only; config cannot be saved here',
   readonlyBody: 'This process has no DSH settings service (settings.update is unavailable). Edit the config in DSH: desktop app → Settings → Memory.',
   readonlyBtn: 'Read-only',
@@ -662,6 +663,7 @@ export const EN = {
   saveFail: 'Save failed',
   savedOk: 'Saved',
   savedDirect: 'No DSH host is running here, so the change went straight into the shared config (hooks / MCP / the standalone page pick it up immediately)',
+  savedApplied: 'Saved and applied (the host applied it in a request context)',
   saveQueued: 'Handed to the DSH host for sync — not confirmed applied yet',
   saveHostGuard: 'This host does not let a plugin write config from its own callback context; change the same option under DSH Settings → Memory, or edit the profile patch layer',
   saveFailHint: 'the host did not apply it — see Diagnostics under Report a bug',
@@ -1656,7 +1658,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
         const outcome = typeof d.pendingOutcome === 'string' ? d.pendingOutcome : ''
         let msg
         let okStyle = true
-        if (outcome === 'queued') {
+        if (outcome === 'applied') {
+          // 方案 A：宿主在 HTTP 请求上下文里应用成功 —— 点保存即生效，不再停在「已排队」
+          msg = t('savedApplied') + (Array.isArray(d.applied) && d.applied.length ? ' · ' + d.applied.join('、') : '')
+        } else if (outcome === 'queued') {
           okStyle = false
           msg = t('saveQueued')
         } else if (outcome === 'failed') {
