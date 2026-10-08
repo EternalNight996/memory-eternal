@@ -76,6 +76,13 @@ export const Config = z.object({
   recallLimit: z.number().min(1).max(20).default(5),
   recallSummaryLen: z.number().min(40).max(400).default(130),
   recallIncludeBody: z.boolean().default(false),
+  // 凭证取用提示（默认空 = 不注入）：写进来的一整句会被追加到每个会话的 systemPrompt 段，
+  // 用来让 agent「需要 API key / token 时先想到去查记忆里的目录卡」。
+  // 为什么做成配置而不是写死：默认值必须对**所有**用户安全 —— 插件本身不假定任何本机
+  // 密钥布局（也不该在公开包里硬编码某台机器的路径）；有需要的用户填一句自己的约定即可。
+  // 参考句式：需要 API key/token 时先查记忆目录卡（memory_recall「密钥 目录」），
+  //          再按卡片给的本机命令取用；禁止直接读凭据文件、禁止把值打印或写进卡片/代码。
+  secretHint: z.string().default(''),
   // 多 Vault / 多 Profile：命名分库，当前激活一个
   vaultProfiles: z.array(z.object({ name: z.string(), path: z.string() })).default([]),
   activeVault: z.string().default(''),
@@ -818,6 +825,11 @@ export function apply(ctx, config) {
         ...((cfg.auditMode ?? 'all') === 'none' ? [] : [
           '6. **审核红线（强制）**：写卡一律停在 pending，由用户在「审核中心」审批。**禁止**调用 /memory-eternal/api/audit/approve 或 /audit/reject 代替用户审批，也不得用任何等价方式绕过审核；用户说「记录一下 / 增加记忆」不等于允许免审入库。需要立刻可用时，写卡后明确告知用户「已进审核中心，待批准」。',
         ]),
+        // 凭证取用提示（用户自己填的整句，见 Config.secretHint）：只在填了非空值时注入。
+        // 为什么走 systemPrompt 而不是「往卡里写值」：密钥的**值**入库会被每次召回带进模型
+        // 上下文（card.summary = 正文前 200 字，召回默认取前 130 字），而 agent 真正需要的
+        // 只是「去哪取、怎么取」——这句负责**触发**，目录卡负责细节，值留在本机凭据库。
+        ...((cfg.secretHint || '').trim() ? [String(cfg.secretHint).trim()] : []),
       ].join('\n')
       // 异常提示：沉淀管线坏了，靠这一句把消息送到用户面前（不依赖用户去翻页面）。
       const h = health.snapshot()
@@ -849,7 +861,9 @@ export function apply(ctx, config) {
       name: 'memory_recall',
       description:
         '从本地记忆核心（Markdown 知识库）检索相关知识卡。需要项目背景、历史决策、之前讨论过的方案、' +
-        '或领域知识时调用；返回最相关的卡片摘要。用 query 描述要找的内容，支持中文整词与字符片段检索。',
+        '或领域知识时调用；返回最相关的卡片摘要。用 query 描述要找的内容，支持中文整词与字符片段检索。' +
+        '需要 API key / token / 令牌等**凭证**时也先查这里（查「密钥 目录」）：记忆里存的是目录' +
+        '（名字、存放位置、取用命令），**值不在记忆库里**，请按卡片给的本机命令取用，不要直接读凭据文件。',
       parameters: {
         query: { type: 'string', required: true, description: '检索关键词或自然语言描述，如「数据库选型」「用户偏好」' },
         limit: { type: 'number', description: '返回卡片数上限，默认 5' },
@@ -1028,7 +1042,7 @@ export function apply(ctx, config) {
               const cfg = settings.get() ?? {}
               // 只暴露可安全展示/回填的字段
               const safe = {
-                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody,
+                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
                 captureMinChars: cfg.captureMinChars, captureCooldownMs: cfg.captureCooldownMs, dedupThreshold: cfg.dedupThreshold, maxCardsPerDay: cfg.maxCardsPerDay,
                 distillEnabled: cfg.distillEnabled, dedupByLLM: cfg.dedupByLLM, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
                 autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,

@@ -296,6 +296,7 @@ export const ZH = {
   vcCheckFail: '检查更新失败',
   recallSummaryLen: '召回摘要长度',
   recallBody: '召回含正文',
+  secretHint: '凭证取用提示（注入每个会话）',
   autoWeb: 'Web server',
   autoWebMode: '保活模式',
   webPort: 'Web 端口',
@@ -646,6 +647,7 @@ export const EN = {
   vcCheckFail: 'Update check failed',
   recallSummaryLen: 'Recall summary len',
   recallBody: 'Recall with body',
+  secretHint: 'Credential hint (injected into every session)',
   autoWeb: 'Web server',
   autoWebMode: 'Keep-alive mode',
   webPort: 'Web port',
@@ -1850,6 +1852,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="recallLimit" label={t('recallLimit')} type="number" />
                 <F k="recallSummaryLen" label={t('recallSummaryLen')} type="number" />
                 <Bool k="recallIncludeBody" label={t('recallBody')} />
+                {/* 凭证取用提示：一句自己写的约定，会被注入到每个会话的 systemPrompt（触发 agent 去查目录卡） */}
+                <F k="secretHint" label={t('secretHint')} />
                 <F k="recallEmbedding" label={t('recallEmbedding')} />
               </div>
             </div>
