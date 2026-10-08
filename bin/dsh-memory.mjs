@@ -110,10 +110,21 @@ async function main() {
       const { url } = await ensureWebServer({ port, vaultRoot: path.resolve(defaultVaultDir()) })
       console.log(url)
       const plat = process.platform
-      const { exec } = await import('node:child_process')
-      if (plat === 'win32') exec(`start "" "${url}"`)
-      else if (plat === 'darwin') exec(`open "${url}"`)
-      else exec(`xdg-open "${url}"`)
+      // 用 spawn + 参数数组，而不是把值拼进 shell 命令字符串：
+      // 后者正是扫描器（HOL Guard / ai-plugin-scanner）判定 SHELL_INJECTION_PATTERN 的形态，
+      // 而且一旦 url 里有空格/引号就会被 shell 重新解析。参数数组不经 shell，天然免疫。
+      // （注意：扫描器是**按文本正则**扫的，连注释里的示例写法也会命中，这里就不写示例了。）
+      const { spawn } = await import('node:child_process')
+      const launch = (cmd, args) => {
+        try {
+          const child = spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true })
+          child.on('error', () => { /* 打不开浏览器不影响 ensureWeb 的结果 */ })
+          child.unref()
+        } catch { /* 同上 */ }
+      }
+      if (plat === 'win32') launch('cmd', ['/c', 'start', '', url])
+      else if (plat === 'darwin') launch('open', [url])
+      else launch('xdg-open', [url])
       return
     }
     case 'mcp': {
@@ -167,56 +178,31 @@ async function main() {
     }
     case 'restart': {
       // 显式替换常驻实例（#19）：同端口已有实例时新进程只会让位，所以必须先停再起。
-      const { stopWatchdogs, findPortListener, waitForServedVersion, probeServedVersion, looksLikeOurWeb, currentPkgVersion } = await import('../lib/watchdog.js')
-      const { nodeBinary, childEnv } = await import('../lib/node-bin.js')
+      // 统一走 lib/watchdog.js 的 restartResident —— 宿主启动自愈与面板「重启常驻实例」按钮
+      // 用的是同一个实现：spawn 一个 detached 的 `watchdog.js --replace` 助手收旧实例并接管，
+      // 再自检「端口上真正服务的版本 == 本机版本」（issue #23 建议 2）。
+      const { restartResident, watchdogStatus } = await import('../lib/watchdog.js')
       const { defaultVaultDir } = await import('../lib/capture-run.js')
-      const { spawn } = await import('node:child_process')
-      const { fileURLToPath } = await import('node:url')
       const port = Number(argOf('--port')) || 7999
       const interval = Number(argOf('--interval')) || 5000
       const maxRestart = Number(argOf('--max-restart')) || 10
       const vaultRoot = argOf('--vault') ? path.resolve(argOf('--vault')) : defaultVaultDir()
-      // 停的时候不只信锁里登记的 webPid —— 锁可能没写 / 写了却枚举不到，正是
-      // 「restart 报成功、端口上还是旧代码」的漏网处（issue #23）：直接按端口占用者兜底收掉。
-      const stopped = await stopWatchdogs({ port, checkPort: true, forcePortOccupant: true })
-      if (stopped.failed.length) { console.error(`旧实例未能停止：pid ${stopped.failed.join(', ')}，放弃重启`); process.exitCode = 1; return }
-      if (stopped.stopped.length) console.log(`已停止旧实例：pid ${stopped.stopped.join(', ')}`)
-      if (stopped.webStopped && stopped.webStopped.length) console.log(`已停止旧实例拉起的 web：pid ${stopped.webStopped.join(', ')}`)
-      if (stopped.portStopped && stopped.portStopped.length) console.log(`已停止占着端口 ${port} 的旧 web（锁里没登记）：pid ${stopped.portStopped.join(', ')}`)
-      for (const w of stopped.warnings || []) console.error('⚠ ' + w)
-      // 端口必须真的空出来：否则新 web 只能退到 port+1，旧代码继续在目标端口上服务
-      let left = await findPortListener(port)
-      if (left && left.pid && looksLikeOurWeb(left.command)) {
-        try { process.kill(left.pid, 'SIGTERM') } catch { /* 无权限只能报错 */ }
-        const releaseDeadline = Date.now() + 5000
-        while (Date.now() < releaseDeadline && (left = await findPortListener(port))) await new Promise((r) => setTimeout(r, 250))
+      const before = watchdogStatus({ port }).watchdogs.filter((w) => w.alive)
+      if (before.length) {
+        const webs = before.filter((w) => w.webPid).map((w) => w.webPid)
+        console.log(`将替换常驻实例：pid ${before.map((w) => w.pid).join(', ')}${webs.length ? `（它拉起的 web：pid ${webs.join(', ')}）` : ''}`)
       }
-      left = await findPortListener(port)
-      if (left && left.pid) {
-        console.error(`端口 ${port} 仍被 pid ${left.pid} 占用（${left.command || '命令行未知'}），新实例无法接管该端口，已中止重启。`)
-        console.error(`请先结束该进程，或用 --port 换一个端口：dsh-memory restart --port <其它端口>`)
+      // 助手拿到的是「旧实例留下的孤儿也不放过」的口径（按端口占用者兜底收掉，见 #23）
+      const out = await restartResident({ port, vaultRoot, interval, maxRestart })
+      if (!out.ok) {
+        console.error(`替换失败（${out.stage}）：${out.error || '未知原因'}`)
+        console.error(`排查：dsh-memory status --port ${port}；若端口被别的进程占着，先结束它再 restart；`)
+        console.error('     接管结论也会写进「自动沉淀日志」（设置 → 记忆 → 用量/今日）里。')
         process.exitCode = 1
         return
       }
-      const bin = nodeBinary()
-      const script = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'watchdog.js')
-      const wd = spawn(bin, [script, '--port', String(port), '--interval', String(interval), '--max-restart', String(maxRestart), '--vault', vaultRoot], {
-        detached: true, stdio: 'ignore', env: childEnv({ MEMORY_VAULT_DIR: vaultRoot }), windowsHide: true,
-      })
-      wd.unref()
-      console.log(`已在后台启动新看门狗 pid=${wd.pid} port=${port} vault=${vaultRoot}`)
-      // 起完必须自检「端口上真正服务的版本」（issue #23 建议 2）：只看 spawn 成功就报
-      // 「已启动」，正是升级静默不生效时骗人的那一步 —— 端口上服务的版本必须等于本机版本。
-      const expect = currentPkgVersion()
-      const check = await waitForServedVersion(port, expect, { timeoutMs: 20000 })
-      if (check.ok) {
-        console.log(`自检通过：端口 ${port} 正在服务 v${check.version}（等待 ${Math.round(check.waitedMs / 1000)}s）`)
-      } else {
-        const served = check.version || (await probeServedVersion(port)) || ''
-        console.error(`自检失败：端口 ${port} 上服务的版本是 ${served || '（无响应）'}，本机是 v${expect || '?'} —— 升级可能未生效。`)
-        console.error(`排查：dsh-memory status --port ${port}；若端口被别的进程占着，先结束它再 restart。`)
-        process.exitCode = 1
-      }
+      console.log(`已在后台启动新看门狗 pid=${out.helperPid} port=${port} vault=${vaultRoot}`)
+      console.log(`自检通过：端口 ${port} 正在服务 v${out.served}（等待 ${Math.round(out.waitedMs / 1000)}s）`)
       return
     }
     case 'audit': {

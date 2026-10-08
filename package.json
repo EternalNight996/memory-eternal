@@ -1,6 +1,6 @@
 {
   "name": "memory-eternal",
-  "version": "0.10.6",
+  "version": "0.10.7",
   "description": "记忆核心（Memory Eternal）：自研的 DeepSeek Harness 记忆插件，不移植任何既有记忆框架——对话结束后自动沉淀知识卡到本地 Markdown Vault（自研去重、自研 CJK 检索、可 git 管理），设置页提供图形化知识库（统计 / 搜索 / 知识图谱 + 侧边栏一键弹窗），Agent 通过 memory_recall 工具按需召回历史上下文。零人工干预。",
   "license": "MIT",
   "repository": {
@@ -64,7 +64,7 @@
     "prepublishOnly": "node build.mjs",
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run",
-    "test": "node build.mjs && node tests/vault.test.mjs && node tests/capture.test.mjs && node tests/capture-route.test.mjs && node tests/stall.test.mjs && node tests/vault-path.test.mjs && node tests/vault-resolve.test.mjs && node tests/minhash.test.mjs && node tests/settings-save.test.mjs && node tests/config-coverage.test.mjs && node tests/config-sync.test.mjs && node tests/config-merge.test.mjs && node tests/sse.test.mjs && node tests/api.test.mjs && node tests/import-roundtrip.test.mjs && node tests/graph-perf.test.mjs && node tests/settings-compat.test.mjs && node tests/node-bin.test.mjs && node tests/watchdog-lock.test.mjs && node tests/markdown.test.mjs && node tests/feedback.test.mjs && node tests/graph-lod.test.mjs && node tests/ssr.test.mjs && node tests/web-assets.test.mjs && node tests/manifests.test.mjs && node tests/two-store.test.mjs && node tests/noise-gate.test.mjs && node tests/e2e-recall.test.mjs && node tests/issue-fixes.test.mjs && node tests/issue-fixes-2.test.mjs && node tests/issue-fixes-3.test.mjs && node tests/watchdog-orphans.test.mjs"
+    "test": "node build.mjs && node tests/vault.test.mjs && node tests/capture.test.mjs && node tests/capture-route.test.mjs && node tests/stall.test.mjs && node tests/vault-path.test.mjs && node tests/vault-resolve.test.mjs && node tests/minhash.test.mjs && node tests/settings-save.test.mjs && node tests/config-coverage.test.mjs && node tests/config-sync.test.mjs && node tests/config-merge.test.mjs && node tests/sse.test.mjs && node tests/api.test.mjs && node tests/import-roundtrip.test.mjs && node tests/graph-perf.test.mjs && node tests/settings-compat.test.mjs && node tests/node-bin.test.mjs && node tests/watchdog-lock.test.mjs && node tests/markdown.test.mjs && node tests/feedback.test.mjs && node tests/graph-lod.test.mjs && node tests/ssr.test.mjs && node tests/web-assets.test.mjs && node tests/manifests.test.mjs && node tests/two-store.test.mjs && node tests/noise-gate.test.mjs && node tests/e2e-recall.test.mjs && node tests/issue-fixes.test.mjs && node tests/issue-fixes-2.test.mjs && node tests/issue-fixes-3.test.mjs && node tests/watchdog-orphans.test.mjs && node tests/watchdog-restart.test.mjs"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1"

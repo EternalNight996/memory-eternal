@@ -1,12 +1,21 @@
 {
   "name": "memory-eternal",
-  "version": "0.10.6",
+  "version": "0.10.7",
   "description": "记忆核心（Memory Eternal）：对话结束后自动沉淀知识卡到本地记忆库（~/.dsh/memory-vault），支持检索 / 召回 / 审核中心。",
   "author": {
     "name": "EternalNight996",
     "url": "https://github.com/EternalNight996"
   },
   "license": "MIT",
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "memory",
+    "knowledge-base",
+    "mcp",
+    "markdown",
+    "vault"
+  ],
   "homepage": "https://github.com/EternalNight996/dsh-memory-eternal",
   "repository": "https://github.com/EternalNight996/dsh-memory-eternal",
   "skills": "./skills/",
