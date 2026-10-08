@@ -1,0 +1,14 @@
+# 给 Codex / AI 助手看的忽略清单（gitignore 语法）。
+# 目的：别把依赖、构建缓存、日志和本地记忆库产物喂进上下文或误改。
+node_modules/
+.git/
+coverage/
+dist/
+.next/
+__pycache__/
+.venv/
+venv/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db

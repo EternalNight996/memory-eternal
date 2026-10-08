@@ -1,0 +1,30 @@
+# 记忆核心 · HOL Guard 插件安全扫描（官方推荐工作流）
+#
+# 为什么加它：本插件已投稿到 hashgraph-online/awesome-ai-plugins（DeepSeek Harness
+# Plugins 小节）。该目录的收录要求「仓库扫描 ≥80 分且无 critical/high 发现」，并且
+# 明确写了：**没有维护者自有 scanner CI 的项目，Registry 信任分扣 10%**。
+# 工作流本身按官方 SCANNER_GUIDE 的推荐最小权限形态：
+#   - 只有 `contents: read`；不需要任何 secret；
+#   - checkout 不持久化凭证（persist-credentials: false）；
+#   - 在线探测与 SARIF 上传默认关闭（不显式开启）；
+#   - 第三方 action 一律钉到 commit SHA（可变 tag 不能悄悄换掉被执行的代码）。
+# 参考：https://github.com/hashgraph-online/awesome-ai-plugins/blob/main/SCANNER_GUIDE.md
+name: Plugin Security Scan
+
+on: [pull_request, push]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: hashgraph-online/ai-plugin-scanner-action@caba2e96aa8ad2feb6cf6fca52442b52e22e779f # v1.2.635
+        with:
+          plugin_dir: "."
+          min_score: 80
+          fail_on_severity: high
