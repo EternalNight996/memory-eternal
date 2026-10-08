@@ -1736,12 +1736,21 @@ function ConfigPanel({ t, onReload, version, compact }) {
       />
     </label>
   )
-  const Bool = ({ k, label }) => (
-    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, minWidth: 0, lineHeight: 1.5 }}>
-      <input type="checkbox" checked={!!(form&&form[k])} onChange={(e) => set(k, e.target.checked)} style={{ marginTop: 2, flex: '0 0 auto' }} />
-      <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{label || k}</span>
-    </label>
-  )
+  // schema 里 default(true) 的开关：宿主快照里**还没有这个键**时（旧宿主没升级、或共享配置还没写过它），
+  // 界面必须按「默认开」渲染。否则用户看到的是「版本漂移自动重启」没勾上，而实际生效值（宿主里
+  // `cfg.autoRestartOnDrift !== false`）是开 —— 面板与真实行为不一致，最容易误判（2026-10-08 实测：
+  // 0.10.6 宿主 + 0.10.7 面板 → 复选框空着）。勾选后再改一次才写进配置，未升级的宿主不受影响。
+  const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift'])
+  const Bool = ({ k, label }) => {
+    const raw = form ? form[k] : undefined
+    const on = raw === undefined ? BOOL_DEFAULT_ON.has(k) : !!raw
+    return (
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, minWidth: 0, lineHeight: 1.5 }}>
+        <input type="checkbox" checked={on} onChange={(e) => set(k, e.target.checked)} style={{ marginTop: 2, flex: '0 0 auto' }} />
+        <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{label || k}</span>
+      </label>
+    )
+  }
   return (
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
       <style>{CSS}</style>
