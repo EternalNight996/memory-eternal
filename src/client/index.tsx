@@ -278,16 +278,22 @@ export const ZH = {
   fbCopyManual: '自动复制被浏览器拦截，已把内容放在下面：点「全选」再按 Ctrl+C',
   vcPage: '页面脚本',
   vcPageStale: '⚠ 当前页面仍在运行旧版脚本（页面 v{page} / 磁盘 v{disk}）：按 Ctrl+F5 刷新页面即生效；若「运行中」仍是旧版号，则还需重启桌面版 / DSH',
-  vcLoaded: '运行中（宿主加载）',
+  vcLoaded: '运行中（服务本页的进程）',
+  vcResident: '常驻实例',
   vcOnDisk: '磁盘安装',
   vcLatest: 'npm 最新',
-  vcStale: '磁盘已安装 {disk}，但当前 DSH 进程仍加载 {loaded} —— 先刷新页面（Ctrl+F5）；宿主半未更新还需重启桌面版 / DSH',
+  vcStale: '磁盘已安装 v{disk}，但服务本页的进程仍加载 v{loaded} —— 点「重启常驻实例」即可用新代码重启它（不用重启 DSH）',
+  vcRestart: '重启常驻实例',
+  vcRestarting: '重启中…',
+  vcRestartSent: '已调度重启常驻实例：约 3-8 秒后新进程接管，请稍等再刷新页面（Ctrl+F5）',
+  vcRestartCurrent: '常驻实例已经是最新版，无需重启',
+  vcRestartFail: '重启请求失败',
+  vcHostStale: '上方的「运行中」来自服务本页的进程；常驻实例已是新版 —— 要让它也变成新版号，需重启桌面版 / DSH',
   vcOutdated: '有新版本',
   vcUpToDate: '已是最新',
   vcCheck: '检查更新',
   checking: '检查中…',
   vcCheckFail: '检查更新失败',
-  saving: '保存中…',
   recallSummaryLen: '召回摘要长度',
   recallBody: '召回含正文',
   autoWeb: 'Web server',
@@ -296,6 +302,7 @@ export const ZH = {
   webCheckIntervalMs: '探活间隔(ms)',
   webMaxRestart: '最大重启次数',
   watchdogAutoSpawn: '看门狗进程',
+  autoRestartOnDrift: '版本漂移自动重启常驻实例',
   autoMcpSetup: '自动挂载 MCP',
   saveConfig: '保存配置',
   saveFail: '保存失败',
@@ -619,10 +626,17 @@ export const EN = {
   recycleEmptyHint: 'Recycle bin is empty: deleted cards land here first and are purged automatically after {days} days.',
   recyclePurgeAll: 'Empty recycle bin',
   fbCopyManual: 'Auto-copy was blocked by the browser — the text is below: click Select all, then Ctrl+C',
-  vcLoaded: 'running (loaded by host)',
+  vcLoaded: 'running (process serving this page)',
+  vcResident: 'resident instance',
   vcOnDisk: 'on disk',
   vcLatest: 'npm latest',
-  vcStale: '{disk} is installed on disk but the running DSH process still has {loaded} loaded — refresh the page (Ctrl+F5) first; restart the desktop app / DSH if the host half is still old',
+  vcStale: 'v{disk} is installed on disk but the process serving this page still has v{loaded} loaded — click "Restart resident instance" to restart it on the new code (no DSH restart needed)',
+  vcRestart: 'Restart resident instance',
+  vcRestarting: 'Restarting…',
+  vcRestartSent: 'Resident restart scheduled: the new process takes over in ~3-8s — refresh the page (Ctrl+F5) shortly',
+  vcRestartCurrent: 'The resident instance is already up to date — no restart needed',
+  vcRestartFail: 'Restart request failed',
+  vcHostStale: 'The "running" chip above comes from the process serving this page; the resident instance is already current — restart the desktop app / DSH to refresh that chip',
   vcPage: 'Page script',
   vcPageStale: '⚠ This page is still running an older script (page v{page} / disk v{disk}): press Ctrl+F5 to refresh. If the running version is still old, restart the desktop app / DSH as well',
   vcOutdated: 'update available',
@@ -630,7 +644,6 @@ export const EN = {
   vcCheck: 'Check for updates',
   checking: 'Checking…',
   vcCheckFail: 'Update check failed',
-  saving: 'Saving…',
   recallSummaryLen: 'Recall summary len',
   recallBody: 'Recall with body',
   autoWeb: 'Web server',
@@ -639,6 +652,7 @@ export const EN = {
   webCheckIntervalMs: 'Probe interval (ms)',
   webMaxRestart: 'Max restart',
   watchdogAutoSpawn: 'Watchdog process',
+  autoRestartOnDrift: 'Auto-restart resident on version drift',
   autoMcpSetup: 'Auto-mount MCP',
   saveConfig: 'Save config',
   saveFail: 'Save failed',
@@ -1516,6 +1530,23 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
   const notify = (msg, ok = true) => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast({ msg, ok }); toastTimer.current = setTimeout(() => setToast(null), 1900) }
+  // 「重启常驻实例」：常驻 web（默认 7999）比 DSH 宿主活得久 —— 升级只换磁盘文件，端口上那个
+  // 进程仍跑着启动时加载的旧代码。这里一键用新代码重启它（服务端走 watchdog --replace 助手：
+  // 收旧实例 → 抢锁 → 拉起新 web → 自检端口上真正服务的版本），不需要重启 DSH。
+  const restartResident = async () => {
+    if (busy) return
+    setBusy('restart')
+    try {
+      const raw = await fetch(API + '/restart-self', { method: 'POST' })
+      const d = await raw.json().catch(() => null)
+      if (!d) { notify(t('vcRestartFail') + '（HTTP ' + raw.status + '）', false); return }
+      if (!d.ok) { notify(d.error || t('vcRestartFail'), false); return }
+      if (d.alreadyCurrent) { notify(d.note || t('vcRestartCurrent')); return }
+      notify(d.note || t('vcRestartSent'))
+      // 新进程接管要几秒：稍后重新体检，版本号与告警自动更新（不必让用户再点「检查更新」）
+      if (!d.alreadyRunning) setTimeout(() => { checkVersion(true) }, 6000)
+    } catch (e) { notify(t('vcRestartFail') + '：' + String((e && e.message) || e), false) } finally { setBusy('') }
+  }
   // 词条带 {placeholder} 填充（本项目 t 为词典直查，不含参数替换）
   const tf = (k, map) => Object.keys(map).reduce((s, kk) => s.split('{' + kk + '}').join(map[kk]), t(k))
   const load = useCallback(async () => {
@@ -1715,6 +1746,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
               <span style={{ fontSize: 12, opacity: 0.7 }}>{t('dshHostLabel')}</span>
               {cfg.version && <code style={vcChip}>{t('vcLoaded')} v{cfg.version}</code>}
+              {/* 常驻实例（端口上那个进程）与「服务本页的进程」是不同的进程时，必须分开显示 ——
+                  这正是「运行中还是旧版本」最容易被误读的地方（宿主已新、常驻 web 仍旧，反之亦然） */}
+              {vc && vc.resident && vc.resident.served && vc.resident.served !== cfg.version && (
+                <code style={vcChip}>{t('vcResident')} v{vc.resident.served}</code>
+              )}
               {CLIENT_VERSION && <code style={vcChip}>{t('vcPage')} v{CLIENT_VERSION}</code>}
               {vc && vc.onDisk && <code style={vcChip}>{t('vcOnDisk')} v{vc.onDisk}</code>}
               {vc && vc.latest && <code style={vcChip}>{t('vcLatest')} v{vc.latest}</code>}
@@ -1722,7 +1758,22 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <div style={{ flex: 1 }} />
               <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
             </div>
-            {vc && vc.stale && <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>⚠️ {tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })}</div>}
+            {vc && vc.stale && (
+              <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>
+                <div>⚠️ {tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })}</div>
+                {/* 一键修复：常驻 web 比 DSH 活得久，重启 DSH 换不掉它（issue #19/#23） */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                  <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={restartResident}>
+                    {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
+                  </button>
+                  {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
+                </div>
+              </div>
+            )}
+            {/* 常驻实例已是新版、而这一行仍旧 → 说明旧的是本页所连的那个进程（例如 DSH 宿主） */}
+            {vc && vc.stale && vc.resident && vc.resident.served && vc.resident.served === vc.onDisk && (
+              <div style={{ marginTop: 8, fontSize: 11.5, opacity: 0.85, lineHeight: 1.7 }}>ℹ️ {t('vcHostStale')}</div>
+            )}
             {/* 最常见的困惑：更新了插件但「当前页面」跑的还是旧脚本 —— 直接告诉用户按刷新 */}
             {CLIENT_VERSION && vc && vc.onDisk && CLIENT_VERSION !== vc.onDisk && (
               <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px', lineHeight: 1.7 }}>
@@ -1908,6 +1959,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="webCheckIntervalMs" label={t('webCheckIntervalMs')} type="number" />
                 <F k="webMaxRestart" label={t('webMaxRestart')} type="number" />
                 <Bool k="watchdogAutoSpawn" label={t('watchdogAutoSpawn')} />
+                <Bool k="autoRestartOnDrift" label={t('autoRestartOnDrift')} />
                 <Bool k="autoMcpSetup" label={t('autoMcpSetup')} />
               </div>
             </div>

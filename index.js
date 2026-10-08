@@ -99,6 +99,12 @@ export const Config = z.object({
   // **v0.6.0 起默认 true**——DSH 进程内 setInterval 在 DSH 退出后失效；
   // 常驻 web 场景需要独立 watchdog；代价是 ~47 MB 额外常驻内存。
   watchdogAutoSpawn: z.boolean().default(true),
+  // 版本漂移自愈（默认开）：常驻 web（7999）比 DSH 活得久 —— 升级 npm 包只换磁盘文件，
+  // 端口上那个进程仍跑着启动时加载的旧代码，而「同端口已有活着的 watchdog 就让位」的策略
+  // 让重启 DSH 永远换不掉它（issue #19/#23）。开启后，激活时若发现**端口上真正服务的版本
+  // ≠ 本机磁盘版本**，就用新代码重启常驻实例（delegate → restart），而不是继续委派给旧实例。
+  // 关掉只是不自动做，面板上的「重启常驻实例」按钮与 dsh-memory restart 始终可用。
+  autoRestartOnDrift: z.boolean().default(true),
   // 回收站保留天数：软删卡超过此天数自动永久删除（默认 30）
   recycleRetentionDays: z.number().min(1).max(3650).default(30),
   // 自动审核配置
@@ -1025,7 +1031,7 @@ export function apply(ctx, config) {
                 autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody,
                 captureMinChars: cfg.captureMinChars, captureCooldownMs: cfg.captureCooldownMs, dedupThreshold: cfg.dedupThreshold, maxCardsPerDay: cfg.maxCardsPerDay,
                 distillEnabled: cfg.distillEnabled, dedupByLLM: cfg.dedupByLLM, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
-                autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoMcpSetup: cfg.autoMcpSetup,
+                autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,
                 auditMode: cfg.auditMode ?? 'all', auditExemptAgents: cfg.auditExemptAgents || [], auditExemptKinds: cfg.auditExemptKinds || [], recycleRetentionDays: cfg.recycleRetentionDays ?? 30,
                 // 多库（#10）：配置页可直接编辑
                 vaultProfiles: Array.isArray(cfg.vaultProfiles) ? cfg.vaultProfiles : [],
@@ -1088,7 +1094,7 @@ export function apply(ctx, config) {
                     retried: !!(writeResult && writeResult.retried),
                     note: pending.length
                       ? '已写入；宿主尚未回流这些值（面板已本地生效，重启 DSH 后以配置文件为准）'
-                      : '已保存。autoWebMode/watchdogAutoSpawn 等需重启 DSH 生效；若已有常驻 watchdog，关闭/改参不会自动停掉它，需 dsh-memory stop / restart（#19）',
+                      : '已保存。autoWebMode/watchdogAutoSpawn/webPort 等需重启 DSH 生效；若已有常驻 watchdog，关闭/改参不会自动停掉它，需 dsh-memory stop / restart（#19）。版本漂移（升级后端口上仍是旧代码）由 autoRestartOnDrift 在下次激活时自动重启常驻实例，也可在「插件信息」点「重启常驻实例」立刻处理',
                   })
                 } catch (e) {
                   if (e && e.code === 'SETTINGS_CONFLICT') return json(res, 409, { ok: false, error: '配置已被外部修改，请刷新后重试（revision conflict）' })
@@ -1204,22 +1210,59 @@ export function apply(ctx, config) {
     const wdPort = Number(cfg0.webPort) || 7999
     if (cfg0.watchdogAutoSpawn === true && cfg0.autoWeb !== false) {
       import('./lib/watchdog.js')
-        .then((m) => {
-          // 同端口已有**活着的** watchdog 时不再 spawn（issue #19）：旧实现每次都 spawn 一个、
-          // 每次都打印 "spawned"，而新进程会在锁上让位退出 —— 日志与实际状态完全相反，
-          // 排查时必然误判。这里如实打印 delegated，并提示版本漂移与替换命令。
-          const lock = m.readWatchdogLock(process.env)
-          const existing = lock.watchdogs.find((w) => Number(w.port) === wdPort && m.isPidAlive(w.pid))
-          if (existing) {
-            const cur = m.currentPkgVersion()
-            const stale = !!(existing.pkgVersion && cur && existing.pkgVersion !== cur)
-            const why = stale
-              ? `watchdog delegated to existing pid=${existing.pid} port=${wdPort}（常驻实例是旧版 v${existing.pkgVersion}，当前 v${cur}；如需换新版请执行 dsh-memory restart --port ${wdPort}）`
-              : `watchdog delegated to existing pid=${existing.pid} port=${wdPort}（同端口已有常驻实例，本次不再 spawn）`
+        .then(async (m) => {
+          // 先体检再决策（issue #19/#23）：同端口已有**活着的** watchdog 时不再 spawn ——
+          // 旧实现每次都 spawn 一个、每次都打印 "spawned"，而新进程会在锁上让位退出，
+          // 日志与实际状态完全相反。但「有实例在跑」不等于「跑的是新代码」：常驻 web 比
+          // DSH 活得久，升级只换磁盘文件，所以这里问的是**端口上真正服务的版本**，
+          // 漂移就用新代码重启它（autoRestartOnDrift），而不是继续委派给旧代码。
+          const info = await m.inspectResident({ port: wdPort })
+          const cur = m.currentPkgVersion()
+          const decision = m.decideResidentAction({
+            served: info.served,
+            expect: cur,
+            watchdogAlive: info.watchdogAlive,
+            occupantIsOurs: info.occupantIsOurs,
+            autoRestart: cfg0.autoRestartOnDrift !== false,
+            residentStartedAt: info.residentStartedAt,
+          })
+          const servedLabel = info.served || '（旧版不自报版本）'
+
+          if (decision.action === 'delegate') {
+            const who = info.watchdog ? `pid=${info.watchdog.pid}` : '外部实例'
+            const why = `watchdog delegated to ${who} port=${wdPort}（端口上服务 v${servedLabel}，本机 v${cur || '?'}${decision.reason === 'debounced' ? '；刚替换过，防抖窗口内不重复重启' : ''}）`
             console.error(`[memory-eternal] ${why}`)
-            logCapture('system', stale ? 'warn' : 'boot', why)
+            logCapture('system', 'boot', why)
             return
           }
+
+          if (decision.action === 'restart') {
+            // 「更新运行中的程序」的唯一安全形态 = 用新代码重启那个常驻进程（不是热替换内存里的模块）
+            const why = `版本漂移：端口 ${wdPort} 上服务 v${servedLabel} ≠ 本机 v${cur}（${decision.reason}）→ 用新代码重启常驻实例`
+            console.error(`[memory-eternal] ${why}`)
+            logCapture('system', 'warn', why)
+            const out = await m.restartResident({
+              port: wdPort,
+              vaultRoot: vaultDir(),
+              interval: Number(cfg0.webCheckIntervalMs) || 5000,
+              maxRestart: Number(cfg0.webMaxRestart) || 10,
+            })
+            const done = out.ok
+              ? `常驻实例已重启：端口 ${wdPort} 正在服务 v${out.served}（等待 ${Math.round(out.waitedMs / 1000)}s）`
+              : `常驻实例重启未确认生效（${out.stage}）：${out.error || '未知原因'} —— 可再试「设置 → 记忆 → 插件信息 → 重启常驻实例」，或执行 dsh-memory restart --port ${wdPort}`
+            console.error(`[memory-eternal] ${done}`)
+            logCapture('system', out.ok ? 'boot' : 'fail', done)
+            return
+          }
+
+          if (decision.action === 'warn') {
+            const why = `常驻实例版本漂移（端口上服务 v${servedLabel} ≠ 本机 v${cur}），但 autoRestartOnDrift 已关闭 → 不自动重启；可点面板「重启常驻实例」或执行 dsh-memory restart --port ${wdPort}`
+            console.error(`[memory-eternal] ${why}`)
+            logCapture('system', 'warn', why)
+            return
+          }
+
+          // 端口上没有我们的服务（也没人占着）→ 照常拉起一个常驻 watchdog
           const port = wdPort
           // 用 nodeBinary() 而非 process.execPath：Electron 宿主下后者是 Electron
           // 主程序，spawn 出来不会执行 watchdog.js（见 lib/node-bin.js）。
