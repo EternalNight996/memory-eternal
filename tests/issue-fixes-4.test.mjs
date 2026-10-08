@@ -5,6 +5,8 @@
 //   ② 独立页（新版）保存整表单 → 旧宿主按白名单丢掉它不认识的键（如 secretHint）→
 //      patchApplied 回读必然对不上 → 连续失败 5 次 dropped，用户看到「HMR transactions cannot be nested」。
 //      修法：应用前按宿主 schema 过滤未知键（filterKnownKeys）。
+//   ③ 配置同步失败被当成「自动沉淀异常」上报（翻了沉淀健康状态）。修法：专用 config-fail 动作。
+//   ④ 版本漂移开关在快照缺键时渲染成「未勾选」，而宿主实际按开处理。修法：缺键按默认开渲染。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -45,4 +47,13 @@ test('③ 配置同步失败不再冒充「自动沉淀异常」（不翻红沉�
   // logCapture 里 action==='fail' 会把自动沉淀健康翻红 → 配置同步必须用专用动作
   assert.match(indexSrc, /logCapture\('system', dropped \? 'config-fail' : 'config-warn', why\)/, '配置同步要用 config-fail / config-warn')
   assert.doesNotMatch(indexSrc, /logCapture\('system', dropped \? 'fail'/, '不能再把配置同步失败写成 fail')
+})
+
+test('④ 版本漂移开关在快照缺这个键时按「默认开」渲染（面板与宿主生效值必须一致）', () => {
+  // 现场：0.10.6 宿主 + 0.10.7 面板 —— 宿主 schema 里没有 autoRestartOnDrift，快照里也没有这个键，
+  // 面板就渲染成「未勾选」，而宿主实际按「开」处理（cfg.autoRestartOnDrift !== false）→ 用户看到的是假状态。
+  assert.match(client, /const BOOL_DEFAULT_ON = new Set\(\['autoRestartOnDrift'\]\)/, '要有「默认开」的清单')
+  assert.match(client, /raw === undefined \? BOOL_DEFAULT_ON\.has\(k\) : !!raw/, '缺键取默认开、有键按实际值')
+  assert.match(indexSrc, /autoRestartOnDrift: z\.boolean\(\)\.default\(true\)/, 'schema 默认必须是开')
+  assert.match(indexSrc, /autoRestart: cfg0\.autoRestartOnDrift !== false/, '宿主未配置时也按开处理')
 })
