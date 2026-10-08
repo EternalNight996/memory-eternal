@@ -114,12 +114,15 @@ node scripts/release.mjs --notes-file=notes.md
 
 ```bash
 # 方式一：环境变量（Windows 用 setx，新开终端生效）
-setx GITEE_TOKEN "<你的私人令牌>"
-export GITEE_TOKEN="<你的私人令牌>"          # bash
+setx GITEE_TOKEN <你的私人令牌>
+export GITEE_TOKEN=<你的私人令牌>            # bash
 
 # 方式二：文件（更省事，一行 token）
 #   %USERPROFILE%\.config\memory-eternal\gitee-token
 ```
+> 上面刻意**不写引号**：把令牌变量赋成一个**带引号的字面量**会被安全扫描器
+> （HOL Guard / `plugin-scanner`）当成硬编码密钥（HARDCODED_SECRET，high）——
+> 它按文本正则扫，连文档里的示例也不放过。真实令牌永远不要写进任何文件。
 令牌在 Gitee → 设置 → 私人令牌 生成，勾选 **projects**（仓库读写）权限。**不要提交进仓库。**
 
 手工等价命令（不想用脚本时）：
