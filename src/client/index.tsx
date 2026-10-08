@@ -288,6 +288,7 @@ export const ZH = {
   vcRestartSent: '已调度重启常驻实例：约 3-8 秒后新进程接管，请稍等再刷新页面（Ctrl+F5）',
   vcRestartCurrent: '常驻实例已经是最新版，无需重启',
   vcRestartFail: '重启请求失败',
+  vcRestartNoRoute: '当前页面对接的进程还是旧版（没有这个接口）：请重启桌面版 / DSH 后再试，或执行 {cmd}',
   vcHostStale: '上方的「运行中」来自服务本页的进程；常驻实例已是新版 —— 要让它也变成新版号，需重启桌面版 / DSH',
   vcOutdated: '有新版本',
   vcUpToDate: '已是最新',
@@ -637,6 +638,7 @@ export const EN = {
   vcRestartSent: 'Resident restart scheduled: the new process takes over in ~3-8s — refresh the page (Ctrl+F5) shortly',
   vcRestartCurrent: 'The resident instance is already up to date — no restart needed',
   vcRestartFail: 'Restart request failed',
+  vcRestartNoRoute: 'The process serving this page is still the old build (no such endpoint): restart the desktop app / DSH and retry, or run {cmd}',
   vcHostStale: 'The "running" chip above comes from the process serving this page; the resident instance is already current — restart the desktop app / DSH to refresh that chip',
   vcPage: 'Page script',
   vcPageStale: '⚠ This page is still running an older script (page v{page} / disk v{disk}): press Ctrl+F5 to refresh. If the running version is still old, restart the desktop app / DSH as well',
@@ -1540,6 +1542,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
     setBusy('restart')
     try {
       const raw = await fetch(API + '/restart-self', { method: 'POST' })
+      // 旧版宿主根本没有这个路由：直说「本页所在进程是旧版，请重启桌面版/DSH 或用命令」，
+      // 而不是把 404 抛成一句「未知接口」让用户去猜（实测：DSH 设置页 → 旧宿主 → 404）。
+      if (raw.status === 404 || raw.status === 405) {
+        notify(tf('vcRestartNoRoute', { cmd: (vc && vc.restartCommand) || 'dsh-memory restart --port 7999' }), false)
+        return
+      }
       const d = await raw.json().catch(() => null)
       if (!d) { notify(t('vcRestartFail') + '（HTTP ' + raw.status + '）', false); return }
       if (!d.ok) { notify(d.error || t('vcRestartFail'), false); return }
@@ -1549,6 +1557,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
       if (!d.alreadyRunning) setTimeout(() => { checkVersion(true) }, 6000)
     } catch (e) { notify(t('vcRestartFail') + '：' + String((e && e.message) || e), false) } finally { setBusy('') }
   }
+  // 只有「端口上那个常驻实例落后于磁盘」才该给「重启常驻实例」按钮 —— 那时点了才有用；
+  // 若落后的是**服务本页的那个进程**（例如还没重启的 DSH 宿主），重启常驻实例既帮不上忙，
+  // 也可能因为旧宿主没有该接口而报 404（本会话实测到的「未知接口」就是这个）。
+  const residentServed = vc && vc.resident ? String(vc.resident.served || '') : ''
+  const residentStale = Boolean(vc && vc.onDisk && residentServed && residentServed !== vc.onDisk)
   // 词条带 {placeholder} 填充（本项目 t 为词典直查，不含参数替换）
   const tf = (k, map) => Object.keys(map).reduce((s, kk) => s.split('{' + kk + '}').join(map[kk]), t(k))
   const load = useCallback(async () => {
@@ -1763,18 +1776,22 @@ function ConfigPanel({ t, onReload, version, compact }) {
             {vc && vc.stale && (
               <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>
                 <div>⚠️ {tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })}</div>
-                {/* 一键修复：常驻 web 比 DSH 活得久，重启 DSH 换不掉它（issue #19/#23） */}
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-                  <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={restartResident}>
-                    {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
-                  </button>
-                  {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
-                </div>
+                {residentStale ? (
+                  /* 一键修复：常驻 web 比 DSH 活得久，重启 DSH 换不掉它（issue #19/#23） */
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                    <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={restartResident}>
+                      {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
+                    </button>
+                    {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
+                  </div>
+                ) : (
+                  /* 落后的是本页所在进程（例如没重启的宿主）：按钮点了没用 —— 直接说清该重启谁 */
+                  <div style={{ marginTop: 6, lineHeight: 1.7 }}>
+                    ℹ️ {t('vcHostStale')}
+                    {vc.restartCommand && <> <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code></>}
+                  </div>
+                )}
               </div>
-            )}
-            {/* 常驻实例已是新版、而这一行仍旧 → 说明旧的是本页所连的那个进程（例如 DSH 宿主） */}
-            {vc && vc.stale && vc.resident && vc.resident.served && vc.resident.served === vc.onDisk && (
-              <div style={{ marginTop: 8, fontSize: 11.5, opacity: 0.85, lineHeight: 1.7 }}>ℹ️ {t('vcHostStale')}</div>
             )}
             {/* 最常见的困惑：更新了插件但「当前页面」跑的还是旧脚本 —— 直接告诉用户按刷新 */}
             {CLIENT_VERSION && vc && vc.onDisk && CLIENT_VERSION !== vc.onDisk && (

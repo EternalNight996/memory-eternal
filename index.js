@@ -374,7 +374,10 @@ export function apply(ctx, config) {
       ? '独立 Web 端的配置改动连续失败已放弃（文件保留以便排查）：' + msg
       : '独立 Web 端的配置改动应用失败，将重试：' + msg
     try { console.error('[memory-eternal] ' + why) } catch { /* 日志失败无妨 */ }
-    try { logCapture('system', dropped ? 'fail' : 'warn', why) } catch { /* 日志失败无妨 */ }
+    // 用专用动作而不是 'fail'：logCapture 里 `action==='fail'` 会把**自动沉淀健康状态**翻红，
+    // 于是「配置同步失败」会被念成「自动沉淀异常」（本会话实测：宿主重启前一直挂着这条假警报）。
+    // 配置同步是另一个子系统：照样写进日志/诊断信息，但不冒充沉淀管线坏了。
+    try { logCapture('system', dropped ? 'config-fail' : 'config-warn', why) } catch { /* 日志失败无妨 */ }
   }
   // issue #21：dsh-tui 一类宿主的能力守卫会在 settings.update **内部**的 describe() 上抛
   // 「root.events.emit is unavailable from a plugin activation」（守卫只区分「第三方插件 vs
@@ -387,8 +390,18 @@ export function apply(ctx, config) {
   // AsyncLocalStorage.run(token) 包住每次插件回调，并 patch 了 Fiber._execute，定时器 /
   // fs.watch 的每一次回调都带着 activation token（见 ccch1mneyyy/dsh-TUI#1348 的定位）。
   const applyPendingPatch = async (patch) => {
-    const { applyPatchVerified } = await import('./lib/config-sync.js')
-    return applyPatchVerified(patch, {
+    const { applyPatchVerified, filterKnownKeys } = await import('./lib/config-sync.js')
+    // 只把**本宿主 schema 里存在的键**交给 settings.update。独立 Web 端（新版）提交的是整张表单，
+    // 升级期它可能带上旧宿主还不认识的键（本会话实测：新独立页提交含 secretHint 的整包 → 旧宿主
+    // 按白名单丢掉 secretHint → 回读校验必然对不上 → 连续失败 5 次标 dropped，用户还会看到
+    // 「HMR transactions cannot be nested」这种与配置内容无关的报错）。过滤后：旧宿主只应用它认识的
+    // 那部分，不认识的记一行日志等宿主升级后再生效。
+    const { known: filtered, ignored } = filterKnownKeys(patch, Object.keys(Config.dict || {}))
+    if (ignored.length) {
+      try { console.error('[memory-eternal] 待应用配置里有本宿主不认识的键（宿主升级后生效）：' + ignored.join(',')) } catch { /* 日志失败无妨 */ }
+    }
+    if (!Object.keys(filtered).length) return { applied: true, repaired: false, ignored }
+    const out = await applyPatchVerified(filtered, {
       apply: (p) => settings.update(p, undefined),
       read: () => settings.get() ?? {},
       onRepaired: (error) => {
@@ -397,6 +410,7 @@ export function apply(ctx, config) {
         } catch { /* 日志失败无妨 */ }
       },
     })
+    return { ...out, ignored }
   }
   const drainPending = async () => {
     try {

@@ -6,7 +6,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
-import { pendingConfigPath, readPendingConfig, writePendingConfig, clearPendingConfig, drainPendingConfig, writeFileAtomicSync } from '../lib/config-sync.js'
+import { pendingConfigPath, readPendingConfig, writePendingConfig, clearPendingConfig, drainPendingConfig, writeFileAtomicSync, filterKnownKeys } from '../lib/config-sync.js'
 
 const homes = []
 const tmpHome = async () => { const d = await fsp.mkdtemp(path.join(os.tmpdir(), 'me-cfgsync-')); homes.push(d); return d }
@@ -132,4 +132,41 @@ test('drain：抛出的 dropped 错误要能自证（dropped 标记 + 保留路�
     assert.ok(error.message.includes(pendingConfigPath(env)), '要告诉用户改动还在哪个文件里')
     return true
   })
+})
+
+// -- 升级期「新独立页 + 旧宿主」：整表单里的新键不能毒死整包 --------------------------
+// 现场（2026-10-08）：独立页 0.10.7 提交含 secretHint 的整包 → 0.10.6 宿主白名单丢掉该键
+// → patchApplied 回读必然对不上 → 连续失败 5 次标 dropped，用户看到的是「HMR transactions
+// cannot be nested」这种与配置内容无关的报错。修法：应用前按宿主 schema 过滤未知键。
+test('filterKnownKeys：只放行宿主认识的键，未知键单独报出来（不毒死整包）', () => {
+  const { known, ignored } = filterKnownKeys(
+    { recallLimit: 5, secretHint: 'x', autoCapture: true },
+    ['recallLimit', 'autoCapture'],
+  )
+  assert.deepEqual(known, { recallLimit: 5, autoCapture: true }, '宿主认识的键要原样保留')
+  assert.deepEqual(ignored, ['secretHint'], '不认识的键要被单独列出（用于记日志）')
+  // 全新键（旧宿主 + 新独立页的极端情况）：不该抛，交给调用方按「无字段可写」处理
+  const all = filterKnownKeys({ secretHint: 'x' }, new Set(['a']))
+  assert.deepEqual(all.known, {})
+  assert.deepEqual(all.ignored, ['secretHint'])
+  // 入参容错：null/undefined patch 不炸，重复键名不重复计入 ignored
+  assert.deepEqual(filterKnownKeys(null, ['a']), { known: {}, ignored: [] })
+  assert.deepEqual(filterKnownKeys({ a: 1 }, new Set()), { known: {}, ignored: ['a'] })
+})
+
+test('升级期回归：过滤后的 patch 必须能被 drain 正常应用（不再 dropped）', async () => {
+  const home = await tmpHome()
+  const env = { DSH_HOME: home }
+  // 独立页（新版）提交的整包：含宿主还不认识的 secretHint
+  writePendingConfig(env, { autoCapture: true, secretHint: '需要 token 时先查目录卡' })
+  const applied = []
+  const hostKeys = ['autoCapture', 'recallLimit'] // 旧宿主的 schema
+  const out = await drainPendingConfig(env, async (patch) => {
+    const { known } = filterKnownKeys(patch, hostKeys)
+    applied.push(known)
+  })
+  assert.ok(out, '过滤后应能正常应用')
+  assert.deepEqual(applied, [{ autoCapture: true }], '只把宿主认识的键交给 settings.update')
+  assert.equal(readPendingConfig(env), null, '成功应用后待应用文件必须清掉')
+  assert.equal(out.secretHint, '需要 token 时先查目录卡', '未应用的键仍留在返回值里（可记日志）')
 })
