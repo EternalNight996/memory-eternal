@@ -189,6 +189,7 @@ export const ZH = {
   reject: '驳回',
   allAgents: '全部智能体',
   noAuditItems: '暂无审核项目',
+  auditBodyFail: '正文读取失败',
   deletedAt: '删除于',
   restore: '恢复',
   restoreDelete: '删除进回收站',
@@ -540,6 +541,7 @@ export const EN = {
   reject: 'Reject',
   allAgents: 'All agents',
   noAuditItems: 'No items to review',
+  auditBodyFail: 'Failed to load the card body',
   deletedAt: 'deleted',
   restore: 'Restore',
   restoreDelete: 'Delete to recycle',
@@ -2052,7 +2054,7 @@ function AuditPanel({ t, onReload, version }) {
   const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000) }
   const agents = [...new Set([...pending, ...rejected].map((c) => c.submittedBy).filter(Boolean))]
   const load = useCallback(async () => {
-    try { const r = await fetch(`${API}/audit/list`).then((x) => x.json()); if (r.ok) { setPending(r.pending || []); setRejected(r.rejected || []); setSel(new Set()) } } catch {}
+    try { const r = await fetch(`${API}/audit/list`).then((x) => x.json()); if (r.ok) { setPending(r.pending || []); setRejected(r.rejected || []); setSel(new Set()); setOpen(new Set()); setBodies({}) } } catch {}
   }, [])
   useEffect(() => { load() }, [version, load])
   const items = (tab === 'pending' ? pending : rejected).filter((c) => {
@@ -2081,6 +2083,24 @@ function AuditPanel({ t, onReload, version }) {
       if (failed) notify(t('toastFailed') + '（' + failed + '/' + list.length + '）', false)
       else notify(verb + ' ' + list.length + ' 张')
     } catch (e) { notify(t('toastFailed') + ': ' + String((e && e.message) || e), false) } finally { setBusy('') }
+  }
+  // issue #27：审核中心过去只列标题，看不到正文、只能盲批。现在每行可就地展开「frontmatter + 正文」，
+  // 正文**按需拉取**（/card?status=pending|rejected，服务端只放行确实在队列里的 path），列表不做 N 次全量读。
+  const [open, setOpen] = useState(new Set())
+  const [bodies, setBodies] = useState({})
+  const bodyState = (p) => bodies[p] || {}
+  const toggleOpen = async (c) => {
+    const path = c.path
+    const willOpen = !open.has(path)
+    setOpen((s) => { const n = new Set(s); if (willOpen) n.add(path); else n.delete(path); return n })
+    if (!willOpen || bodies[path]) return
+    setBodies((b) => ({ ...b, [path]: { loading: true } }))
+    try {
+      const status = c.status || (tab === 'pending' ? 'pending' : 'rejected')
+      const r = await fetch(`${API}/card?path=${encodeURIComponent(path)}&status=${status}`).then((x) => x.json())
+      if (r && r.ok) setBodies((b) => ({ ...b, [path]: { text: r.text || '' } }))
+      else setBodies((b) => ({ ...b, [path]: { error: (r && r.error) || 'HTTP' } }))
+    } catch (e) { setBodies((b) => ({ ...b, [path]: { error: String((e && e.message) || e) } })) }
   }
   const toggled = [...sel]
   return (
@@ -2113,29 +2133,59 @@ function AuditPanel({ t, onReload, version }) {
         </div>
         {items.length ? (
           <div className="mc-card" style={{ display: 'flex', flexDirection: 'column' }}>
-            {items.map((c) => (
-              <div key={c.path} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', borderBottom: '1px solid rgba(127,127,127,0.12)', fontSize: 12 }}>
-                <input type="checkbox" checked={sel.has(c.path)} onChange={() => toggle(c.path)} />
-                <span className="mc-kind" style={{ background: KIND_COLORS[c.kind] || '#999' }} />
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
-                <span style={{ fontSize: 10, opacity: 0.6 }}>{normAgent(c.submittedBy)}</span>
-                <span style={{ fontSize: 10, opacity: 0.6 }}>{c.created ? c.created.slice(0, 16).replace('T', ' ') : '-'}</span>
-                <span style={{ fontSize: 10, opacity: 0.6 }}>{c.kind}</span>
-                <span style={{ fontSize: 10, opacity: 0.6, color: c.severity === 'high' ? '#f87171' : '#9ca3af' }}>{c.severity}</span>
-                <span style={{ fontSize: 10, opacity: 0.6, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.reason || '-'}</span>
-                {tab === 'pending' ? (
-                  <>
-                    <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                    <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} onClick={() => applyStatus('rejected', [c.path])}>✕</button>
-                  </>
-                ) : (
-                  <>
-                    <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('restore')} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                    <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
-                  </>
-                )}
-              </div>
-            ))}
+            {items.map((c) => {
+              const st = bodyState(c.path)
+              const isOpen = open.has(c.path)
+              return (
+                <div key={c.path} style={{ borderBottom: '1px solid rgba(127,127,127,0.12)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', fontSize: 12 }}>
+                    <input type="checkbox" checked={sel.has(c.path)} onChange={() => toggle(c.path)} />
+                    {/* #27：点这里看正文 —— 审核的前提是能读到内容，而不是只看标题盲批 */}
+                    <button type="button" className="mc-btn" style={{ padding: '0 6px' }} title={t(isOpen ? 'collapse' : 'expand')} aria-expanded={isOpen} onClick={() => toggleOpen(c)}>{isOpen ? '▾' : '▸'}</button>
+                    <span className="mc-kind" style={{ background: KIND_COLORS[c.kind] || '#999' }} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} title={t(isOpen ? 'collapse' : 'expand')} onClick={() => toggleOpen(c)}>{c.title}</span>
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>{normAgent(c.submittedBy)}</span>
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>{c.created ? c.created.slice(0, 16).replace('T', ' ') : '-'}</span>
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>{c.kind}</span>
+                    <span style={{ fontSize: 10, opacity: 0.6, color: c.severity === 'high' ? '#f87171' : '#9ca3af' }}>{c.severity}</span>
+                    <span style={{ fontSize: 10, opacity: 0.6, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.reason || '-'}</span>
+                    {tab === 'pending' ? (
+                      <>
+                        <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => applyStatus('approved', [c.path])}>✓</button>
+                        <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} onClick={() => applyStatus('rejected', [c.path])}>✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('restore')} onClick={() => applyStatus('approved', [c.path])}>✓</button>
+                        <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
+                      </>
+                    )}
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: '2px 10px 12px 34px' }}>
+                      {st.loading && <div style={{ fontSize: 12, opacity: 0.6 }}>⏳ {t('loading')}</div>}
+                      {st.error && <div style={{ fontSize: 12, color: '#f87171' }}>⚠ {t('auditBodyFail')}：{st.error}</div>}
+                      {st.text != null && (
+                        <>
+                          <div className="md-meta" style={{ marginBottom: 6 }}>
+                            <span className="md-chip md-chip-kind" style={{ color: KIND_COLORS[c.kind] || '#6B7280', borderColor: (KIND_COLORS[c.kind] || '#6B7280') + '59', background: (KIND_COLORS[c.kind] || '#6B7280') + '1a' }}>{KIND_EMOJI[c.kind] || '📎'} {t(KIND_LABELS[c.kind] || 'kindKnowledge')}</span>
+                            {(Array.isArray(c.tags) ? c.tags : []).slice(0, 8).map((tag) => <span key={tag} className="md-chip md-chip-tag">🏷 {tag}</span>)}
+                            {!!c.reason && <span className="md-chip md-chip-st-warn">⚑ {c.reason}</span>}
+                          </div>
+                          <div className="md-doc" style={{ maxHeight: 340, overflow: 'auto' }} dangerouslySetInnerHTML={{ __html: renderMd(splitFrontmatter(st.text).body) }} />
+                          {tab === 'pending' && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                              <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={() => applyStatus('approved', [c.path])}>✓ {t('approve')}</button>
+                              <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => applyStatus('rejected', [c.path])}>✕ {t('reject')}</button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         ) : <div style={{ opacity: 0.6, fontSize: 12, padding: 20, textAlign: 'center' }}>{t('noAuditItems')}</div>}
       </div>
