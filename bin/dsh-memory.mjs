@@ -292,12 +292,14 @@ MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显�
       return
     }
     case 'watchdog': {
-      const { startWatchdog, reapStaleWatchdogs } = await import('../lib/watchdog.js')
+      const { startWatchdog, reapStaleWatchdogs, formatReapSummary } = await import('../lib/watchdog.js')
       const { defaultVaultDir } = await import('../lib/capture-run.js')
       const port = Number(argOf('--port')) || 7999
       if (has('--reap')) {
         const out = await reapStaleWatchdogs({ port, keepPid: 0 })
-        console.log(`扫描到 ${out.scanned} 个 watchdog 进程，清理孤儿 ${out.killed.length} 个${out.killed.length ? '（pid ' + out.killed.join(', ') + '）' : ''}，保留 ${out.skipped.length} 个（锁中登记的活跃实例 / 其它端口不会被动）`)
+        // 计数口径与文案必须一起看齐：scanned 含 web、清理要分开报 watchdog / web（0.10.13 的文案漏报
+        // webKilled，读者会把「真收了一个 web」读成「什么都没收」）
+        console.log(formatReapSummary(out))
         return
       }
       const interval = Number(argOf('--interval')) || 5000

@@ -1,6 +1,6 @@
 {
   "name": "memory-eternal",
-  "version": "0.10.15",
+  "version": "0.10.16",
   "description": "记忆核心（Memory Eternal）：对话结束后自动沉淀知识卡到本地记忆库（~/.dsh/memory-vault），支持检索 / 召回 / 审核中心。",
   "author": {
     "name": "EternalNight996",
