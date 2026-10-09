@@ -82,6 +82,8 @@ test('reapStaleWatchdogs：只杀同端口、不在锁里的孤儿（kill 注入
         { pid: process.pid, port: 7999, command: 'node watchdog.js --port 7999 --reap' },  // 自己（正 reap）→ 必须留
         { pid: process.ppid, port: 8000, command: 'node watchdog.js --port 8000' },        // 其它端口 → 留
       ],
+      // 这个用例只谈 watchdog：显式声明「没有 web 可收」，否则 reap 会去列本机真实 web（测试不该碰真实进程表）
+      listWebs: async () => [],
       kill: (pid) => { killed.push(pid); return true },
     })
     assert.deepEqual(killed, [child.pid], '只应清掉那个孤儿')
@@ -220,6 +222,7 @@ test('reapStaleWatchdogs：锁里登记且活着的实例不得被误杀', async
     keepPid: 0,
     env: env3,
     list: async () => [{ pid: process.pid, port: 7999, command: 'node watchdog.js --port 7999' }],
+    listWebs: async () => [],
     kill: (pid) => { killed.push(pid); return true },
   })
   assert.deepEqual(killed, [], '锁中登记的活跃实例不能被 reap 掉')
