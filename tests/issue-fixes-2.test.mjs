@@ -142,8 +142,9 @@ test('#24 失败现场：首尾都留、并带出 JSON.parse 原始报错', () =
 })
 
 test('#24 summarizeTurnDetailed：解析失败时 message 带原始报错与首尾现场', async () => {
-  // 用一段「修复也救不回来」的输出：字符串里有裸引号 + 括号闭合
-  const broken = '{"save": true, "title": "带引号的卡", "kind": "knowledge", "tags": [], "body": "正文里引用了 "某段代码" 却没有转义，长度足够长用于触发解析失败。"}'
+  // 用一段「修复也救不回来」的输出：**括号未闭合的截断**（裸引号那一类已经在 v0.10.11
+  // 被 repairUnescapedQuotes 救回来了，不能再当失败样本 —— 见 tests/capture-json-repair.test.mjs）
+  const broken = '{"save": true, "title": "截断的卡", "kind": "knowledge", "tags": [], "body": "' + '正文很长'.repeat(60)
   const llm = { async *stream() { yield { type: 'block-start', index: 0, blockType: 'text' }; yield { type: 'text-delta', index: 0, text: broken }; yield { type: 'finish', reason: { kind: 'stop' } } } }
   // 对话必须够长：<120 字会被早退成 { skip:'too-short' }（那是另一条路径，与本测试无关）
   const conv = [
