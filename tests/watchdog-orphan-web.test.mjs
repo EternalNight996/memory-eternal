@@ -5,6 +5,10 @@
 //   ① POSIX 侧 findPortListener 只拿到**进程名**（lsof 的 c 字段 = node），
 //      而「要不要收」的判据要求命令行含 memory-eternal / 本机 web.js 绝对路径 → 判据恒假 → 永不杀；
 //   ② `--reap` 只认 watchdog.js，配置端口上的孤儿 web 不在匹配范围。
+//
+// 复现要点（alario-tang 实测补充）：孤儿**只能用 `kill -9` 造** —— SIGTERM 会走 watchdog 的优雅退出
+// 处理器（watchdog.js 顶部注册），它顺手把自己拉起的 web 一起停掉，根本留不下 `PPID=1` 的 web。
+// 这与 #19 里「Windows 上 process.kill(pid,'SIGTERM') 是无条件终止」正好是同一枚硬币的两面。
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { promises as fs } from 'node:fs'
@@ -96,6 +100,36 @@ test('② 别的端口 / 别人的 web.js：一个都不许动', async () => {
   })
   assert.deepEqual(out.webKilled, [])
   assert.deepEqual(killed, [], '别的端口 / 外来进程都不动')
+})
+
+test('③ --reap 的输出必须把 web 一起报出来（0.10.13 文案漏报，读者会以为没收掉）', async () => {
+  const { formatReapSummary } = await import('../lib/watchdog.js')
+  // 现场：只扫到这个 web、并且真的收了它
+  const s1 = formatReapSummary({ scanned: 1, scannedWatchdogs: 0, scannedWebs: 1, killed: [], webKilled: [27192], skipped: [] })
+  assert.match(s1, /扫描 1 个进程（watchdog 0 \/ web 1）/, '扫描口径要拆开写')
+  assert.match(s1, /清理孤儿 web 1 个（pid 27192）/, '收掉的 web 必须露面（旧文案这里显示「清理孤儿 0 个」）')
+  assert.doesNotMatch(s1, /清理孤儿 0 个/, '真的收了就不能再说 0 个')
+  // 两类都收：各自列出
+  const s2 = formatReapSummary({ scanned: 3, scannedWatchdogs: 2, scannedWebs: 1, killed: [11], webKilled: [22], skipped: [33] })
+  assert.match(s2, /watchdog 1 个（pid 11） \/ web 1 个（pid 22）/)
+  assert.match(s2, /保留 1 个/)
+  // 真的什么都没收：如实说 0 个
+  const s3 = formatReapSummary({ scanned: 2, scannedWatchdogs: 2, scannedWebs: 0, killed: [], webKilled: [], skipped: [7, 8] })
+  assert.match(s3, /清理孤儿 0 个/)
+})
+
+test('② 扫描计数要拆成 watchdog / web 两个口径', async () => {
+  const env = await newEnv()
+  const webPid = idle()
+  const out = await reapStaleWatchdogs({
+    env, port: 7999, keepPid: process.pid,
+    list: async () => [],
+    listWebs: async () => [{ pid: webPid, port: 7999, command: OUR_WEB(7999) }],
+    kill: () => true,
+  })
+  assert.equal(out.scannedWatchdogs, 0)
+  assert.equal(out.scannedWebs, 1)
+  assert.equal(out.scanned, 1, 'scanned 仍是两者之和（兼容旧调用方）')
 })
 
 test('② 自己 / 父进程 / 带 --reap 的同类进程永不在回收范围内', async () => {
