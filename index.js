@@ -32,7 +32,7 @@ import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
-import { createApi, json, encodeBody } from './lib/api.js'
+import { createApi, json, encodeBody, crossOriginError } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { missingWebAssets, missingAssetsReason } from './lib/web-assets.js'
 import { writeHostMarker, clearHostMarker } from './lib/host-heartbeat.js'
@@ -1068,6 +1068,10 @@ export function apply(ctx, config) {
       handler: async (req, res) => {
         try {
           const pathname = new URL(req.url, 'http://localhost').pathname
+          // 跨站写入防护：宿主自己的拦截路由（/config POST、/restart-self、/mcp/action…）走在
+          // handleApi 之前，必须在这里过同一道闸门，否则「没有鉴权」这个洞只在 api.js 一侧补上了。
+          const crossOrigin = crossOriginError(req)
+          if (crossOrigin) return json(res, 403, { ok: false, error: crossOrigin, code: 'CROSS_ORIGIN_BLOCKED' })
           if (pathname === API_PREFIX + '/web-info') {
             // 别回报启动期的缓存：它可能指着已经被收掉的实例（issue #29）
             return json(res, 200, { ok: true, ...(await reconcileWebInfo()) })

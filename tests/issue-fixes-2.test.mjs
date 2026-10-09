@@ -165,7 +165,7 @@ test('#24 maxTokenLadder：一路翻倍到 schema 上限，不再只翻一次', 
   assert.deepEqual(maxTokenLadder(1200, 4000), [2400, 4000])
   assert.deepEqual(maxTokenLadder(1200, 2400), [2400])
   assert.deepEqual(maxTokenLadder(4000, 4000), [], '已在上限就不再重试')
-  assert.deepEqual(maxTokenLadder(0, 8000), [4000, 8000], 'start 缺省时按 DEFAULT_CAPTURE_MAX_TOKENS=2000 起算')
+  assert.deepEqual(maxTokenLadder(0, 8000), [8000], 'start 缺省时按 DEFAULT_CAPTURE_MAX_TOKENS=4000 起算（2026-10-09 起默认即硬顶）')
 })
 
 // ============================ #23 端口兜底与自检 ==============================
