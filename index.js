@@ -1007,6 +1007,34 @@ export function apply(ctx, config) {
   // /web-info 读取后用 iframe 渲染 web 端 UI——DSH 渲染也走 web，单一真源）。
   let webInfo = { url: 'http://127.0.0.1:7999', port: 7999, alive: false }
   const refreshWebInfo = (info) => { if (info && info.url) webInfo = { ...info, alive: true } }
+  /**
+   * 实时收敛 web-info（issue #29）。
+   *
+   * 为什么必须实时：webInfo 过去只在「启动期 ensureWeb 成功」时写一次。自愈（restartResident）
+   * 会把实例挪回**配置端口**、或收掉漂移端口上的实例 —— 记录却还指着旧端口，客户端 iframe
+   * 于是打开一个没人监听的地儿（「拒绝连接 127.0.0.1」）。现在每次读 web-info 前先问一遍：
+   * 配置端口 → 记录端口，谁在服务就用谁；都不通就如实标 alive:false（别再给死地址）。
+   */
+  let webInfoProbedAt = 0
+  const reconcileWebInfo = async () => {
+    const now = Date.now()
+    if (now - webInfoProbedAt < 3000) return webInfo // 打开面板会连打几次，3s 内不重复探
+    webInfoProbedAt = now
+    try {
+      const { probeWebServer } = await import('./lib/web.js')
+      const cfgPort = Number((settings.get() ?? {}).webPort) || 7999
+      const candidates = [cfgPort, Number(webInfo.port) || 0].filter((v, i, a) => v && a.indexOf(v) === i)
+      for (const port of candidates) {
+        const alive = await probeWebServer(port, 600).catch(() => null)
+        if (alive) {
+          if (webInfo.port !== port || !webInfo.alive) refreshWebInfo({ url: `http://127.0.0.1:${port}`, port, spawned: false })
+          return webInfo
+        }
+      }
+      webInfo = { ...webInfo, alive: false }
+    } catch { /* 探测失败保持原记录，不影响面板打开 */ }
+    return webInfo
+  }
 
   // webServer 是「可能晚到」的服务：apply 执行时它常常尚未挂载，同步 ctx.get()
   // 拿不到就整段跳过、且不留任何日志 —— 表现是 /memory-eternal/api/* 恒 404、
@@ -1041,7 +1069,8 @@ export function apply(ctx, config) {
         try {
           const pathname = new URL(req.url, 'http://localhost').pathname
           if (pathname === API_PREFIX + '/web-info') {
-            return json(res, 200, { ok: true, ...webInfo })
+            // 别回报启动期的缓存：它可能指着已经被收掉的实例（issue #29）
+            return json(res, 200, { ok: true, ...(await reconcileWebInfo()) })
           }
           if (pathname === API_PREFIX + '/events') {
             // SSE 长连接：不 end，保持推送（EventSource 自动重连）
@@ -1182,9 +1211,12 @@ export function apply(ctx, config) {
             }
             return json(res, 405, { ok: false, error: 'method not allowed' })
           }
-          // DSH host 同源配置页 UI：/memory-eternal/ui/config + /memory-eternal/ui/app.js
-          // 让 DSH iframe 的「配置」页在 host 同源加载 → /config API 同源可读写（修复独立 web 7979 /config 404 导致的「一直加载中」）
-          if (pathname === API_PREFIX + '/ui/config' || pathname === API_PREFIX + '/ui/app.js') {
+          // DSH host 同源 UI：/memory-eternal/ui/app（记忆库整页）+ /memory-eternal/ui/config（配置页，
+          // 同一份壳）+ /memory-eternal/ui/app.js（同一份 bundle）。index.html 里 `<script src="app.js">`
+          // 是相对路径，所以在这三个路由下都会解析到 /memory-eternal/ui/app.js —— 天然同源。
+          // 为什么记忆库页也要同源（issue #29）：iframe 过去指向「常驻实例监听的那个端口」，
+          // 而自愈/漂移会让那个端口变成死地址 → 记忆页「拒绝连接」。同源后地址与端口彻底解耦。
+          if (pathname === API_PREFIX + '/ui/app' || pathname === API_PREFIX + '/ui/config' || pathname === API_PREFIX + '/ui/app.js') {
             const { readFile } = fs
             const webRoot = path.join(PACKAGE_ROOT, 'web')
             if (pathname.endsWith('app.js')) {
@@ -1271,6 +1303,8 @@ export function apply(ctx, config) {
           } else {
             // 探到活则重置计数
             restartCount = 0
+            // 活着也要回写记录：首轮 ensure 可能漂到过别的端口，此后没有任何校正点 → web-info 悬空（issue #29）
+            refreshWebInfo({ url: `http://127.0.0.1:${port}`, port, spawned: false })
           }
         }
         // 立即跑一次（首启 + 间隔循环）
@@ -1323,6 +1357,8 @@ export function apply(ctx, config) {
             const done = out.ok
               ? `常驻实例已重启：端口 ${wdPort} 正在服务 v${out.served}（等待 ${Math.round(out.waitedMs / 1000)}s）`
               : `常驻实例重启未确认生效（${out.stage}）：${out.error || '未知原因'} —— 可再试「设置 → 记忆 → 插件信息 → 重启常驻实例」，或执行 dsh-memory restart --port ${wdPort}`
+            // 自愈刚把实例挪到配置端口：立刻收敛 web-info，别再让面板指向被收掉的那个端口（issue #29）
+            if (out.ok) refreshWebInfo({ url: `http://127.0.0.1:${wdPort}`, port: wdPort, spawned: false })
             console.error(`[memory-eternal] ${done}`)
             logCapture('system', out.ok ? 'boot' : 'fail', done)
             return
