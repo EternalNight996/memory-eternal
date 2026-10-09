@@ -78,6 +78,15 @@ test('两处入口都装了闸门（宿主拦截路由 + 共享 api），别只�
   assert.match(api, /const crossOrigin = crossOriginError\(req\)[\s\S]{0,200}?CROSS_ORIGIN_BLOCKED/, '共享 api 入口也要挡一道')
 })
 
+test('推荐方案（planA）的蒸馏上限必须跟默认一致 —— 不许再埋一个会先撞顶的小上限', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
+  const planA = /A: \{[^}]*captureMaxTokens: (\d+)/.exec(src)
+  assert.ok(planA, 'planA 里应当显式给出 captureMaxTokens')
+  const { DEFAULT_CAPTURE_MAX_TOKENS } = await import('../lib/capture.js')
+  assert.equal(Number(planA[1]), DEFAULT_CAPTURE_MAX_TOKENS, '一键推荐方案不能把默认刚省掉的重试又装回来')
+})
+
 test('蒸馏输出上限：默认即硬顶（不再先撞 2000 再重试一次，省一次 LLM 调用）', async () => {
   const { DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS, maxTokenLadder } = await import('../lib/capture.js')
   assert.equal(DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS, '默认值应与硬顶一致')
