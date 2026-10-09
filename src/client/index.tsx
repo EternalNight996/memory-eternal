@@ -981,16 +981,29 @@ export function apply(ctx) {
 
 // -- Web 端 iframe 壳 ----------------------------------------------------------
 
-/** 从 host 拿 web server 地址（失败回退默认端口）。 */
+/**
+ * web 端 UI 地址：**同源优先**，旧宿主才回落常驻实例地址。
+ *
+ * 为什么（issue #29）：iframe 过去完全依赖 `/web-info` 报的「常驻实例监听端口」，而那个端口会在
+ * 自愈/端口漂移时变化 —— web-info 一旦悬空，记忆页就变成「拒绝连接 127.0.0.1」。
+ * 宿主已经把同一份 web UI 挂在 `/memory-eternal/ui/app`（与配置页 /ui/config 同一套路，index.html
+ * 里 `<script src="app.js">` 是相对路径，正好解析到 /ui/app.js），于是 iframe 与端口彻底解耦。
+ * 0.10.8 及更早的宿主没有这条路由 → 探测返回 404 时回落到 web-info（老行为）。
+ */
 function useWebUrl() {
-  const [url, setUrl] = useState('http://127.0.0.1:7999/')
+  const [url, setUrl] = useState(API + '/ui/app')
   useEffect(() => {
-    fetch('/memory-eternal/api/web-info')
+    let alive = true
+    const fallback = () => fetch('/memory-eternal/api/web-info')
       .then((r) => r.json())
       .then((d) => {
-        if (d && d.ok && d.url) setUrl(d.url.endsWith('/') ? d.url : d.url + '/')
+        if (alive && d && d.ok && d.alive !== false && d.url) setUrl(d.url.endsWith('/') ? d.url : d.url + '/')
       })
       .catch(() => {})
+    fetch(API + '/ui/app', { method: 'HEAD' })
+      .then((r) => { if (alive && !r.ok) return fallback() })
+      .catch(() => (alive ? fallback() : undefined))
+    return () => { alive = false }
   }, [])
   return url
 }
@@ -1038,16 +1051,19 @@ function WebModal({ t, locale, onClose, tab }) {
   const url = useMemo(() => {
     const q = openLang.current ? `lang=${openLang.current}` : ''
     if (tab === 'config') return `${API}/ui/config?tab=config${q ? `&${q}` : ''}`
-    if (tab) return `${base.replace(/\/$/, '')}/?tab=${tab}${q ? `&${q}` : ''}`
-    return q ? `${base}${base.endsWith('/') ? '' : '/'}?${q}` : base
+    const root = base.replace(/\/$/, '')
+    // 同源壳（/memory-eternal/ui/app）直接拼 ?；独立实例是目录根，要多一个 /
+    const sep = root.endsWith('/ui/app') ? '?' : '/?'
+    if (tab) return `${root}${sep}tab=${tab}${q ? `&${q}` : ''}`
+    return q ? `${root}${sep}${q}` : base
   }, [base, tab]) // eslint-disable-line react-hooks/exhaustive-deps -- openLang 定格，语言变化走 postMessage
   // DSH 系统语言变化 → 实时通知 iframe 内 web 端切换
   useEffect(() => {
     const win = iframeRef.current && iframeRef.current.contentWindow
     if (win && lang) win.postMessage({ source: 'memory-eternal', type: 'locale', lang }, '*')
   }, [lang])
-  // tab=config 走 DSH host 同源配置页（/memory-eternal/ui/config），保证 /config API 同源可读写；
-  // 其他 tab 走独立 web server。
+  // tab=config 与记忆库整页都走 DSH host 同源壳（/memory-eternal/ui/config、/memory-eternal/ui/app），
+  // 保证 API 同源，也让 iframe 不再依赖常驻实例的端口（issue #29）；只有旧宿主才回落独立 web server。
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
