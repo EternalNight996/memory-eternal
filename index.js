@@ -972,10 +972,12 @@ export function apply(ctx, config) {
   // 沉淀停滞探测：只有「有轮次在跑」且「管线 15 分钟一个活口都没有」才报（真死才报）。
   // 计数器对不上是常态（子代理轮次、被取消的轮次都不发 turn-stopping），单看计数会误报刷屏。
   const stallTimer = setInterval(() => {
-    const { alert, started, stopped, windowMs } = evaluateStall({ claimedAt, stoppedAt })
+    const { alert, started, stopped, windowMs } = evaluateStall({ claimedAt, stoppedAt, everStopped: turnsStopped })
     if (alert && !stallAlerted) {
       stallAlerted = true
-      logCapture('system', 'fail', `轮次收尾事件疑似失效：最近 ${Math.round(windowMs / 60000)} 分钟内开始 ${started} 个轮次、收尾 ${stopped} 个（累计 ${turnsStarted}/${turnsStopped}）——DSH 可能改了事件名或作用域`)
+      // 用 warn 不用 fail：这是「本次运行至今一次收尾都没收到」的**推断**，不该由它把沉淀健康状态
+      // 翻红、更不该冒充「自动沉淀异常」去打扰用户（真故障会由写卡失败自己报红）。
+      logCapture('system', 'warn', `本次运行至今没收到过任何一次「轮次收尾」事件（窗口内开始 ${started} 个、累计 ${turnsStarted} 个）——DSH 可能改了事件名或作用域，沉淀不会自动触发`)
     }
   }, 5 * 60 * 1000)
   ctx.effect(() => () => clearInterval(stallTimer), 'memory-eternal: capture stall watch')
