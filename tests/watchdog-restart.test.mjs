@@ -122,10 +122,10 @@ test('restartResident：spawn 替换助手后自检端口版本，成功才算�
     port: 7999, env: envR, expectVersion: '0.10.6',
     deps: {
       spawnHelper: (o) => { spawned = o; return { pid: 4321 } },
-      waitForServedVersion: async (port, expect) => {
+      waitForTakeover: async (port, expect) => {
         assert.equal(port, 7999)
         assert.equal(expect, '0.10.6')
-        return { ok: true, version: '0.10.6', waitedMs: 1500 }
+        return { ok: true, version: '0.10.6', waitedMs: 1500, tookOver: true }
       },
     },
   })
@@ -142,7 +142,7 @@ test('restartResident：端口上还是旧版本 → 必须报失败（不许只
     port: 7999, env, expectVersion: '0.10.6',
     deps: {
       spawnHelper: () => ({ pid: 1 }),
-      waitForServedVersion: async () => ({ ok: false, version: '0.10.0', waitedMs: 25000 }),
+      waitForTakeover: async () => ({ ok: false, version: '0.10.0', waitedMs: 25000, tookOver: false }),
     },
   })
   assert.equal(out.ok, false)
@@ -153,11 +153,39 @@ test('restartResident：端口上还是旧版本 → 必须报失败（不许只
 test('restartResident：助手 spawn 失败 → 如实报 spawn-helper，不假装重启了', async () => {
   const out = await restartResident({
     port: 7999, env, expectVersion: '0.10.6',
-    deps: { spawnHelper: () => { throw new Error('EPERM') }, waitForServedVersion: async () => ({ ok: true, version: '0.10.6', waitedMs: 1 }) },
+    deps: { spawnHelper: () => { throw new Error('EPERM') }, waitForTakeover: async () => ({ ok: true, version: '0.10.6', waitedMs: 1, tookOver: true }) },
   })
   assert.equal(out.ok, false)
   assert.equal(out.stage, 'spawn-helper')
   assert.ok(out.error.includes('EPERM'))
+})
+
+test('waitForTakeover：端口版本对得上、但没有**新**看门狗接管 → 不算成功（旧实例骗不过自检）', async () => {
+  const { waitForTakeover, acquireWatchdogLock } = await import('../lib/watchdog.js')
+  const envT = { DSH_HOME: path.join(tmp, 'takeover') }
+  // 旧实例：看门狗 pid = 自己（活着），端口"服务"着同一个版本 —— 只看版本必然通过
+  acquireWatchdogLock({ env: envT, port: 7999, pid: process.pid, pkgVersion: '0.10.6' })
+  const stale = await waitForTakeover(7999, '0.10.6', {
+    env: envT, beforePids: new Set([process.pid]), timeoutMs: 250,
+    probe: async () => '0.10.6', sleep: async () => {},
+  })
+  assert.equal(stale.ok, false, '还没换人就不能报成功')
+  assert.equal(stale.tookOver, false)
+
+  // 新实例接管：锁里出现一个不在 beforePids 里的活看门狗（这里用真实存活的本进程模拟）
+  const fresh = await waitForTakeover(7999, '0.10.6', {
+    env: envT, beforePids: new Set([999999]), timeoutMs: 250,
+    probe: async () => '0.10.6', sleep: async () => {},
+  })
+  assert.equal(fresh.ok, true)
+  assert.equal(fresh.tookOver, true)
+
+  // 版本还在旧值 → 照样失败
+  const wrong = await waitForTakeover(7999, '0.10.9', {
+    env: envT, beforePids: new Set([999999]), timeoutMs: 250,
+    probe: async () => '0.10.6', sleep: async () => {},
+  })
+  assert.equal(wrong.ok, false)
 })
 
 // -- ④ 接管前清场 --------------------------------------------------------------

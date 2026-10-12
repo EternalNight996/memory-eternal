@@ -167,7 +167,10 @@ async function main() {
       const { stopWatchdogs } = await import('../lib/watchdog.js')
       const port = argOf('--port')
       // checkPort：停完再问一次「端口上还有谁在服务」，把「停了却还占着端口」显式说出来（#23）
-      const out = await stopWatchdogs({ port: port || undefined, checkPort: true })
+      // forcePortOccupant：**显式 stop 就该把端口腾出来** —— 端口上那个自家 web 很可能不是看门狗拉起的
+      // （宿主 ensureWeb 直接起、或看门狗被 kill -9 后残留的孤儿），锁里没有 webPid 就谁也收不到它。
+      // 闸门没松：只有 looksLikeOurWeb(命令行) 为真才会终止，认不出的照旧只告警。
+      const out = await stopWatchdogs({ port: port || undefined, checkPort: true, forcePortOccupant: true })
       if (has('--json')) { console.log(JSON.stringify({ ok: out.failed.length === 0, ...out }, null, 2)); return }
       if (!out.stopped.length && !out.failed.length && !out.webStopped.length) console.log('没有需要停止的常驻看门狗（锁里没有活着的实例）。')
       if (out.stopped.length) console.log(`已停止看门狗：pid ${out.stopped.join(', ')}`)

@@ -291,6 +291,10 @@ export const ZH = {
   vcRestartFail: '重启请求失败',
   vcRestartNoRoute: '当前页面对接的进程还是旧版（没有这个接口）：请重启桌面版 / DSH 后再试，或执行 {cmd}',
   vcHostStale: '上方的「运行中」来自服务本页的进程；常驻实例已是新版 —— 要让它也变成新版号，需重启桌面版 / DSH',
+  vcResidentDownShort: '未运行',
+  vcResidentDown: '常驻实例没在运行（端口 {port} 无响应）—— 点下面的按钮用新代码把它拉起来；拉不起来时执行 {cmd}，并贴一下 dsh-memory status 的输出',
+  vcResidentUnmanagedShort: '未托管',
+  vcResidentUnmanaged: '常驻实例在服务 v{served}，但**没有看门狗保活**（停止 / 硬杀后残留的孤儿）—— 点下面的按钮把它重新托管（重新拉一个看门狗 + 新实例）；也可以执行 {cmd}',
   vcOutdated: '有新版本',
   vcUpToDate: '已是最新',
   vcCheck: '检查更新',
@@ -643,6 +647,10 @@ export const EN = {
   vcRestartFail: 'Restart request failed',
   vcRestartNoRoute: 'The process serving this page is still the old build (no such endpoint): restart the desktop app / DSH and retry, or run {cmd}',
   vcHostStale: 'The "running" chip above comes from the process serving this page; the resident instance is already current — restart the desktop app / DSH to refresh that chip',
+  vcResidentDownShort: 'not running',
+  vcResidentDown: 'The resident instance is not running (no response on port {port}) — use the button below to bring it up on the new code; if that fails run {cmd} and share the output of dsh-memory status',
+  vcResidentUnmanagedShort: 'unmanaged',
+  vcResidentUnmanaged: 'The resident instance serves v{served} but has **no watchdog keeping it alive** (an orphan left by a stop or a hard kill) — use the button below to put it back under management (a fresh watchdog plus a new instance), or run {cmd}',
   vcPage: 'Page script',
   vcPageStale: '⚠ This page is still running an older script (page v{page} / disk v{disk}): press Ctrl+F5 to refresh. If the running version is still old, restart the desktop app / DSH as well',
   vcOutdated: 'update available',
@@ -1582,6 +1590,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 也可能因为旧宿主没有该接口而报 404（本会话实测到的「未知接口」就是这个）。
   const residentServed = vc && vc.resident ? String(vc.resident.served || '') : ''
   const residentStale = Boolean(vc && vc.onDisk && residentServed && residentServed !== vc.onDisk)
+  // 常驻实例「没在跑」：探针拿不到任何版本（端口无响应 / 进程死了 / 从没起来）。这也是最需要
+  // 一键重启的场景 —— 但过去只在「served 有值且落后」时才给按钮，于是这种情况下面板**整个横幅
+  // 都不显示**（vc.stale 为假），用户只看到一条「自动沉淀异常」，找不到能点的东西（实测 #28）。
+  // 没在跑（无响应）**或**在跑但没人托管（看门狗被 stop / 被 kill -9 后残留的孤儿 —— 版本号可能还是新的，
+  // 但没人保活、也不会被后续升级替换）。后者只有新宿主会报（旧宿主没有 resident.managed 字段，不会误报）。
+  const residentUnmanaged = Boolean(vc && vc.resident && vc.resident.managed === false)
+  const residentDown = Boolean(vc && vc.resident && !residentServed)
+  const residentNeedsRestart = residentStale || residentDown || residentUnmanaged
   // 词条带 {placeholder} 填充（本项目 t 为词典直查，不含参数替换）
   const tf = (k, map) => Object.keys(map).reduce((s, kk) => s.split('{' + kk + '}').join(map[kk]), t(k))
   const load = useCallback(async () => {
@@ -1798,6 +1814,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {vc && vc.resident && vc.resident.served && vc.resident.served !== cfg.version && (
                 <code style={vcChip}>{t('vcResident')} v{vc.resident.served}</code>
               )}
+              {vc && vc.resident && !vc.resident.served && (
+                <code style={{ ...vcChip, color: '#b45309', fontWeight: 600 }}>{t('vcResident')} {t('vcResidentDownShort')}</code>
+              )}
+              {vc && vc.resident && vc.resident.served && vc.resident.managed === false && (
+                <code style={{ ...vcChip, color: '#b45309', fontWeight: 600 }}>{t('vcResident')} v{vc.resident.served} · {t('vcResidentUnmanagedShort')}</code>
+              )}
               {CLIENT_VERSION && <code style={vcChip}>{t('vcPage')} v{CLIENT_VERSION}</code>}
               {vc && vc.onDisk && <code style={vcChip}>{t('vcOnDisk')} v{vc.onDisk}</code>}
               {vc && vc.latest && <code style={vcChip}>{t('vcLatest')} v{vc.latest}</code>}
@@ -1805,10 +1827,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <div style={{ flex: 1 }} />
               <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
             </div>
-            {vc && vc.stale && (
+            {vc && (vc.stale || residentDown || residentUnmanaged) && (
               <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>
-                <div>⚠️ {tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })}</div>
-                {residentStale ? (
+                <div>⚠️ {vc.stale
+                  ? tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })
+                  : residentDown
+                    ? tf('vcResidentDown', { port: (vc.resident && vc.resident.port) || '', cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })
+                    : tf('vcResidentUnmanaged', { served: residentServed, cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })}</div>
+                {residentNeedsRestart ? (
                   /* 一键修复：常驻 web 比 DSH 活得久，重启 DSH 换不掉它（issue #19/#23） */
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
                     <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={restartResident}>

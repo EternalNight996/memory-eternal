@@ -21,7 +21,9 @@ const apiSrc = read('lib/api.js')
 
 test('①「重启常驻实例」按钮只在常驻实例真落后时出现（否则点了是 404）', () => {
   assert.match(client, /const residentStale = Boolean\(/, '要有「常驻实例是否落后」的判据')
-  assert.match(client, /residentStale \? \(/, '横幅要按该判据分岔：落后才给按钮')
+  // #28 之后把「没在跑 / 没被托管」也并进了同一个判据（residentNeedsRestart），按钮不再只认版本落后
+  assert.match(client, /const residentNeedsRestart = residentStale \|\| residentDown \|\| residentUnmanaged/, '要有统一的「需要重启」判据')
+  assert.match(client, /residentNeedsRestart \? \(/, '横幅要按该判据分岔：需要重启才给按钮')
   assert.match(client, /vcHostStale/, '不落后（本页进程旧）时要说清该重启桌面版/DSH')
 })
 

@@ -1366,7 +1366,9 @@ export function apply(ctx, config) {
             // 自愈刚把实例挪到配置端口：立刻收敛 web-info，别再让面板指向被收掉的那个端口（issue #29）
             if (out.ok) refreshWebInfo({ url: `http://127.0.0.1:${wdPort}`, port: wdPort, spawned: false })
             console.error(`[memory-eternal] ${done}`)
-            logCapture('system', out.ok ? 'boot' : 'fail', done)
+            // 用 warn 不用 fail：这是**服务管理**的失败（常驻实例没起来），不是沉淀管线坏了。
+            // 过去这里记 fail 会把沉淀健康状态翻红，用户看到的是「自动沉淀异常」（实测 #28 的现场）。
+            logCapture('system', out.ok ? 'boot' : 'warn', done)
             return
           }
 

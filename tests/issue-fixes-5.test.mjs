@@ -76,6 +76,25 @@ test('宿主侧：/web-info 实时收敛 + 记忆库页走同源壳（源码守�
   assert.match(watchdog, /一次探针打空（实例正忙 \/ GC \/ 冷启动）\*\*不能\*\*当成/, '体检要退避重试后再判「不自报版本」')
 })
 
+test('#28 姊妹现场：常驻实例**没在跑**时也必须给重启按钮 + 明确文案，而且不许记成 fail', () => {
+  const client = read('src/client/index.tsx')
+  assert.match(client, /const residentDown = Boolean\(vc && vc\.resident && !residentServed\)/, '要识别「常驻实例没在跑」')
+  assert.match(client, /const residentUnmanaged = Boolean\(vc && vc\.resident && vc\.resident\.managed === false\)/, '还要识别「在跑但没人托管」')
+  assert.match(client, /const residentNeedsRestart = residentStale \|\| residentDown \|\| residentUnmanaged/, '没在跑 / 没托管都要算「需要重启」')
+  assert.match(client, /vc && \(vc\.stale \|\| residentDown \|\| residentUnmanaged\) && \(/, '横幅显示条件要把这三种都纳入（否则整个横幅都不渲染）')
+  assert.match(client, /vcResidentDown:/, '要有「常驻实例没在运行」的专门文案')
+  assert.match(client, /vcResidentUnmanaged:/, '要有「在服务但没托管」的专门文案')
+  assert.equal((client.match(/vcResidentUnmanaged:/g) || []).length, 2, '中英词条各一条')
+  const api2 = read('lib/api.js')
+  assert.match(api2, /managed: residentManaged/, 'version-check 要报出常驻实例有没有被托管')
+  assert.match(api2, /String\(served\) === String\(expect\) && managed\)/, 'alreadyCurrent 必须同时要求「被托管」')
+  assert.match(read('bin/dsh-memory.mjs'), /forcePortOccupant: true/, '显式 stop 要把端口腾出来（只对自家 web 下手）')
+  const index = read('index.js')
+  assert.match(index, /logCapture\('system', out\.ok \? 'boot' : 'warn', done\)/, '自愈重启失败要记 warn，不能记 fail')
+  const api = read('lib/api.js')
+  assert.match(api, /action: out && out\.ok \? 'boot' : 'warn',/, '面板重启失败同样记 warn')
+})
+
 test('客户端：iframe 走同源壳，只有旧宿主才回落常驻实例地址（源码守卫）', () => {
   const client = read('src/client/index.tsx')
   assert.match(client, /useState\(API \+ '\/ui\/app'\)/, 'iframe 默认地址应是同源壳')
