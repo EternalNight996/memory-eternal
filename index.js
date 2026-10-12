@@ -32,7 +32,7 @@ import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
-import { createApi, json, encodeBody, crossOriginError } from './lib/api.js'
+import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { missingWebAssets, missingAssetsReason } from './lib/web-assets.js'
 import { writeHostMarker, clearHostMarker } from './lib/host-heartbeat.js'
@@ -1183,9 +1183,12 @@ export function apply(ctx, config) {
               const clean = {}
               for (const k of Object.keys(patch)) { if (allowed.has(k)) clean[k] = patch[k] }
               if (Object.keys(clean).length === 0) return json(res, 400, { ok: false, error: '无可写入字段' })
-              // 数值字段前置校验：空串/NaN/非数字直接给「哪个字段不合法」，而不是让宿主 schema 抛错
-              const badNum = Object.entries(clean).filter(([k, v]) => typeof v === 'string' && v.trim() === '' && !/^(vaultDir|captureProvider|captureModel|recallEmbedding|activeVault)$/.test(k))
-              if (badNum.length) return json(res, 400, { ok: false, error: '字段不能为空：' + badNum.map(([k]) => k).join('、'), fields: badNum.map(([k]) => k) })
+              // 数值字段前置校验：**只对 schema 里声明为 number 的键**判「空串」—— 面板提交的是整张表单，
+              // 空串本身是很多字符串字段的合法值（secretHint 的默认值就是 ''），旧实现把任何空串都当
+              // 「数字没填」并用一份硬编码豁免名单兜，于是「全新安装 + 什么都不动 + 点保存」必然 400
+              // 「字段不能为空：secretHint」→ 整单被拒（issue #35）。判定改读 schema，不再维护名单。
+              const badNum = emptyNumericFields(clean, Config.dict)
+              if (badNum.length) return json(res, 400, { ok: false, error: '字段不能为空：' + badNum.join('、'), fields: badNum })
               if (typeof settings.update === 'function') {
                 try {
                   const writeResult = await settings.update(clean, expectedRevision)

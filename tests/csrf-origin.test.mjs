@@ -72,7 +72,7 @@ test('handleApi：跨站 POST 被 403 CROSS_ORIGIN_BLOCKED 挡在业务逻辑之
 
 test('两处入口都装了闸门（宿主拦截路由 + 共享 api），别只补一半', () => {
   const index = read('index.js')
-  assert.match(index, /import \{ createApi, json, encodeBody, crossOriginError \}/, '宿主要引入同一份判定')
+  assert.match(index, /import \{ createApi, json, encodeBody, crossOriginError, emptyNumericFields \}/, '宿主要引入同一份判定（跨站闸门 + 空数字字段校验）')
   assert.match(index, /const crossOrigin = crossOriginError\(req\)[\s\S]{0,200}?CROSS_ORIGIN_BLOCKED/, '宿主拦截路由之前要挡一道')
   const api = read('lib/api.js')
   assert.match(api, /const crossOrigin = crossOriginError\(req\)[\s\S]{0,200}?CROSS_ORIGIN_BLOCKED/, '共享 api 入口也要挡一道')
