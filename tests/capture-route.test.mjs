@@ -108,6 +108,42 @@ test('supportsReasoningEffort：三种声明位置都认，未知按「支持」
   assert.equal(supportsReasoningEffort({ id: 'a' }, { id: 'm', reasoning: { efforts: [{ id: 'off' }] } }), true)
 })
 
+test('#34 运行时被拒（UNSUPPORTED_REASONING_EFFORT）→ 不带该字段重试一次，并记住不再传', async () => {
+  const { summarizeTurnDetailed, resetEffortUnsupported, isEffortUnsupported } = await import('../lib/capture.js')
+  resetEffortUnsupported()
+  const calls = []
+  const llm = {
+    async *stream(options) {
+      calls.push(options)
+      if ('reasoningEffort' in options) {
+        // 现场：provider 自述支持，真发出去才被拒（workbuddy/hy3、FallbacksChain/Auto、gpt-6-luna 都是这个形态）
+        yield { type: 'finish', reason: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT', message: 'provider "gw" model "m" does not support reasoning effort "off"' } } }
+        return
+      }
+      for (const c of textChunks(JSON.stringify({ save: true, title: '重试后的卡', kind: 'knowledge', tags: ['t'], body: '# 重试后的卡\n\n' + '正文内容'.repeat(40) }))) yield c
+    },
+  }
+  const first = await summarizeTurnDetailed(llm, { provider: 'gw', model: 'm' }, CONV)
+  assert.ok(first.card, '被拒后应重试成功，而不是把候选判死、让沉淀停摆')
+  assert.equal(calls.length, 2, '第一次带 effort、第二次不带')
+  assert.equal('reasoningEffort' in calls[0], true, '默认仍先按支持处理')
+  assert.equal('reasoningEffort' in calls[1], false, '被拒后必须不带该字段重试')
+  assert.equal(isEffortUnsupported('gw', 'm'), true, '要记住这个 provider/model')
+
+  // 第二次调用：同一个 provider/model 第一次请求就不带（不再白发）
+  calls.length = 0
+  const second = await summarizeTurnDetailed(llm, { provider: 'gw', model: 'm' }, CONV)
+  assert.ok(second.card)
+  assert.equal(calls.length, 1, '记忆生效后不该再有浪费的那一次')
+  assert.equal('reasoningEffort' in calls[0], false)
+
+  // 别的 provider 不受影响
+  calls.length = 0
+  await summarizeTurnDetailed(llm, { provider: 'other', model: 'm' }, CONV)
+  assert.equal('reasoningEffort' in calls[0], true, '记忆按 provider/model 分开，不能误伤别人')
+  resetEffortUnsupported()
+})
+
 test('routeCandidates：不支持的候选标记 reasoningEffort=null 并排到支持者后面（不删除）', async () => {
   const llm = fakeLlm({
     providers: [{ id: 'gw-bad', compat: { supportsReasoningEffort: false } }, { id: 'official' }],
