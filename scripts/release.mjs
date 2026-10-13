@@ -169,8 +169,16 @@ if (SKIP_NPM) {
     // 端点滞后（实测可达数分钟）不该中断后面的 tag/push/Release —— 但也**绝不能**当成已发布：
     // 记进问题清单，继续跑完，最后汇总 + 非零退出（0.10.22 / 0.10.26 都因这里超时中断过一次发布）。
     if (!(await waitNpmVersion(pkg.version))) {
-      say(`⚠ npm version 端点仍未可见：https://registry.npmjs.org/memory-eternal/${pkg.version}（可能只是 CDN 滞后）`)
-      problems.push(`npm 上暂时查不到 ${pkg.version} → 稍后复核（200 才算真的发布成功）：https://registry.npmjs.org/memory-eternal/${pkg.version}`)
+      // 端点滞后可能有几分钟（实测 0.10.26：publish 先"暂存"、稍后才落地）。再打一次 publish 探针：
+      // npm 若回「previously staged / previously published / 409」——那**恰好证明版本确实进去了**。
+      const probe = run('npm', ['publish', '--access', 'public'], { allowFail: true })
+      const txt = String(probe.out || '')
+      if (/previously staged version|previously published version|EPUBLISHCONFLICT|409/i.test(txt)) {
+        say('npm version 端点滞后，但 publish 探针回报「版本已存在 / 已暂存」→ 视为**已发布**')
+      } else {
+        say(`⚠ npm version 端点仍未可见：https://registry.npmjs.org/memory-eternal/${pkg.version}（可能只是 CDN 滞后）`)
+        problems.push(`npm 上暂时查不到 ${pkg.version} → 稍后复核（200 才算真的发布成功）：https://registry.npmjs.org/memory-eternal/${pkg.version}`)
+      }
     } else {
       say(`npm 校验通过：https://registry.npmjs.org/memory-eternal/${pkg.version} → 200`)
     }
