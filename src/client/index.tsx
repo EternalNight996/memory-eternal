@@ -175,6 +175,16 @@ export const ZH = {
   refineKeepB: '保留 B',
   refineKeepBoth: '都保留',
   refineMerge: '合并',
+  junkTitle: '注入垃圾卡',
+  junkScan: '扫描存量',
+  junkHint: '怀疑是运行时注入文本（技能目录 / system-reminder）沉淀成的卡 —— 扫描只读，回收走回收站可还原',
+  junkIdle: '点「扫描存量」：找出正文其实是被注入的运行时文本、剥掉后几乎不剩人话的卡',
+  junkNone: '没发现这类卡 🎉',
+  junkRecycle: '回收',
+  junkRecycleAll: '全部回收',
+  junkRecycleAllConfirm: '确认把这些卡送进回收站？（不是永久删除，可在回收中心还原）',
+  junkDone: '已送回收站',
+  junkFail: '扫描 / 回收失败',
   oneClickOptimize: '一键优化',
   oneClickOptimizeConfirm: '确认一键优化？将合并所有相似卡对（默认不清理陈旧卡）。',
   oneClickAlsoStale: '同时清理陈旧卡',
@@ -546,6 +556,16 @@ export const EN = {
   refineKeepB: 'Keep B',
   refineKeepBoth: 'Keep both',
   refineMerge: 'Merge',
+  junkTitle: 'Injected junk cards',
+  junkScan: 'Scan existing',
+  junkHint: 'Cards suspected to be captured runtime injections (skill catalogs / system-reminders) — the scan is read-only and recycling goes to the recycle bin (recoverable)',
+  junkIdle: 'Hit "Scan existing": find cards whose body is really injected runtime text with almost no human content left after stripping',
+  junkNone: 'No such cards found 🎉',
+  junkRecycle: 'Recycle',
+  junkRecycleAll: 'Recycle all',
+  junkRecycleAllConfirm: 'Send these cards to the recycle bin? (Not a permanent delete — recoverable from the recycle center)',
+  junkDone: 'Sent to recycle bin',
+  junkFail: 'Scan / recycle failed',
   oneClickOptimize: 'One-click optimize',
   oneClickOptimizeConfirm: 'Confirm one-click optimize? This will merge all similar pairs (stale cards are NOT deleted by default).',
   oneClickAlsoStale: 'Also clean stale cards',
@@ -2415,6 +2435,31 @@ function LibraryAdmin({ t, tab, onReload, version }) {
     } catch { notify(t('refineFail'), false) }
     finally { setBusy('') }
   }
+  // 存量「注入垃圾卡」（技能目录 / system-reminder 被沉淀成卡）：机器提议，人一键回收（进回收站，可还原）
+  const [junk, setJunk] = useState(null)
+  const scanJunk = useCallback(async () => {
+    setBusy('junk')
+    try {
+      const r = await fetch(`${API}/refine-junk`).then((x) => x.json())
+      if (r && r.ok) setJunk(r.items || [])
+      else notify(t('junkFail'), false)
+    } catch { notify(t('junkFail'), false) }
+    finally { setBusy('') }
+  }, [t])
+  const purgeJunk = async (paths) => {
+    if (!paths.length) return
+    if (!window.confirm(t('junkRecycleAllConfirm'))) return
+    setBusy('junkpurge')
+    try {
+      const r = await fetch(`${API}/refine-junk-purge`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paths }) }).then((x) => x.json())
+      if (r && r.removed) {
+        notify(t('junkDone') + '：' + r.removed.length + (r.failed?.length ? '（失败 ' + r.failed.length + '）' : ''))
+        setJunk((prev) => (prev ? prev.filter((x) => !r.removed.includes(x.path)) : prev))
+        await fetchAll(); if (onReload) onReload()
+      } else { notify(t('junkFail'), false) }
+    } catch { notify(t('junkFail'), false) }
+    finally { setBusy('') }
+  }
   useEffect(() => { fetchAll() }, [version])
   const doMerge = async (a, b) => {
     if (!window.confirm(t('mergeConfirm'))) return
@@ -2623,6 +2668,26 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                     </div>
                   </div>
                 )) : <div style={{ opacity: 0.6, fontSize: 12 }}>{refine ? t('refineNone') : t('refineIdle')}</div>}
+              </div>
+              {/* 存量注入垃圾卡：DSH 运行时文本（技能目录 / system-reminder）被沉淀成卡，机器提议、人回收 */}
+              <div className="mc-card" style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                  <b style={{ fontSize: 12 }}>🧹 {t('junkTitle')}</b>
+                  <button type="button" className="mc-btn" disabled={!!busy} onClick={scanJunk}>{busy === 'junk' ? t('exporting') : t('junkScan')}</button>
+                  {junk?.length ? <button type="button" className="mc-btn" disabled={!!busy} onClick={() => purgeJunk(junk.map((x) => x.path))}>{busy === 'junkpurge' ? t('exporting') : t('junkRecycleAll')}</button> : null}
+                  <span style={{ opacity: 0.6, fontSize: 11 }}>{t('junkHint')}</span>
+                </div>
+                {junk?.length ? (
+                  <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                    {junk.map((x, i) => (
+                      <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px', borderTop: i ? '1px solid rgba(127,127,127,0.14)' : 'none', fontSize: 12 }}>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={x.reasons.join('；')}>{x.title || x.path}</span>
+                        <span style={{ opacity: 0.55, fontSize: 11 }}>{x.reasons[0]}</span>
+                        <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => purgeJunk([x.path])}>{t('junkRecycle')}</button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <div style={{ opacity: 0.6, fontSize: 12 }}>{junk ? t('junkNone') : t('junkIdle')}</div>}
               </div>
             </div>
           )}

@@ -109,6 +109,38 @@ test('④ 安全联锁：被判为矛盾的对，绝不参与「一键优化」�
   } finally { v.cleanup() }
 })
 
+test('⑥ 存量注入垃圾卡：能识别、能回收（走回收站），且不误伤正常卡', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'me-junk-'))
+  try {
+    const junkBody = ['The available skills catalog changed:', '- \`code-review\`: Review the changes since a fixed point along two axes.',
+      '- \`canvas\`: Use this skill when the agent produces a standalone analytical artifact.',
+      '- \`hyperframes\`: Mandatory entry point: read this first for any video request.',
+      '- \`media-use\`: Agent Media OS, the single skill for every media need.'].join('\n')
+    const j = await writeCard(root, { kind: 'content', title: 'skills catalog', tags: [], body: junkBody, status: 'pending', submittedBy: 'test' }, { dedup: false })
+    const n = await writeCard(root, { kind: 'knowledge', title: 'SQLite 并发写建议', tags: ['sqlite'], body: '# SQLite 并发写建议\n- WAL 下多进程可写，长事务会阻塞检查点；设忙等超时。\n- 避免长写事务，写前先算好。\n', status: 'pending', submittedBy: 'test' }, { dedup: false })
+    await setCardStatus(root, j.path, 'approved')
+    await setCardStatus(root, n.path, 'approved')
+
+    const { findInjectedCards, purgeInjected } = await import('../lib/refine.js')
+    const items = await findInjectedCards(root)
+    const flagged = items.map((x) => x.path)
+    assert.ok(flagged.includes(j.path), '技能目录卡要被识别出来')
+    assert.ok(!flagged.includes(n.path), '正常知识卡不许误伤')
+    assert.ok(items.find((x) => x.path === j.path).reasons.some((r) => /技能目录/.test(r)))
+
+    // 提议阶段绝不写数据
+    assert.equal((await listCards(root, { status: ['approved'] })).length, 2)
+    const out = await purgeInjected(root, { paths: [j.path] })
+    assert.equal(out.ok, true)
+    assert.deepEqual(out.removed, [j.path])
+    assert.equal(out.recoverable, true, '必须是可恢复动作')
+    const approved = (await listCards(root, { status: ['approved'] })).map((x) => x.path)
+    assert.deepEqual(approved, [n.path], '只回收被点名的那张')
+    assert.deepEqual((await listCards(root, { status: ['deleted'] })).map((x) => x.path), [j.path], '进回收站而不是被删掉')
+    assert.equal((await purgeInjected(root, {})).ok, false, '没给 path 要如实报错')
+  } finally { try { fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }) } catch {} }
+})
+
 test('⑤ 冗余来源：技能目录这类注入文本不该被抓成卡（#36 的垃圾卡现场）', () => {
   const injected = [
     'The available skills catalog changed. This complete catalog replaces every earlier list:',

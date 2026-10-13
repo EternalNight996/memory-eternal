@@ -12,6 +12,7 @@
 //   dsh-memory sweep <dir>                                挖掘 Claude Code 会话 JSONL
 //   dsh-memory doctor [--vault DIR] [--json]              库健康自检（journal 模式 / 写探针 / 备份清单 / 恢复引导）
 //   dsh-memory refine [--vault DIR] [--json]              矛盾扫描候选（不调模型）；--apply --a A --b B --action keepA|keepB|merge|keepBoth 落裁决
+//   dsh-memory refine --junk [--purge --path P] [--json]   注入垃圾卡（技能目录等注入文本沉淀成的卡）：列清单 / 送回收站
 //
 // 环境变量：
 //   MEMORY_VAULT_DIR       vault 目录（默认 ~/.dsh/memory-vault）
@@ -170,6 +171,27 @@ async function main() {
       const { defaultVaultDir } = await import('../lib/capture-run.js')
       const { refineCandidates, refineApply, readDecisions } = await import('../lib/refine.js')
       const root = argOf('--vault') ? path.resolve(argOf('--vault')) : defaultVaultDir()
+      if (has('--junk')) {
+        // 存量「注入垃圾卡」：--junk 列清单；--junk --purge --path <p>（可重复）送回收站
+        const { findInjectedCards, purgeInjected } = await import('../lib/refine.js')
+        if (has('--purge')) {
+          const paths = []
+          for (let i = 0; i < argv.length; i++) if (argv[i] === '--path' && argv[i + 1]) paths.push(argv[i + 1])
+          const out = await purgeInjected(root, { paths })
+          if (has('--json')) { console.log(JSON.stringify(out, null, 2)); if (!out.ok) process.exitCode = 1; return }
+          console.log('已送回收站 ' + out.removed.length + ' 张（可从回收中心还原）' + (out.failed.length ? '，失败 ' + out.failed.length + ' 张' : ''))
+          for (const x of out.failed) console.error('  ✗ ' + x.path + '：' + x.error)
+          if (!out.ok) process.exitCode = 1
+          return
+        }
+        const items = await findInjectedCards(root)
+        if (has('--json')) { console.log(JSON.stringify({ ok: true, count: items.length, items }, null, 2)); return }
+        console.log('注入垃圾卡（提议回收，未动数据）：' + items.length + ' 张')
+        for (const it of items) console.log('  ' + it.path + '  —— ' + it.reasons.join('；'))
+        console.log('')
+        console.log('回收（进回收站，可还原）：dsh-memory refine --junk --purge --path <路径> [--path <路径>…]')
+        return
+      }
       if (has('--apply')) {
         const out = await refineApply(root, {
           a: argOf('--a'), b: argOf('--b'), action: argOf('--action'),
