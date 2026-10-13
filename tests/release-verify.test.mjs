@@ -13,7 +13,10 @@ test('npm 发布必须用 version 端点实证（不信 publish 的 stdout，也
   assert.match(src, /const npmHasVersion = async/, '要有"这个版本真的在吗"的判定')
   assert.match(src, /registry\.npmjs\.org\/memory-eternal\/\$\{v\}/, '要打 version 端点（packument 会被边缘缓存骗）')
   assert.match(src, /await waitNpmVersion\(pkg\.version\)/, '发布后要等它可见')
-  assert.match(src, /throw new Error\(\`npm 上查不到/, '查不到就必须报错，不许打印"完成"')
+  // 端点滞后（实测可达数分钟）不中断后续步骤，但**必须记进问题清单**（非零退出），
+  // 或用 publish 探针的 409（"previously staged / published"）证明版本确实进去了。
+  assert.match(src, /previously staged version\|previously published version/, '滞后时用 publish 探针判定')
+  assert.match(src, /problems\.push\(\`npm 上暂时查不到/, '拿不准就要记进问题清单，不许当成功')
 })
 
 test('推完必须核对每个远端的 tag 指向 HEAD（Release API 会把 tag 建在旧 main 上）', () => {
