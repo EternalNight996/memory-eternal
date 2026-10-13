@@ -166,10 +166,14 @@ if (SKIP_NPM) {
     }
     // **不信 stdout，只信 registry**：publish 返回 0 不代表包真的上去了（0.10.21 实测：
     // 本地 packument/npm view 缓存会假装没有，边缘缓存又会假装有）—— 用 version 端点实证。
+    // 端点滞后（实测可达数分钟）不该中断后面的 tag/push/Release —— 但也**绝不能**当成已发布：
+    // 记进问题清单，继续跑完，最后汇总 + 非零退出（0.10.22 / 0.10.26 都因这里超时中断过一次发布）。
     if (!(await waitNpmVersion(pkg.version))) {
-      throw new Error(`npm 上查不到 ${pkg.version}（version 端点超时）：发布可能未生效，请手动 \`npm publish --access public\` 后复核 https://registry.npmjs.org/memory-eternal/${pkg.version}`)
+      say(`⚠ npm version 端点仍未可见：https://registry.npmjs.org/memory-eternal/${pkg.version}（可能只是 CDN 滞后）`)
+      problems.push(`npm 上暂时查不到 ${pkg.version} → 稍后复核（200 才算真的发布成功）：https://registry.npmjs.org/memory-eternal/${pkg.version}`)
+    } else {
+      say(`npm 校验通过：https://registry.npmjs.org/memory-eternal/${pkg.version} → 200`)
     }
-    say(`npm 校验通过：https://registry.npmjs.org/memory-eternal/${pkg.version} → 200`)
   }
 }
 
