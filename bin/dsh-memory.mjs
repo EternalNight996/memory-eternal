@@ -13,6 +13,7 @@
 //   dsh-memory doctor [--vault DIR] [--json]              库健康自检（journal 模式 / 写探针 / 备份清单 / 恢复引导）
 //   dsh-memory refine [--vault DIR] [--json]              矛盾扫描候选（不调模型）；--apply --a A --b B --action keepA|keepB|merge|keepBoth 落裁决
 //   dsh-memory refine --junk [--purge --path P] [--json]   注入垃圾卡（技能目录等注入文本沉淀成的卡）：列清单 / 送回收站
+//   dsh-memory refine --goals [--keep --path A --path B]   同目标不同做法：聚类需模型（面板里跑）；--keep 落"都保留"
 //
 // 环境变量：
 //   MEMORY_VAULT_DIR       vault 目录（默认 ~/.dsh/memory-vault）
@@ -171,6 +172,25 @@ async function main() {
       const { defaultVaultDir } = await import('../lib/capture-run.js')
       const { refineCandidates, refineApply, readDecisions } = await import('../lib/refine.js')
       const root = argOf('--vault') ? path.resolve(argOf('--vault')) : defaultVaultDir()
+      if (has('--goals')) {
+        // 「同目标、不同做法」聚类：需要模型（CLI 里通常拿不到 llm）→ 提示去面板；--keep 可落"都保留"
+        const { goalScan, markClusterKept } = await import('../lib/refine.js')
+        const paths = []
+        for (let i = 0; i < argv.length; i++) if (argv[i] === '--path' && argv[i + 1]) paths.push(argv[i + 1])
+        if (has('--keep')) {
+          const out = await markClusterKept(root, { paths })
+          if (has('--json')) { console.log(JSON.stringify(out, null, 2)); if (!out.ok) process.exitCode = 1; return }
+          if (out.ok) console.log('已记录「都保留」：' + out.recorded + ' 对')
+          else { console.error('失败：' + out.error); process.exitCode = 1 }
+          return
+        }
+        const out = await goalScan(root, { llm: null, limit: Number(argOf('--limit')) || 30 })
+        if (has('--json')) { console.log(JSON.stringify(out, null, 2)); if (!out.ok) process.exitCode = 1; return }
+        console.error('带模型的目标聚类请在 DSH 面板跑：记忆 → 整理 → 🎯 同目标不同做法')
+        console.error('（CLI 可用 --goals --keep --path A --path B 把一组标成"都保留"）')
+        process.exitCode = 1
+        return
+      }
       if (has('--junk')) {
         // 存量「注入垃圾卡」：--junk 列清单；--junk --purge --path <p>（可重复）送回收站
         const { findInjectedCards, purgeInjected } = await import('../lib/refine.js')

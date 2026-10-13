@@ -109,6 +109,57 @@ test('④ 安全联锁：被判为矛盾的对，绝不参与「一键优化」�
   } finally { v.cleanup() }
 })
 
+test('⑦ 同目标聚类：按「解决什么问题」聚合不同做法；目标抽取带缓存、扫描不写卡', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'me-goals-'))
+  try {
+    const cards = [
+      ['用 7z 压缩发布包', 'knowledge', '# 用 7z 压缩发布包\n- 用 7z 把 dist 压到最小，配合 solid 压缩比 tar.gz 小 30%。'],
+      ['用 tar.gz 分发发布包', 'knowledge', '# 用 tar.gz 分发发布包\n- 用 tar.gz 打包分发，保持跨平台可解压，注意排除 node_modules。'],
+      ['每周周报模板', 'content', '# 每周周报模板\n- 本周进展 / 下周计划 / 风险，三段式，控制在 300 字以内。'],
+    ]
+    const paths = []
+    for (const [title, kind, body] of cards) {
+      const r = await writeCard(root, { kind, title, tags: [], body, status: 'pending', submittedBy: 'test' }, { dedup: false })
+      await setCardStatus(root, r.path, 'approved')
+      paths.push(r.path)
+    }
+    const { goalScan, markClusterKept, readGoals } = await import('../lib/refine.js')
+    // 假模型：只看正文里出现了什么做法 → 给"目标"。7z / tar 两卡目标相同（这就是正文相似度抓不到的）
+    const llm = {
+      listProviders: () => [{ id: 'p' }], listModels: async () => [{ id: 'm' }],
+      async *stream(opts) {
+        const s = JSON.stringify(opts)
+        const goal = (/7z|压缩/.test(s) ? '把发布包体积做小' : /tar|分发/.test(s) ? '把发布包体积做小' : '定期汇报进度')
+        yield { type: 'block-start', index: 0, blockType: 'text' }
+        yield { type: 'text-delta', index: 0, text: JSON.stringify({ goal, topic: '发布' }) }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      },
+    }
+    const before = (await listCards(root, { status: ['approved'] })).length
+    const s1 = await goalScan(root, { llm, limit: 10 })
+    assert.equal(s1.ok, true)
+    assert.equal(s1.calls, 3, '三张卡各抽一次目标')
+    assert.equal(s1.clusters.length, 1, '7z 与 tar 应聚成一簇')
+    assert.equal(s1.clusters[0].members.length, 2)
+    assert.equal(s1.clusters[0].goal, '把发布包体积做小')
+    assert.equal((await listCards(root, { status: ['approved'] })).length, before, '聚类**绝不能**动卡片')
+    assert.equal(Object.keys(readGoals(root)).length, 3, '目标要落缓存')
+
+    const s2 = await goalScan(root, { llm, limit: 10 })
+    assert.equal(s2.calls, 0, '第二次扫描应当全走缓存（不再烧 token）')
+    assert.equal(s2.clusters.length, 1)
+
+    await markClusterKept(root, { paths: s1.clusters[0].members.map((m) => m.path) })
+    const s3 = await goalScan(root, { llm, limit: 10 })
+    assert.equal(s3.clusters.length, 0, '判定「都保留」后不再提示')
+    assert.equal(s3.decidedClusters, 1)
+
+    // 拿不到 llm 时如实报错
+    assert.equal((await goalScan(root, {})).ok, false)
+    assert.equal((await markClusterKept(root, { paths: ['only-one'] })).ok, false, '至少两张才叫「一组」')
+  } finally { try { fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }) } catch {} }
+})
+
 test('⑥ 存量注入垃圾卡：能识别、能回收（走回收站），且不误伤正常卡', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'me-junk-'))
   try {

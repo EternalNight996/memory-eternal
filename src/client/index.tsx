@@ -185,6 +185,18 @@ export const ZH = {
   junkRecycleAllConfirm: '确认把这些卡送进回收站？（不是永久删除，可在回收中心还原）',
   junkDone: '已送回收站',
   junkFail: '扫描 / 回收失败',
+  goalTitle: '同目标不同做法',
+  goalScan: '扫描目标',
+  goalHint: '按「这张卡解决什么问题」聚类 —— 正文相似度抓不到的做法差异（7z 压缩 / tar 分发 / npm 瘦身）也能归到一起',
+  goalIdle: '点「扫描目标」：模型先给每张卡抽一句目标（首次会调模型，之后走缓存），再按目标聚类',
+  goalNone: '没有发现「同一目标、多张卡」的簇 🎉',
+  goalStats: '已索引 / 本次调用',
+  goalCards: '张卡',
+  goalKeep: '都保留',
+  goalMerge: '合并这一组',
+  goalMerged: '已提交合并（新卡进审核队列）',
+  goalDone: '已记录「都保留」',
+  goalFail: '目标聚类失败',
   oneClickOptimize: '一键优化',
   oneClickOptimizeConfirm: '确认一键优化？将合并所有相似卡对（默认不清理陈旧卡）。',
   oneClickAlsoStale: '同时清理陈旧卡',
@@ -566,6 +578,18 @@ export const EN = {
   junkRecycleAllConfirm: 'Send these cards to the recycle bin? (Not a permanent delete — recoverable from the recycle center)',
   junkDone: 'Sent to recycle bin',
   junkFail: 'Scan / recycle failed',
+  goalTitle: 'Same goal, different approach',
+  goalScan: 'Scan goals',
+  goalHint: 'Clusters by "what problem does this card solve" — approaches that differ in wording (7z vs tar vs npm slimming) still land together',
+  goalIdle: 'Hit "Scan goals": the model first writes a one-line goal per card (first run calls the model, later runs use the cache), then clusters by goal',
+  goalNone: 'No clusters of "one goal, several cards" found 🎉',
+  goalStats: 'indexed / calls this run',
+  goalCards: 'cards',
+  goalKeep: 'Keep all',
+  goalMerge: 'Merge this group',
+  goalMerged: 'Merge submitted (the new card goes to the audit queue)',
+  goalDone: 'Recorded as "keep all"',
+  goalFail: 'Goal clustering failed',
   oneClickOptimize: 'One-click optimize',
   oneClickOptimizeConfirm: 'Confirm one-click optimize? This will merge all similar pairs (stale cards are NOT deleted by default).',
   oneClickAlsoStale: 'Also clean stale cards',
@@ -2460,6 +2484,41 @@ function LibraryAdmin({ t, tab, onReload, version }) {
     } catch { notify(t('junkFail'), false) }
     finally { setBusy('') }
   }
+  // 「同目标、不同做法」聚类（#36 第三块）：模型先给每张卡抽一句「解决什么问题」（带缓存），再按目标聚类
+  const [goals, setGoals] = useState(null)
+  const scanGoals = useCallback(async () => {
+    setBusy('goals')
+    try {
+      const r = await fetch(API + '/refine-goals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 30 }) }).then((x) => x.json())
+      if (r && r.ok) setGoals(r)
+      else notify((r && r.error) || t('goalFail'), false)
+    } catch { notify(t('goalFail'), false) }
+    finally { setBusy('') }
+  }, [t])
+  const keepCluster = async (c) => {
+    setBusy('goalskeep')
+    try {
+      const r = await fetch(API + '/refine-goals-keep', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paths: c.members.map((m) => m.path) }) }).then((x) => x.json())
+      if (r && r.ok) {
+        notify(t('goalDone'))
+        setGoals((prev) => (prev ? { ...prev, clusters: (prev.clusters || []).filter((z) => z.goal !== c.goal) } : prev))
+      } else { notify(t('goalFail'), false) }
+    } catch { notify(t('goalFail'), false) }
+    finally { setBusy('') }
+  }
+  const mergeCluster = async (c) => {
+    if (!window.confirm(t('mergeConfirm'))) return
+    setBusy('goalsmerge')
+    try {
+      const r = await fetch(API + '/merge?paths=' + encodeURIComponent(c.members.map((m) => m.path).join(','))).then((x) => x.json())
+      if (r && r.ok) {
+        notify(t('goalMerged'))
+        setGoals((prev) => (prev ? { ...prev, clusters: (prev.clusters || []).filter((z) => z.goal !== c.goal) } : prev))
+        await fetchAll(); if (onReload) onReload()
+      } else { notify(t('mergeFail'), false) }
+    } catch { notify(t('mergeFail'), false) }
+    finally { setBusy('') }
+  }
   useEffect(() => { fetchAll() }, [version])
   const doMerge = async (a, b) => {
     if (!window.confirm(t('mergeConfirm'))) return
@@ -2688,6 +2747,27 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                     ))}
                   </ul>
                 ) : <div style={{ opacity: 0.6, fontSize: 12 }}>{junk ? t('junkNone') : t('junkIdle')}</div>}
+              </div>
+              {/* 同目标、不同做法：正文相似度抓不到这种关系（7z 压缩 / tar 分发 / npm 瘦身 字面差很远） */}
+              <div className="mc-card" style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                  <b style={{ fontSize: 12 }}>🎯 {t('goalTitle')}</b>
+                  <button type="button" className="mc-btn" disabled={!!busy} onClick={scanGoals}>{busy === 'goals' ? t('exporting') : t('goalScan')}</button>
+                  {goals ? <span style={{ opacity: 0.6, fontSize: 11 }}>{t('goalStats')}：{goals.cached} / {goals.calls}</span> : null}
+                  <span style={{ opacity: 0.6, fontSize: 11 }}>{t('goalHint')}</span>
+                </div>
+                {goals?.clusters?.length ? goals.clusters.map((c, i) => (
+                  <div key={i} style={{ borderTop: i ? '1px solid rgba(127,127,127,0.14)' : 'none', padding: '7px 2px' }}>
+                    <div style={{ fontSize: 12, marginBottom: 4 }}><b>{c.goal}</b> <span style={{ opacity: 0.55 }}>· {c.members.length} {t('goalCards')}</span></div>
+                    <ul style={{ margin: '0 0 5px', padding: '0 0 0 16px', fontSize: 12, opacity: 0.85 }}>
+                      {c.members.map((m, j) => <li key={j}>{m.title}</li>)}
+                    </ul>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => keepCluster(c)}>{t('goalKeep')}</button>
+                      <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => mergeCluster(c)}>{t('goalMerge')}</button>
+                    </div>
+                  </div>
+                )) : <div style={{ opacity: 0.6, fontSize: 12 }}>{goals ? t('goalNone') : t('goalIdle')}</div>}
               </div>
             </div>
           )}
