@@ -10,6 +10,7 @@
 //   dsh-memory setup [--claude-only|--codex-only|--cursor-only] [--dry-run] [--no-hooks]
 //                                                         自动挂载 MCP 到已装的 agent
 //   dsh-memory sweep <dir>                                挖掘 Claude Code 会话 JSONL
+//   dsh-memory doctor [--vault DIR] [--json]              库健康自检（journal 模式 / 写探针 / 备份清单 / 恢复引导）
 //
 // 环境变量：
 //   MEMORY_VAULT_DIR       vault 目录（默认 ~/.dsh/memory-vault）
@@ -161,6 +162,38 @@ async function main() {
           console.log(`    ⚠ 端口 ${probePort} 上真正服务的是 v${served}（本机 v${st.pkgVersion}）—— 升级尚未生效，执行 dsh-memory restart --port ${probePort}`)
         }
       }
+      return
+    }
+    case 'doctor': {
+      // ⑤ 损坏/不可写时的「引导」（issue #33）：只体检、只列备份、只打印下一步 —— 绝不自动替换/删除数据。
+      const { defaultVaultDir } = await import('../lib/capture-run.js')
+      const { getDb, dbStatus, checkDbHealth, rebuildGuidance } = await import('../lib/db.js')
+      const fsPromises = await import('node:fs/promises')
+      const root = argOf('--vault') ? path.resolve(argOf('--vault')) : defaultVaultDir()
+      let health = null
+      try {
+        const db = getDb(root)                       // 打开即体检（写探针在建表之后跑一次）
+        health = dbStatus(root) || checkDbHealth(db)
+      } catch (e) {
+        health = { journalMode: '', writable: false, error: String((e && e.message) || e), corrupt: /malformed|not a database|corrupt/i.test(String((e && e.message) || e)), checkedAt: Date.now() }
+      }
+      const backupDir = path.join(root, 'backups')
+      const backups = (await fsPromises.readdir(backupDir).catch(() => []))
+        .filter((x) => x.startsWith('memory-eternal-') && x.endsWith('.db')).sort().reverse()
+      const guidance = rebuildGuidance(root, health)
+      if (has('--json')) {
+        console.log(JSON.stringify({ ok: Boolean(health.writable), vault: root, health, backups, guidance }, null, 2))
+        if (!health.writable) process.exitCode = 1
+        return
+      }
+      console.log('记忆核心 · 自检（doctor）')
+      console.log('vault：' + root)
+      console.log('journal_mode：' + (health.journalMode || '（未知）'))
+      console.log('写探针：' + (health.writable ? 'OK（这个库现在可写）' : '失败 → ' + health.error))
+      if (health.corrupt) console.log('损坏判定：疑似文件损坏（见下方引导）')
+      console.log('备份：' + (backups.length ? backups.length + ' 个（最近：' + backups[0] + '）' : '（还没有备份 —— 可在面板或 backupDb 生成）'))
+      if (guidance.length) { console.log(''); for (const line of guidance) console.log('· ' + line) }
+      if (!health.writable) process.exitCode = 1
       return
     }
     case 'stop': {
