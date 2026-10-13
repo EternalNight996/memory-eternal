@@ -160,6 +160,21 @@ export const ZH = {
   mergePairs: '相似卡对（可合并）',
   staleCards: '陈旧卡（>90 天未更新）',
   noOptimize: '暂无可整理项，很健康 🎉',
+  refineTitle: '矛盾扫描',
+  refineScan: '开始扫描',
+  refineHint: '相似可以合并，矛盾必须人判断 —— 扫描只读，选择后才动数据（保留一张会把另一张放进回收站，可还原）',
+  refineIdle: '点「开始扫描」：先宽召回可能有关系的卡片对，再让模型判断是重复 / 补充 / 矛盾 / 无关',
+  refineNone: '这一轮没有发现需要你裁决的卡片对 🎉',
+  refineFail: '矛盾扫描失败',
+  refineApplied: '已记录你的裁决（不会重复打扰）',
+  refineRel_duplicate: '重复（可合并）',
+  refineRel_complement: '补充（都留着）',
+  refineRel_conflict: '矛盾（需你裁决）',
+  refineRel_unrelated: '无关',
+  refineKeepA: '保留 A',
+  refineKeepB: '保留 B',
+  refineKeepBoth: '都保留',
+  refineMerge: '合并',
   oneClickOptimize: '一键优化',
   oneClickOptimizeConfirm: '确认一键优化？将合并所有相似卡对（默认不清理陈旧卡）。',
   oneClickAlsoStale: '同时清理陈旧卡',
@@ -516,6 +531,21 @@ export const EN = {
   mergePairs: 'Similar pairs (mergeable)',
   staleCards: 'Stale (>90d)',
   noOptimize: 'Nothing to organize, healthy 🎉',
+  refineTitle: 'Conflict scan',
+  refineScan: 'Scan now',
+  refineHint: 'Similar cards can be merged; conflicts must be judged by a human — the scan is read-only, and data only moves after you choose (keeping one moves the other to the recycle bin, recoverable)',
+  refineIdle: 'Hit "Scan now": recall possibly-related card pairs, then let the model classify each as duplicate / complement / conflict / unrelated',
+  refineNone: 'No card pairs need your ruling this round 🎉',
+  refineFail: 'Conflict scan failed',
+  refineApplied: 'Your ruling was recorded (it will not ask again)',
+  refineRel_duplicate: 'Duplicate (mergeable)',
+  refineRel_complement: 'Complement (keep both)',
+  refineRel_conflict: 'Conflict (needs your ruling)',
+  refineRel_unrelated: 'Unrelated',
+  refineKeepA: 'Keep A',
+  refineKeepB: 'Keep B',
+  refineKeepBoth: 'Keep both',
+  refineMerge: 'Merge',
   oneClickOptimize: 'One-click optimize',
   oneClickOptimizeConfirm: 'Confirm one-click optimize? This will merge all similar pairs (stale cards are NOT deleted by default).',
   oneClickAlsoStale: 'Also clean stale cards',
@@ -2357,6 +2387,34 @@ function LibraryAdmin({ t, tab, onReload, version }) {
     } catch { setErr(t('adminLoadFail')) }
     finally { setBusy('') }
   }, [t])
+  // 矛盾扫描（#36）：宽召回候选对 → 逐对判别「重复 / 补充 / 矛盾 / 无关」→ **人拍板**
+  // 扫描只读；apply 只做可恢复动作（keepA/keepB 把另一张送回收站），决策会被记住（不再重复打扰）。
+  const [refine, setRefine] = useState(null)
+  const scanRefine = useCallback(async () => {
+    setBusy('refine')
+    try {
+      const r = await fetch(`${API}/refine-scan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 8 }) }).then((x) => x.json())
+      if (r && r.ok) setRefine(r)
+      else notify((r && r.error) || t('refineFail'), false)
+    } catch { notify(t('refineFail'), false) }
+    finally { setBusy('') }
+  }, [t])
+  const applyRefine = async (x, action) => {
+    if (action === 'merge' && !window.confirm(t('mergeConfirm'))) return
+    setBusy('refineapply')
+    try {
+      const r = await fetch(`${API}/refine-apply`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ a: x.a.path, b: x.b.path, action, relation: x.relation }),
+      }).then((y) => y.json())
+      if (r && r.ok) {
+        notify(t('refineApplied'))
+        setRefine((prev) => (prev ? { ...prev, findings: (prev.findings || []).filter((z) => !(z.a.path === x.a.path && z.b.path === x.b.path)) } : prev))
+        await fetchAll(); if (onReload) onReload()
+      } else { notify((r && r.error) || t('refineFail'), false) }
+    } catch { notify(t('refineFail'), false) }
+    finally { setBusy('') }
+  }
   useEffect(() => { fetchAll() }, [version])
   const doMerge = async (a, b) => {
     if (!window.confirm(t('mergeConfirm'))) return
@@ -2542,6 +2600,30 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   </div>
                 </>
               )}
+              {/* 矛盾扫描（#36）：与上面「相似度合并」互补 —— 相似可以合并，**矛盾必须人来判断** */}
+              <div className="mc-card" style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                  <b style={{ fontSize: 12 }}>🧭 {t('refineTitle')}</b>
+                  <button type="button" className="mc-btn" disabled={!!busy} onClick={scanRefine}>{busy === 'refine' ? t('exporting') : t('refineScan')}</button>
+                  <span style={{ opacity: 0.6, fontSize: 11 }}>{t('refineHint')}</span>
+                </div>
+                {refine?.findings?.length ? refine.findings.map((x, i) => (
+                  <div key={i} style={{ borderTop: i ? '1px solid rgba(127,127,127,0.14)' : 'none', padding: '7px 2px' }}>
+                    <div style={{ fontSize: 12, marginBottom: 3 }}>
+                      <span style={{ fontWeight: 700, color: x.relation === 'conflict' ? '#ef4444' : x.relation === 'duplicate' ? '#f59e0b' : '#10b981' }}>{t('refineRel_' + x.relation)}</span>
+                      <span style={{ opacity: 0.55 }}> · sim {x.sim} · {x.useModel || ''}</span>
+                      {x.conflict ? <span style={{ marginLeft: 6 }}>{x.conflict}</span> : null}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 5 }}>A：{x.a.title}<br />B：{x.b.title}</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => applyRefine(x, 'keepA')}>{t('refineKeepA')}</button>
+                      <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => applyRefine(x, 'keepB')}>{t('refineKeepB')}</button>
+                      <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => applyRefine(x, 'keepBoth')}>{t('refineKeepBoth')}</button>
+                      <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => applyRefine(x, 'merge')}>{t('refineMerge')}</button>
+                    </div>
+                  </div>
+                )) : <div style={{ opacity: 0.6, fontSize: 12 }}>{refine ? t('refineNone') : t('refineIdle')}</div>}
+              </div>
             </div>
           )}
         </div>

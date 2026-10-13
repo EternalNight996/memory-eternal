@@ -11,6 +11,7 @@
 //                                                         自动挂载 MCP 到已装的 agent
 //   dsh-memory sweep <dir>                                挖掘 Claude Code 会话 JSONL
 //   dsh-memory doctor [--vault DIR] [--json]              库健康自检（journal 模式 / 写探针 / 备份清单 / 恢复引导）
+//   dsh-memory refine [--vault DIR] [--json]              矛盾扫描候选（不调模型）；--apply --a A --b B --action keepA|keepB|merge|keepBoth 落裁决
 //
 // 环境变量：
 //   MEMORY_VAULT_DIR       vault 目录（默认 ~/.dsh/memory-vault）
@@ -162,6 +163,33 @@ async function main() {
           console.log(`    ⚠ 端口 ${probePort} 上真正服务的是 v${served}（本机 v${st.pkgVersion}）—— 升级尚未生效，执行 dsh-memory restart --port ${probePort}`)
         }
       }
+      return
+    }
+    case 'refine': {
+      // issue #36：矛盾扫描的 CLI 入口。**列候选不调模型、不写库**；裁决可直接落（只做可恢复动作）。
+      const { defaultVaultDir } = await import('../lib/capture-run.js')
+      const { refineCandidates, refineApply, readDecisions } = await import('../lib/refine.js')
+      const root = argOf('--vault') ? path.resolve(argOf('--vault')) : defaultVaultDir()
+      if (has('--apply')) {
+        const out = await refineApply(root, {
+          a: argOf('--a'), b: argOf('--b'), action: argOf('--action'),
+          note: argOf('--note') || '', relation: argOf('--relation') || '',
+        })
+        if (has('--json')) { console.log(JSON.stringify(out, null, 2)); if (!out.ok) process.exitCode = 1; return }
+        if (out.ok) console.log('已记录裁决：' + out.action + (out.removed ? '（' + out.removed + ' 已进回收站，可从回收中心还原）' : ''))
+        else { console.error('失败：' + out.error); process.exitCode = 1 }
+        return
+      }
+      const cands = await refineCandidates(root)
+      const decisions = Object.keys(readDecisions(root)).length
+      // 只出元信息（path/title/kind）—— 正文是给模型判别用的，CLI 里没必要吐 2KB×N
+      const slim = (x) => ({ path: x.path, title: x.title, kind: x.kind })
+      if (has('--json')) { console.log(JSON.stringify({ ok: true, candidates: cands.map((c) => ({ a: slim(c.a), b: slim(c.b), sim: c.sim })), decisions }, null, 2)); return }
+      console.log(`矛盾扫描 · 候选 ${cands.length} 对（已裁决 ${decisions} 对）`)
+      for (const c of cands) console.log(`  sim ${c.sim} · ${c.a.path}  ⇄  ${c.b.path}`)
+      console.log('')
+      console.log('（这一步不调模型、不写库）模型判别「重复 / 补充 / 矛盾 / 无关」请在 DSH 面板：记忆 → 整理 → 🧭 矛盾扫描')
+      console.log('落裁决：dsh-memory refine --apply --a <路径> --b <路径> --action keepA|keepB|merge|keepBoth')
       return
     }
     case 'doctor': {

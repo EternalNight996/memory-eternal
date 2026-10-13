@@ -1052,6 +1052,8 @@ export function apply(ctx, config) {
     beatHostMarker()
     const handleApi = createApi({
       vaultDir, vaultRoots, getSettings: settings.get,
+      // 矛盾扫描（#36）在宿主侧跑模型：这里给它 llm 句柄，独立 web 进程拿不到就会如实报错
+      getLlm: () => ctx.get('llm'),
       // 自动沉淀运行轨迹 + 健康状态：供「用量/今日」页排查「为什么没写卡」，异常时页面顶部亮红。
       getCaptureLog: () => captureLog.slice().reverse(),
       getCaptureHealth: () => health.snapshot(),
