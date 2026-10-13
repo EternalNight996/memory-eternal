@@ -971,8 +971,10 @@ export function apply(ctx, config) {
 
   // 沉淀停滞探测：只有「有轮次在跑」且「管线 15 分钟一个活口都没有」才报（真死才报）。
   // 计数器对不上是常态（子代理轮次、被取消的轮次都不发 turn-stopping），单看计数会误报刷屏。
+  // 本进程开始观察的时刻：用于 stall 判据的「最短运行时长」保护（刚重启必然 0 收尾，不该报警）
+  const stallBaseline = Date.now()
   const stallTimer = setInterval(() => {
-    const { alert, started, stopped, windowMs } = evaluateStall({ claimedAt, stoppedAt, everStopped: turnsStopped })
+    const { alert, started, stopped, windowMs } = evaluateStall({ claimedAt, stoppedAt, everStopped: turnsStopped, processStartedAt: stallBaseline })
     if (alert && !stallAlerted) {
       stallAlerted = true
       // 用 warn 不用 fail：这是「本次运行至今一次收尾都没收到」的**推断**，不该由它把沉淀健康状态

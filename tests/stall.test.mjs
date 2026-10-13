@@ -67,6 +67,17 @@ test('everStopped 可显式注入（宿主用累计计数器，而不是窗口�
   assert.equal(evaluateStall({ claimedAt, stoppedAt: [], now: NOW, everStopped: 0 }).alert, true)
 })
 
+test('刚落进程（0 收尾是必然的）→ 30 分钟内不报（实测：重启 1.5 分钟后就误报过一次）', () => {
+  const claimedAt = [NOW - min(18), NOW - min(12), NOW - min(6), NOW - min(1)]
+  const early = evaluateStall({ claimedAt, stoppedAt: [], now: NOW, everStopped: 0, processStartedAt: NOW - min(2) })
+  assert.equal(early.alert, false)
+  assert.equal(early.reason, 'too-early')
+  // 跑够久仍然 0 收尾 → 才是真的可疑
+  const late = evaluateStall({ claimedAt, stoppedAt: [], now: NOW, everStopped: 0, processStartedAt: NOW - min(90) })
+  assert.equal(late.alert, true)
+  assert.equal(late.reason, 'no-stop-ever')
+})
+
 test('窗口可配：更短的窗口只看最近 5 分钟', () => {
   const claimedAt = [NOW - min(4), NOW - min(3), NOW - min(2)]
   assert.equal(evaluateStall({ claimedAt, stoppedAt: [], now: NOW, windowMs: min(5) }).alert, true)
