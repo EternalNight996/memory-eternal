@@ -197,6 +197,25 @@ for (const remote of remotes) {
   if (!b.ok) problems.push(`${remote} tag ${tag} 未推送成功（${b.out.slice(0, 120)}）→ 重试：git push ${remote} ${tag}`)
 }
 
+// 推完再**实证**每个远端的 tag 指向：Gitee / GitHub 的 Release API 会在 main 还没推上去时
+// 把 tag 建在"当时的 main"上（实测踩过三次：gitee v0.10.19/20/21、origin v0.10.22 —— 都是
+// "Release 创建成功"但其实指向旧提交）。这里逐个核对 peeled 提交，不一致就强制修正并如实报告。
+const headSha = run('git', ['rev-parse', 'HEAD']).out
+for (const remote of remotes) {
+  if (DRY) continue
+  const ls = run('git', ['ls-remote', remote, `refs/tags/${tag}*`], { allowFail: true })
+  if (!ls.ok) { problems.push(`${remote} tag ${tag} 无法核对（${ls.out.slice(0, 120)}）`); continue }
+  const peeled = (ls.out.split(/\r?\n/).find((l) => l.includes('^{}')) || '').split(/\s+/)[0] || ''
+  if (!peeled) { problems.push(`${remote} 上找不到 tag ${tag} → 重试：git push ${remote} ${tag}`); continue }
+  if (peeled !== headSha) {
+    const fix = run('git', ['push', '--force', remote, tag], { allowFail: true })
+    say(`${remote}: tag ${tag} 原指向 ${peeled.slice(0, 7)}（≠ HEAD ${headSha.slice(0, 7)}）→ ${fix.ok ? '已强制修正' : '修正失败：' + fix.out.slice(0, 120)}`)
+    if (!fix.ok) problems.push(`${remote} tag ${tag} 指向错误且修正失败 → 重试：git push --force ${remote} ${tag}`)
+  } else {
+    say(`${remote}: tag ${tag} → ${headSha.slice(0, 7)} ✓`)
+  }
+}
+
 // ---- 5. GitHub Release ---------------------------------------------------
 step(5, 'GitHub Release')
 if (DRY) say(`[dry-run] 将执行：gh release create ${tag} --title … --notes-file …`)

@@ -16,6 +16,14 @@ test('npm 发布必须用 version 端点实证（不信 publish 的 stdout，也
   assert.match(src, /throw new Error\(\`npm 上查不到/, '查不到就必须报错，不许打印"完成"')
 })
 
+test('推完必须核对每个远端的 tag 指向 HEAD（Release API 会把 tag 建在旧 main 上）', () => {
+  assert.match(src, /const headSha = run\('git', \['rev-parse', 'HEAD'\]\)\.out/, '要拿到 HEAD')
+  assert.match(src, /refs\/tags\/\$\{tag\}\*/, '要逐个远端查 tag')
+  assert.match(src, /const peeled = \(ls\.out\.split/, '要看 peeled 提交（annotated tag 的真实指向）')
+  assert.match(src, /git push --force/, '不一致要强制修正')
+  assert.match(src, /tag \$\{tag\} → \$\{headSha\.slice\(0, 7\)\} ✓/, '一致也要打一行 ✓（可核对）')
+})
+
 test('推送 / Release 失败必须汇总并让退出码非零（不许淹没在"完成"里）', () => {
   assert.match(src, /const problems = \[\]/, '要有问题清单')
   assert.match(src, /if \(!a\.ok\) problems\.push/, 'main 推失败要记下来')
