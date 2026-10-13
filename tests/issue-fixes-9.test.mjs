@@ -66,6 +66,40 @@ test('④ /overview 库不可用时降级（200 + dbError + 身份字段），�
   assert.match(read('bin/dsh-memory.mjs'), /case 'doctor': \{/, '要有 doctor 自检入口（库健康 + 备份清单 + 引导）')
 })
 
+test('③ 锁文件可写性探测：能写 / 写不进去都要如实报（#33 第③层）', async () => {
+  const { probeLockWritable } = await import('../lib/watchdog.js')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'me-lock-'))
+  try {
+    const ok = probeLockWritable({ DSH_HOME: dir })
+    assert.equal(ok.writable, true, '正常目录应当可写')
+    assert.match(ok.path, /memory-eternal-watchdog\.json$/)
+    assert.deepEqual(fs.readdirSync(dir).filter((x) => x.includes('me-lock-probe')), [], '探测不能留下垃圾文件')
+    // 把「父路径」做成文件 → mkdir/写必然失败，模拟受限环境
+    const blocked = path.join(dir, 'afile')
+    fs.writeFileSync(blocked, 'x')
+    const bad = probeLockWritable({ DSH_HOME: path.join(blocked, 'sub') })
+    assert.equal(bad.writable, false, '写不进去必须被发现（老实现静默吞掉 → 面板显示「未托管」）')
+    assert.ok(bad.error.length > 0, '要带上真实原因，供 doctor / 面板显示')
+  } finally { try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }) } catch {} }
+})
+
+test('③ 三态托管 + 库不可写的统一 UX（源码守卫）', () => {
+  const api = read('lib/api.js')
+  assert.match(api, /const lockInfo = probeLockWritable\(process\.env\)/, 'version-check 要探测锁可写性')
+  assert.match(api, /const managedKnown = residentManaged \|\| lockInfo\.writable/, '导出三态：被托管 / 确实没托管 / 判不出来')
+  assert.match(api, /managedKnown,/, 'resident 里要带上 managedKnown')
+  assert.match(api, /pid: process\.pid,/, '要报出服务进程 pid（受限环境下不依赖 OS 枚举认领实例）')
+  assert.match(api, /const DB_WRITE_ROUTES = /, '写路由要在入口短路径失败')
+  assert.match(api, /code: 'DB_UNAVAILABLE'/, '要给出可识别的错误码')
+  assert.match(api, /配置仍可保存/, '要说清「配置仍可保存」')
+  assert.match(read('lib/watchdog.js'), /lockWarned/, '锁写失败不许再全静默（留一条可查的痕）')
+  assert.match(read('bin/dsh-memory.mjs'), /看门狗锁：/, 'doctor 要报告锁可写性')
+  const client = read('src/client/index.tsx')
+  assert.match(client, /residentLockUnknown/, '面板要区分「判不出来」与「未托管」')
+  assert.match(client, /dbReadonlyTitle/, '库不可写要有顶部明示')
+  assert.equal((client.match(/dbReadonlyTitle:/g) || []).length, 2, '中英词条各一条')
+})
+
 test('刻意不做的那两件：不许偷偷加 busy_timeout / WAL 自动降级（评审结论已记录）', () => {
   const db = read('lib/db.js')
   assert.doesNotMatch(db, /busy_timeout/i, 'DatabaseSync 是同步 API，busy_timeout 会阻塞事件循环 → 未经实测不得加')

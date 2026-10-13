@@ -185,6 +185,9 @@ export const ZH = {
   junkRecycleAllConfirm: '确认把这些卡送进回收站？（不是永久删除，可在回收中心还原）',
   junkDone: '已送回收站',
   junkFail: '扫描 / 回收失败',
+  dbReadonlyTitle: '记忆库当前不可写',
+  dbReadonlyBody: '卡片读写 / 审核 / 图谱会失败，但**配置仍可保存**（配置不经过数据库）',
+  dbReadonlyFix: '排查：dsh-memory doctor（看 journal 模式、写探针、备份清单与恢复步骤）',
   goalTitle: '同目标不同做法',
   goalScan: '扫描目标',
   goalHint: '按「这张卡解决什么问题」聚类 —— 正文相似度抓不到的做法差异（7z 压缩 / tar 分发 / npm 瘦身）也能归到一起',
@@ -332,6 +335,8 @@ export const ZH = {
   vcResidentDown: '常驻实例没在运行（端口 {port} 无响应）—— 点下面的按钮用新代码把它拉起来；拉不起来时执行 {cmd}，并贴一下 dsh-memory status 的输出',
   vcResidentUnmanagedShort: '未托管',
   vcResidentUnmanaged: '常驻实例在服务 v{served}，但**没有看门狗保活**（停止 / 硬杀后残留的孤儿）—— 点下面的按钮把它重新托管（重新拉一个看门狗 + 新实例）；也可以执行 {cmd}',
+  vcResidentLockUnknownShort: '托管状态未知',
+  vcResidentLockUnknown: '常驻实例在服务 v{served}，但**看门狗锁文件写不进去**（受限环境：沙箱禁写 / ACL / 非系统盘）→ 无法判断它有没有被托管（不是「未托管」）。原因：{err}（{path}）。保活通常仍然有效；点下面的按钮可用新代码重新托管一次。',
   vcOutdated: '有新版本',
   vcUpToDate: '已是最新',
   vcCheck: '检查更新',
@@ -578,6 +583,9 @@ export const EN = {
   junkRecycleAllConfirm: 'Send these cards to the recycle bin? (Not a permanent delete — recoverable from the recycle center)',
   junkDone: 'Sent to recycle bin',
   junkFail: 'Scan / recycle failed',
+  dbReadonlyTitle: 'The memory database is currently not writable',
+  dbReadonlyBody: 'Card reads/writes, auditing and the graph will fail, but **settings can still be saved** (they do not go through the database)',
+  dbReadonlyFix: 'Diagnose with: dsh-memory doctor (journal mode, write probe, backups and recovery steps)',
   goalTitle: 'Same goal, different approach',
   goalScan: 'Scan goals',
   goalHint: 'Clusters by "what problem does this card solve" — approaches that differ in wording (7z vs tar vs npm slimming) still land together',
@@ -725,6 +733,8 @@ export const EN = {
   vcResidentDown: 'The resident instance is not running (no response on port {port}) — use the button below to bring it up on the new code; if that fails run {cmd} and share the output of dsh-memory status',
   vcResidentUnmanagedShort: 'unmanaged',
   vcResidentUnmanaged: 'The resident instance serves v{served} but has **no watchdog keeping it alive** (an orphan left by a stop or a hard kill) — use the button below to put it back under management (a fresh watchdog plus a new instance), or run {cmd}',
+  vcResidentLockUnknownShort: 'management unknown',
+  vcResidentLockUnknown: 'The resident instance serves v{served}, but the **watchdog lock file cannot be written** (restricted environment: sandbox, ACLs, non-system drive) → whether it is managed cannot be determined (this is not "unmanaged"). Cause: {err} ({path}). Keep-alive usually still works; the button below can put it back under management on the new code.',
   vcPage: 'Page script',
   vcPageStale: '⚠ This page is still running an older script (page v{page} / disk v{disk}): press Ctrl+F5 to refresh. If the running version is still old, restart the desktop app / DSH as well',
   vcOutdated: 'update available',
@@ -1496,6 +1506,14 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
           </button>
         </div>
         <div className="mc-main" ref={mainRef}>
+        {/* 库不可写（#33）：跨标签明示一次，并说清"配置仍可保存"，避免用户以为整个插件坏了。
+            详情与恢复步骤来自 /overview 的 db 字段（0.10.21 起返回）。 */}
+        {overview && overview.db && overview.db.writable === false ? (
+          <div style={{ margin: '8px 10px 0', padding: '8px 12px', borderRadius: 8, fontSize: 12, lineHeight: 1.7, background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: '#b91c1c' }}>
+            ⚠️ {t('dbReadonlyTitle')}：{overview.db.error || '—'} —— {t('dbReadonlyBody')}
+            <div style={{ opacity: 0.85, marginTop: 2 }}>{t('dbReadonlyFix')}</div>
+          </div>
+        ) : null}
         {view === 'cards' && (
         <div className="mc-stats">
           <StatCell label={t('total')} value={overview ? overview.total : '—'} />
@@ -1669,9 +1687,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 都不显示**（vc.stale 为假），用户只看到一条「自动沉淀异常」，找不到能点的东西（实测 #28）。
   // 没在跑（无响应）**或**在跑但没人托管（看门狗被 stop / 被 kill -9 后残留的孤儿 —— 版本号可能还是新的，
   // 但没人保活、也不会被后续升级替换）。后者只有新宿主会报（旧宿主没有 resident.managed 字段，不会误报）。
-  const residentUnmanaged = Boolean(vc && vc.resident && vc.resident.managed === false)
+  // 三态（#33 第③层）：被托管 / 确实没被托管 / **判不出来**（受限环境写不进看门狗锁文件）。
+  // 判不出来时若照旧显示「未托管」，用户会以为实例坏了、反复重启 —— 这里单独说出来并解释原因。
+  const residentLockUnknown = Boolean(vc && vc.resident && vc.resident.managed === false && vc.resident.managedKnown === false)
+  const residentUnmanaged = Boolean(vc && vc.resident && vc.resident.managed === false && !residentLockUnknown)
   const residentDown = Boolean(vc && vc.resident && !residentServed)
-  const residentNeedsRestart = residentStale || residentDown || residentUnmanaged
+  const residentNeedsRestart = residentStale || residentDown || residentUnmanaged || residentLockUnknown
   // 词条带 {placeholder} 填充（本项目 t 为词典直查，不含参数替换）
   const tf = (k, map) => Object.keys(map).reduce((s, kk) => s.split('{' + kk + '}').join(map[kk]), t(k))
   const load = useCallback(async () => {
@@ -1892,7 +1913,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <code style={{ ...vcChip, color: '#b45309', fontWeight: 600 }}>{t('vcResident')} {t('vcResidentDownShort')}</code>
               )}
               {vc && vc.resident && vc.resident.served && vc.resident.managed === false && (
-                <code style={{ ...vcChip, color: '#b45309', fontWeight: 600 }}>{t('vcResident')} v{vc.resident.served} · {t('vcResidentUnmanagedShort')}</code>
+                <code style={{ ...vcChip, color: '#b45309', fontWeight: 600 }}>{t('vcResident')} v{vc.resident.served} · {residentLockUnknown ? t('vcResidentLockUnknownShort') : t('vcResidentUnmanagedShort')}</code>
               )}
               {CLIENT_VERSION && <code style={vcChip}>{t('vcPage')} v{CLIENT_VERSION}</code>}
               {vc && vc.onDisk && <code style={vcChip}>{t('vcOnDisk')} v{vc.onDisk}</code>}
@@ -1901,13 +1922,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <div style={{ flex: 1 }} />
               <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
             </div>
-            {vc && (vc.stale || residentDown || residentUnmanaged) && (
+            {vc && (vc.stale || residentDown || residentUnmanaged || residentLockUnknown) && (
               <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>
                 <div>⚠️ {vc.stale
                   ? tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })
                   : residentDown
                     ? tf('vcResidentDown', { port: (vc.resident && vc.resident.port) || '', cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })
-                    : tf('vcResidentUnmanaged', { served: residentServed, cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })}</div>
+                    : residentLockUnknown
+                      ? tf('vcResidentLockUnknown', { served: residentServed, path: (vc.resident && vc.resident.lock && vc.resident.lock.path) || '', err: (vc.resident && vc.resident.lock && vc.resident.lock.error) || '' })
+                      : tf('vcResidentUnmanaged', { served: residentServed, cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })}</div>
                 {residentNeedsRestart ? (
                   /* 一键修复：常驻 web 比 DSH 活得久，重启 DSH 换不掉它（issue #19/#23） */
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>

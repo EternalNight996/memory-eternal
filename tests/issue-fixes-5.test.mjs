@@ -79,9 +79,9 @@ test('宿主侧：/web-info 实时收敛 + 记忆库页走同源壳（源码守�
 test('#28 姊妹现场：常驻实例**没在跑**时也必须给重启按钮 + 明确文案，而且不许记成 fail', () => {
   const client = read('src/client/index.tsx')
   assert.match(client, /const residentDown = Boolean\(vc && vc\.resident && !residentServed\)/, '要识别「常驻实例没在跑」')
-  assert.match(client, /const residentUnmanaged = Boolean\(vc && vc\.resident && vc\.resident\.managed === false\)/, '还要识别「在跑但没人托管」')
-  assert.match(client, /const residentNeedsRestart = residentStale \|\| residentDown \|\| residentUnmanaged/, '没在跑 / 没托管都要算「需要重启」')
-  assert.match(client, /vc && \(vc\.stale \|\| residentDown \|\| residentUnmanaged\) && \(/, '横幅显示条件要把这三种都纳入（否则整个横幅都不渲染）')
+  assert.match(client, /const residentUnmanaged = Boolean\(vc && vc\.resident && vc\.resident\.managed === false && !residentLockUnknown\)/, '还要识别「在跑但没人托管」（0.10.25 起与「判不出来」区分开）')
+  assert.match(client, /const residentNeedsRestart = residentStale \|\| residentDown \|\| residentUnmanaged \|\| residentLockUnknown/, '没在跑 / 没托管 / 判不出来都要算「需要重启」')
+  assert.match(client, /vc && \(vc\.stale \|\| residentDown \|\| residentUnmanaged \|\| residentLockUnknown\) && \(/, '横幅显示条件要把这四种都纳入（含「判不出来」，否则整个横幅都不渲染）')
   assert.match(client, /vcResidentDown:/, '要有「常驻实例没在运行」的专门文案')
   assert.match(client, /vcResidentUnmanaged:/, '要有「在服务但没托管」的专门文案')
   assert.equal((client.match(/vcResidentUnmanaged:/g) || []).length, 2, '中英词条各一条')

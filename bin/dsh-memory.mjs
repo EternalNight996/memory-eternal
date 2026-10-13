@@ -247,12 +247,16 @@ async function main() {
       } catch (e) {
         health = { journalMode: '', writable: false, error: String((e && e.message) || e), corrupt: /malformed|not a database|corrupt/i.test(String((e && e.message) || e)), checkedAt: Date.now() }
       }
+      // 看门狗锁文件可写性（#33 第③层）：受限环境写不进去时，「是否被托管」将无法判断 —— 说清楚，
+      // 免得用户把「判不出来」读成「未托管 / 实例坏了」。
+      const { probeLockWritable } = await import('../lib/watchdog.js')
+      const lockInfo = probeLockWritable()
       const backupDir = path.join(root, 'backups')
       const backups = (await fsPromises.readdir(backupDir).catch(() => []))
         .filter((x) => x.startsWith('memory-eternal-') && x.endsWith('.db')).sort().reverse()
       const guidance = rebuildGuidance(root, health)
       if (has('--json')) {
-        console.log(JSON.stringify({ ok: Boolean(health.writable), vault: root, health, backups, guidance }, null, 2))
+        console.log(JSON.stringify({ ok: Boolean(health.writable), vault: root, health, lock: lockInfo, backups, guidance }, null, 2))
         if (!health.writable) process.exitCode = 1
         return
       }
@@ -261,6 +265,7 @@ async function main() {
       console.log('journal_mode：' + (health.journalMode || '（未知）'))
       console.log('写探针：' + (health.writable ? 'OK（这个库现在可写）' : '失败 → ' + health.error))
       if (health.corrupt) console.log('损坏判定：疑似文件损坏（见下方引导）')
+      console.log('看门狗锁：' + (lockInfo.writable ? '可写（' + lockInfo.path + '）' : '**写不进去** → ' + lockInfo.error + '（' + lockInfo.path + '）—— 保活一般仍有效，但「是否被托管」将无法判断'))
       console.log('备份：' + (backups.length ? backups.length + ' 个（最近：' + backups[0] + '）' : '（还没有备份 —— 可在面板或 backupDb 生成）'))
       if (guidance.length) { console.log(''); for (const line of guidance) console.log('· ' + line) }
       if (!health.writable) process.exitCode = 1
