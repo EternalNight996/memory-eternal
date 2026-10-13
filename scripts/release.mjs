@@ -48,6 +48,28 @@ const NPM = (() => {
   return hit ? { cmd: process.execPath, args: [hit] } : { cmd: 'npm.cmd', args: [] }
 })()
 
+/** 未完成的发布动作（推送失败 / Release 失败）：最后汇总，并让退出码非零 —— 绝不淹没在"完成"里。 */
+const problems = []
+
+/**
+ * npm 上真的存在这个版本吗？**只信 version 端点**。
+ * 教训（0.10.21 实测）：本地 packument 缓存会说"没有"（`npm view` 404），边缘缓存又会说"有"
+ * （`GET /memory-eternal` 的 versions 里查不到）—— 只有 `/memory-eternal/<版本>` 与 tarball URL 靠谱。
+ */
+const npmHasVersion = async (v) => {
+  try {
+    const r = await fetch(`https://registry.npmjs.org/memory-eternal/${v}`, { cache: 'no-store' })
+    return r.status === 200
+  } catch { return false }
+}
+const waitNpmVersion = async (v, { tries = 12, delayMs = 5000 } = {}) => {
+  for (let i = 0; i < tries; i++) {
+    if (await npmHasVersion(v)) return true
+    await new Promise((r) => setTimeout(r, delayMs))
+  }
+  return false
+}
+
 const run = (cmd, argv, { cwd = ROOT, allowFail = false } = {}) => {
   // Windows 上 npm 只是 .cmd 垫片：execFileSync('npm', …) 直接 ENOENT（Node ≥18 起 spawn
   // .cmd 还要 shell:true，而 shell 拼参数对含空格/中文的 tag 与说明不安全）。所以优先用
@@ -130,15 +152,23 @@ step(3, 'npm publish')
 if (SKIP_NPM) {
   say('（已跳过）')
 } else {
-  const already = run('npm', ['view', `memory-eternal@${pkg.version}`, 'version'], { allowFail: true })
-  if (already.ok && already.out.includes(pkg.version)) {
-    say(`npm 上已存在 ${pkg.version}，跳过发布`)
-  } else if (DRY) {
+  if (DRY) {
     say(`[dry-run] 将执行：npm publish --access public（${pkg.version}）`)
   } else {
-    const r = run('npm', ['publish', '--access public'], { allowFail: true })
-    if (!r.ok) throw new Error(`npm publish 失败（2FA / 网络 / 版本冲突？）：\n${r.out}`)
-    say(`npm publish 完成：memory-eternal@${pkg.version}`)
+    const published = await npmHasVersion(pkg.version)
+    if (published) {
+      say(`npm 上已存在 ${pkg.version}，跳过发布`)
+    } else {
+      const r = run('npm', ['publish', '--access public'], { allowFail: true })
+      if (!r.ok) throw new Error(`npm publish 失败（2FA / 网络 / 版本冲突？）：\n${r.out}`)
+      say(`npm publish 已执行：memory-eternal@${pkg.version}（等待 registry 可见…）`)
+    }
+    // **不信 stdout，只信 registry**：publish 返回 0 不代表包真的上去了（0.10.21 实测：
+    // 本地 packument/npm view 缓存会假装没有，边缘缓存又会假装有）—— 用 version 端点实证。
+    if (!(await waitNpmVersion(pkg.version))) {
+      throw new Error(`npm 上查不到 ${pkg.version}（version 端点超时）：发布可能未生效，请手动 \`npm publish --access public\` 后复核 https://registry.npmjs.org/memory-eternal/${pkg.version}`)
+    }
+    say(`npm 校验通过：https://registry.npmjs.org/memory-eternal/${pkg.version} → 200`)
   }
 }
 
@@ -160,6 +190,10 @@ for (const remote of remotes) {
   const a = run('git', ['push', remote, 'main'], { allowFail: true })
   const b = run('git', ['push', remote, tag], { allowFail: true })
   say(`${remote}: main ${a.ok ? '✓' : '✗ ' + a.out.slice(0, 200)} | tag ${b.ok ? '✓' : '✗ ' + b.out.slice(0, 200)}`)
+  // 推失败绝不能被"完成"淹没（0.10.18 实测：origin main 没上去、只有 tag 上去了，
+  // 而脚本照样打印完成 —— 用户按 GitHub main 安装就会拿到旧版）。记进问题清单。
+  if (!a.ok) problems.push(`${remote} main 未推送成功（${a.out.slice(0, 120)}）→ 重试：git push ${remote} main`)
+  if (!b.ok) problems.push(`${remote} tag ${tag} 未推送成功（${b.out.slice(0, 120)}）→ 重试：git push ${remote} ${tag}`)
 }
 
 // ---- 5. GitHub Release ---------------------------------------------------
@@ -174,6 +208,7 @@ else {
   } else {
     const r = run('gh', ['release', 'create', tag, '--repo', 'EternalNight996/memory-eternal', '--title', title, '--notes-file', notesPath], { allowFail: true })
     say(r.ok ? `GitHub Release 创建成功：${r.out}` : `GitHub Release 失败：${r.out.slice(0, 300)}`)
+    if (!r.ok) problems.push('GitHub Release 创建失败 → 重试：gh release create ' + tag)
   }
 }
 
@@ -207,12 +242,18 @@ if (!giteeToken) {
     })
     const text = await res.text()
     if (res.ok) say(`Gitee Release 创建成功：${tag}`)
-    else say(`⚠ Gitee Release 失败（HTTP ${res.status}）：${text.slice(0, 300)}`)
+    else { say(`⚠ Gitee Release 失败（HTTP ${res.status}）：${text.slice(0, 300)}`); problems.push('Gitee Release 创建失败（HTTP ' + res.status + '）') }
   }
 }
 
 // ---- 7. 汇总 ------------------------------------------------------------
 step(7, `完成${DRY ? '（dry-run，未写任何远端）' : ''}`)
 say(`版本 ${pkg.version} | tag ${tag}`)
+if (problems.length) {
+  say('')
+  say('⚠ 有未完成的发布动作（**不要当作已发布完成**）：')
+  for (const x of problems) say('  · ' + x)
+  process.exitCode = 1   // 让脚本/CI 能发现"三端没齐"
+}
 say('提醒：桌面版用户需 `cd ~/.dsh/profiles/desktop && pnpm update memory-eternal` 后重启 DSH；')
 say('      dsh web 用户需 `cd ~/.dsh/profiles/web && pnpm add memory-eternal@' + pkg.version + '`。')
