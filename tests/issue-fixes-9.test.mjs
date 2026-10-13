@@ -100,8 +100,44 @@ test('③ 三态托管 + 库不可写的统一 UX（源码守卫）', () => {
   assert.equal((client.match(/dbReadonlyTitle:/g) || []).length, 2, '中英词条各一条')
 })
 
+test('撞锁用「应用层异步重试」而不是 busy_timeout（评审：同步忙等会卡住事件循环）', async () => {
+  const { withDbRetry, isDbBusyError } = await import('../lib/db.js')
+  assert.equal(isDbBusyError(new Error('database is locked')), true)
+  assert.equal(isDbBusyError(new Error('SQLITE_BUSY: database is locked')), true)
+  assert.equal(isDbBusyError(new Error('no such column: mtime')), false, '数据/语法错误不该被当成"忙"')
+
+  // 重试到成功
+  let n = 0
+  const out = await withDbRetry(async () => { n += 1; if (n < 3) throw new Error('database is locked'); return 'ok' }, { tries: 5, delayMs: 1 })
+  assert.equal(out, 'ok')
+  assert.equal(n, 3, '应当重试到成功为止')
+
+  // 非忙错误立刻抛（不浪费重试）
+  let m = 0
+  await assert.rejects(() => withDbRetry(async () => { m += 1; throw new Error('no such table: cards') }, { tries: 5, delayMs: 1 }))
+  assert.equal(m, 1, '非忙错误只试一次')
+
+  // 显式禁止重试（响应已发出）
+  let k = 0
+  await assert.rejects(() => withDbRetry(async () => { k += 1; const e = new Error('database is locked'); e.noRetry = true; throw e }, { tries: 5, delayMs: 1 }))
+  assert.equal(k, 1)
+
+  // 试满仍失败 → 抛最后一次
+  let j = 0
+  await assert.rejects(() => withDbRetry(async () => { j += 1; throw new Error('database is locked') }, { tries: 3, delayMs: 1 }))
+  assert.equal(j, 3)
+
+  const api = read('lib/api.js')
+  assert.match(api, /withDbRetry\(async \(\) => \{/, '写路由要接上重试')
+  assert.match(api, /e\.noRetry = true/, '响应已发出时禁止重试')
+  assert.match(api, /import \{ backupDb, dbStatus, rebuildGuidance, withDbRetry \} from '\.\/db\.js'/, '要从 db.js 引入')
+})
+
 test('刻意不做的那两件：不许偷偷加 busy_timeout / WAL 自动降级（评审结论已记录）', () => {
   const db = read('lib/db.js')
-  assert.doesNotMatch(db, /busy_timeout/i, 'DatabaseSync 是同步 API，busy_timeout 会阻塞事件循环 → 未经实测不得加')
+  // 只禁「真的去设 PRAGMA busy_timeout」（注释里可以提它 —— 新代码正是靠注释解释为什么不用它）
+  // 只禁「真的去执行/设置 busy_timeout」（注释里解释"为什么不用它"是允许且必要的）
+  assert.doesNotMatch(db, /exec\([^)]*busy_timeout|PRAGMA\s+busy_timeout\s*=|busy_timeout\s*=\s*\d/i, 'DatabaseSync 是同步 API，busy_timeout 忙等会阻塞事件循环 → 未经实测不得加')
+  assert.match(db, /withDbRetry/, '撞锁要走应用层异步重试')
   assert.doesNotMatch(db, /journal_mode=DELETE|journal_mode = DELETE/, '不得自动把库降级成 rollback journal（会永久改库模式且并发更差）')
 })
