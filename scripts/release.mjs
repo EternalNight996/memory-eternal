@@ -62,7 +62,8 @@ const npmHasVersion = async (v) => {
     return r.status === 200
   } catch { return false }
 }
-const waitNpmVersion = async (v, { tries = 12, delayMs = 5000 } = {}) => {
+// 实测：这个 registry 的 version 端点偶尔要 2 分钟才可见（0.10.22 就因为 60s 超时中断过一次发布）→ 给足 3 分钟
+const waitNpmVersion = async (v, { tries = 36, delayMs = 5000 } = {}) => {
   for (let i = 0; i < tries; i++) {
     if (await npmHasVersion(v)) return true
     await new Promise((r) => setTimeout(r, delayMs))
