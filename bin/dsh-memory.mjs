@@ -153,11 +153,17 @@ async function main() {
       if (has('--json')) { console.log(JSON.stringify({ ok: true, ...st, servedPort: probePort, servedVersion: served, portOccupant: occupant, portOccupantIsOurs: oursNoVersion }, null, 2)); return }
       console.log(`锁文件：${st.lockPath}`)
       console.log(`本机包版本：${st.pkgVersion || '?'}`)
+      // issue #30：报告者指出旧输出把「端口探测」与「锁登记」并列，读起来像「端口上是旧版」。
+      // 两者是**两个独立来源**，必须显式分段标注，否则会把人引向错误的排查方向。
+      console.log('')
+      console.log('— 端口探测（直接问端口上那个进程，最可靠）—')
       if (probePort) {
         if (served) console.log(`端口 ${probePort} 实际服务版本：${served}`)
         else if (oursNoVersion) console.log(`端口 ${probePort} 上跑的是本插件的 web（pid ${occupant.pid}），但它不会自报版本 —— 说明是 v0.10.4 之前的旧版，升级尚未生效 → 执行 dsh-memory restart --port ${probePort}`)
         else console.log(`端口 ${probePort} 上没有本插件的服务在响应${occupant && occupant.pid ? `（被 pid ${occupant.pid} 占用：${occupant.command || '命令行未知'}）` : ''}`)
       }
+      console.log('')
+      console.log('— 锁登记（看门狗自己写的记录，可能滞后/陈旧）—')
       if (!st.watchdogs.length) { console.log('锁文件里没有登记的看门狗（没有常驻实例）。'); return }
       for (const w of st.watchdogs) {
         console.log(`- pid ${w.pid} · 端口 ${w.port} · ${w.alive ? '运行中' : '已退出（陈旧记录）'}${w.pkgVersion ? ' · v' + w.pkgVersion : ''}${w.startedAt ? ' · 启动于 ' + w.startedAt : ''}${w.vault ? ' · vault ' + w.vault : ''}`)

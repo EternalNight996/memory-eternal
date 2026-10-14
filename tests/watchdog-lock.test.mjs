@@ -42,7 +42,15 @@ test('兼容早期单槽格式；释放只清自己那一槽', async () => {
   assert.equal(slots()[0].pid, process.ppid, '旧格式要能被读成单槽')
   assert.equal(releaseWatchdogLock({ env, pid: process.pid }), false, '不是自己写的不该动')
   assert.equal(releaseWatchdogLock({ env, pid: process.ppid }), true)
-  assert.deepEqual(slots(), [])
+  // issue #30：释放不再删除锁文件，而是留一个 endedAt 标记的槽 —— 否则一次失败的重启看起来
+  // 像'从来没有过常驻实例'，而端口上的 web 还在跑（现场无法复盘）。
+  const left = slots()
+  assert.equal(left.length, 1, '文件保留，留一条已结束的记录')
+  assert.equal(left[0].pid, process.ppid)
+  assert.ok(left[0].endedAt, '要带 endedAt 时间戳')
+  // 下一次 acquire 会把这条已结束的记录正常回收
+  assert.equal(acquireWatchdogLock({ env, port: 8200, pid: process.pid }).acquired, true)
+  assert.deepEqual(slots().map((w) => w.pid), [process.pid])
 })
 
 test('parseWatchdogProcesses：POSIX 与 Windows 输出都能解析，且只认 watchdog.js', () => {

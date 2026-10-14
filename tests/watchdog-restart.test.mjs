@@ -195,11 +195,29 @@ test('waitForTakeover：端口版本对得上、但没有**新**看门狗接管 
 /** 只认死 pid 的 isAlive/kill：防止单测碰到真进程。 */
 const inertDeps = (listener) => ({
   findListener: async () => listener,
+  // issue #30 起，clearResidentForTakeover 会用 TCP 复核「端口到底空没空」（枚举不到时不再瞎猜）。
+  // 单测里必须把它也注掉，否则会去问本机真实的 7999（开发机上正跑着实例）。
+  probeTcp: async () => false,
   kill: () => true,
   isAlive: () => false,
   sleep: async () => {},
 })
 
+test('#30 回归：锁文件写不进去 → restart 前置拒绝（不许留下无法登记的孤儿）', async () => {
+  let spawned = false
+  const out = await restartResident({
+    port: 7999, env: { DSH_HOME: path.join(tmp, 'lock-blocked') }, expectVersion: '0.10.6',
+    deps: {
+      spawnHelper: () => { spawned = true; return { pid: 1 } },
+      probeLockWritable: () => ({ writable: false, path: 'D:/x/memory-eternal-watchdog.json', error: 'EPERM: operation not permitted' }),
+    },
+  })
+  assert.equal(out.ok, false)
+  assert.equal(out.stage, 'lock-unwritable')
+  assert.match(out.error, /锁文件写不进去/)
+  assert.match(out.error, /watchdog --port 7999/, '要给出前台观察的出路')
+  assert.equal(spawned, false, '既然无法登记，就一个助手都不许拉起来')
+})
 test('clearResidentForTakeover：清掉陈旧锁槽并确认端口空出来', async () => {
   const envC = { DSH_HOME: path.join(tmp, 'takeover-ok') }
   acquireWatchdogLock({ env: envC, port: 7999, pid: await deadPid(), pkgVersion: '0.10.0' })
@@ -208,6 +226,49 @@ test('clearResidentForTakeover：清掉陈旧锁槽并确认端口空出来', as
   assert.deepEqual(readWatchdogLock(envC).watchdogs, [], '陈旧锁槽要被清掉')
 })
 
+test('#30 回归：枚举不到占用者时**不能**误判端口已空（TCP 复核说话，且一个登记都不动）', async () => {
+  const envC = { DSH_HOME: path.join(tmp, 'takeover-unidentified') }
+  const killed = []
+  const before = acquireWatchdogLock({ env: envC, port: 7999, pid: await deadPid(), pkgVersion: '0.10.0' })
+  assert.equal(before.acquired, true)
+  const out = await clearResidentForTakeover({
+    port: 7999, env: envC, timeoutMs: 0,
+    deps: {
+      // 枚举查询被拒/不可用（受限环境实测）→ findListener 返回 null，但端口其实还在监听
+      findListener: async () => null,
+      probeTcp: async () => true,
+      kill: (pid) => { killed.push(pid); return true },
+      isAlive: () => false,
+      sleep: async () => {},
+    },
+  })
+  assert.equal(out.portFree, false, '还在监听就不能算空出来（旧实现会误判 → 新 web 绑不上 → 自检无响应）')
+  assert.ok(out.warnings.some((w) => w.includes('无法识别')), '要说清是枚举不可用，而不是端口空着')
+  assert.deepEqual(killed, [], '认不出是谁就不许动手')
+})
+
+test('#30 回归：失败的 restart 要把替换前的锁登记写回去（不再出现「锁没了、web 还在」）', async () => {
+  const envR = { DSH_HOME: path.join(tmp, 'restore-lock') }
+  // 现场形态：替换前的看门狗已经被停掉（pid 已死），锁登记若被抹掉就再也说不清"曾经有什么"
+  const oldPid = await deadPid()
+  acquireWatchdogLock({ env: envR, port: 7999, pid: oldPid, pkgVersion: '0.10.6' })
+  const out = await restartResident({
+    port: 7999, env: envR, expectVersion: '0.10.6',
+    deps: {
+      spawnHelper: () => ({ pid: 4321 }),
+      waitForTakeover: async () => ({ ok: false, version: '', waitedMs: 1200, tookOver: false }),
+      findListener: async () => ({ pid: 60036, command: 'node F:/x/lib/web.js --port 7999' }),
+    },
+  })
+  assert.equal(out.ok, false)
+  assert.equal(out.lockRestored, true, '失败时必须把替换前的登记写回去')
+  assert.equal(out.occupant.pid, 60036, '要报出端口上现在是谁')
+  assert.match(out.error, /pid 60036/, '失败信息里要带上占用者')
+  assert.match(out.error, /已把替换前的锁登记写回/)
+  const back = readWatchdogLock(envR).watchdogs.filter((w) => Number(w.port) === 7999)
+  assert.equal(back.length, 1, '登记不能凭空消失')
+  assert.equal(Number(back[0].pid), oldPid, '写回的应当是替换前那条登记')
+})
 test('clearResidentForTakeover：端口被别人的进程占着 → portFree=false + 告警，绝不误杀', async () => {
   const envC = { DSH_HOME: path.join(tmp, 'takeover-foreign') }
   const killed = []
