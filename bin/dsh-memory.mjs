@@ -10,6 +10,7 @@
 //   dsh-memory setup [--claude-only|--codex-only|--cursor-only] [--dry-run] [--no-hooks]
 //                                                         自动挂载 MCP 到已装的 agent
 //   dsh-memory sweep <dir>                                挖掘 Claude Code 会话 JSONL
+//   dsh-memory align [--json] [--fix]                     版本对齐检查（宿主/常驻/npm 版本差 + MCP/hooks 旧接线），--fix 重写接线
 //   dsh-memory doctor [--vault DIR] [--json]              库健康自检（journal 模式 / 写探针 / 备份清单 / 恢复引导）
 //   dsh-memory doctor --restore latest|备份名 [--yes] [--force]   从备份重建（不带 --yes 只演练；当前库可写时需 --force）
 //   dsh-memory refine [--vault DIR] [--json]              矛盾扫描候选（不调模型）；--apply --a A --b B --action keepA|keepB|merge|keepBoth 落裁决
@@ -233,6 +234,33 @@ async function main() {
       console.log('')
       console.log('（这一步不调模型、不写库）模型判别「重复 / 补充 / 矛盾 / 无关」请在 DSH 面板：记忆 → 整理 → 🧭 矛盾扫描')
       console.log('落裁决：dsh-memory refine --apply --a <路径> --b <路径> --action keepA|keepB|merge|keepBoth')
+      return
+    }
+    case 'align': {
+      // 版本对齐检查：宿主/常驻/npm 的版本差 + 持久接线（MCP / hooks）里的旧路径与旧事件键
+      const { inspectAlignment } = await import('../lib/align.js')
+      const port = Number(argOf('--port')) || 7999
+      const rep = await inspectAlignment({ hostVersion: process.env.MEMORY_ETERNAL_VERSION || '', residentPort: port })
+      if (has('--json')) { console.log(JSON.stringify(rep, null, 2)); if (!rep.ok) process.exitCode = 1; return }
+      console.log('记忆核心 · 版本对齐检查')
+      console.log('磁盘 v' + (rep.onDisk || '?') + (rep.residentServed ? ' · 常驻实例 v' + rep.residentServed : '') + (rep.latest ? ' · npm 最新 v' + rep.latest : ''))
+      console.log('')
+      for (const x of rep.findings) {
+        console.log((x.level === 'fix' ? '✗ ' : x.level === 'warn' ? '⚠ ' : '✓ ') + x.title)
+        if (x.detail) console.log('    ' + x.detail)
+        if (x.command) console.log('    → ' + x.command)
+      }
+      if (has('--fix')) {
+        const { runSetup } = await import('../lib/setup.js')
+        console.log('')
+        console.log('重写接线（只碰自己的键：mcpServers.memory / 带标记的 hooks）：')
+        await runSetup({ log: (m) => console.log('  ' + m) })
+        console.log('完成。若上面有「宿主进程旧」，仍需**完全退出并重开 DSH**。')
+      } else if (!rep.ok) {
+        console.log('')
+        console.log('执行 dsh-memory align --fix 可重写 MCP / hooks 接线（不动你的数据与配置）')
+      }
+      if (!rep.ok) process.exitCode = 1
       return
     }
     case 'doctor': {

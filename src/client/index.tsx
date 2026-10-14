@@ -388,6 +388,15 @@ export const ZH = {
   captureLog: '自动沉淀日志',
   captureLogHint: '每轮对话结束后自动跑：监听 → 判定 → 写卡。这里显示最近 100 条，用来排查「为什么没写卡」。',
   captureLogEmpty: '还没有记录。跟 Agent 聊一轮（> 捕获最小长度）后再回来看。',
+  alignTitle: '版本对齐检查',
+  alignRun: '开始检查',
+  alignFix: '重写接线',
+  alignFixConfirm: '重写 MCP / hooks 接线？（只碰插件自己的键，不动你的数据与配置）',
+  alignFixed: '接线已重写；若上面提示「宿主进程旧」，仍需完全退出并重开 DSH',
+  alignFail: '对齐检查失败',
+  alignHint: '插件升级只换磁盘文件 —— 宿主内存里的事件订阅与 MCP / hooks 里的旧路径不会自己更新，这里一次查清',
+  alignIdle: '点「开始检查」：对比宿主 / 常驻实例 / npm 的版本，并检查 MCP、hooks 里是否有旧路径与旧参数',
+  alignDisk: '磁盘', alignResident: '常驻实例', alignHost: '宿主进程',
   captureLogUnavailable: '日志仅在 DSH 宿主内可用（独立 Web 页没有 host 运行时）。',
   captureAgentCards: 'Agent 自动沉淀的卡',
   noCards: '暂无',
@@ -788,6 +797,15 @@ export const EN = {
   captureLog: 'Auto-capture log',
   captureLogHint: 'Runs after every turn: listen → judge → write. Last 100 entries, so you can see why a card was not written.',
   captureLogEmpty: 'No entries yet. Chat one turn (> min capture chars) and come back.',
+  alignTitle: 'Version alignment check',
+  alignRun: 'Check now',
+  alignFix: 'Rewrite wiring',
+  alignFixConfirm: 'Rewrite the MCP / hooks wiring? (Only the plugin\'s own keys are touched; your data and config stay as they are)',
+  alignFixed: 'Wiring rewritten; if it still reports an old host process, you must fully quit and reopen DSH',
+  alignFail: 'Alignment check failed',
+  alignHint: 'Upgrading the plugin only replaces files on disk — the host\'s in-memory event subscriptions and stale paths inside MCP / hooks do not update themselves; this checks all of it at once',
+  alignIdle: 'Hit "Check now": compare the host / resident / npm versions and look for stale paths and arguments in MCP and hooks',
+  alignDisk: 'disk', alignResident: 'resident', alignHost: 'host process',
   captureLogUnavailable: 'Log is available only inside the DSH host (the standalone web page has no host runtime).',
   captureAgentCards: 'Cards auto-captured by the agent',
   noCards: 'none',
@@ -2401,6 +2419,26 @@ function LibraryAdmin({ t, tab, onReload, version }) {
   const [opt, setOpt] = useState(null)
   const [budget, setBudget] = useState(null)
   const [captureLog, setCaptureLog] = useState(null)
+  // 版本对齐检查（回答「插件迭代后旧接口还在」）：宿主/常驻/npm 版本差 + MCP/hooks 旧接线
+  const [align, setAlign] = useState(null)
+  const runAlign = useCallback(async () => {
+    setBusy('align')
+    try {
+      const r = await fetch(API + '/align').then((x) => x.json())
+      if (r && r.findings) setAlign(r)
+      else notify(t('alignFail'), false)
+    } catch { notify(t('alignFail'), false) }
+    finally { setBusy('') }
+  }, [t])
+  const fixWiring = async () => {
+    if (!window.confirm(t('alignFixConfirm'))) return
+    setBusy('alignfix')
+    try {
+      const r = await fetch(API + '/setup-run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((x) => x.json())
+      if (r && r.ok) { notify(t('alignFixed')); await runAlign() } else notify(t('alignFail'), false)
+    } catch { notify(t('alignFail'), false) }
+    finally { setBusy('') }
+  }
   const [agentCards, setAgentCards] = useState([])
   const [busy, setBusy] = useState('')
   const [oneClickCleanupStale, setOneClickCleanupStale] = useState(false)
@@ -2570,6 +2608,36 @@ function LibraryAdmin({ t, tab, onReload, version }) {
           </div>}
           {tab === 'stats' && (
             <div>
+              {/* 版本对齐检查：插件迭代后「旧接口 / 旧接线」不会自己消失 —— 一眼看清差在哪、怎么对齐 */}
+              <div className="mc-card" style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <b style={{ fontSize: 12 }}>🔧 {t('alignTitle')}</b>
+                  <button type="button" className="mc-btn" disabled={!!busy} onClick={runAlign}>{busy === 'align' ? t('exporting') : t('alignRun')}</button>
+                  {align && align.counts && align.counts.fix > 0 && (
+                    <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={fixWiring}>{busy === 'alignfix' ? t('exporting') : t('alignFix')}</button>
+                  )}
+                  <span style={{ fontSize: 11, opacity: 0.6 }}>{t('alignHint')}</span>
+                </div>
+                {align && align.findings ? (
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 4 }}>
+                      {t('alignDisk')} v{align.onDisk || '?'}{align.residentServed ? ' · ' + t('alignResident') + ' v' + align.residentServed : ''}{align.hostVersion ? ' · ' + t('alignHost') + ' v' + align.hostVersion : ''}
+                    </div>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                      {align.findings.map((x, i) => (
+                        <li key={i} style={{ padding: '4px 2px', borderTop: i ? '1px solid rgba(127,127,127,0.12)' : 'none', fontSize: 12 }}>
+                          <span style={{ fontWeight: 700, color: x.level === 'fix' ? '#ef4444' : x.level === 'warn' ? '#f59e0b' : '#10b981' }}>
+                            {x.level === 'fix' ? '✗' : x.level === 'warn' ? '⚠' : '✓'}
+                          </span>{' '}
+                          <span>{x.title}</span>
+                          {x.detail ? <div style={{ opacity: 0.75, marginLeft: 14 }}>{x.detail}</div> : null}
+                          {x.command ? <div style={{ marginLeft: 14, opacity: 0.9 }}>→ <code>{x.command}</code></div> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : <div style={{ opacity: 0.6, fontSize: 12, marginTop: 4 }}>{t('alignIdle')}</div>}
+              </div>
               <div className="mc-card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <b style={{ fontSize: 12 }}>🪵 {t('captureLog')}</b>
