@@ -11,6 +11,7 @@
 //                                                         自动挂载 MCP 到已装的 agent
 //   dsh-memory sweep <dir>                                挖掘 Claude Code 会话 JSONL
 //   dsh-memory doctor [--vault DIR] [--json]              库健康自检（journal 模式 / 写探针 / 备份清单 / 恢复引导）
+//   dsh-memory doctor --restore latest|备份名 [--yes] [--force]   从备份重建（不带 --yes 只演练；当前库可写时需 --force）
 //   dsh-memory refine [--vault DIR] [--json]              矛盾扫描候选（不调模型）；--apply --a A --b B --action keepA|keepB|merge|keepBoth 落裁决
 //   dsh-memory refine --junk [--purge --path P] [--json]   注入垃圾卡（技能目录等注入文本沉淀成的卡）：列清单 / 送回收站
 //   dsh-memory refine --goals [--keep --path A --path B]   同目标不同做法：聚类需模型（面板里跑）；--keep 落"都保留"
@@ -236,6 +237,40 @@ async function main() {
     }
     case 'doctor': {
       // ⑤ 损坏/不可写时的「引导」（issue #33）：只体检、只列备份、只打印下一步 —— 绝不自动替换/删除数据。
+      // --restore：把「损坏时从备份重建」从**引导**升级成**可执行**（#31 里 WAL 头损坏的唯一现实出路）。
+      // 安全设计：不带 --yes 只做演练（dryRun，一个文件都不动）；带 --yes 才真正执行，
+      // 且执行前检查「有没有常驻实例正开着这个库」（有就先停下来，除非 --force）。
+      if (argOf('--restore')) {
+        const { defaultVaultDir: dvd } = await import('../lib/capture-run.js')
+        const { restoreFromBackup } = await import('../lib/db.js')
+        const { readWatchdogLock, isPidAlive } = await import('../lib/watchdog.js')
+        const root = argOf('--vault') ? path.resolve(argOf('--vault')) : dvd()
+        const from = argOf('--restore')
+        const live = readWatchdogLock(process.env).watchdogs.filter((w) => isPidAlive(w.pid))
+        const plan = await restoreFromBackup(root, { from, dryRun: true, force: has('--force') })
+        if (has('--json')) { console.log(JSON.stringify({ planned: plan, liveWatchdogs: live.map((w) => w.pid) }, null, 2)); if (!plan.ok) process.exitCode = 1; return }
+        if (!plan.ok) { console.error('不能恢复：' + plan.error); if (plan.code === 'DB_HEALTHY') console.error('  （确认要覆盖可写库：加 --force）'); process.exitCode = 1; return }
+        console.log('备份：' + plan.from)
+        console.log('备份里的卡片数：' + (plan.cards >= 0 ? plan.cards : '（读不出，可能不是本插件的库）'))
+        console.log('当前库：' + root + '\\memory-eternal.db')
+        if (live.length) {
+          console.log('⚠ 检测到常驻看门狗还活着（pid ' + live.map((w) => w.pid).join(', ') + '）—— 恢复前应先：dsh-memory stop --port 7999（或完全退出 DSH）')
+          if (!has('--force')) { console.error('为避免边写边换，已中止。确认可强做：加 --force'); process.exitCode = 1; return }
+        }
+        if (!has('--yes')) {
+          console.log('')
+          console.log('这是**演练**（没有改动任何文件）。确认执行请加 --yes：')
+          console.log('  dsh-memory doctor --restore ' + from + ' --yes' + (argOf('--vault') ? ' --vault "' + root + '"' : ''))
+          process.exitCode = 1
+          return
+        }
+        const out = await restoreFromBackup(root, { from, force: has('--force') })
+        if (!out.ok) { console.error('恢复失败：' + out.error); process.exitCode = 1; return }
+        console.log('✓ 已用备份重建：卡片 ' + out.cards + ' 张，写探针 ' + (out.health.writable ? 'OK' : '仍失败'))
+        for (const m of out.movedAside || []) console.log('  原现场留证：' + m)
+        console.log('  ' + out.note)
+        return
+      }
       const { defaultVaultDir } = await import('../lib/capture-run.js')
       const { getDb, dbStatus, checkDbHealth, rebuildGuidance } = await import('../lib/db.js')
       const fsPromises = await import('node:fs/promises')
