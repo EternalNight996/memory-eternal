@@ -15,7 +15,7 @@ import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import {
   decideResidentAction, inspectResident, restartResident, clearResidentForTakeover,
-  acquireWatchdogLock, readWatchdogLock,
+  acquireWatchdogLock, readWatchdogLock, releaseWatchdogLock, restoreWatchdogLock, findPortListener,
 } from '../lib/watchdog.js'
 import { createApi, compareVersions, parseVersion } from '../lib/api.js'
 
@@ -203,6 +203,29 @@ const inertDeps = (listener) => ({
   sleep: async () => {},
 })
 
+test('#30 复测发现的不对称：锁里只有一条 endedAt 槽（pid 还活着）时，失败写回也必须生效', async () => {
+  const envE = { DSH_HOME: path.join(tmp, 'restore-ended') }
+  // pid 用**活着的**本进程：模拟 PID 复用/正在退出——endedAt 明确表示它已交出这把锁
+  acquireWatchdogLock({ env: envE, port: 7999, pid: process.pid, pkgVersion: '0.10.6' })
+  releaseWatchdogLock({ env: envE, pid: process.pid })   // keepEnded 默认 true → 留一条 endedAt 槽
+  const slot = readWatchdogLock(envE).watchdogs.find((w) => Number(w.port) === 7999)
+  assert.ok(slot && slot.endedAt, '前提：锁里是 endedAt 槽且 pid 仍活着')
+  const ok = restoreWatchdogLock({ env: envE, port: 7999, watchdogs: [{ pid: 4242, port: 7999, pkgVersion: '0.10.5' }] })
+  assert.equal(ok, true, 'endedAt 槽不该让写回被放弃（报告者实测的不对称）')
+  const back = readWatchdogLock(envE).watchdogs.find((w) => Number(w.port) === 7999)
+  assert.equal(Number(back.pid), 4242)
+})
+
+test('#30 复测发现的硬病灶：端口枚举必须能被超时约束（Windows 上实测 4–13.6 秒）', async () => {
+  const calls = []
+  const out = await findPortListener(7999, {
+    platform: 'win32', timeoutMs: 1234,
+    exec: async (cmd, args, opts) => { calls.push({ cmd, opts }); return '' },
+  })
+  assert.equal(out, null)
+  assert.ok(calls.length >= 1, '至少调了一次枚举')
+  assert.deepEqual(calls[0].opts, { timeoutMs: 1234 }, '超时必须真的传给执行器，否则 8s 预算被一次十几秒的查询吃光')
+})
 test('#30 回归：锁文件写不进去 → restart 前置拒绝（不许留下无法登记的孤儿）', async () => {
   let spawned = false
   const out = await restartResident({

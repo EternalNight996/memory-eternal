@@ -845,6 +845,9 @@ export const EN = {
 
 const KIND_IDS = ['all', 'project', 'knowledge', 'content', 'prompt', 'business', 'tool', 'mistake']
 const KIND_COLORS = { project: '#3B82F6', knowledge: '#10B981', content: '#F59E0B', prompt: '#A855F7', business: '#EC4899', tool: '#06B6D4', mistake: '#EF4444', other: '#6B7280' }
+// issue #41：畸形卡（tags 是字符串 / undefined）曾让整页黑屏（React 根组件挂载失败）——
+// 渲染层一律走这个兜底，坏数据最多少显示几个标签，不能把整棵树带走。
+const tagsOf = (c) => (Array.isArray(c && c.tags) ? c.tags : [])
 const KIND_EMOJI = { project: '📁', knowledge: '📚', content: '📝', prompt: '💬', business: '💼', tool: '🔧', mistake: '⚠️', other: '📎' }
 const KIND_LABELS = { project: 'kindProject', knowledge: 'kindKnowledge', content: 'kindContent', prompt: 'kindPrompt', business: 'kindBusiness', tool: 'kindTool', mistake: 'kindMistake', other: 'kindKnowledge' }
 // DSH 宿主自动沉淀卡的署名（与 index.js 的 DSH_AGENT 保持一致）。
@@ -2397,9 +2400,9 @@ const CardRow = ({ card, t, onOpen, query, onDelete }) => (  <article className=
       {(!card.status || card.status === 'approved') && <span className="mc-status" style={{ background: '#10b981' }}>✅ {t('statusApproved')}</span>}
     </h4>
     <p>{query ? highlightMatches(card.summary || '', query) : (card.summary || '')}</p>
-    {card.tags.length > 0 && (
+    {tagsOf(card).length > 0 && (
       <div className="mc-tags">
-        {card.tags.slice(0, 4).map((tag) => <span key={tag} className="mc-tag">🏷 {tag}</span>)}
+        {tagsOf(card).slice(0, 4).map((tag) => <span key={tag} className="mc-tag">🏷 {tag}</span>)}
       </div>
     )}
     <footer>
@@ -3079,7 +3082,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
         <div className="md-meta">
           <span className="md-chip md-chip-kind" style={{ color: kindColor, borderColor: kindColor + '59', background: kindColor + '1a' }}>{KIND_EMOJI[kind] || '📎'} {t(KIND_LABELS[kind] || 'kindKnowledge')}</span>
           <span className={'md-chip ' + (status === 'approved' ? 'md-chip-st-ok' : status === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad')}>{status === 'approved' ? '✅' : status === 'pending' ? '⏳' : '⛔'} {t(status === 'approved' ? 'statusApproved' : status === 'pending' ? 'statusPending' : 'statusRejected')}</span>
-          {tags.slice(0, 8).map((tag) => <span key={tag} className="md-chip md-chip-tag">🏷 {tag}</span>)}
+          {(Array.isArray(tags) ? tags : []).slice(0, 8).map((tag) => <span key={tag} className="md-chip md-chip-tag">🏷 {tag}</span>)}
           {!!metaOf('updated') && <span className="md-chip md-date">🕒 {t('updated')} {fmtDate(metaOf('updated'))}</span>}
           {!!metaOf('source') && <span className="md-chip md-date">📥 {metaOf('source')}</span>}
         </div>
