@@ -376,11 +376,21 @@ async function main() {
       const out = await restartResident({ port, vaultRoot, interval, maxRestart })
       if (!out.ok) {
         console.error(`替换失败（${out.stage}）：${out.error || '未知原因'}`)
+        // issue #30：提示里写着「接管结论也会写进自动沉淀日志」，但 CLI 这条路径过去**不写** ——
+        // 用户按提示去「设置 → 记忆 → 用量/今日」里什么也找不到。这里补齐（与宿主侧同一份日志）。
+        try {
+          const { appendCaptureLog } = await import('../lib/capture-log.js')
+          await appendCaptureLog({ time: Date.now(), sessionId: 'system', action: 'warn', reason: `CLI 替换常驻实例失败（${out.stage}）：${out.error || '未知原因'}` })
+        } catch { /* 日志写不了不影响主流程 */ }
         console.error(`排查：dsh-memory status --port ${port}；若端口被别的进程占着，先结束它再 restart；`)
         console.error('     接管结论也会写进「自动沉淀日志」（设置 → 记忆 → 用量/今日）里。')
         process.exitCode = 1
         return
       }
+      try {
+        const { appendCaptureLog } = await import('../lib/capture-log.js')
+        await appendCaptureLog({ time: Date.now(), sessionId: 'system', action: 'boot', reason: `CLI 替换常驻实例成功：端口 ${port} 现在服务 v${out.served}（等待 ${Math.round(out.waitedMs / 1000)}s）` })
+      } catch { /* 日志写不了不影响主流程 */ }
       console.log(`已在后台启动新看门狗 pid=${out.helperPid} port=${port} vault=${vaultRoot}`)
       console.log(`自检通过：端口 ${port} 正在服务 v${out.served}（等待 ${Math.round(out.waitedMs / 1000)}s）`)
       return

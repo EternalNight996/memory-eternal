@@ -27,6 +27,19 @@ test('不同端口可以并存（多槽锁，不再互相覆盖）', () => {
   assert.deepEqual(ports, [7999, 8000], '两个端口的槽都要在')
 })
 
+test('#30：force 接管 —— 同端口有活着的旧看门狗时也让位（--replace 的语义）', () => {
+  const envF = { DSH_HOME: path.join(tmp, 'force-' + Date.now()) }
+  const first = acquireWatchdogLock({ env: envF, port: 7999, pid: process.pid, pkgVersion: '0.10.1' })
+  assert.equal(first.acquired, true)
+  const refused = acquireWatchdogLock({ env: envF, port: 7999, pid: process.ppid })
+  assert.equal(refused.acquired, false, '默认仍然让位（单例语义不变）')
+  const forced = acquireWatchdogLock({ env: envF, port: 7999, pid: process.ppid, pkgVersion: '0.10.2', force: true })
+  assert.equal(forced.acquired, true, 'force 必须接管，否则清场没跑完就先退出 → 锁永远为空（#30 实测）')
+  assert.equal(Number(forced.previous.pid), process.pid)
+  const slotsF = readWatchdogLock(envF).watchdogs.filter((w) => Number(w.port) === 7999)
+  assert.equal(slotsF.length, 1, '同端口只留一条登记')
+  assert.equal(Number(slotsF[0].pid), process.ppid)
+})
 test('陈旧记录（pid 已不存在）应被接管并报告', async () => {
   const child = spawn(process.execPath, ['-e', '0'])
   await once(child, 'exit')
