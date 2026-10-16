@@ -74,6 +74,18 @@ test('宿主托管状态：记录 / 读取 / 清除（面板据此不再显示"�
   } finally { try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }) } catch {} }
 })
 
+test('align / doctor：宿主托管要能被看到（设计内降级，不是故障）', async () => {
+  const { alignFindings } = await import('../lib/align.js')
+  const r = alignFindings({ hostVersion: '0.10.36', onDisk: '0.10.36', residentServed: '0.10.36', hostManaged: { fresh: true, port: 7999, reason: 'lock-unwritable', version: '0.10.36' } })
+  const f = r.findings.find((x) => x.id === 'resident-host-managed')
+  assert.ok(f, '要有专门一条')
+  assert.equal(f.level, 'warn', '要提示，但不算 fix（这是设计内的降级）')
+  assert.match(f.title, /宿主托管/)
+  assert.match(f.detail, /不是孤儿/, '要说清有人管')
+  assert.equal(r.ok, true, 'warn 不该把整体判成失败')
+  const stale = alignFindings({ hostVersion: '0.10.36', onDisk: '0.10.36', hostManaged: { fresh: false } })
+  assert.equal(stale.findings.some((x) => x.id === 'resident-host-managed'), false, '过期状态不再提示')
+})
 test('接线守卫：宿主 tick 探版本并接管、接口报 managedBy、面板区分显示', () => {
   const index = read('index.js')
   assert.match(index, /probeServedVersion\(port\)/, 'tick 要探端口上的版本（不只探存活）')
@@ -87,6 +99,8 @@ test('接线守卫：宿主 tick 探版本并接管、接口报 managedBy、面�
   const api = read('lib/api.js')
   assert.match(api, /const managedBy = residentManaged \? 'watchdog'/, 'version-check 要报 managedBy')
   const client = read('src/client/index.tsx')
-  assert.match(client, /residentHostManaged/, '面板要区分"宿主托管"')
+  assert.match(client, /residentHostManaged/, '面板要区分「宿主托管」')
+  assert.match(read('lib/align.js'), /resident-host-managed/, 'align 也要能看到宿主托管')
+  assert.match(read('bin/dsh-memory.mjs'), /常驻实例托管：/, 'doctor 要打印托管方式')
   assert.equal((client.match(/vcResidentHostManagedShort:/g) || []).length, 2, '中英词条各一条')
 })

@@ -341,6 +341,8 @@ test('/restart-self：常驻实例已经是最新版 → alreadyCurrent，且一
     getDshInfo: () => ({ version: '0.10.0' }),
     currentPkgVersion: () => '0.10.6',
     probeServedVersion: async () => '0.10.6',
+    // alreadyCurrent 还要求「有活着的看门狗托管它」→ 注入一条，别依赖本机真实锁
+    readWatchdogLock: () => ({ watchdogs: [{ pid: process.pid, port: 7999 }] }),
     restartResident: async () => { restarted.push('restart'); return { ok: true } },
   })
   const { rec, res } = fakeRes()

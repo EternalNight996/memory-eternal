@@ -335,6 +335,14 @@ async function main() {
       console.log('写探针：' + (health.writable ? 'OK（这个库现在可写）' : '失败 → ' + health.error))
       if (health.corrupt) console.log('损坏判定：疑似文件损坏（见下方引导）')
       console.log('看门狗锁：' + (lockInfo.writable ? '可写（' + lockInfo.path + '）' : '**写不进去** → ' + lockInfo.error + '（' + lockInfo.path + '）—— 保活一般仍有效，但「是否被托管」将无法判断'))
+      // 托管方式一眼可见（#30 ⑤/⑥）：看门狗登记 / 宿主托管 / 因环境限制不可替换
+      try {
+        const st = await import('../lib/resident-state.js')
+        const hm = st.hostManagedInfo()
+        const rb = st.replaceBlockedInfo()
+        const how = hm && hm.fresh ? '宿主托管（锁不可写 → 由宿主进程停旧起新并保活；原因 ' + (hm.reason || '未记录') + '）' : (rb && rb.fresh ? '不可替换（环境限制：锁目录不可写）' : '看门狗（无异常记录）')
+        console.log('常驻实例托管：' + how)
+      } catch { /* 状态读不到就不打印 */ }
       console.log('备份：' + (backups.length ? backups.length + ' 个（最近：' + backups[0] + '）' : '（还没有备份 —— 可在面板或 backupDb 生成）'))
       if (guidance.length) { console.log(''); for (const line of guidance) console.log('· ' + line) }
       if (!health.writable) process.exitCode = 1
