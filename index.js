@@ -1359,6 +1359,29 @@ export function apply(ctx, config) {
           }
 
           if (decision.action === 'restart') {
+            // issue #30（第五轮复测的稳态）：**先看这个环境到底能不能替换**。锁目录不可写时，
+            // 助手会在前置检查里正确地拒绝 —— 那就别再每次开机当成「漂移」重试一遍了：
+            // 把「不可替换」记成状态、只提示出路（首次 warn，之后降级为一条已知状态）。
+            let lockWritable = true
+            try { lockWritable = Boolean(m.probeLockWritable().writable) } catch { lockWritable = true }
+            if (!lockWritable) {
+              let blocked = null
+              try {
+                const st = await import('./lib/resident-state.js')
+                const info = m.probeLockWritable()
+                const rec = st.recordReplaceBlocked(process.env, { error: info.error, lockPath: info.path, port: wdPort, version: cur, served: info.served || servedLabel })
+                blocked = st.replaceBlockedInfo(process.env)
+                const line = `常驻实例不可替换（环境限制）：看门狗锁目录不可写（${info.error || '未知原因'}；${info.path}）→ 端口 ${wdPort} 上会长期停在 v${servedLabel}，本机已是 v${cur || '?'}。出路：修复该目录权限后执行 dsh-memory restart --port ${wdPort}，或前台观察 dsh-memory watchdog --port ${wdPort}`
+                console.error(`[memory-eternal] ${line}`)
+                // 首次（或状态过期）用 warn 让用户注意到；之后每次开机只记一条 boot 级「已知状态」，
+                // 不再显示成失败 —— 报告者的原话：这台机器「每次开机一条 warn，永久持续」。
+                logCapture('system', rec.firstTime ? 'warn' : 'boot', line)
+              } catch { /* 状态记不下来也不影响：至少不误重试 */ }
+              void blocked
+              return
+            }
+            // 环境能写 → 清掉历史状态（修好权限后不该再显示「不可替换」）
+            try { const st = await import('./lib/resident-state.js'); st.clearReplaceBlocked(process.env) } catch { /* 无妨 */ }
             // 「更新运行中的程序」的唯一安全形态 = 用新代码重启那个常驻进程（不是热替换内存里的模块）
             const why = `版本漂移：端口 ${wdPort} 上服务 v${servedLabel} ≠ 本机 v${cur}（${decision.reason}）→ 用新代码重启常驻实例`
             console.error(`[memory-eternal] ${why}`)
