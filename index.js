@@ -1309,8 +1309,9 @@ export function apply(ctx, config) {
     const mode = cfg0.autoWebMode || 'init'
     const port = Number(cfg0.webPort) || 7999
     const ensureOpts = { port, vaultRoot: vaultDir() }
-    const ensureWeb = () => import('./lib/web.js')
-      .then((m) => m.ensureWebServer(ensureOpts))
+    let hostTakeoverAt = 0   // 宿主接管的防抖（issue #30 ④）
+    const ensureWeb = (extra = {}) => import('./lib/web.js')
+      .then((m) => m.ensureWebServer({ ...ensureOpts, ...extra }))
       .then((info) => { refreshWebInfo(info); return info })
       .catch((error) => console.error('[memory-eternal] web server failed:', error?.message || error))
 
@@ -1345,6 +1346,30 @@ export function apply(ctx, config) {
             restartCount = 0
             // 活着也要回写记录：首轮 ensure 可能漂到过别的端口，此后没有任何校正点 → web-info 悬空（issue #29）
             refreshWebInfo({ url: `http://127.0.0.1:${port}`, port, spawned: false })
+            // issue #30 ④（治本）：只探「活着」不够 —— 端口上可能是**升级前的旧实例**，而看门狗路径在
+            // 锁不可写时被永久拒绝。锁可写 → 交给看门狗/漂移路径（宿主不抢）；锁不可写 → 宿主自己接管。
+            try {
+              const wd = await import('./lib/watchdog.js')
+              const served = await wd.probeServedVersion(port)
+              const cur = wd.currentPkgVersion()
+              const lockOk = Boolean(wd.probeLockWritable().writable)
+              const locked = wd.readWatchdogLock(process.env).watchdogs.some((w) => Number(w.port) === port && !w.endedAt && wd.isPidAlive(w.pid))
+              if (locked) { try { const st = await import('./lib/resident-state.js'); st.clearHostManaged(process.env) } catch { /* 无妨 */ } }
+              if (!locked && served && cur && served !== cur && !lockOk) {
+                if (!hostTakeoverAt || Date.now() - hostTakeoverAt > 60000) {
+                  hostTakeoverAt = Date.now()
+                  logCapture('system', 'warn', `常驻实例落后（端口 ${port} 服务 v${served} ≠ 本机 v${cur}）且看门狗锁不可写 → 宿主自己接管：停掉旧实例并在同端口拉起新实例`)
+                  await ensureWeb({ forceTakeover: true })
+                  const after = await wd.probeServedVersion(port)
+                  if (after && after === cur) {
+                    try { const st = await import('./lib/resident-state.js'); st.recordHostManaged(process.env, { port, version: cur, served: after, reason: 'lock-unwritable' }) } catch { /* 无妨 */ }
+                    logCapture('system', 'boot', `宿主接管完成：端口 ${port} 现在服务 v${after}（锁不可写，故由宿主保活）`)
+                  } else {
+                    logCapture('system', 'warn', `宿主接管后端口 ${port} 仍服务 v${after || '（无响应）'}（本机 v${cur}）`)
+                  }
+                }
+              }
+            } catch { /* 探测失败不影响保活 */ }
           }
         }
         // 立即跑一次（首启 + 间隔循环）

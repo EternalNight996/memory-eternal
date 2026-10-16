@@ -344,6 +344,7 @@ export const ZH = {
   vcResidentUnmanaged: '常驻实例在服务 v{served}，但**没有看门狗保活**（停止 / 硬杀后残留的孤儿）—— 点下面的按钮把它重新托管（重新拉一个看门狗 + 新实例）；也可以执行 {cmd}',
   vcResidentLockUnknownShort: '托管状态未知',
   vcResidentReplaceBlockedShort: '不可替换',
+  vcResidentHostManagedShort: '宿主托管',
   vcResidentReplaceBlocked: '常驻实例**不可替换**（环境限制）：看门狗锁目录不可写（{err}；{path}）→ 端口上会**长期**停在 v{served}。这不是「暂时落后」：自动替换被正确地拒绝（避免留下孤儿）。出路：修复该目录权限后执行 {cmd}，或前台观察 dsh-memory watchdog --port 7999',
   vcResidentLockUnknown: '常驻实例在服务 v{served}，但**看门狗锁文件写不进去**（受限环境：沙箱禁写 / ACL / 非系统盘）→ 无法判断它有没有被托管（不是「未托管」）。原因：{err}（{path}）。保活通常仍然有效；点下面的按钮可用新代码重新托管一次。',
   vcOutdated: '有新版本',
@@ -760,6 +761,7 @@ export const EN = {
   vcResidentUnmanaged: 'The resident instance serves v{served} but has **no watchdog keeping it alive** (an orphan left by a stop or a hard kill) — use the button below to put it back under management (a fresh watchdog plus a new instance), or run {cmd}',
   vcResidentLockUnknownShort: 'management unknown',
   vcResidentReplaceBlockedShort: 'cannot replace',
+  vcResidentHostManagedShort: 'host-managed',
   vcResidentReplaceBlocked: 'The resident instance **cannot be replaced** (environment limit): the watchdog lock directory is not writable ({err}; {path}) → the port will stay on v{served} **long-term**. This is not "temporarily behind": automatic replacement is refused on purpose to avoid leaving an orphan. Way out: fix that directory permissions and run {cmd}, or run dsh-memory watchdog --port 7999 in the foreground',
   vcResidentLockUnknown: 'The resident instance serves v{served}, but the **watchdog lock file cannot be written** (restricted environment: sandbox, ACLs, non-system drive) → whether it is managed cannot be determined (this is not "unmanaged"). Cause: {err} ({path}). Keep-alive usually still works; the button below can put it back under management on the new code.',
   vcPage: 'Page script',
@@ -1734,7 +1736,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 「不可替换（环境限制）」：锁目录不可写的机器上，常驻实例**永远追不平**（#30 第五轮复测）。
   // 必须和「暂时落后」分开说 —— 否则用户会一直等一个不会发生的追平。
   const residentReplaceBlocked = (vc && vc.resident && vc.resident.replaceBlocked && vc.resident.replaceBlocked.fresh) || null
-  const residentUnmanaged = Boolean(vc && vc.resident && vc.resident.managed === false && !residentLockUnknown)
+  // 「宿主托管」（#30 ④）：锁不可写的机器上由宿主自己保活 —— 锁里没登记，但**不是**孤儿。
+  const residentHostManaged = Boolean(vc && vc.resident && vc.resident.managedBy === 'host')
+  const residentUnmanaged = Boolean(vc && vc.resident && vc.resident.managed === false && !residentLockUnknown && !residentHostManaged)
   const residentDown = Boolean(vc && vc.resident && !residentServed)
   const residentNeedsRestart = residentStale || residentDown || residentUnmanaged || residentLockUnknown
   // 词条带 {placeholder} 填充（本项目 t 为词典直查，不含参数替换）
@@ -1959,7 +1963,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <code style={{ ...vcChip, color: '#b45309', fontWeight: 600 }}>{t('vcResident')} {t('vcResidentDownShort')}</code>
               )}
               {vc && vc.resident && vc.resident.served && vc.resident.managed === false && (
-                <code style={{ ...vcChip, color: '#b45309', fontWeight: 600 }}>{t('vcResident')} v{vc.resident.served} · {residentReplaceBlocked ? t('vcResidentReplaceBlockedShort') : residentLockUnknown ? t('vcResidentLockUnknownShort') : t('vcResidentUnmanagedShort')}</code>
+                <code style={{ ...vcChip, color: '#b45309', fontWeight: 600 }}>{t('vcResident')} v{vc.resident.served} · {residentReplaceBlocked ? t('vcResidentReplaceBlockedShort') : residentHostManaged ? t('vcResidentHostManagedShort') : residentLockUnknown ? t('vcResidentLockUnknownShort') : t('vcResidentUnmanagedShort')}</code>
               )}
               {CLIENT_VERSION && <code style={vcChip}>{t('vcPage')} v{CLIENT_VERSION}</code>}
               {vc && vc.onDisk && <code style={vcChip}>{t('vcOnDisk')} v{vc.onDisk}</code>}
