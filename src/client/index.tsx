@@ -308,6 +308,13 @@ export const ZH = {
   vaultDirLabel: '记忆库目录（单库）',
   captureCooldownMs: '沉淀冷却 (ms)',
   captureProvider: '蒸馏 provider（留空自动）',
+  routeAuto: '自动（按注册顺序）',
+  captureFollowSession: '跟随当前会话（蒸馏用会话的 provider/model）',
+  captureFirstOnly: '仅试首选（失败即停，不轮换兜底）',
+  llmTest: '测试蒸馏路由',
+  llmTestOk: '✓ 调用成功',
+  llmTestFail: '✗ 调用失败',
+  llmCandidates: '候选数',
   captureModel: '蒸馏 model（留空自动）',
   recallEmbedding: '语义召回 provider（可选）',
   sessionBudgetChars: '会话预算 (字符)',
@@ -717,6 +724,13 @@ export const EN = {
   vaultDirLabel: 'Vault directory (single)',
   captureCooldownMs: 'Capture cooldown (ms)',
   captureProvider: 'Distill provider (auto if empty)',
+  routeAuto: 'Auto (registration order)',
+  captureFollowSession: 'Follow current session (distill with the session provider/model)',
+  captureFirstOnly: 'First candidate only (stop on failure, no fallback)',
+  llmTest: 'Test distill route',
+  llmTestOk: '✓ Call succeeded',
+  llmTestFail: '✗ Call failed',
+  llmCandidates: 'candidates',
   captureModel: 'Distill model (auto if empty)',
   recallEmbedding: 'Semantic recall provider (optional)',
   sessionBudgetChars: 'Session budget (chars)',
@@ -1662,6 +1676,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState('')
   const [saved, setSaved] = useState('')
+  // issue #42 ①：可选的 provider / model（动态拉取；取不到就回退文本输入）
+  const [routes, setRoutes] = useState(null)
   const [vc, setVc] = useState(null)   // 版本跟踪：运行中 / 磁盘 / npm 最新
   // 界面显示旧版本号 = 宿主进程还在用启动时加载的那份（磁盘更新了也没用），所以这里三版本对照
   const checkVersion = useCallback(async (force) => {
@@ -1725,11 +1741,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const tf = (k, map) => Object.keys(map).reduce((s, kk) => s.split('{' + kk + '}').join(map[kk]), t(k))
   const load = useCallback(async () => {
     try {
-      const [c, ss, b] = await Promise.all([
+      const [c, ss, b, rt] = await Promise.all([
         fetch(`${API}/config`).then((r) => r.json()).catch(() => null),
         fetch(`${API}/setup-status`).then((r) => r.json()).catch(() => null),
         fetch(`${API}/budget`).then((r) => r.json()).catch(() => null),
+        fetch(`${API}/llm-routes`).then((r) => r.json()).catch(() => null),
       ])
+      if (rt && rt.ok) setRoutes(rt)
       if (c && c.ok) {
         setCfg(c)
         setRevision(c.revision ?? 0)
@@ -2111,9 +2129,44 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="captureMaxTokens" label={t('captureMaxTokens')} type="number" />
                 <F k="recallMinScore" label={t('recallMinScore')} type="number" />
                 <F k="captureCooldownMs" label={t('captureCooldownMs')} type="number" />
-                <F k="captureProvider" label={t('captureProvider')} />
-                <F k="captureModel" label={t('captureModel')} />
+                {/* issue #42 ①：下拉选 provider / model（动态拉取，不再手填编号）；取不到时回退成文本输入 */}
+                {routes && routes.providers && routes.providers.length ? (
+                  <>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
+                      <span style={{ opacity: 0.6 }}>{t('captureProvider')}</span>
+                      <select value={form.captureProvider || ''} onChange={(e) => { set('captureProvider', e.target.value); set('captureModel', '') }} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}>
+                        <option value="">{t('routeAuto')}</option>
+                        {routes.providers.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                      </select>
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
+                      <span style={{ opacity: 0.6 }}>{t('captureModel')}</span>
+                      <select value={form.captureModel || ''} onChange={(e) => set('captureModel', e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}>
+                        <option value="">{t('routeAuto')}</option>
+                        {((routes.providers.find((p) => p.id === form.captureProvider) || {}).models || []).map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>)}
+                      </select>
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <F k="captureProvider" label={t('captureProvider')} />
+                    <F k="captureModel" label={t('captureModel')} />
+                  </>
+                )}
+                <Bool k="captureFollowSession" label={t('captureFollowSession')} />
+                <Bool k="captureFirstOnly" label={t('captureFirstOnly')} />
                 <F k="sessionBudgetChars" label={t('sessionBudgetChars')} type="number" />
+                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                  <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => {
+                    setBusy('llmtest')
+                    try {
+                      const r = await fetch(API + '/llm-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: form.captureProvider || '', model: form.captureModel || '', firstOnly: form.captureFirstOnly === true }) }).then((x) => x.json())
+                      if (r && r.ok) notify(t('llmTestOk') + '：' + r.route.provider + (r.route.model ? '/' + r.route.model : '') + ' · ' + r.ms + 'ms · ' + t('llmCandidates') + ' ' + r.candidates)
+                      else notify(t('llmTestFail') + '：' + ((r && (r.failure ? (r.failure.code + ' ' + r.failure.message) : r.error)) || '?'), false)
+                    } catch (e) { notify(t('llmTestFail') + '：' + String((e && e.message) || e), false) }
+                    finally { setBusy('') }
+                  }}>{busy === 'llmtest' ? t('exporting') : '🔌 ' + t('llmTest')}</button>
+                </div>
               </div>
             </div>
             {/* 自动审核配置 */}

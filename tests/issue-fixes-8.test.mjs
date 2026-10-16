@@ -63,6 +63,24 @@ test('② 版本探测优先 /version-check（不碰库），拿不到才回落 
   } finally { brokenDb.server.close(); oldOnly.server.close() }
 })
 
+test('#30 第五轮：单发版本探测必须能扛住瞬时失败（否则 status/verify 会得出相反结论）', async () => {
+  const { probeServedVersion } = await import('../lib/watchdog.js')
+  let hits = 0
+  const { server, port } = await serve((req, res) => {
+    hits += 1
+    // 前两次（含 /version-check 与 /overview 各一次）故意失败：模拟重启窗口/瞬时拒绝
+    if (hits <= 2) { res.writeHead(503); res.end('busy'); return }
+    if (req.url.startsWith('/memory-eternal/api/version-check')) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, loaded: '0.10.32' })); return }
+    if (req.url.startsWith('/memory-eternal/api/overview')) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, vaultDir: '/v', version: '0.10.32' })); return }
+    res.writeHead(404); res.end('')
+  })
+  try {
+    assert.equal(await probeServedVersion(port), '0.10.32', '第一次失败后必须重试并最终拿到版本')
+    assert.ok(hits >= 3, '确实发生了重试（命中次数 ' + hits + '）')
+    // 真没人听 → 仍然是空串（不能把「没人」变成「有」）
+    assert.equal(await probeServedVersion(await freePort(), 300), '')
+  } finally { server.close() }
+})
 test('③ 受限环境：进程执行器不再崩，且不依赖命名管道（源码 + 行为）', async () => {
   const src = read('lib/watchdog.js')
   assert.match(src, /stdio: \['ignore', fd, 'ignore'\]/, 'stdout 走临时文件，不碰管道')

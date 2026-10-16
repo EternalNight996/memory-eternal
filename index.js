@@ -31,7 +31,7 @@ import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
-import { summarizeTurn, summarizeTurnDetailed, routeCandidates, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
+import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { missingWebAssets, missingAssetsReason } from './lib/web-assets.js'
@@ -67,6 +67,12 @@ export const Config = z.object({
   // 多 provider 环境下务必显式指定，否则可能撞上没配 key 的官方 provider（issue #3）
   captureProvider: z.string().default(''),
   captureModel: z.string().default(''),
+  // issue #42 需求 2：「跟随当前会话」——宿主蒸馏优先用**这一轮会话**的 provider/model；
+  // 后台 / 无会话任务（CLI、watchdog、hooks）拿不到会话上下文，回退到上面的显式配置。
+  captureFollowSession: z.boolean().default(false),
+  // issue #42 需求 3：「仅试首选」——只尝试第一个候选、失败即停，不轮换兜底
+  //（避免「先打官方 → 白烧一次调用 → 再轮换」）。
+  captureFirstOnly: z.boolean().default(false),
   // 蒸馏单次输出上限（token），越高越准越贵
   // 默认值 900 → 2000（issue #18）：prompt 要求 300-800 字正文，900 会让超长会话常态化撞上限，
   // 输出被截断后旧代码还会把它误报成「解析失败」，最终落一张 raw 噪声卡。
@@ -588,6 +594,8 @@ export function apply(ctx, config) {
     }
   }
   const lastCaptureAt = new Map() // sessionId -> 上次实际发起蒸馏的时间戳
+  // 「跟随当前会话」读不到路由时的告警：每进程只提示一次（否则每轮都刷一条）
+  let followSessionWarned = false
 
   const scheduleCapture = (agent, events) => {
     const cfg = settings.get() ?? {}
@@ -689,7 +697,22 @@ export function apply(ctx, config) {
         return
       }
       // 候选路由：显式配置优先，其余按注册顺序兜底（多 provider 下 providers[0] 可能是没配 key 的官方 provider → issue #3）。
-      const routes = await routeCandidates(llm, { provider: cfg.captureProvider, model: cfg.captureModel })
+      // issue #42 ②：跟随当前会话（best-effort）。DSH 不保证会话对象暴露 route，读不到就回退显式配置，
+      // 并把「嗅探到哪一步」记进日志 —— 以后要补适配时有据可查，而不是靠猜。
+      let routeOpts = { provider: cfg.captureProvider, model: cfg.captureModel, firstOnly: cfg.captureFirstOnly === true }
+      if (cfg.captureFollowSession === true) {
+        try {
+          const sr = sessionRouteFrom(agent)
+          if (sr && sr.provider) {
+            routeOpts = { ...routeOpts, provider: sr.provider, model: sr.model || '' }
+            logCapture(sessionId, 'boot', `蒸馏路由跟随当前会话：${sr.provider}${sr.model ? '/' + sr.model : ''}（来源 ${sr.from}）`)
+          } else if (!followSessionWarned) {
+            followSessionWarned = true
+            logCapture(sessionId, 'warn', '「跟随当前会话」已开启，但这一轮的会话对象里读不到 provider/model（DSH 未暴露）→ 本次回退到显式配置；若长期如此请反馈，我按实际字段补适配')
+          }
+        } catch { /* 探测失败一律回退配置 */ }
+      }
+      const routes = await routeCandidates(llm, routeOpts)
       if (!routes.length) { logCapture(sessionId, 'fail', '取不到模型路由（llm.listProviders 为空）'); return }
       // 语义去重近邻：把已有卡片索引喂给模型，让模型决定新建 vs 追加。
       // 成本控制：dedupByLLM=false 时跳过喂 LLM 的近邻采样（纯词法去重兜底）。
@@ -1154,6 +1177,8 @@ export function apply(ctx, config) {
                 enabled: cfg.enabled !== false,
                 vaultDir: cfg.vaultDir || '',
                 captureProvider: cfg.captureProvider || '',
+                captureFollowSession: cfg.captureFollowSession === true,
+                captureFirstOnly: cfg.captureFirstOnly === true,
                 captureModel: cfg.captureModel || '',
                 recallEmbedding: cfg.recallEmbedding || '',
                 sessionBudgetChars: cfg.sessionBudgetChars ?? 80000,
