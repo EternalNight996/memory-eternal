@@ -81,6 +81,18 @@ test('restartResident：接管进行中时不再重复拉助手（宿主 tick �
   } finally { try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }) } catch {} }
 })
 
+test('接线守卫：接管成功后必须立刻释放 claim（否则会把自己的下一次 restart 挡在窗口内）', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(path.join(root, 'lib/watchdog.js'), 'utf8')
+  // 以「接管完成」那行 noteReplace('boot' 为锚：紧跟其后必须先 bootWatchdog() 再 releaseReplaceClaim()
+  const from = src.indexOf("await noteReplace('boot'")
+  assert.ok(from > 0, '要能找到接管完成那行')
+  const tail = src.slice(from, from + 700)
+  const bootAt = tail.indexOf('bootWatchdog()')
+  const releaseAt = tail.indexOf('releaseReplaceClaim()')
+  assert.ok(bootAt >= 0, '接管完成后要启动看门狗')
+  assert.ok(releaseAt > bootAt, 'releaseReplaceClaim 必须出现在 bootWatchdog 之后（接管完成即释放）')
+})
 test('接线守卫：助手分支要先抢 claim、退出时释放', () => {
   const wd = read('lib/watchdog.js')
   assert.match(wd, /const slotClaim = claimReplaceSlot\(\{ port \}\)/, '助手要抢 claim')
