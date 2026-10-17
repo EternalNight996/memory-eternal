@@ -26,16 +26,23 @@ test('③ 仅试首选：只返回第一个候选（不轮换兜底），默认�
   assert.deepEqual(explicit.map((r) => r.provider + '/' + r.model), ['gw-b/glm-4.5'])
 })
 
-test('② 会话路由探测：能从常见形态读出来，读不到就返回 null（回退显式配置）', () => {
-  assert.deepEqual(sessionRouteFrom({ session: { provider: 'gw-b', model: 'glm-4.5' } }), { provider: 'gw-b', model: 'glm-4.5', from: 'session' })
-  assert.deepEqual(sessionRouteFrom({ providerId: 'p1', modelId: 'm1' }), { provider: 'p1', model: 'm1', from: 'agent' })
-  assert.deepEqual(sessionRouteFrom({ session: { route: { provider: 'p2', model: 'm2' } } }), { provider: 'p2', model: 'm2', from: 'session.route' })
-  assert.deepEqual(sessionRouteFrom({ session: { options: { provider: 'p3', model: 'm3' } } }), { provider: 'p3', model: 'm3', from: 'session.options' })
-  assert.equal(sessionRouteFrom({ session: { provider: '   ' } }), null, '空白不算')
-  assert.equal(sessionRouteFrom({ session: {} }), null)
-  assert.equal(sessionRouteFrom({}), null)
-  assert.equal(sessionRouteFrom(null), null)
-  assert.equal(sessionRouteFrom('nope'), null)
+test('② 会话路由探测：官方字段优先（requestHeader/agent.options），读不到返回 null 回退配置', async () => {
+  // ① 官方同款：session.requestHeader().config（issue #43）
+  assert.deepEqual(await sessionRouteFrom({ session: { requestHeader: async () => ({ config: { provider: 'gw-x', model: 'glm-5' } }) } }), { provider: 'gw-x', model: 'glm-5', from: 'session.requestHeader().config' })
+  // ② agent.options（官方同源，系统提示词变量取的就是它）
+  assert.deepEqual(await sessionRouteFrom({ options: { provider: 'gw-o', model: 'glm-o' } }), { provider: 'gw-o', model: 'glm-o', from: 'agent.options' })
+  assert.deepEqual(await sessionRouteFrom({ session: { provider: 'gw-b', model: 'glm-4.5' } }), { provider: 'gw-b', model: 'glm-4.5', from: 'session' })
+  assert.deepEqual(await sessionRouteFrom({ providerId: 'p1', modelId: 'm1' }), { provider: 'p1', model: 'm1', from: 'agent' })
+  assert.deepEqual(await sessionRouteFrom({ session: { route: { provider: 'p2', model: 'm2' } } }), { provider: 'p2', model: 'm2', from: 'session.route' })
+  assert.deepEqual(await sessionRouteFrom({ session: { options: { provider: 'p3', model: 'm3' } } }), { provider: 'p3', model: 'm3', from: 'session.options' })
+  assert.equal(await sessionRouteFrom({ session: { provider: '   ' } }), null, '空白不算')
+  assert.equal(await sessionRouteFrom({ session: {} }), null)
+  assert.equal(await sessionRouteFrom({}), null)
+  assert.equal(await sessionRouteFrom(null), null)
+  assert.equal(await sessionRouteFrom('nope'), null)
+  // requestHeader 抛错/返回垃圾 → 不炸，继续回退
+  assert.equal(await sessionRouteFrom({ session: { requestHeader: async () => { throw new Error('x') } } }), null)
+  assert.deepEqual(await sessionRouteFrom({ session: { requestHeader: async () => ({ config: {} }) }, options: { provider: 'p9', model: 'm9' } }), { provider: 'p9', model: 'm9', from: 'agent.options' }, 'requestHeader 拿不到就回退 agent.options')
 })
 
 test('接线守卫：配置项 / 宿主选路 / API / 面板四处都要到位', () => {

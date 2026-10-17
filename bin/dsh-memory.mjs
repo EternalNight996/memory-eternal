@@ -334,6 +334,13 @@ async function main() {
       console.log('journal_mode：' + (health.journalMode || '（未知）'))
       console.log('写探针：' + (health.writable ? 'OK（这个库现在可写）' : '失败 → ' + health.error))
       if (health.corrupt) console.log('损坏判定：疑似文件损坏（见下方引导）')
+      // issue #44：长命 watchdog 若用一份**已被删除的** node 绝对路径（brew 升级后很常见），
+      // spawn web 每次都 ENOENT 且被静默吞掉 —— 这里把实际用的 node 与存在性直接打出来。
+      try {
+        const { nodeBinary, binaryUsable } = await import('../lib/node-bin.js')
+        const nb = nodeBinary()
+        console.log('子进程 node：' + nb + (binaryUsable(nb) ? '' : '（**不存在** → spawn web 会静默失败；请用当前 node 执行 dsh-memory restart）'))
+      } catch { /* 取不到就不打印 */ }
       console.log('看门狗锁：' + (lockInfo.writable ? '可写（' + lockInfo.path + '）' : '**写不进去** → ' + lockInfo.error + '（' + lockInfo.path + '）—— 保活一般仍有效，但「是否被托管」将无法判断'))
       // 托管方式一眼可见（#30 ⑤/⑥）：看门狗登记 / 宿主托管 / 因环境限制不可替换
       try {

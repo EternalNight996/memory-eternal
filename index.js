@@ -702,7 +702,7 @@ export function apply(ctx, config) {
       let routeOpts = { provider: cfg.captureProvider, model: cfg.captureModel, firstOnly: cfg.captureFirstOnly === true }
       if (cfg.captureFollowSession === true) {
         try {
-          const sr = sessionRouteFrom(agent)
+          const sr = await sessionRouteFrom(agent)
           if (sr && sr.provider) {
             routeOpts = { ...routeOpts, provider: sr.provider, model: sr.model || '' }
             logCapture(sessionId, 'boot', `蒸馏路由跟随当前会话：${sr.provider}${sr.model ? '/' + sr.model : ''}（来源 ${sr.from}）`)
@@ -1394,6 +1394,7 @@ export function apply(ctx, config) {
             served: info.served,
             expect: cur,
             watchdogAlive: info.watchdogAlive,
+            portServing: info.portServing,
             occupantIsOurs: info.occupantIsOurs,
             autoRestart: cfg0.autoRestartOnDrift !== false,
             residentStartedAt: info.residentStartedAt,
