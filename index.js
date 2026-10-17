@@ -1305,7 +1305,20 @@ export function apply(ctx, config) {
         .catch(() => {})
     }
 
-    // (2) web server：根据 autoWeb + autoWebMode 决策
+    // (2) 持久接线体检（#44）：MCP / hooks 里若写着**已不存在**的 node 路径，
+    // 那台机器上的外部 agent 会静默连不上 —— 没人会天天跑 align，所以启动时只读检查一次并记日志。
+    import('./lib/align.js')
+      .then((m) => m.staleWiringCheck())
+      .then((r) => {
+        if (!r) return
+        const parts = []
+        if (r.missingNode && r.missingNode.length) parts.push('node 路径已不存在：' + r.missingNode.join('；'))
+        if (r.stale && r.stale.length) parts.push('条目与当前不一致：' + r.stale.join('、'))
+        if (parts.length) logCapture('system', 'warn', '持久接线需要重写（' + parts.join(' / ') + '）→ 执行 dsh-memory setup（或 align --fix）')
+      })
+      .catch(() => {})
+
+    // (3) web server：根据 autoWeb + autoWebMode 决策
     const mode = cfg0.autoWebMode || 'init'
     const port = Number(cfg0.webPort) || 7999
     const ensureOpts = { port, vaultRoot: vaultDir() }
