@@ -10,6 +10,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
+import { snippetAround } from './snippet.js'
 // 「反馈异常」纯函数层（与宿主/独立 web 共用同一套脱敏与预填逻辑）
 import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
 // 图谱 LOD：视口剔除 + 标签预算（放大后卡顿的根治手段）
@@ -111,6 +112,7 @@ export const ZH = {
   expand: '展开全部',
   collapse: '收起',
   copyBody: '复制正文',
+  clearFilter: '清除标签筛选',
   copyPath: '复制路径',
   copied: '已复制',
   copyFail: '复制失败',
@@ -536,6 +538,7 @@ export const EN = {
   expand: 'Expand',
   collapse: 'Collapse',
   copyBody: 'Copy body',
+  clearFilter: 'Clear tag filter',
   copyPath: 'Copy path',
   copied: 'Copied',
   copyFail: 'Copy failed',
@@ -948,6 +951,9 @@ const CSS = `
 .mc-chip.active { opacity: 1; font-weight: 600; border-color: currentColor; }
 .mc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .mc-cardrow { cursor: pointer; transition: border-color 0.15s, transform 0.15s; display: flex; flex-direction: column; gap: 6px; min-height: 110px; }
+.mc-snippet { font-size: 11.5px; line-height: 1.5; opacity: .72; margin: 2px 0 0; }
+.mc-tag-click { cursor: pointer; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 0 4px; border-radius: 6px; }
+.mc-tag-click:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); opacity: 1; }
 .mc-cardrow:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
 .mc-cardrow h4 { margin: 0; font-size: 14px; line-height: 1.35; }
 .mc-cardrow p { margin: 0; font-size: 12px; opacity: 0.7; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -1312,6 +1318,8 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const [query, setQuery] = useState('')
   const [agentFilter, setAgentFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  // 标签筛选（点击芯片即筛，可与搜索/类型/状态叠加）
+  const [tagPick, setTagPick] = useState('')
   // 'cards' | 'graph' | 'stats' | 'audit' | 'optimize' | 'config'
   const [view, setView] = useState(() => {
     try {
@@ -1357,6 +1365,8 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
       const qs = new URLSearchParams()
       if (nextKind && nextKind !== 'all') qs.set('kind', nextKind)
       if (nextQuery.trim()) qs.set('q', nextQuery.trim())
+      const tagQ = opts.tag !== undefined ? opts.tag : tagPick
+      if (tagQ) qs.set('tag', tagQ)
       qs.set('status', nextStatus || 'all')
       qs.set('limit', String(PAGE_SIZE))
       qs.set('offset', String(opts.offset || 0))
@@ -1375,7 +1385,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
       if (append) setLoadingMore(false)
       else setLoading(false)
     }
-  }, [kind, query, statusFilter, sort])
+  }, [kind, query, statusFilter, sort, tagPick])
 
   const loadAll = useCallback(async () => {
     try {
@@ -1423,13 +1433,20 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
     setKind(k)
     loadCards(k, query, statusFilter)
   }
+  // 点标签芯片 → 立即按该标签筛选（同一 tick 用显式参数，避免读到旧 state）
+  const onTagPick = (tag) => {
+    const next = String(tag || '')
+    setTagPick(next)
+    setReader(null)
+    loadCards(kind, query, statusFilter, { tag: next })
+  }
 
   // 状态筛选变更 → 按该状态重新拉取（pending/rejected 走 /cards?status=）
   // 只在真正看「知识卡」视图时拉卡片；切回来或数据变更（dataVer）时刷新。
   useEffect(() => {
     if (view !== 'cards') return
     loadCards(kind, query, statusFilter)
-  }, [statusFilter, view, dataVer, sort])
+  }, [statusFilter, view, dataVer, sort, tagPick])
 
   // 无限滚动：滚动到底部哨兵进入视口时再续拉一页。root 指向实际滚动容器(.mc-main)，
   // 否则 IntersectionObserver 以 viewport 为基准在内部滚动容器里判定失效，导致不触发。
@@ -1633,6 +1650,11 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
               value={query}
               onChange={(e) => onSearch(e.target.value)}
             />
+            {tagPick && (
+              <button type="button" className="mc-chip active" title={t('clearFilter')} onClick={() => onTagPick('')}>
+                🏷 {tagPick} <span style={{ opacity: 0.7 }}>✕</span>
+              </button>
+            )}
             <input ref={importRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={importVault} />
             <button type="button" className="mc-btn" onClick={() => importRef.current && importRef.current.click()}>{t('importVault')}</button>
             <button type="button" className="mc-btn me-on" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>+ {t('newCard')}</button>
@@ -1675,7 +1697,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
               ? <div className="mc-empty">{t('error')}：{error} <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('retry')}</button></div>
             : cards.length === 0
               ? <div className="mc-empty">{t('empty')}</div>
-              : <><div className="mc-grid">{sortedCards.map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
+              : <><div className="mc-grid">{sortedCards.map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
           }
         </div>
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
@@ -1696,7 +1718,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
         </div>
 
         {feedbackOpen && <FeedbackModal t={t} onClose={() => setFeedbackOpen(false)} />}
-        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) setReader(next) }} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />}
+        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) setReader(next) }} onTagClick={onTagPick} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />}
         <NewCardModal t={t} newCard={newCard} setNewCard={setNewCard} onCreated={() => { loadAll(); bump(); setLibToast({ ok: true, msg: t('created') }); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />
         </div>
       </div>
@@ -2513,7 +2535,7 @@ function RecoverPanel({ t, onReload, version }) {
   )
 }
 
-const CardRow = ({ card, t, onOpen, query, onDelete }) => (  <article className="mc-cardrow mc-card" onClick={() => onOpen(card)}>
+const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick }) => (  <article className="mc-cardrow mc-card" onClick={() => onOpen(card)}>
     <h4>
       <span className="mc-kind" style={{ background: KIND_COLORS[card.kind] || KIND_COLORS.other }} />
       <span style={{ marginRight: 4 }}>{KIND_EMOJI[card.kind] || '📎'}</span>
@@ -2524,9 +2546,14 @@ const CardRow = ({ card, t, onOpen, query, onDelete }) => (  <article className=
       {(!card.status || card.status === 'approved') && <span className="mc-status" style={{ background: '#10b981' }}>✅ {t('statusApproved')}</span>}
     </h4>
     <p>{query ? highlightMatches(card.summary || '', query) : (card.summary || '')}</p>
+    {/* 搜索命中片段（含高亮）：让人一眼看到「为什么命中」，而不是只有标题/摘要 */}
+    {query && (() => {
+      const sn = snippetAround(card.body || '', query)
+      return sn ? <p className="mc-snippet">{highlightMatches(sn, query)}</p> : null
+    })()}
     {tagsOf(card).length > 0 && (
       <div className="mc-tags">
-        {tagsOf(card).slice(0, 4).map((tag) => <span key={tag} className="mc-tag">🏷 {tag}</span>)}
+        {tagsOf(card).slice(0, 4).map((tag) => <button key={tag} type="button" className="mc-tag mc-tag-click" title={tag} onClick={(e) => { e.stopPropagation(); onTagClick && onTagClick(tag) }}>🏷 {tag}</button>)}
       </div>
     )}
     <footer>
@@ -3174,7 +3201,7 @@ function FeedbackModal({ t, onClose }) {
   )
 }
 
-function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate }) {
+function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate, onTagClick }) {
   // 读卡进度（0–100）：长卡片下让人知道还剩多少
   const [progress, setProgress] = useState(0)
   // 复制反馈（1.5s 自动消失）：没有它用户点了按钮不知道成没成
@@ -3231,7 +3258,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate 
         <div className="md-meta">
           <span className="md-chip md-chip-kind" style={{ color: kindColor, borderColor: kindColor + '59', background: kindColor + '1a' }}>{KIND_EMOJI[kind] || '📎'} {t(KIND_LABELS[kind] || 'kindKnowledge')}</span>
           <span className={'md-chip ' + (status === 'approved' ? 'md-chip-st-ok' : status === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad')}>{status === 'approved' ? '✅' : status === 'pending' ? '⏳' : '⛔'} {t(status === 'approved' ? 'statusApproved' : status === 'pending' ? 'statusPending' : 'statusRejected')}</span>
-          {(Array.isArray(tags) ? tags : []).slice(0, 8).map((tag) => <span key={tag} className="md-chip md-chip-tag">🏷 {tag}</span>)}
+          {(Array.isArray(tags) ? tags : []).slice(0, 8).map((tag) => <button key={tag} type="button" className="md-chip md-chip-tag mc-tag-click" title={tag} onClick={() => onTagClick && onTagClick(tag)}>🏷 {tag}</button>)}
           {!!metaOf('updated') && <span className="md-chip md-date">🕒 {t('updated')} {fmtDate(metaOf('updated'))}</span>}
           {!!metaOf('source') && <span className="md-chip md-date">📥 {metaOf('source')}</span>}
         </div>
