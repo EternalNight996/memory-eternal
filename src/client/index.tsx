@@ -992,6 +992,14 @@ const CSS = `
 .me-dialog { background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border-radius: 14px; max-width: 760px; width: 100%; max-height: 84vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.5); border: 1px solid var(--dsw-alias-border-l1, #2c333c); }
 .me-dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
 .me-dialog-head h3 { margin: 0; font-size: 15px; }
+/* 标题过长时不许挤压按钮（用户反馈，见图 1/图 2）：
+   ① h3 必须能收缩（min-width:0）并单行省略，否则长标题会把按钮顶出可视区；
+   ② 按钮组 flex:0 0 auto + nowrap —— 否则会被压成竖排（「收/起」「关/闭」）；
+   ③ 头部允许换行：极窄时按钮整体掉到第二行，仍然一个个可点，而不是被压扁。 */
+.me-dialog-head { flex-wrap: wrap; gap: 8px 12px; }
+.me-dialog-head h3 { min-width: 0; flex: 1 1 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-dialog-head .me-head-actions { display: flex; flex-wrap: nowrap; gap: 8px; flex: 0 0 auto; margin-left: auto; align-items: center; }
+.me-dialog-head .me-head-actions .mc-btn { flex: 0 0 auto; white-space: nowrap; }
 .me-dialog-body { padding: 14px 18px; overflow: auto; font-size: 13.5px; line-height: 1.78; white-space: normal; word-break: break-word; position: relative; }
 .me-dialog-body h3 { font-size: 15px; margin: 10px 0 6px; color: var(--dsw-alias-label-primary, #111); }
 .me-dialog-body h4 { font-size: 13px; margin: 8px 0 4px; color: var(--dsw-alias-label-primary, #111); }
@@ -3168,8 +3176,8 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
       <style>{CSS}</style>
       <div className="me-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="me-dialog-head">
-          <h3><span style={{ marginRight: 6 }}>{KIND_EMOJI[kind] || '📎'}</span>{card.title}</h3>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <h3 title={card.title}><span style={{ marginRight: 6, flex: 'none' }}>{KIND_EMOJI[kind] || '📎'}</span>{card.title}</h3>
+          <div className="me-head-actions">
             {query && <><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbNotUseful')}</button></>}
             {long && <button type="button" className="mc-btn" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>{expanded ? t('collapse') : t('expand')}</button>}
             <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => { if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>{t('delete')}</button>
@@ -3826,7 +3834,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
           <div className="me-dialog" style={{ maxWidth: exportFull ? '100vw' : 900, width: exportFull ? '100vw' : '92vw', maxHeight: exportFull ? '100%' : '90vh', height: exportFull ? '100%' : undefined, borderRadius: exportFull ? 0 : 14 }} onClick={(e) => e.stopPropagation()}>
             <div className="me-dialog-head">
               <h3>{t('exportGraph')}</h3>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="me-head-actions">
                 <a className="mc-btn" href={exportData.url} download="memory-graph.png" onClick={() => { markDone('download'); notify(t('downloaded') + ' · ' + t('defaultDownloads')) }} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>{exportDone === 'download' ? t('done') : t('download')}</a>
                 <button type="button" className="mc-btn" onClick={() => { markDone('full'); setExportFull((f) => !f); notify(t('fullscreen')) }}>{exportDone === 'full' ? t('done') : (exportFull ? t('exitFull') : t('fullscreen'))}</button>
                 <button type="button" className="mc-btn" onClick={() => { const cb = exportData.blob; if (cb && window.ClipboardItem && navigator.clipboard) { navigator.clipboard.write([new window.ClipboardItem({ 'image/png': cb })]).then(() => { markDone('copy'); notify(t('copied')) }).catch(() => { notify(t('copyFail'), false) }) } else { notify(t('copyFail'), false) } }}>{exportDone === 'copy' ? t('done') : t('copyImage')}</button>
