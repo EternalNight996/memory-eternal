@@ -110,6 +110,14 @@ export const ZH = {
   newBadge: '新',
   expand: '展开全部',
   collapse: '收起',
+  copyBody: '复制正文',
+  copyPath: '复制路径',
+  copied: '已复制',
+  copyFail: '复制失败',
+  readWidth: '阅读宽度',
+  widthNarrow: '窄',
+  widthMid: '中',
+  widthWide: '宽',
   exportVault: '导出MD',
   exportJson: '导出JSON',
   exporting: '导出中…',
@@ -527,6 +535,14 @@ export const EN = {
   newBadge: 'NEW',
   expand: 'Expand',
   collapse: 'Collapse',
+  copyBody: 'Copy body',
+  copyPath: 'Copy path',
+  copied: 'Copied',
+  copyFail: 'Copy failed',
+  readWidth: 'Reading width',
+  widthNarrow: 'Narrow',
+  widthMid: 'Medium',
+  widthWide: 'Wide',
   exportVault: 'Export MD',
   exportJson: 'Export JSON',
   exporting: 'Exporting…',
@@ -1000,6 +1016,9 @@ const CSS = `
 .me-dialog-head h3 { min-width: 0; flex: 1 1 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .me-dialog-head .me-head-actions { display: flex; flex-wrap: nowrap; gap: 8px; flex: 0 0 auto; margin-left: auto; align-items: center; }
 .me-dialog-head .me-head-actions .mc-btn { flex: 0 0 auto; white-space: nowrap; }
+/* 读卡进度：2px 细条贴在头部下沿，随正文滚动推进（读长卡时知道还剩多少） */
+.me-read-progress { position: relative; height: 2px; margin-top: -1px; background: transparent; }
+.me-read-progress > i { display: block; height: 100%; width: 0; background: var(--dsw-alias-brand-primary, #6366f1); transition: width .08s linear; }
 .me-dialog-body { padding: 14px 18px; overflow: auto; font-size: 13.5px; line-height: 1.78; white-space: normal; word-break: break-word; position: relative; }
 .me-dialog-body h3 { font-size: 15px; margin: 10px 0 6px; color: var(--dsw-alias-label-primary, #111); }
 .me-dialog-body h4 { font-size: 13px; margin: 8px 0 4px; color: var(--dsw-alias-label-primary, #111); }
@@ -1677,7 +1696,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
         </div>
 
         {feedbackOpen && <FeedbackModal t={t} onClose={() => setFeedbackOpen(false)} />}
-        {reader && <CardReader t={t} card={reader} query={query.trim()} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />}
+        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) setReader(next) }} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />}
         <NewCardModal t={t} newCard={newCard} setNewCard={setNewCard} onCreated={() => { loadAll(); bump(); setLibToast({ ok: true, msg: t('created') }); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />
         </div>
       </div>
@@ -3155,12 +3174,33 @@ function FeedbackModal({ t, onClose }) {
   )
 }
 
-function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
+function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate }) {
+  // 读卡进度（0–100）：长卡片下让人知道还剩多少
+  const [progress, setProgress] = useState(0)
+  // 复制反馈（1.5s 自动消失）：没有它用户点了按钮不知道成没成
+  const [copyTip, setCopyTip] = useState('')
+  // 阅读宽度（窄/中/宽）—— 存在 localStorage，跨会话记住偏好
+  const [widthMode, setWidthMode] = useState(() => {
+    try { const v = localStorage.getItem('me-read-width'); return ['narrow', 'mid', 'wide'].includes(v) ? v : 'mid' } catch { return 'mid' }
+  })
+  const WIDTH_PX = { narrow: 720, mid: 900, wide: 1180 }
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => {
+      if (e.key === 'Escape') { onClose(); return }
+      // j/k 上下张（不用方向键：方向键要留给正文滚动）
+      const tag = String((e.target && e.target.tagName) || '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return
+      if (e.key === 'j' && onNavigate) { e.preventDefault(); onNavigate(1) }
+      else if (e.key === 'k' && onNavigate) { e.preventDefault(); onNavigate(-1) }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, onNavigate])
+  const copyText = async (text, label) => {
+    const ok = await copyToClipboard(String(text || ''))
+    setCopyTip(ok ? t('copied') + ' · ' + label : t('copyFail'))
+    setTimeout(() => setCopyTip(''), 1500)
+  }
   // frontmatter 单独渲染成 chips：直接丢进正文会露出一段 YAML，一眼就"像机器输出"。
   const { meta, body } = useMemo(() => splitFrontmatter(card.text || ''), [card.text])
   const metaOf = (key) => { const hit = meta.find(([k]) => String(k).toLowerCase() === key); return hit ? hit[1] : '' }
@@ -3178,6 +3218,10 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
         <div className="me-dialog-head">
           <h3 title={card.title}><span style={{ marginRight: 6, flex: 'none' }}>{KIND_EMOJI[kind] || '📎'}</span>{card.title}</h3>
           <div className="me-head-actions">
+            {copyTip && <span style={{ fontSize: 11.5, color: '#10b981', whiteSpace: 'nowrap' }}>{copyTip}</span>}
+            <button type="button" className="mc-btn" title={t('copyBody')} onClick={() => copyText(body, t('copyBody'))}>📋 {t('copyBody')}</button>
+            <button type="button" className="mc-btn" title={t('copyPath')} onClick={() => copyText(card.path, t('copyPath'))}>🔗 {t('copyPath')}</button>
+            <button type="button" className="mc-btn" title={t('readWidth')} onClick={() => { const order = ['narrow', 'mid', 'wide']; const next = order[(order.indexOf(widthMode) + 1) % order.length]; setWidthMode(next); try { localStorage.setItem('me-read-width', next) } catch { /* 隐私模式忽略 */ } }}>{t('readWidth')} · {t(widthMode === 'narrow' ? 'widthNarrow' : widthMode === 'wide' ? 'widthWide' : 'widthMid')}</button>
             {query && <><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbNotUseful')}</button></>}
             {long && <button type="button" className="mc-btn" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>{expanded ? t('collapse') : t('expand')}</button>}
             <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => { if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>{t('delete')}</button>
@@ -3191,7 +3235,11 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback }) {
           {!!metaOf('updated') && <span className="md-chip md-date">🕒 {t('updated')} {fmtDate(metaOf('updated'))}</span>}
           {!!metaOf('source') && <span className="md-chip md-date">📥 {metaOf('source')}</span>}
         </div>
-        <div className="me-dialog-body" style={expanded ? {} : { maxHeight: 300, overflow: 'hidden' }} onClick={expanded ? undefined : (e) => { e.stopPropagation(); setExpanded(true) }}>
+        <div className="me-read-progress" aria-hidden="true"><i style={{ width: progress + '%' }} /></div>
+        <div className="me-dialog-body"
+          style={{ maxWidth: WIDTH_PX[widthMode], margin: '0 auto', width: '100%', ...(expanded ? {} : { maxHeight: 300, overflow: 'hidden' }) }}
+          onScroll={(e) => { const el = e.currentTarget; const max = el.scrollHeight - el.clientHeight; setProgress(max <= 0 ? 100 : Math.min(100, Math.max(0, (el.scrollTop / max) * 100))) }}
+          onClick={expanded ? undefined : (e) => { e.stopPropagation(); setExpanded(true) }}>
           <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(body) }} />
         </div>
         {!expanded && <div className="md-collapsed-hint" onClick={(e) => { e.stopPropagation(); setExpanded(true) }}>{t('expand')} ⌄</div>}
