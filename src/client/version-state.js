@@ -40,8 +40,11 @@ export function versionCardState({
   else if (residentUnmanaged) warn = 'residentUnmanaged'
 
   // 按钮旁的一句说明：说清「点了能解决什么、不能解决什么」
+  // 注意区分「版本落后」与「版本相同但没人保活」：后者说「换成 vX（当前 vX）」是自相矛盾的（截图实测）。
   let hint
-  if (residentNeedsRestart) hint = residentDown ? 'restartStart' : 'restartFixes'
+  if (residentDown) hint = 'restartStart'
+  else if (residentStale) hint = 'restartFixes'
+  else if (residentUnmanaged || residentLockUnknown) hint = 'restartRepair'
   else if (hostStale) hint = 'restartHostOnly'
   else hint = 'restartAnyway'
 

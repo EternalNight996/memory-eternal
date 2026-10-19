@@ -320,6 +320,7 @@ export const ZH = {
   captureCooldownMs: '沉淀冷却 (ms)',
   captureProvider: '蒸馏 provider（留空自动）',
   routeAuto: '自动（按注册顺序）',
+  routeListFail: '取不到模型列表（{err}）→ 下面可直接手填 provider / model；桌面版弹窗会自动向宿主代理，若仍失败请从 DSH 设置页打开' ,
   captureFollowSession: '跟随当前会话（蒸馏用会话的 provider/model）',
   captureFirstOnly: '仅试首选（失败即停，不轮换兜底）',
   llmTest: '测试蒸馏路由',
@@ -350,6 +351,7 @@ export const ZH = {
   vcHostProcessStale: '磁盘已安装 v{disk}，但**服务本页的进程**（DSH 宿主）加载的仍是 v{loaded} —— 它来自宿主启动时的那份代码：**重启常驻实例不会改变本页**，需完全退出并重开 DSH。',
   vcRestartFixes: '点击会把常驻实例（端口上那个）换成 v{disk}（当前 v{served}），不用重启 DSH',
   vcRestartStart: '点击会用当前磁盘版本 v{disk} 把常驻实例拉起来（不用重启 DSH）',
+  vcRestartRepair: '点击会把它重新托管并保活（版本已是 v{disk}，不用重启 DSH）',
   vcRestartHostOnly: '常驻实例已是 v{disk}；本页显示 v{loaded} 来自 DSH 宿主 —— 重启常驻实例不影响本页，请重启 DSH',
   vcRestartFail: '重启请求失败',
   vcRestartNoRoute: '当前页面对接的进程还是旧版（没有这个接口）：请重启桌面版 / DSH 后再试，或执行 {cmd}',
@@ -751,6 +753,7 @@ export const EN = {
   captureCooldownMs: 'Capture cooldown (ms)',
   captureProvider: 'Distill provider (auto if empty)',
   routeAuto: 'Auto (registration order)',
+  routeListFail: 'Could not load the model list ({err}) — you can type provider / model below; the desktop popup proxies this to the host, so if it still fails open the settings from DSH',
   captureFollowSession: 'Follow current session (distill with the session provider/model)',
   captureFirstOnly: 'First candidate only (stop on failure, no fallback)',
   llmTest: 'Test distill route',
@@ -781,6 +784,7 @@ export const EN = {
   vcHostProcessStale: 'Disk has v{disk}, but **the process serving this page** (the DSH host) still loads v{loaded} — that code was loaded when the host started, so **restarting the resident instance does not change this page**: fully quit and reopen DSH.',
   vcRestartFixes: 'Restarts the resident instance (the process on the port) onto v{disk} (currently v{served}) without restarting DSH',
   vcRestartStart: 'Starts the resident instance on the current disk version v{disk} (no DSH restart needed)',
+  vcRestartRepair: 'Re-registers it under a watchdog and keeps it alive (already v{disk}; no DSH restart needed)',
   vcRestartHostOnly: 'The resident instance is already v{disk}; this page shows v{loaded} from the DSH host — restarting the resident does not affect it, please restart DSH',
   vcRestartFail: 'Restart request failed',
   vcRestartNoRoute: 'The process serving this page is still the old build (no such endpoint): restart the desktop app / DSH and retry, or run {cmd}',
@@ -1868,6 +1872,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   }
   const vcHintText = {
     restartStart: () => tf('vcRestartStart', { disk: (vc && vc.onDisk) || '' }),
+    restartRepair: () => tf('vcRestartRepair', { disk: (vc && vc.onDisk) || '' }),
     restartFixes: () => tf('vcRestartFixes', { served: residentServed || '', disk: (vc && vc.onDisk) || '' }),
     restartHostOnly: () => tf('vcRestartHostOnly', { loaded: (vc && vc.loaded) || '', disk: (vc && vc.onDisk) || '' }),
     restartAnyway: () => tf('vcRestartAnyway', { ver: (vc && vc.onDisk) || '' }),
@@ -2263,6 +2268,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="recallMinScore" label={t('recallMinScore')} type="number" />
                 <F k="captureCooldownMs" label={t('captureCooldownMs')} type="number" />
                 {/* issue #42 ①：下拉选 provider / model（动态拉取，不再手填编号）；取不到时回退成文本输入 */}
+                {routes && routes.ok === false && (
+                  <div style={{ gridColumn: '1 / -1', fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px', lineHeight: 1.6 }}>
+                    ⚠ {tf('routeListFail', { err: routes.error || '未知原因' })}
+                  </div>
+                )}
                 {routes && routes.providers && routes.providers.length ? (
                   <>
                     <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>

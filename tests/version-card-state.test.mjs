@@ -51,16 +51,24 @@ test('常驻没在跑 + 宿主旧：先说宿主旧，按钮高亮，提示 rest
   assert.equal(s.hint, 'restartStart')
 })
 
-test('未托管（在跑但没人保活）→ 警告 residentUnmanaged', () => {
+test('未托管 + 版本落后 → 警告 residentUnmanaged，提示「换成新版」', () => {
   const s = versionCardState({ ...base, residentServed: '0.10.30', residentManaged: false, residentManagedKnown: true })
   assert.equal(s.warn, 'residentUnmanaged')
   assert.equal(s.emphasis, true)
+  assert.equal(s.hint, 'restartFixes')
+})
+
+test('未托管但版本已对 → 提示「重新托管」，不能说「换成同版本」（截图实测过的矛盾文案）', () => {
+  const s = versionCardState({ ...base, residentManaged: false, residentManagedKnown: true })
+  assert.equal(s.warn, 'residentUnmanaged')
+  assert.equal(s.hint, 'restartRepair')
 })
 
 test('托管状态未知（锁不可读）→ 警告 residentLockUnknown（不能误报成未托管）', () => {
   const s = versionCardState({ ...base, residentManaged: false, residentManagedKnown: false })
   assert.equal(s.warn, 'residentLockUnknown')
   assert.equal(s.residentUnmanaged, false)
+  assert.equal(s.hint, 'restartRepair')
 })
 
 test('宿主托管（managedBy=host）不算未托管，也不该出现未托管警告', () => {
@@ -93,7 +101,7 @@ test('不变式：只要拿得到版本信息，任何组合都 showButton', () 
       const s = versionCardState({ hasVersion: true, onDisk: DISK, hostVersion, residentServed, residentPresent: true, residentManaged, residentManagedKnown, residentManagedBy, replaceBlocked })
       assert.equal(s.showButton, true, 'combos=' + combos)
       assert.ok(['hostProcessStale', 'residentDown', 'residentReplaceBlocked', 'residentLockUnknown', 'residentUnmanaged', null].includes(s.warn), 'warn 必须是已知 key：' + s.warn)
-      assert.ok(['restartStart', 'restartFixes', 'restartHostOnly', 'restartAnyway'].includes(s.hint), 'hint 必须是已知 key：' + s.hint)
+      assert.ok(['restartStart', 'restartFixes', 'restartRepair', 'restartHostOnly', 'restartAnyway'].includes(s.hint), 'hint 必须是已知 key：' + s.hint)
     }
   assert.ok(combos >= 12 * 27, '组合数应 ≥ 324（实际 ' + combos + '）')
 })
