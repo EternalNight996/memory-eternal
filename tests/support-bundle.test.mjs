@@ -22,6 +22,8 @@ test('脱敏：家目录 / sk- / ghp_ / github_pat / Bearer / 配置里的 key �
     'password=hunter2',
   ].join('\n')
   const out = redactText(raw, { home })
+  // JSON 转义形态（doctor/align --json 的现场）也必须被替换
+  assert.doesNotMatch(redactText(JSON.stringify({ vault: home + '\\.dsh\\v' }), { home }), /tester/, 'JSON 转义形态不能漏')
   assert.doesNotMatch(out, /tester/, '家目录必须被替换')
   assert.match(out, /<home>/)
   assert.doesNotMatch(out, /sk-abcdefghijklmnop/);
