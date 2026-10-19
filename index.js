@@ -712,7 +712,18 @@ export function apply(ctx, config) {
           }
         } catch { /* 探测失败一律回退配置 */ }
       }
-      const routes = await routeCandidates(llm, routeOpts)
+      let routes = await routeCandidates(llm, routeOpts)
+      // issue #47：近期「不守 JSON」的模型排到后面（不删除，全部命中过则原顺序兜底）
+      try {
+        const st = await import('./lib/model-strikes.js')
+        const strikes = st.recentModelStrikes(process.env)
+        if (Object.keys(strikes).length) {
+          const before = routes.map((r) => r.provider + '/' + r.model).join(' → ')
+          routes = st.rankRoutesByStrikes(routes, strikes)
+          const after = routes.map((r) => r.provider + '/' + r.model).join(' → ')
+          if (after !== before) logCapture(sessionId, 'boot', `蒸馏候选已调整（近期不守 JSON 的模型排后）：${before} → ${after}`)
+        }
+      } catch { /* 记录读不到就按原顺序 */ }
       if (!routes.length) { logCapture(sessionId, 'fail', '取不到模型路由（llm.listProviders 为空）'); return }
       // 语义去重近邻：把已有卡片索引喂给模型，让模型决定新建 vs 追加。
       // 成本控制：dedupByLLM=false 时跳过喂 LLM 的近邻采样（纯词法去重兜底）。
@@ -739,6 +750,10 @@ export function apply(ctx, config) {
         if (detailed.card !== undefined) { result = detailed.card; failure = null; break }
         if (detailed.failure) {
           const f = { ...detailed.failure, provider: route.provider, model: route.model }
+          // 「模型回了散文」要记住：下次选路把它排到最后，别每轮都先白烧一次（issue #47）
+          if (f.code === 'MODEL_NOT_JSON') {
+            try { const st = await import('./lib/model-strikes.js'); st.recordModelStrike(process.env, route, f.code) } catch { /* 记不下来不影响主流程 */ }
+          }
           failures.push(f)
           // 只保留第一个：旧实现每轮覆盖，最终上报的是**最后一个兜底候选**的错误，
           // 真正有信息量的主因被彻底丢弃（#18 根因 2）。
