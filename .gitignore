@@ -5,6 +5,9 @@ lib/client.tmp.js
 .dsh-vision-router
 .npmrc
 /preview/*
+# 面板视觉验收产物（node scripts/panel-check.mjs）
+.panel/
+.panel-*
 
 # pnpm 副作用（仓库用 npm 发布；下游 profile 各自 pnpm add）
 pnpm-lock.yaml

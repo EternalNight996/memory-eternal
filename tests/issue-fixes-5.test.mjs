@@ -81,7 +81,10 @@ test('#28 姊妹现场：常驻实例**没在跑**时也必须给重启按钮 + 
   assert.match(client, /const residentDown = Boolean\(vc && vc\.resident && !residentServed\)/, '要识别「常驻实例没在跑」')
   assert.match(client, /const residentUnmanaged = Boolean\(vc && vc\.resident && vc\.resident\.managed === false && !residentLockUnknown && !residentHostManaged\)/, '还要识别「在跑但没人托管」（0.10.25 区分「判不出来」，0.10.34 区分「宿主托管」）')
   assert.match(client, /const residentNeedsRestart = residentStale \|\| residentDown \|\| residentUnmanaged \|\| residentLockUnknown/, '没在跑 / 没托管 / 判不出来都要算「需要重启」')
-  assert.match(client, /vc && \(vc\.stale \|\| residentDown \|\| residentUnmanaged \|\| residentLockUnknown \|\| residentReplaceBlocked\) && \(/, '横幅显示条件要把这五种都纳入（含「判不出来」与「不可替换」，否则整个横幅都不渲染）')
+  // v0.10.48 起：五种状态收敛进纯函数 versionCardState（tests/version-card-state.test.mjs 穷举 324 组合），
+  // 组件只判断 vstate.warn 是否存在 —— 手写条件链已删除（那正是漏掉第三种状态的原因）。
+  assert.match(client, /\{vc && vstate\.warn && \(/, '横幅由 vstate.warn 决定（五类状态都在纯函数里判定）')
+  assert.match(client, /import \{ versionCardState \} from '\.\/version-state\.js'/, '要引用纯函数')
   assert.match(client, /vcResidentDown:/, '要有「常驻实例没在运行」的专门文案')
   assert.match(client, /vcResidentUnmanaged:/, '要有「在服务但没托管」的专门文案')
   assert.equal((client.match(/vcResidentUnmanaged:/g) || []).length, 2, '中英词条各一条')

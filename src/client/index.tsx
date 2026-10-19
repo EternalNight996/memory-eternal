@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import { snippetAround } from './snippet.js'
+import { versionCardState } from './version-state.js'
 // 「反馈异常」纯函数层（与宿主/独立 web 共用同一套脱敏与预填逻辑）
 import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
 // 图谱 LOD：视口剔除 + 标签预算（放大后卡顿的根治手段）
@@ -965,7 +966,7 @@ const CSS = `
 .mc-tag-click { cursor: pointer; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 0 4px; border-radius: 6px; }
 .mc-tag-click:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); opacity: 1; }
 .mc-cardrow:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
-.mc-cardrow h4 { margin: 0; font-size: 14px; line-height: 1.35; }
+.mc-cardrow h4 { margin: 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
 .mc-cardrow p { margin: 0; font-size: 12px; opacity: 0.7; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .mc-cardrow footer { margin-top: auto; display: flex; justify-content: space-between; align-items: center; font-size: 11px; opacity: 0.55; }
 .mc-card-del { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 5px; border-radius: 5px; opacity: 0.45; }
@@ -1039,6 +1040,8 @@ const CSS = `
 .me-read-progress > i { display: block; height: 100%; width: 0; background: var(--dsw-alias-brand-primary, #6366f1); transition: width .08s linear; }
 .me-dialog-body { padding: 14px 18px; overflow: auto; overflow-x: hidden; box-sizing: border-box; font-size: 13.5px; line-height: 1.78; white-space: normal; word-break: break-word; position: relative; }
 .me-dialog-body h3 { font-size: 15px; margin: 10px 0 6px; color: var(--dsw-alias-label-primary, #111); }
+/* 表单控件：width:100% + padding/border 在 content-box 下会横向溢出（反馈弹窗实测 +22px → 横向滚动条） */
+.me-overlay input, .me-overlay textarea, .me-overlay select { box-sizing: border-box; max-width: 100%; }
 .me-dialog-body h4 { font-size: 13px; margin: 8px 0 4px; color: var(--dsw-alias-label-primary, #111); }
 .me-dialog-body a { color: var(--dsw-alias-accent, #2563eb); }
 /* ---- 卡片正文排版（.md-doc）：emoji 小标题 + 颜色分组 + 真正的列表 ---- */
@@ -1842,6 +1845,33 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const residentUnmanaged = Boolean(vc && vc.resident && vc.resident.managed === false && !residentLockUnknown && !residentHostManaged)
   const residentDown = Boolean(vc && vc.resident && !residentServed)
   const residentNeedsRestart = residentStale || residentDown || residentUnmanaged || residentLockUnknown
+  // 版本卡的显示判定统一走纯函数（tests/version-card-state.test.mjs 里 324 种组合穷举）——
+  // 组件里不再手写三元链：0.10.45 的事故就是那条链漏了「常驻新 + 宿主旧」这一个组合。
+  const vstate = versionCardState({
+    hasVersion: Boolean(vc),
+    hostVersion: vc ? vc.loaded : '',
+    onDisk: vc ? vc.onDisk : '',
+    residentServed: vc && vc.resident ? vc.resident.served : '',
+    residentPresent: Boolean(vc && vc.resident),
+    residentManaged: vc && vc.resident ? vc.resident.managed : null,
+    residentManagedKnown: vc && vc.resident ? vc.resident.managedKnown : null,
+    residentManagedBy: vc && vc.resident ? vc.resident.managedBy : '',
+    replaceBlocked: vc && vc.resident ? vc.resident.replaceBlocked : null,
+  })
+  // key → 文案（组件只负责翻译，判定全在纯函数里）
+  const vcWarnText = {
+    hostProcessStale: () => tf('vcHostProcessStale', { disk: vc.onDisk, loaded: vc.loaded }),
+    residentDown: () => tf('vcResidentDown', { port: (vc.resident && vc.resident.port) || '', cmd: vc.restartCommand || 'dsh-memory restart --port 7999' }),
+    residentReplaceBlocked: () => tf('vcResidentReplaceBlocked', { served: residentServed, err: (residentReplaceBlocked && residentReplaceBlocked.error) || '', path: (residentReplaceBlocked && residentReplaceBlocked.lockPath) || '', cmd: vc.restartCommand || ('dsh-memory restart --port ' + ((vc.resident && vc.resident.port) || 7999)) }),
+    residentLockUnknown: () => tf('vcResidentLockUnknown', { served: residentServed, path: (vc.resident && vc.resident.lock && vc.resident.lock.path) || '', err: (vc.resident && vc.resident.lock && vc.resident.lock.error) || '' }),
+    residentUnmanaged: () => tf('vcResidentUnmanaged', { served: residentServed, cmd: vc.restartCommand || 'dsh-memory restart --port 7999' }),
+  }
+  const vcHintText = {
+    restartStart: () => tf('vcRestartStart', { disk: (vc && vc.onDisk) || '' }),
+    restartFixes: () => tf('vcRestartFixes', { served: residentServed || '', disk: (vc && vc.onDisk) || '' }),
+    restartHostOnly: () => tf('vcRestartHostOnly', { loaded: (vc && vc.loaded) || '', disk: (vc && vc.onDisk) || '' }),
+    restartAnyway: () => tf('vcRestartAnyway', { ver: (vc && vc.onDisk) || '' }),
+  }
   // 词条带 {placeholder} 填充（本项目 t 为词典直查，不含参数替换）
   const tf = (k, map) => Object.keys(map).reduce((s, kk) => s.split('{' + kk + '}').join(map[kk]), t(k))
   const load = useCallback(async () => {
@@ -2073,17 +2103,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <div style={{ flex: 1 }} />
               <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
             </div>
-            {vc && (vc.stale || residentDown || residentUnmanaged || residentLockUnknown || residentReplaceBlocked) && (
+            {/* 警告块：显示哪个 key 由 versionCardState 决定（组件不再手写状态链） */}
+            {vc && vstate.warn && (
               <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>
-                <div>⚠️ {vc.stale
-                  ? tf('vcHostProcessStale', { disk: vc.onDisk, loaded: vc.loaded })
-                  : residentDown
-                    ? tf('vcResidentDown', { port: (vc.resident && vc.resident.port) || '', cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })
-                    : residentReplaceBlocked
-                      ? tf('vcResidentReplaceBlocked', { served: residentServed, err: residentReplaceBlocked.error || '', path: residentReplaceBlocked.lockPath || '', cmd: vc.restartCommand || ('dsh-memory restart --port ' + ((vc.resident && vc.resident.port) || 7999)) })
-                      : residentLockUnknown
-                        ? tf('vcResidentLockUnknown', { served: residentServed, path: (vc.resident && vc.resident.lock && vc.resident.lock.path) || '', err: (vc.resident && vc.resident.lock && vc.resident.lock.error) || '' })
-                      : tf('vcResidentUnmanaged', { served: residentServed, cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })}</div>
+                <div>⚠️ {vcWarnText[vstate.warn] ? vcWarnText[vstate.warn]() : ''}</div>
               </div>
             )}
             {/* issue #46 反馈：「重启常驻实例」按钮消失了 —— 它原来被包在「有异常才渲染」的警告块里，
@@ -2094,20 +2117,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   · 常驻实例旧 → 点了就能换成新版（这就是修复入口）；
                   · 常驻实例新、但**服务本页的进程**旧（DSH 宿主）→ 点了只影响 7999/独立页，本页要重启 DSH；
                   · 全部对齐 → 保留为「卡住时的强制重启」。 */}
-            {vc && (
+            {/* 按钮永远存在：vstate.showButton 只取决于「有没有拿到版本信息」 */}
+            {vstate.showButton && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-                <button type="button" className={'mc-btn' + (residentNeedsRestart ? ' me-on' : '')} disabled={!!busy} onClick={restartResident}>
+                <button type="button" className={'mc-btn' + (vstate.emphasis ? ' me-on' : '')} disabled={!!busy} onClick={restartResident}>
                   {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
                 </button>
                 {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
                 <span style={{ fontSize: 11, opacity: 0.65 }}>
-                  {residentNeedsRestart
-                    ? (residentDown
-                      ? tf('vcRestartStart', { disk: vc.onDisk || '' })
-                      : tf('vcRestartFixes', { served: residentServed || '', disk: vc.onDisk || '' }))
-                    : vc.stale
-                      ? tf('vcRestartHostOnly', { loaded: vc.loaded || '', disk: vc.onDisk || '' })
-                      : tf('vcRestartAnyway', { ver: vc.onDisk || '' })}
+                  {vcHintText[vstate.hint] ? vcHintText[vstate.hint]() : ''}
                 </span>
               </div>
             )}

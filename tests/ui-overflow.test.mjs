@@ -27,12 +27,13 @@ test('诊断/反馈 <pre> 的长路径要换行，不许横向滚动', () => {
 
 test('「重启常驻实例」按钮**永远**存在（两轮反馈都栽在它消失上）', () => {
   // 操作行只依赖 vc 存在，不再被 residentNeedsRestart / vc.stale 决定是否渲染
-  assert.match(src, /\{vc && \(\r?\n\s+<div style=\{\{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6/, '操作行要无条件渲染')
+  assert.match(src, /\{vstate\.showButton && \(\r?\n\s+<div style=\{\{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6/, '操作行由 showButton 决定（永远为 true）')
+  assert.match(src, /import \{ versionCardState \} from '\.\/version-state\.js'/, '判定必须走纯函数')
   assert.match(src, /onClick=\{restartResident\}/, '按钮必须真的存在')
   // 三种状态各有准确说明（常驻旧 / 宿主旧 / 全部对齐）
-  assert.match(src, /tf\('vcRestartFixes', \{ served: residentServed \|\| '', disk: vc\.onDisk \|\| '' \}\)/)
-  assert.match(src, /tf\('vcRestartHostOnly', \{ loaded: vc\.loaded \|\| '', disk: vc\.onDisk \|\| '' \}\)/)
-  assert.match(src, /tf\('vcRestartAnyway', \{ ver: vc\.onDisk \|\| '' \}\)/)
+  assert.match(src, /tf\('vcRestartFixes', \{ served: residentServed \|\| '', disk: \(vc && vc\.onDisk\) \|\| '' \}\)/)
+  assert.match(src, /tf\('vcRestartHostOnly', \{ loaded: \(vc && vc\.loaded\) \|\| '', disk: \(vc && vc\.onDisk\) \|\| '' \}\)/)
+  assert.match(src, /tf\('vcRestartAnyway', \{ ver: \(vc && vc\.onDisk\) \|\| '' \}\)/)
   for (const key of ['vcRestartFixes', 'vcRestartHostOnly', 'vcRestartAnyway', 'vcHostProcessStale']) {
     assert.equal((src.match(new RegExp(key + ':', 'g')) || []).length, 2, key + ' 中英各一条')
   }
@@ -41,7 +42,7 @@ test('「重启常驻实例」按钮**永远**存在（两轮反馈都栽在它�
 })
 
 test('「常驻未运行」时不许出现空的「当前 v」（用户反馈的文案 bug）', () => {
-  assert.match(src, /residentDown\r?\n\s+\? tf\('vcRestartStart', \{ disk: vc\.onDisk \|\| '' \}\)/, '未运行走 vcRestartStart')
+  assert.match(src, /tf\('vcRestartStart', \{ disk: \(vc && vc\.onDisk\) \|\| '' \}\)/, '未运行走 vcRestartStart')
   assert.equal((src.match(/vcRestartStart:/g) || []).length, 2, '中英各一条')
 })
 
