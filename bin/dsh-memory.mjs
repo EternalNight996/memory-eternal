@@ -12,6 +12,7 @@
 //   dsh-memory sweep <dir>                                挖掘 Claude Code 会话 JSONL
 //   dsh-memory align [--json] [--fix]                     版本对齐检查（宿主/常驻/npm 版本差 + MCP/hooks 旧接线），--fix 重写接线
 //   dsh-memory doctor [--vault DIR] [--json]              库健康自检（journal 模式 / 写探针 / 备份清单 / 恢复引导）
+//   dsh-memory support [--out FILE] [--tail N] [--no-spawn] 生成诊断包 zip（版本矩阵/doctor/align/status/日志尾巴，已脱敏）
 //   dsh-memory doctor --restore latest|备份名 [--yes] [--force]   从备份重建（不带 --yes 只演练；当前库可写时需 --force）
 //   dsh-memory refine [--vault DIR] [--json]              矛盾扫描候选（不调模型）；--apply --a A --b B --action keepA|keepB|merge|keepBoth 落裁决
 //   dsh-memory refine --junk [--purge --path P] [--json]   注入垃圾卡（技能目录等注入文本沉淀成的卡）：列清单 / 送回收站
@@ -273,6 +274,20 @@ async function main() {
         console.log('执行 dsh-memory align --fix 可重写 MCP / hooks 接线（不动你的数据与配置）')
       }
       if (!rep.ok) process.exitCode = 1
+      return
+    }
+    case 'support': {
+      // 一键诊断包：版本矩阵 / doctor / align / status / 锁 / 心跳 / 配置 / 日志尾巴 → 一个 zip（已脱敏）
+      const { buildSupportBundle } = await import('../lib/support.js')
+      const out = argOf('--out') || ''
+      const tailN = Number(argOf('--tail')) || 200
+      const portN = Number(argOf('--port')) || 0
+      // --no-spawn：跳过 doctor/align/status 子进程（受限环境排障用）
+      const r = buildSupportBundle({ out, tail: tailN, port: portN, spawn: !has('--no-spawn') })
+      if (!r.ok) { console.error('诊断包生成失败'); process.exitCode = 1; return }
+      console.log('诊断包已生成（已脱敏）：' + r.path)
+      console.log('大小：' + Math.round(r.bytes / 1024) + ' KB · 条目：' + r.entries.join(', '))
+      console.log('提交 issue 时把这个 zip 拖进去即可；内含 README.txt 说明。')
       return
     }
     case 'doctor': {
