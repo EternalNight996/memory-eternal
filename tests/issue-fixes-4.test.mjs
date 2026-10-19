@@ -26,7 +26,9 @@ test('①「重启常驻实例」按钮**始终可见**（v0.10.46 起；旧规�
   // 于是一旦版本对齐（或落后的是宿主而不是常驻），按钮就整块消失，用户再也找不到入口。
   // 现在按钮只依赖 vc 存在；「需要重启」只决定提示文案与高亮，不再决定是否渲染。
   assert.match(client, /\{vc && \(\r?\n\s+<div style=\{\{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6/, '操作行无条件渲染')
-  assert.match(client, /residentNeedsRestart\r?\n\s+\? tf\('vcRestartFixes'/, '需要重启时给「点了会换成新版」的说明')
+  // v0.10.47 起：「常驻未运行」走 vcRestartStart（否则会拼出空的「当前 v」），落后才用 vcRestartFixes
+  assert.match(client, /tf\('vcRestartStart', \{ disk: vc\.onDisk \|\| '' \}\)/, '未运行时说明「用磁盘版本拉起来」')
+  assert.match(client, /tf\('vcRestartFixes', \{ served: residentServed \|\| '', disk: vc\.onDisk \|\| '' \}\)/, '落后时说明「换成新版」')
   assert.match(client, /vcHostStale|vcRestartHostOnly/, '本页进程旧时要说清该重启桌面版/DSH（而不是重启常驻）')
 })
 

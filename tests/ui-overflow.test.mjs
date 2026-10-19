@@ -40,6 +40,16 @@ test('「重启常驻实例」按钮**永远**存在（两轮反馈都栽在它�
   assert.match(src, /tf\('vcHostProcessStale', \{ disk: vc\.onDisk, loaded: vc\.loaded \}\)/, '警告文案要区分宿主与常驻')
 })
 
+test('「常驻未运行」时不许出现空的「当前 v」（用户反馈的文案 bug）', () => {
+  assert.match(src, /residentDown\r?\n\s+\? tf\('vcRestartStart', \{ disk: vc\.onDisk \|\| '' \}\)/, '未运行走 vcRestartStart')
+  assert.equal((src.match(/vcRestartStart:/g) || []).length, 2, '中英各一条')
+})
+
+test('版本探针必须自动复查（否则重启窗口里的一次失败会一直显示「未运行」）', () => {
+  assert.match(src, /setInterval\(\(\) => \{ checkVersion\(false, true\) \}, 60000\)/, '每 60s 静默复查')
+  assert.match(src, /addEventListener\('visibilitychange', onVis\)/, '切回页面立刻复查')
+  assert.match(src, /const checkVersion = useCallback\(async \(force, silent = false\)/, '静默模式不点亮按钮')
+})
 test('大标题 modal 的 h2 不横向溢出（长标题省略号）', () => {
   assert.match(src, /\.me-modal-title h2 \{[^}]*min-width: 0;[^}]*text-overflow: ellipsis/)
 })

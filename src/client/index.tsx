@@ -348,6 +348,7 @@ export const ZH = {
   vcRestartAnyway: '常驻实例已是 v{ver}；通常无需重启，卡住/行为异常时可强制重启',
   vcHostProcessStale: '磁盘已安装 v{disk}，但**服务本页的进程**（DSH 宿主）加载的仍是 v{loaded} —— 它来自宿主启动时的那份代码：**重启常驻实例不会改变本页**，需完全退出并重开 DSH。',
   vcRestartFixes: '点击会把常驻实例（端口上那个）换成 v{disk}（当前 v{served}），不用重启 DSH',
+  vcRestartStart: '点击会用当前磁盘版本 v{disk} 把常驻实例拉起来（不用重启 DSH）',
   vcRestartHostOnly: '常驻实例已是 v{disk}；本页显示 v{loaded} 来自 DSH 宿主 —— 重启常驻实例不影响本页，请重启 DSH',
   vcRestartFail: '重启请求失败',
   vcRestartNoRoute: '当前页面对接的进程还是旧版（没有这个接口）：请重启桌面版 / DSH 后再试，或执行 {cmd}',
@@ -778,6 +779,7 @@ export const EN = {
   vcRestartAnyway: 'Resident is already v{ver}; usually no restart needed — use this if it looks stuck',
   vcHostProcessStale: 'Disk has v{disk}, but **the process serving this page** (the DSH host) still loads v{loaded} — that code was loaded when the host started, so **restarting the resident instance does not change this page**: fully quit and reopen DSH.',
   vcRestartFixes: 'Restarts the resident instance (the process on the port) onto v{disk} (currently v{served}) without restarting DSH',
+  vcRestartStart: 'Starts the resident instance on the current disk version v{disk} (no DSH restart needed)',
   vcRestartHostOnly: 'The resident instance is already v{disk}; this page shows v{loaded} from the DSH host — restarting the resident does not affect it, please restart DSH',
   vcRestartFail: 'Restart request failed',
   vcRestartNoRoute: 'The process serving this page is still the old build (no such endpoint): restart the desktop app / DSH and retry, or run {cmd}',
@@ -1772,17 +1774,26 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [routes, setRoutes] = useState(null)
   const [vc, setVc] = useState(null)   // 版本跟踪：运行中 / 磁盘 / npm 最新
   // 界面显示旧版本号 = 宿主进程还在用启动时加载的那份（磁盘更新了也没用），所以这里三版本对照
-  const checkVersion = useCallback(async (force) => {
-    setBusy('version')
+  // silent：周期轮询/切回标签页时静默刷新（不点亮「检查更新」按钮，也不弹 toast）
+  const checkVersion = useCallback(async (force, silent = false) => {
+    if (!silent) setBusy('version')
     try {
       const d = await fetch(API + '/version-check' + (force ? '?force=1' : '')).then((r) => r.json())
       if (d && d.ok) {
         setVc(d)
         if (force) notify(d.updateAvailable ? t('vcLatest') + ' v' + d.latest : t('vcUpToDate'))
       } else if (force) notify(t('vcCheckFail'), false)
-    } catch { if (force) notify(t('vcCheckFail'), false) } finally { setBusy('') }
+    } catch { if (force) notify(t('vcCheckFail'), false) } finally { if (!silent) setBusy('') }
   }, [t])
-  useEffect(() => { checkVersion(false) }, [version, checkVersion])
+  // 用户反馈：点完「重启常驻实例」后面板一直显示「常驻实例 未运行」—— 因为探针只在挂载时跑一次，
+  // 恰好撞上重启窗口就被缓存住了。现在：① 每 60s 静默复查；② 切回页面时立刻复查。
+  useEffect(() => {
+    checkVersion(false)
+    const id = setInterval(() => { checkVersion(false, true) }, 60000)
+    const onVis = () => { if (typeof document !== 'undefined' && !document.hidden) checkVersion(false, true) }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
+  }, [version, checkVersion])
   const [runSetup, setRunSetup] = useState('')
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
@@ -2091,7 +2102,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
                 <span style={{ fontSize: 11, opacity: 0.65 }}>
                   {residentNeedsRestart
-                    ? tf('vcRestartFixes', { served: residentServed || '', disk: vc.onDisk || '' })
+                    ? (residentDown
+                      ? tf('vcRestartStart', { disk: vc.onDisk || '' })
+                      : tf('vcRestartFixes', { served: residentServed || '', disk: vc.onDisk || '' }))
                     : vc.stale
                       ? tf('vcRestartHostOnly', { loaded: vc.loaded || '', disk: vc.onDisk || '' })
                       : tf('vcRestartAnyway', { ver: vc.onDisk || '' })}
