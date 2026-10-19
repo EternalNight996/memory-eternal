@@ -1092,6 +1092,37 @@ const CSS = `
   height: calc(100vh - var(--dsh-windows-titlebar-height, 0px));
   max-height: calc(100vh - var(--dsh-windows-titlebar-height, 0px));
 }
+/* ---- macOS 桌面版：让开窗口左上角的红绿灯 ----------------------------------------
+   宿主层的结论（issue #46）：macOS 桌面版是 Electron 的 titleBarStyle: hiddenInset +
+   trafficLightPosition {x:16, y:18}，「关闭 / 最小化 / 缩放」是**原生 NSWindow 控件**，
+   由操作系统画在网页内容之上。它不是 DOM —— 任何 z-index、portal、顶层层级都排不到它前面，
+   插件能做的只有「让开那块矩形」，盖住它是做不到的。
+   宿主自己已经把安全区发布了（ui-layout 的 AppFrame 写在 <html> 上）：
+     · html[data-platform="darwin"] 只由桌面版 preload 写入（普通浏览器文档没有这个属性，
+       所以下面的规则在浏览器 / Windows / Linux 上完全不生效，行为与之前一致）；
+     · --dsh-frame-overlay-top 是宿主给对话框/菜单定的顶边让位量（macOS = 顶带 48px + 20px，
+       原生全屏时宿主自己降到 20px，因为那时红绿灯隐藏）—— 直接跟随它，不必特判全屏。
+   为什么之前会被遮：浮层是 inset: 0 + 居中，而 .me-modal 高 98vh（比可视区还高），
+   居中溢出后顶边被顶到 ~1vh，正好落在红绿灯下面。于是 iframe 里左栏顶部那排控件
+   （配置 / 审核中心等）被红绿灯压住，点过去实际命中的是原生「关闭」→ 整个桌面壳被关掉。
+   做法：把顶边让到安全区下沿，并让对话框高度**正好**等于剩余空间 —— 此时「居中」等于
+   「顶对齐」，顶边恒为 --dsh-frame-overlay-top；遮罩仍铺满全屏（继续挡住背景点击）。 */
+[data-platform=darwin] .me-overlay-top {
+  padding-top: var(--dsh-frame-overlay-top, 68px);
+  padding-bottom: 16px;
+}
+[data-platform=darwin] .me-overlay-top .me-modal:not(.me-modal-full) {
+  height: min(calc(100vh - var(--dsh-frame-overlay-top, 68px) - 16px), 1080px);
+}
+/* 阅读器 / 新建卡 / 导出等小对话框：同样让开顶带（导出全屏模式会顶到 24px）。 */
+[data-platform=darwin] .me-overlay {
+  padding-top: var(--dsh-frame-overlay-top, 68px);
+}
+[data-platform=darwin] .me-modal-full {
+  top: var(--dsh-frame-overlay-top, 68px);
+  height: calc(100vh - var(--dsh-frame-overlay-top, 68px));
+  max-height: calc(100vh - var(--dsh-frame-overlay-top, 68px));
+}
 `
 
 export function apply(ctx) {

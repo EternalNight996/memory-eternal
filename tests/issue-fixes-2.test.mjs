@@ -192,21 +192,27 @@ test('#23 looksLikeOurWeb：只收本插件自己的 web，别人的 web.js 不�
   assert.equal(looksLikeOurWeb(''), false)
 })
 
-test('#23 findPortListener：两个平台都能从注入的 exec 拿到占用者', async () => {
-  const fakeExec = async (cmd, args) => {
-    if (cmd === 'powershell') {
-      const script = String(args[args.length - 1])
-      return script.includes('OwningProcess') ? '40433\r\n' : 'node C:\\x\\lib\\web.js --port 7999\r\n'
-    }
-    if (cmd === 'lsof') return 'p40433\ncnode\nn127.0.0.1:7999'
-    return ''
-  }
-  const found = await findPortListener(7999, { exec: fakeExec })
-  assert.equal(found.pid, 40433)
-  assert.match(found.command, /web\.js/)
-  const none = await findPortListener(7999, { exec: async (cmd, args) => (cmd === 'powershell' ? '' : '') })
-  assert.equal(none, null)
-  assert.equal(await findPortListener(0, { exec: fakeExec }), null)
+test('#23/#45 findPortListener：Windows 先走 netstat，POSIX 仍走 lsof；超时报 unknown', async () => {
+  // 0.10.40 起 Windows 的**首选**是 netstat -ano（PowerShell 的 Get-NetTCPConnection 实测 4–61s）
+  const netstat = '  TCP    127.0.0.1:7999    0.0.0.0:0    LISTENING    40433\r\n'
+  const winExec = async (cmd) => (cmd === 'netstat' ? netstat : cmd === 'powershell' ? 'node C:\\x\\lib\\web.js --port 7999\r\n' : '')
+  const win = await findPortListener(7999, { platform: 'win32', exec: winExec })
+  assert.equal(win.pid, 40433)
+  assert.match(String(win.command), /web\.js/)
+
+  const linExec = async (cmd) => (cmd === 'lsof' ? 'p40433\ncnode\nn127.0.0.1:7999' : cmd === 'ps' ? 'node /opt/x/memory-eternal/lib/web.js --port 7999' : '')
+  const lin = await findPortListener(7999, { platform: 'linux', exec: linExec })
+  assert.equal(lin.pid, 40433)
+  assert.match(String(lin.command), /memory-eternal/)
+
+  // netstat 有内容但没有该端口 + PowerShell 也没 pid → 真的没人听
+  const noneExec = async (cmd) => (cmd === 'netstat' ? '  TCP    127.0.0.1:9999    0.0.0.0:0    LISTENING    7\r\n' : '')
+  assert.equal(await findPortListener(7999, { platform: 'win32', exec: noneExec }), null)
+  // 枚举跑不起来（超时/抛错）→ unknown（**不是** null = 空闲）
+  const deadExec = async () => { throw new Error('ETIMEDOUT') }
+  const unk = await findPortListener(7999, { platform: 'win32', exec: deadExec })
+  assert.equal(unk && unk.unknown, true)
+  assert.equal(await findPortListener(0, { exec: winExec }), null)
 })
 
 test('#23 probeServedVersion：问的是端口上真正服务的进程版本', async () => {

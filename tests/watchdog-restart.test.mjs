@@ -216,15 +216,28 @@ test('#30 复测发现的不对称：锁里只有一条 endedAt 槽（pid 还活
   assert.equal(Number(back.pid), 4242)
 })
 
-test('#30 复测发现的硬病灶：端口枚举必须能被超时约束（Windows 上实测 4–13.6 秒）', async () => {
+test('#30/#45：端口枚举要能被超时约束；且**超时/空输出 = 未知**，不再是 null（空闲）', async () => {
   const calls = []
   const out = await findPortListener(7999, {
     platform: 'win32', timeoutMs: 1234,
     exec: async (cmd, args, opts) => { calls.push({ cmd, opts }); return '' },
   })
-  assert.equal(out, null)
-  assert.ok(calls.length >= 1, '至少调了一次枚举')
-  assert.deepEqual(calls[0].opts, { timeoutMs: 1234 }, '超时必须真的传给执行器，否则 8s 预算被一次十几秒的查询吃光')
+  // 0.10.40 起：Windows 先走 netstat（1.8s 量级）—— 空输出意味着命令没跑成/被超时杀掉，
+  // 这种「未知」绝不能返回 null，否则调用方会当成「端口空闲」（报告者现场：旧 web 永远活着）。
+  assert.equal(calls[0].cmd, 'netstat', 'Windows 上优先 netstat（PowerShell 实测 4–61s）')
+  assert.equal(out && out.unknown, true, '空输出必须是「未知」')
+  assert.ok(Number(calls[0].opts && calls[0].opts.timeoutMs) >= 1234, 'netstat 的超时不能小于请求的预算')
+  // netstat 有内容但没该端口 → PowerShell 兜底，且**兜底那条**必须收到请求的超时
+  const calls2 = []
+  const netNoPort = '  TCP    127.0.0.1:9999    0.0.0.0:0    LISTENING    7\r\n'
+  const out2 = await findPortListener(7999, {
+    platform: 'win32', timeoutMs: 1234,
+    exec: async (cmd, args, opts) => { calls2.push({ cmd, opts }); return cmd === 'netstat' ? netNoPort : '' },
+  })
+  assert.equal(out2, null, '两边都确认没监听 → 真的没人听')
+  const ps = calls2.find((c) => c.cmd === 'powershell')
+  assert.ok(ps, 'netstat 没结论时要走 PowerShell 兜底')
+  assert.deepEqual(ps.opts, { timeoutMs: 1234 }, '超时必须真的传给执行器，否则 8s 预算被一次十几秒的查询吃光')
 })
 test('#30 回归：锁文件写不进去 → restart 前置拒绝（不许留下无法登记的孤儿）', async () => {
   let spawned = false

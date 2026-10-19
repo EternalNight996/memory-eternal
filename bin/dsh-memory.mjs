@@ -145,7 +145,11 @@ async function main() {
       // issue #23：锁里的 pkgVersion 是「看门狗自述」，与端口上真正跑着的代码无关 ——
       // 升级后旧 web 仍占端口时它会骗人地报新版本。这里直接问端口上服务的那个进程。
       const probePort = Number(port) || (st.watchdogs[0] && Number(st.watchdogs[0].port)) || 0
-      const served = probePort ? await probeServedVersion(probePort) : ''
+      // issue #45 后续（报告者第 3 条）：`超时` 与 `没有服务` 必须分开报。
+      // 那台机器上旧进程回一次 /version-check 要 8–15s，而这里默认预算 1200ms ——
+      // 旧文案把「超时」写成了「没有服务在响应」，排查时极易误判成服务挂了。
+      const detail = probePort ? await (await import('../lib/watchdog.js')).probeServedVersionDetailed(probePort) : { version: '', timedOut: false, lastError: '' }
+      const served = detail.version
       const occupant = probePort && !served ? await findPortListener(probePort) : null
       // 旧版（< v0.10.4）的 /overview 里**没有 version 字段**，所以探不到版本不等于「不是我们的服务」。
       // 这正是 v0.10.3 → v0.10.4 升级时的常见现场，必须说清楚，否则用户会以为端口空着。
@@ -160,6 +164,8 @@ async function main() {
       if (probePort) {
         if (served) console.log(`端口 ${probePort} 实际服务版本：${served}`)
         else if (oursNoVersion) console.log(`端口 ${probePort} 上跑的是本插件的 web（pid ${occupant.pid}），但它不会自报版本 —— 说明是 v0.10.4 之前的旧版，升级尚未生效 → 执行 dsh-memory restart --port ${probePort}`)
+        else if (detail.timedOut) console.log(`端口 ${probePort} 有进程在听，但**响应超时**（>${1200}ms，最后错误 ${detail.lastError || 'TIMEOUT'}）—— 这不等于「没有服务」；可能是实例正忙/被旧版递归拖慢，稍后重试或 dsh-memory restart --port ${probePort}`)
+        else if (occupant && occupant.unknown) console.log(`端口 ${probePort} 的占用者**无法判定**（进程枚举超时/不可用）—— 未知，不代表空闲`)
         else console.log(`端口 ${probePort} 上没有本插件的服务在响应${occupant && occupant.pid ? `（被 pid ${occupant.pid} 占用：${occupant.command || '命令行未知'}）` : ''}`)
       }
       console.log('')
