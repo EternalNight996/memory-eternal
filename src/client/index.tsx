@@ -345,6 +345,7 @@ export const ZH = {
   vcRestarting: '重启中…',
   vcRestartSent: '已调度重启常驻实例：约 3-8 秒后新进程接管，请稍等再刷新页面（Ctrl+F5）',
   vcRestartCurrent: '常驻实例已经是最新版，无需重启',
+  vcRestartAnyway: '常驻实例已是 v{ver}；通常无需重启，卡住/行为异常时可强制重启',
   vcRestartFail: '重启请求失败',
   vcRestartNoRoute: '当前页面对接的进程还是旧版（没有这个接口）：请重启桌面版 / DSH 后再试，或执行 {cmd}',
   vcHostStale: '上方的「运行中」来自服务本页的进程；常驻实例已是新版 —— 要让它也变成新版号，需重启桌面版 / DSH',
@@ -771,6 +772,7 @@ export const EN = {
   vcRestarting: 'Restarting…',
   vcRestartSent: 'Resident restart scheduled: the new process takes over in ~3-8s — refresh the page (Ctrl+F5) shortly',
   vcRestartCurrent: 'The resident instance is already up to date — no restart needed',
+  vcRestartAnyway: 'Resident is already v{ver}; usually no restart needed — use this if it looks stuck',
   vcRestartFail: 'Restart request failed',
   vcRestartNoRoute: 'The process serving this page is still the old build (no such endpoint): restart the desktop app / DSH and retry, or run {cmd}',
   vcHostStale: 'The "running" chip above comes from the process serving this page; the resident instance is already current — restart the desktop app / DSH to refresh that chip',
@@ -1002,8 +1004,8 @@ const CSS = `
 @keyframes me-pop { from { opacity: 0; transform: translateY(12px) scale(0.985); } }
 .me-modal-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
 .me-modal-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.me-modal-title h2 { margin: 0; font-size: 17px; font-weight: 700; white-space: nowrap; }
-.me-modal-title span { font-size: 12px; opacity: 0.55; white-space: nowrap; }
+.me-modal-title h2 { margin: 0; font-size: 17px; font-weight: 700; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.me-modal-title span { font-size: 12px; opacity: 0.55; white-space: nowrap; flex: 0 0 auto; }
 .me-modal-title .me-wicon { width: 26px; height: 26px; flex: none; }
 .me-modal-title .me-wicon svg { display: block; width: 100%; height: 100%; }
 .me-modal-head .spacer { flex: 1; }
@@ -1011,21 +1013,23 @@ const CSS = `
 .me-modal-close:hover { background: var(--dsw-alias-bg-layer-1, #f3f4f6); }
 .me-modal-body { flex: 1; padding: 18px 20px; overflow: hidden; display: flex; }
 .me-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.66); z-index: 1002; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.me-dialog { background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border-radius: 14px; max-width: 760px; width: 100%; max-height: 84vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.5); border: 1px solid var(--dsw-alias-border-l1, #2c333c); }
+.me-dialog { background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border-radius: 14px; max-width: 760px; width: 100%; max-height: 84vh; display: flex; flex-direction: column; box-sizing: border-box; box-shadow: 0 24px 60px rgba(0,0,0,0.5); border: 1px solid var(--dsw-alias-border-l1, #2c333c); }
 .me-dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
 .me-dialog-head h3 { margin: 0; font-size: 15px; }
 /* 标题过长时不许挤压按钮（用户反馈，见图 1/图 2）：
    ① h3 必须能收缩（min-width:0）并单行省略，否则长标题会把按钮顶出可视区；
-   ② 按钮组 flex:0 0 auto + nowrap —— 否则会被压成竖排（「收/起」「关/闭」）；
+   ② 按钮组：按钮自身 nowrap（不许压成竖排「收/起」），但**组内允许换行** ——
+      阅读器最多有 8 个按钮（复制正文/路径、宽度、反馈×2、收起、删除、关闭），
+      在 max-width:760px 的对话框里 nowrap 会横向溢出 → 出现横向滚动条（用户反馈的「滚动条异常」）；
    ③ 头部允许换行：极窄时按钮整体掉到第二行，仍然一个个可点，而不是被压扁。 */
 .me-dialog-head { flex-wrap: wrap; gap: 8px 12px; }
 .me-dialog-head h3 { min-width: 0; flex: 1 1 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.me-dialog-head .me-head-actions { display: flex; flex-wrap: nowrap; gap: 8px; flex: 0 0 auto; margin-left: auto; align-items: center; }
+.me-dialog-head .me-head-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 1 auto; margin-left: auto; align-items: center; justify-content: flex-end; }
 .me-dialog-head .me-head-actions .mc-btn { flex: 0 0 auto; white-space: nowrap; }
 /* 读卡进度：2px 细条贴在头部下沿，随正文滚动推进（读长卡时知道还剩多少） */
 .me-read-progress { position: relative; height: 2px; margin-top: -1px; background: transparent; }
 .me-read-progress > i { display: block; height: 100%; width: 0; background: var(--dsw-alias-brand-primary, #6366f1); transition: width .08s linear; }
-.me-dialog-body { padding: 14px 18px; overflow: auto; font-size: 13.5px; line-height: 1.78; white-space: normal; word-break: break-word; position: relative; }
+.me-dialog-body { padding: 14px 18px; overflow: auto; overflow-x: hidden; box-sizing: border-box; font-size: 13.5px; line-height: 1.78; white-space: normal; word-break: break-word; position: relative; }
 .me-dialog-body h3 { font-size: 15px; margin: 10px 0 6px; color: var(--dsw-alias-label-primary, #111); }
 .me-dialog-body h4 { font-size: 13px; margin: 8px 0 4px; color: var(--dsw-alias-label-primary, #111); }
 .me-dialog-body a { color: var(--dsw-alias-accent, #2563eb); }
@@ -2063,22 +2067,35 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       : residentLockUnknown
                         ? tf('vcResidentLockUnknown', { served: residentServed, path: (vc.resident && vc.resident.lock && vc.resident.lock.path) || '', err: (vc.resident && vc.resident.lock && vc.resident.lock.error) || '' })
                       : tf('vcResidentUnmanaged', { served: residentServed, cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })}</div>
-                {residentNeedsRestart ? (
-                  /* 一键修复：常驻 web 比 DSH 活得久，重启 DSH 换不掉它（issue #19/#23） */
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-                    <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={restartResident}>
-                      {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
-                    </button>
-                    {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
-                  </div>
-                ) : (
-                  /* 落后的是本页所在进程（例如没重启的宿主）：按钮点了没用 —— 直接说清该重启谁 */
-                  <div style={{ marginTop: 6, lineHeight: 1.7 }}>
-                    ℹ️ {t('vcHostStale')}
-                    {vc.restartCommand && <> <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code></>}
-                  </div>
-                )}
               </div>
+            )}
+            {/* issue #46 反馈：「重启常驻实例」按钮消失了 —— 它原来被包在「有异常才渲染」的警告块里，
+                于是版本一对齐就整块消失，用户再也找不到这个按钮（#28 也抱怨过找不到）。
+                现在操作行**常驻显示**：异常时是修复入口，一切正常时也能主动重启。 */}
+            {vc && (
+              residentNeedsRestart ? (
+                /* 一键修复：常驻 web 比 DSH 活得久，重启 DSH 换不掉它（issue #19/#23） */
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                  <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={restartResident}>
+                    {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
+                  </button>
+                  {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
+                </div>
+              ) : vc.stale ? (
+                /* 落后的是本页所在进程（例如没重启的宿主）：按钮点了没用 —— 直接说清该重启谁 */
+                <div style={{ marginTop: 6, lineHeight: 1.7 }}>
+                  ℹ️ {t('vcHostStale')}
+                  {vc.restartCommand && <> <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code></>}
+                </div>
+              ) : (
+                /* 一切正常时也保留按钮（强制重启的逃生口），并说明为什么通常不需要 */
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                  <button type="button" className="mc-btn" disabled={!!busy} onClick={restartResident}>
+                    {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
+                  </button>
+                  <span style={{ fontSize: 11, opacity: 0.65 }}>{tf('vcRestartAnyway', { ver: vc.onDisk || '' })}</span>
+                </div>
+              )
             )}
             {/* 最常见的困惑：更新了插件但「当前页面」跑的还是旧脚本 —— 直接告诉用户按刷新 */}
             {CLIENT_VERSION && vc && vc.onDisk && CLIENT_VERSION !== vc.onDisk && (
@@ -3157,7 +3174,7 @@ function FeedbackModal({ t, onClose }) {
     if (ok) { setFallback(''); notify(t('fbCopiedPrompt')) } else { setFallback(prompt); notify(t('fbCopyManual')) }
   }
   const inputStyle = { width: '100%', resize: 'vertical', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 13 }
-  const preStyle = { margin: 0, maxHeight: 170, overflow: 'auto', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', borderRadius: 10, background: 'var(--dsw-alias-bg-layer-1, rgba(127,127,127,0.08))', whiteSpace: 'pre-wrap' }
+  const preStyle = { margin: 0, maxHeight: 170, overflow: 'auto', fontSize: 11.5, lineHeight: 1.55, padding: '8px 10px', borderRadius: 10, background: 'var(--dsw-alias-bg-layer-1, rgba(127,127,127,0.08))', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowX: 'hidden' }
   return (
     <div className="me-overlay" onClick={onClose}>
       <style>{CSS}</style>
@@ -3264,7 +3281,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
         </div>
         <div className="me-read-progress" aria-hidden="true"><i style={{ width: progress + '%' }} /></div>
         <div className="me-dialog-body"
-          style={{ maxWidth: WIDTH_PX[widthMode], margin: '0 auto', width: '100%', ...(expanded ? {} : { maxHeight: 300, overflow: 'hidden' }) }}
+          style={{ maxWidth: WIDTH_PX[widthMode], margin: '0 auto', width: '100%', boxSizing: 'border-box', ...(expanded ? {} : { maxHeight: 300, overflow: 'hidden' }) }}
           onScroll={(e) => { const el = e.currentTarget; const max = el.scrollHeight - el.clientHeight; setProgress(max <= 0 ? 100 : Math.min(100, Math.max(0, (el.scrollTop / max) * 100))) }}
           onClick={expanded ? undefined : (e) => { e.stopPropagation(); setExpanded(true) }}>
           <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(body) }} />

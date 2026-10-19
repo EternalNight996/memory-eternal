@@ -16,10 +16,11 @@ test('标题必须能收缩并单行省略（否则长标题会把按钮顶出�
   assert.match(src, /<h3 title=\{card\.title\}>/, '阅读器 h3 要有 title 属性')
 })
 
-test('按钮组永远不被压扁：flex:0 0 auto + nowrap，且头部允许换行', () => {
+test('按钮不被压扁、但按钮组可换行（否则 8 个按钮在 760px 里横向溢出）', () => {
   assert.match(src, /\.me-dialog-head \{ flex-wrap: wrap; gap: 8px 12px; \}/)
-  assert.match(src, /\.me-dialog-head \.me-head-actions \{[^}]*flex: 0 0 auto/, '按钮组不参与收缩')
-  assert.match(src, /\.me-dialog-head \.me-head-actions \{[^}]*flex-wrap: nowrap/, '按钮组内部不换行')
+  assert.match(src, /\.me-dialog-head \.me-head-actions \{[^}]*flex: 0 1 auto/, '按钮组可以收缩/换行（不再是 0 0 auto）')
+  // 按钮**自身**不换行/不缩，但按钮组整体允许换行：阅读器最多 8 个按钮，760px 对话框里 nowrap 会横向溢出
+  assert.match(src, /\.me-dialog-head \.me-head-actions \{[^}]*flex-wrap: wrap/, '按钮组整体允许换行（防止横向滚动条）')
   assert.match(src, /\.me-dialog-head \.me-head-actions \.mc-btn \{ flex: 0 0 auto; white-space: nowrap; \}/, '按钮自身也不许缩/换行')
 })
 
