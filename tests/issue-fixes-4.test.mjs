@@ -19,12 +19,15 @@ const client = read('src/client/index.tsx')
 const indexSrc = read('index.js')
 const apiSrc = read('lib/api.js')
 
-test('①「重启常驻实例」按钮只在常驻实例真落后时出现（否则点了是 404）', () => {
+test('①「重启常驻实例」按钮**始终可见**（v0.10.46 起；旧规则「只在落后时给按钮」已作废）', () => {
   assert.match(client, /const residentStale = Boolean\(/, '要有「常驻实例是否落后」的判据')
-  // #28 之后把「没在跑 / 没被托管」也并进了同一个判据（residentNeedsRestart），按钮不再只认版本落后
   assert.match(client, /const residentNeedsRestart = residentStale \|\| residentDown \|\| residentUnmanaged/, '要有统一的「需要重启」判据')
-  assert.match(client, /residentNeedsRestart \? \(/, '横幅要按该判据分岔：需要重启才给按钮')
-  assert.match(client, /vcHostStale/, '不落后（本页进程旧）时要说清该重启桌面版/DSH')
+  // 为什么改：用户连续两轮反馈「按钮消失了」。旧实现把它放进「需要重启」的分支，
+  // 于是一旦版本对齐（或落后的是宿主而不是常驻），按钮就整块消失，用户再也找不到入口。
+  // 现在按钮只依赖 vc 存在；「需要重启」只决定提示文案与高亮，不再决定是否渲染。
+  assert.match(client, /\{vc && \(\r?\n\s+<div style=\{\{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6/, '操作行无条件渲染')
+  assert.match(client, /residentNeedsRestart\r?\n\s+\? tf\('vcRestartFixes'/, '需要重启时给「点了会换成新版」的说明')
+  assert.match(client, /vcHostStale|vcRestartHostOnly/, '本页进程旧时要说清该重启桌面版/DSH（而不是重启常驻）')
 })
 
 test('① 旧宿主没有该路由时给明确指路，而不是「未知接口」', () => {

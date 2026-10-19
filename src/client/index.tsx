@@ -346,6 +346,9 @@ export const ZH = {
   vcRestartSent: '已调度重启常驻实例：约 3-8 秒后新进程接管，请稍等再刷新页面（Ctrl+F5）',
   vcRestartCurrent: '常驻实例已经是最新版，无需重启',
   vcRestartAnyway: '常驻实例已是 v{ver}；通常无需重启，卡住/行为异常时可强制重启',
+  vcHostProcessStale: '磁盘已安装 v{disk}，但**服务本页的进程**（DSH 宿主）加载的仍是 v{loaded} —— 它来自宿主启动时的那份代码：**重启常驻实例不会改变本页**，需完全退出并重开 DSH。',
+  vcRestartFixes: '点击会把常驻实例（端口上那个）换成 v{disk}（当前 v{served}），不用重启 DSH',
+  vcRestartHostOnly: '常驻实例已是 v{disk}；本页显示 v{loaded} 来自 DSH 宿主 —— 重启常驻实例不影响本页，请重启 DSH',
   vcRestartFail: '重启请求失败',
   vcRestartNoRoute: '当前页面对接的进程还是旧版（没有这个接口）：请重启桌面版 / DSH 后再试，或执行 {cmd}',
   vcHostStale: '上方的「运行中」来自服务本页的进程；常驻实例已是新版 —— 要让它也变成新版号，需重启桌面版 / DSH',
@@ -773,6 +776,9 @@ export const EN = {
   vcRestartSent: 'Resident restart scheduled: the new process takes over in ~3-8s — refresh the page (Ctrl+F5) shortly',
   vcRestartCurrent: 'The resident instance is already up to date — no restart needed',
   vcRestartAnyway: 'Resident is already v{ver}; usually no restart needed — use this if it looks stuck',
+  vcHostProcessStale: 'Disk has v{disk}, but **the process serving this page** (the DSH host) still loads v{loaded} — that code was loaded when the host started, so **restarting the resident instance does not change this page**: fully quit and reopen DSH.',
+  vcRestartFixes: 'Restarts the resident instance (the process on the port) onto v{disk} (currently v{served}) without restarting DSH',
+  vcRestartHostOnly: 'The resident instance is already v{disk}; this page shows v{loaded} from the DSH host — restarting the resident does not affect it, please restart DSH',
   vcRestartFail: 'Restart request failed',
   vcRestartNoRoute: 'The process serving this page is still the old build (no such endpoint): restart the desktop app / DSH and retry, or run {cmd}',
   vcHostStale: 'The "running" chip above comes from the process serving this page; the resident instance is already current — restart the desktop app / DSH to refresh that chip',
@@ -2059,7 +2065,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
             {vc && (vc.stale || residentDown || residentUnmanaged || residentLockUnknown || residentReplaceBlocked) && (
               <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>
                 <div>⚠️ {vc.stale
-                  ? tf('vcStale', { disk: vc.onDisk, loaded: vc.loaded })
+                  ? tf('vcHostProcessStale', { disk: vc.onDisk, loaded: vc.loaded })
                   : residentDown
                     ? tf('vcResidentDown', { port: (vc.resident && vc.resident.port) || '', cmd: vc.restartCommand || 'dsh-memory restart --port 7999' })
                     : residentReplaceBlocked
@@ -2072,30 +2078,25 @@ function ConfigPanel({ t, onReload, version, compact }) {
             {/* issue #46 反馈：「重启常驻实例」按钮消失了 —— 它原来被包在「有异常才渲染」的警告块里，
                 于是版本一对齐就整块消失，用户再也找不到这个按钮（#28 也抱怨过找不到）。
                 现在操作行**常驻显示**：异常时是修复入口，一切正常时也能主动重启。 */}
+            {/* 按钮**永远存在**（用户连报两轮「按钮消失」）：状态只影响「它现在能解决什么」的说明，
+                不再决定按钮是否渲染。三种状态各自给一句准确的话：
+                  · 常驻实例旧 → 点了就能换成新版（这就是修复入口）；
+                  · 常驻实例新、但**服务本页的进程**旧（DSH 宿主）→ 点了只影响 7999/独立页，本页要重启 DSH；
+                  · 全部对齐 → 保留为「卡住时的强制重启」。 */}
             {vc && (
-              residentNeedsRestart ? (
-                /* 一键修复：常驻 web 比 DSH 活得久，重启 DSH 换不掉它（issue #19/#23） */
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-                  <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={restartResident}>
-                    {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
-                  </button>
-                  {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
-                </div>
-              ) : vc.stale ? (
-                /* 落后的是本页所在进程（例如没重启的宿主）：按钮点了没用 —— 直接说清该重启谁 */
-                <div style={{ marginTop: 6, lineHeight: 1.7 }}>
-                  ℹ️ {t('vcHostStale')}
-                  {vc.restartCommand && <> <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code></>}
-                </div>
-              ) : (
-                /* 一切正常时也保留按钮（强制重启的逃生口），并说明为什么通常不需要 */
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-                  <button type="button" className="mc-btn" disabled={!!busy} onClick={restartResident}>
-                    {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
-                  </button>
-                  <span style={{ fontSize: 11, opacity: 0.65 }}>{tf('vcRestartAnyway', { ver: vc.onDisk || '' })}</span>
-                </div>
-              )
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                <button type="button" className={'mc-btn' + (residentNeedsRestart ? ' me-on' : '')} disabled={!!busy} onClick={restartResident}>
+                  {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
+                </button>
+                {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
+                <span style={{ fontSize: 11, opacity: 0.65 }}>
+                  {residentNeedsRestart
+                    ? tf('vcRestartFixes', { served: residentServed || '', disk: vc.onDisk || '' })
+                    : vc.stale
+                      ? tf('vcRestartHostOnly', { loaded: vc.loaded || '', disk: vc.onDisk || '' })
+                      : tf('vcRestartAnyway', { ver: vc.onDisk || '' })}
+                </span>
+              </div>
             )}
             {/* 最常见的困惑：更新了插件但「当前页面」跑的还是旧脚本 —— 直接告诉用户按刷新 */}
             {CLIENT_VERSION && vc && vc.onDisk && CLIENT_VERSION !== vc.onDisk && (

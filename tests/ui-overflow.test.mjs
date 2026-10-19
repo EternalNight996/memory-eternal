@@ -25,15 +25,19 @@ test('诊断/反馈 <pre> 的长路径要换行，不许横向滚动', () => {
   assert.match(line, /overflowX: 'hidden'/)
 })
 
-test('「重启常驻实例」按钮常驻显示（不再随警告块一起消失）', () => {
-  // 独立于警告块的操作行：{vc && ( residentNeedsRestart ? ...
-  // 注意：文件是 CRLF，跨行正则要用 \r?\n
-  assert.match(src, /\{vc && \(\r?\n\s+residentNeedsRestart \? \(/, '操作行要独立渲染（不再只在异常时出现）')
-  // 一切正常时也给按钮 + 说明
+test('「重启常驻实例」按钮**永远**存在（两轮反馈都栽在它消失上）', () => {
+  // 操作行只依赖 vc 存在，不再被 residentNeedsRestart / vc.stale 决定是否渲染
+  assert.match(src, /\{vc && \(\r?\n\s+<div style=\{\{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6/, '操作行要无条件渲染')
+  assert.match(src, /onClick=\{restartResident\}/, '按钮必须真的存在')
+  // 三种状态各有准确说明（常驻旧 / 宿主旧 / 全部对齐）
+  assert.match(src, /tf\('vcRestartFixes', \{ served: residentServed \|\| '', disk: vc\.onDisk \|\| '' \}\)/)
+  assert.match(src, /tf\('vcRestartHostOnly', \{ loaded: vc\.loaded \|\| '', disk: vc\.onDisk \|\| '' \}\)/)
   assert.match(src, /tf\('vcRestartAnyway', \{ ver: vc\.onDisk \|\| '' \}\)/)
-  assert.equal((src.match(/vcRestartAnyway:/g) || []).length, 2, '中英词条各一条')
-  // 按钮本体仍然调用 restartResident（两条分支各一次）
-  assert.equal((src.match(/onClick=\{restartResident\}/g) || []).length >= 2, true, '两种状态下都要能点')
+  for (const key of ['vcRestartFixes', 'vcRestartHostOnly', 'vcRestartAnyway', 'vcHostProcessStale']) {
+    assert.equal((src.match(new RegExp(key + ':', 'g')) || []).length, 2, key + ' 中英各一条')
+  }
+  // 宿主旧时不能再谎称「点重启常驻实例即可」
+  assert.match(src, /tf\('vcHostProcessStale', \{ disk: vc\.onDisk, loaded: vc\.loaded \}\)/, '警告文案要区分宿主与常驻')
 })
 
 test('大标题 modal 的 h2 不横向溢出（长标题省略号）', () => {
