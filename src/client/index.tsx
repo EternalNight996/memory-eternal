@@ -3413,6 +3413,11 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       return g
     }
 
+    // 滚轮/初始视图共用同一个「度」：一格 = ×ZOOM_STEP（滚轮、放大/缩小按钮、初始 fit 一致）。
+    const ZOOM_STEP = 1.1
+    // 初始视图比「刚好铺满」再**缩小两个度**：节点不再挤到边缘，四周留出可拖拽/框选的余量。
+    // 用户说的「缩小两个度」= 两格滚轮 = ×(1/1.1)² ≈ 0.826，所以这里直接复用 ZOOM_STEP，改步长时不会漂。
+    const INITIAL_ZOOM_OUT_STEPS = 2
     const fit = () => {
       if (!sim.nodes.length) return
       let minX = 1/0, maxX = -1/0, minY = 1/0, maxY = -1/0
@@ -3421,7 +3426,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       const spanX = (maxX - minX) + pad * 2, spanY = (maxY - minY) + pad * 2
       const z = Math.min(sim.w / spanX, sim.h / spanY)
       // 展示全部：按边界精确缩放（不放大裁剪），让所有节点一屏可见、无滚动。
-      sim.zoom = Math.max(0.35, Math.min(1.8, z))
+      // 再叠一个「初始视图缩小两度」的系数（重置视图按钮也走这里，行为与首次打开一致）。
+      const initialZoomOut = Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS)
+      sim.zoom = Math.max(0.35, Math.min(1.8, z * initialZoomOut))
       sim.panX = sim.w / 2 - ((minX + maxX) / 2) * sim.zoom
       sim.panY = sim.h / 2 - ((minY + maxY) / 2) * sim.zoom
     }
@@ -3703,7 +3710,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       const rect = canvas.getBoundingClientRect()
       const wx = (e.clientX - rect.left - sim.panX) / sim.zoom
       const wy = (e.clientY - rect.top - sim.panY) / sim.zoom
-      const newZoom = Math.max(0.3, Math.min(3, sim.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)))
+      const newZoom = Math.max(0.3, Math.min(3, sim.zoom * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP)))
       sim.panX = clamp(sim.panX + wx * (sim.zoom - newZoom), -1e5, 1e5)
       sim.panY = clamp(sim.panY + wy * (sim.zoom - newZoom), -1e5, 1e5)
       sim.zoom = newZoom
