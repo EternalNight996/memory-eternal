@@ -416,6 +416,20 @@ export const ZH = {
   captureLog: '自动沉淀日志',
   captureLogHint: '每轮对话结束后自动跑：监听 → 判定 → 写卡。这里显示最近 100 条，用来排查「为什么没写卡」。',
   captureLogEmpty: '还没有记录。跟 Agent 聊一轮（> 捕获最小长度）后再回来看。',
+  healthTitle: '健康概览',
+  healthHint: '库 / 备份 / 沉淀 / 版本 —— 一眼看清有没有静默坏掉的东西',
+  healthDb: '知识库',
+  healthDbBad: '库不可写或损坏',
+  healthBackups: '备份',
+  healthNoBackups: '没有备份（执行 dsh-memory doctor 可建，宿主也会每日备份）',
+  healthBackupAge: '{n} 个 · 最近 {d} 天前',
+  healthBackupToday: '{n} 个 · 今天',
+  healthCapture: '自动沉淀',
+  healthNoRecords: '暂无记录（还没触发过沉淀）',
+  healthCapOk: '最近一次成功写卡',
+  healthCapFail: '最近一次失败',
+  healthRunAlign: '运行「版本对齐检查」后显示',
+  healthVersion: '版本',
   alignTitle: '版本对齐检查',
   alignRun: '开始检查',
   alignFix: '重写接线',
@@ -851,6 +865,20 @@ export const EN = {
   captureLog: 'Auto-capture log',
   captureLogHint: 'Runs after every turn: listen → judge → write. Last 100 entries, so you can see why a card was not written.',
   captureLogEmpty: 'No entries yet. Chat one turn (> min capture chars) and come back.',
+  healthTitle: 'Health',
+  healthHint: 'Database / backups / capture / versions — spot anything that broke silently',
+  healthDb: 'Database',
+  healthDbBad: 'database is unwritable or corrupt',
+  healthBackups: 'Backups',
+  healthNoBackups: 'no backups yet (run dsh-memory doctor; the host also backs up daily)',
+  healthBackupAge: '{n} files · newest {d} day(s) ago',
+  healthBackupToday: '{n} files · newest today',
+  healthCapture: 'Auto capture',
+  healthNoRecords: 'no records yet (capture has not run)',
+  healthCapOk: 'last capture wrote a card',
+  healthCapFail: 'last capture failed',
+  healthRunAlign: 'run Version alignment check to show',
+  healthVersion: 'Versions',
   alignTitle: 'Version alignment check',
   alignRun: 'Check now',
   alignFix: 'Rewrite wiring',
@@ -2632,6 +2660,8 @@ function LibraryAdmin({ t, tab, onReload, version }) {
   const [opt, setOpt] = useState(null)
   const [budget, setBudget] = useState(null)
   const [captureLog, setCaptureLog] = useState(null)
+  // 健康概览（库 / 备份 / 沉淀 / 版本）——「看不见的状态」集中一处（issue 可靠性线）
+  const [health, setHealth] = useState(null)
   // 版本对齐检查（回答「插件迭代后旧接口还在」）：宿主/常驻/npm 版本差 + MCP/hooks 旧接线
   const [align, setAlign] = useState(null)
   const runAlign = useCallback(async () => {
@@ -2687,12 +2717,15 @@ function LibraryAdmin({ t, tab, onReload, version }) {
         fetch(`${API}/capture-log`),
         // 宿主自动沉淀的卡：服务端按署名过滤取 30 条（约 15KB），不再拉全量 500 卡
         fetch(`${API}/cards?status=all&limit=30&agent=${DSH_AGENT}`),
+        // 健康概览：库状态 / 备份年龄（服务端已算好摘要）
+        fetch(`${API}/overview`),
       ])
-      const [s, b, c, k] = await Promise.all(rs.map((r) => r.json()))
+      const [s, b, c, k, o] = await Promise.all(rs.map((r) => r.json()))
       if (s && s.ok) setStats(s)
       if (b && b.ok) setBudget(b)
       if (c && c.ok) setCaptureLog(c)
       if (k && k.ok) setAgentCards(k.cards || [])
+      if (o && o.ok) setHealth({ db: o.db, backups: o.backups, total: o.total, degraded: o.degraded === true })
       setErr(!s || !s.ok ? t('adminLoadFail') : '')
     } catch (e) { setErr(t('adminLoadFail')) }
   }
@@ -2821,6 +2854,69 @@ function LibraryAdmin({ t, tab, onReload, version }) {
           </div>}
           {tab === 'stats' && (
             <div>
+              {/* 健康概览：把「看不见的状态」集中一处（库 / 备份 / 沉淀 / 版本） */}
+              <div className="mc-card" style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <b style={{ fontSize: 12 }}>🩺 {t('healthTitle')}</b>
+                  <span style={{ fontSize: 11, opacity: 0.6 }}>{t('healthHint')}</span>
+                  <div style={{ flex: 1 }} />
+                  <button type="button" className="mc-btn" onClick={() => fetchAll()}>↻ {t('refresh')}</button>
+                </div>
+                {!health ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('loading')}</div> : (() => {
+                  const db = health.db || {}
+                  const dbOk = db.writable !== false && !db.corrupt
+                  const bk = health.backups || { count: 0, newestAt: 0 }
+                  const ageDays = bk.newestAt ? Math.floor((Date.now() - Number(bk.newestAt)) / 86400000) : -1
+                  const bkLevel = !bk.count ? 'bad' : (ageDays > 7 ? 'warn' : 'ok')
+                  const cap = captureLog && captureLog.available ? captureLog.health : null
+                  const capLevel = !cap ? 'none' : (cap.ok ? 'ok' : 'warn')
+                  const ver = align && align.findings ? (
+                    align.onDisk && align.residentServed === align.onDisk && align.hostVersion === align.onDisk ? 'ok' : 'warn'
+                  ) : 'none'
+                  const ICO = { ok: ['✅', '#10b981'], warn: ['⚠', '#f59e0b'], bad: ['✗', '#ef4444'], none: ['•', 'inherit'] }
+                  const rows = [
+                    {
+                      label: t('healthDb'),
+                      level: dbOk ? 'ok' : 'bad',
+                      text: dbOk
+                        ? 'journal=' + (db.journalMode || '?') + (db.checkedAt ? ' · ' + new Date(db.checkedAt).toLocaleString() : '')
+                        : (db.error || t('healthDbBad')) + ' → dsh-memory doctor',
+                    },
+                    {
+                      label: t('healthBackups'),
+                      level: bkLevel,
+                      text: !bk.count
+                        ? t('healthNoBackups')
+                        : (ageDays <= 0 ? t('healthBackupToday').replace('{n}', String(bk.count)) : t('healthBackupAge').replace('{n}', String(bk.count)).replace('{d}', String(ageDays))) + (bk.files && bk.files.length ? ' · ' + bk.files[bk.files.length - 1] : ''),
+                    },
+                    {
+                      label: t('healthCapture'),
+                      level: capLevel,
+                      text: !cap ? t('healthNoRecords') : (cap.ok ? t('healthCapOk') : t('healthCapFail') + '：' + (cap.reason || '')),
+                    },
+                    {
+                      label: t('healthVersion'),
+                      level: ver,
+                      text: ver === 'none'
+                        ? t('healthRunAlign')
+                        : (t('vcOnDisk') + ' v' + (align.onDisk || '?') + ' · ' + t('vcResident') + ' v' + (align.residentServed || '?') + ' · ' + t('vcLoaded') + ' v' + (align.hostVersion || '?')),
+                      action: ver === 'none' ? { label: t('alignRun'), run: runAlign } : null,
+                    },
+                  ]
+                  return (
+                    <div style={{ marginTop: 6 }}>
+                      {rows.map((r) => (
+                        <div key={r.label} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12, padding: '3px 0', borderTop: '1px solid rgba(127,127,127,0.10)' }}>
+                          <span style={{ width: 14, flex: '0 0 auto', color: ICO[r.level][1] }}>{ICO[r.level][0]}</span>
+                          <b style={{ minWidth: 62, flex: '0 0 auto', opacity: 0.85 }}>{r.label}</b>
+                          <span style={{ opacity: 0.82, wordBreak: 'break-word' }}>{r.text}</span>
+                          {r.action && <button type="button" className="mc-btn" style={{ marginLeft: 6, padding: '0 6px', fontSize: 11 }} disabled={!!busy} onClick={r.action.run}>{r.action.label}</button>}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
               {/* 版本对齐检查：插件迭代后「旧接口 / 旧接线」不会自己消失 —— 一眼看清差在哪、怎么对齐 */}
               <div className="mc-card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>

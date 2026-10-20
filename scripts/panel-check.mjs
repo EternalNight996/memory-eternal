@@ -83,6 +83,13 @@ class Cdp {
 }
 
 // 每步都跑的断言：任何「可滚动容器的 scrollWidth > clientWidth」都算横向溢出（滚动条异常）
+// 页面健康：白屏 / JS 异常 = 比溢出更严重的失败（真实事故：一个 t 之外的 helper 让整页白屏，
+// 而「空白页没有横向溢出」会让检查**通过** —— 所以必须先断言页面还活着）。
+const PAGE_ALIVE_PROBE = `(() => {
+  const txt = (document.body && document.body.innerText || '').trim()
+  return { textLen: txt.length, hasRoot: Boolean(document.querySelector('.me-overlay, .mc-card, .mc-grid, .mc-rail')) }
+})()`
+
 const OVERFLOW_PROBE = `(() => {
   const out = []
   const root = document.documentElement
@@ -128,17 +135,34 @@ const main = async () => {
     cdp = await Cdp.connect(target.webSocketDebuggerUrl)
     await cdp.send('Page.enable')
     await cdp.send('Runtime.enable')
+    // 页面抛异常 = 发布阻断项（白屏的根因就在这类异常里）
+    cdp.ws.addEventListener('message', (ev) => {
+      try {
+        const m = JSON.parse(ev.data)
+        if (m.method === 'Runtime.exceptionThrown') {
+          const d = (m.params && m.params.exceptionDetails) || {}
+          const desc = (d.exception && d.exception.description) || d.text || 'unknown'
+          ;(globalThis.__panelErrors ||= []).push(String(desc).split('\n')[0])
+        }
+      } catch { /* 非 JSON 消息忽略 */ }
+    })
     await cdp.send('Page.navigate', { url: URL_TARGET })
     await sleep(2500)
 
     const report = []
     let bad = 0
+    const jsErrors = []
     const step = async (label) => {
+      const alive = await cdp.eval(PAGE_ALIVE_PROBE)
       const over = await cdp.eval(OVERFLOW_PROBE)
       const file = path.join(OUT_DIR, label + '.png')
       await cdp.shot(file)
-      report.push({ label, over, png: file })
-      if (over.length) bad++
+      const blank = !alive || alive.textLen < 20
+      const entry = { label, over, png: file }
+      if (blank) entry.blank = true
+      if (alive) entry.textLen = alive.textLen
+      report.push(entry)
+      if (over.length || blank) bad++
     }
 
     await step('01-list')
@@ -147,9 +171,13 @@ const main = async () => {
       await step(String(i + 2).padStart(2, '0') + '-' + (CLICKS[i].replace(/^text=/, '').replace(/[^\w\u4e00-\u9fa5-]/g, '_') || 'step'))
     }
 
-    console.log(JSON.stringify({ url: URL_TARGET, out: OUT_DIR, steps: report, overflowSteps: bad }, null, 2))
-    if (bad) { console.error('✗ 有 ' + bad + ' 个步骤存在横向溢出（见上方 over 列表）'); process.exitCode = 1 }
-    else console.log('✓ 全部步骤无横向溢出')
+    const pageErrors = globalThis.__panelErrors || []
+    console.log(JSON.stringify({ url: URL_TARGET, out: OUT_DIR, steps: report, badSteps: bad, pageErrors }, null, 2))
+    if (bad || pageErrors.length) {
+      if (bad) console.error('✗ ' + bad + ' 个步骤不合格：横向溢出或白屏（见 steps 里的 over / blank）')
+      if (pageErrors.length) console.error('✗ 页面抛出 ' + pageErrors.length + ' 个异常：' + pageErrors.slice(0, 3).join(' | '))
+      process.exitCode = 1
+    } else console.log('✓ 全部步骤：页面存活、无横向溢出、无 JS 异常')
   } finally {
     try { cdp && cdp.ws.close() } catch { /* 无所谓 */ }
     try { child.kill() } catch { /* 已经退出 */ }
