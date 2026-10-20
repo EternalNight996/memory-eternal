@@ -15,3 +15,6 @@ pnpm-workspace.yaml
 
 # æœ¬åœ°å·¥ä½œç¬”è®°ï¼ˆä¸å…¥åº“ï¼‰
 docs/sessions/
+# ÑéÊÕ¹¤¾ßÁÙÊ±Êä³ö£¨½ØÍ¼Óë JSON ±¨¸æ²»Èë¿â£©
+.shots/
+*-out.json
