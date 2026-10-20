@@ -24,6 +24,7 @@ const URL_TARGET = flag('url', 'http://127.0.0.1:7999/')
 const OUT_DIR = path.resolve(flag('out', '.panel'))
 const CLICKS = flags('click')
 const PORT = Number(flag('port', '9333'))
+const SIZE = flag('size', '')
 const CHROME = flag('chrome', process.platform === 'win32'
   ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
   : process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome')
@@ -34,6 +35,7 @@ function launchChrome() {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'me-panel-'))
   const child = spawn(CHROME, [
     '--headless=new', '--disable-gpu', '--hide-scrollbars=false', '--no-first-run',
+    ...(SIZE ? ['--window-size=' + SIZE] : []),
     '--no-default-browser-check', '--disable-extensions', '--mute-audio',
     '--user-data-dir=' + profile, '--remote-debugging-port=' + String(PORT), 'about:blank',
   ], { stdio: 'ignore', windowsHide: true })
