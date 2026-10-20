@@ -17,19 +17,35 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-eternal.gif" width="880" alt="对话自动沉淀 + 图形化知识库 + 知识图谱（演示）" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/cards.png" width="900" alt="知识卡列表：对话结束自动沉淀成卡，可检索 / 可审核 / 可追溯来源" />
 </p>
 
-> **对话结束自动沉淀，跨会话不失忆；召回只取相关小块，省 token 少噪音。**
-> 全自研、零第三方记忆框架、不改 DSH 源码、一个记忆库所有 Agent 共享，SQLite 持久存储，零外部依赖。
+> **对话结束自动沉淀成知识卡，跨会话不失忆；召回只取相关小块，省 token 少噪音。**
+> 全自研、零第三方记忆框架、不改 DSH 源码；一个记忆库所有 Agent 共享，SQLite 持久存储，零外部依赖。
 
-<p align="center"><strong>⭐ 觉得好用就点个 Star</strong>！ <br/><sub>DSH 一条命令：<code>dsh plugin --profile web add memory-eternal</code></sub></p>
+<p align="center"><strong>⭐ 如果它帮你少解释了一遍上下文，点个 Star 就是最大的支持</strong><br/><sub>DSH 一条命令：<code>dsh plugin --profile web add memory-eternal</code></sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-popup.png" width="32%" alt="记忆库弹窗：知识卡 / 检索 / 知识图谱" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-settings.png" width="32%" alt="DSH 设置 → 记忆：全部配置项" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-sidebar.png" width="32%" alt="侧边栏一键入口" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="知识图谱：897 节点 / 4257 连线，按类型着色、支持跨库聚合与导出" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/health.png" width="32%" alt="健康概览：知识库 / 备份 / 自动沉淀 / 版本，一眼看清有没有静默坏掉的东西" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="审核中心：AI 写的卡先审后入，可批量批准 / 驳回 / 回收" />
 </p>
+
+<p align="center"><sub>▲ 知识卡列表 · 知识图谱 · 健康概览 · 审核中心 —— 全部是真实运行截图（1280×860）</sub></p>
+
+---
+
+## ✨ 它到底解决什么问题
+
+| 你遇到的 | 以前的做法 | 用了之后 |
+| --- | --- | --- |
+| 聊了 3 天的项目，新会话全忘 | 手动翻历史 / 重新解释一遍 | 每轮结束自动沉淀成卡，开工前 `memory_recall` 一句就回来 |
+| 记忆塞进 prompt，token 爆掉 | 全量粘贴、越聊越贵 | 只召回相关的一小块（可配上限），省 token 也少噪音 |
+| AI 写的东西不敢直接信 | 无法追溯、无法回滚 | 卡片带来源 / 时间 / 状态，先审后入，删除进回收站 |
+
+- **看得见**：知识卡 / 图谱 / 健康概览 / 沉淀日志，四层可视化；
+- **控得住**：审核模式（全部人工 / 仅高风险）、去重与矛盾扫描、批量合并、每日备份与一键恢复；
+- **带得走**：知识库是本地 Markdown + SQLite，可 git 管理、可导出，不锁在插件里。
 
 ---
 
@@ -190,7 +206,7 @@ dsh-memory audit reject <卡片路径...> --reason "..." # 人工批量驳回
 > 所有配置都在 **记忆库左栏「记忆配置」**（或 DSH 设置 → 记忆）里改，点「保存配置」生效。下图就是配置页全貌（含插件信息 / Agent MCP 挂载状态 / 自动审核配置）：
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-config.png" width="880" alt="记忆配置页" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config.png" width="880" alt="记忆配置页：蒸馏 provider / model 下拉、跟随会话、仅试首选、超时与输出上限" />
 </p>
 
 ### 一、最常用
@@ -393,14 +409,15 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.10.54** | 2026-10-20 | **本地大模型蒸馏更稳（#48）+ README 焕新与最新截图**。① **#48**：本地 30B 模型冷启动要 40–60 秒，而蒸馏超时**硬编码 45 秒** → 每次冷启动必报 ABORTED；现在超时可配 **captureTimeoutMs**（默认仍 45s，本地推理建议 120000+），且**超时后自动用更长超时重试同一候选一次**（不直接换模型）。② **#48 的第二种形态**：模型不给 max-tokens finish 时，截断只表现为「JSON 未闭合」→ 新增独立错误码 **TRUNCATED_OUTPUT**，与 MAX_TOKENS 一起走「加倍输出预算重试同一候选」的阶梯。③ 配置页新增「蒸馏超时（毫秒）」输入项。④ **README 焕新**：全部换成真实运行截图（知识卡 / 知识图谱 897 节点 4257 连线 / 健康概览 / 审核中心 / 配置页）+ 新增「它到底解决什么问题」对照表 + 更清晰的卖点与 Star 引导（中英同步）。npm test 共 **440 项** |
 | **v0.10.53** | 2026-10-20 | **健康面板（可靠性线）：把看不见的状态集中一处**。在「用量/今日」顶部新增「🩺 健康概览」：① **知识库**（journal 模式 / 可写 / 最后一次体检时间，异常时给 doctor 指引）；② **备份**（数量 + 最近一次多久前，>7 天标黄、0 备份标红）；③ **自动沉淀**（最近一次成功/失败与原因）；④ **版本**（磁盘 / 常驻 / 宿主；未检查时给「开始检查」按钮，因为 align 要联网比 npm 不能自动跑）。数据来自既有接口：/overview 新增 **backups 摘要**（count/newestAt/最近 5 个文件名），加上 /capture-log 与 /align。**顺带修一个白屏 bug**：健康卡最初误用了 ConfigPanel 作用域的 tf() → 点开「用量/今日」整页白屏；同时给 panel-check 补了两道闸 —— **页面存活（textLen<20 判空白页）** 与 **Runtime.exceptionThrown 捕获**，因为「白屏没有横向溢出」原本会让检查通过。新增 tests/health-panel.test.mjs（4 项）。npm test 共 **437 项** |
-| **v0.10.52** | 2026-10-19 | **诊断包脱敏补漏（隐私修复，建议尽快升级）**。0.10.51 的「一键诊断包」有个漏点：doctor/align --json 与 meta.json 里的家目录是 **JSON 转义形态**（C:\\Users\\x），而我只替换了原样/正斜杠两种写法 → 包里仍能 grep 到家目录明文。现在三种写法（原样、正斜杠、JSON 转义）都替换成 <home>，并在测试里加了一条「JSON 转义形态不能漏」的断言；本机重新生成诊断包实测：**无家目录明文、无 sk- 密钥**。**如果你已经用 0.10.51 生成过诊断包并分享出去，建议重新生成一次再分享。** npm test 共 **433 项** |
 
 <details>
-<summary>更早的更新日志（v0.10.51 及以前 · 共 78 版，点开查看）</summary>
+<summary>更早的更新日志（v0.10.52 及以前 · 共 79 版，点开查看）</summary>
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.10.52** | 2026-10-19 | **诊断包脱敏补漏（隐私修复，建议尽快升级）**。0.10.51 的「一键诊断包」有个漏点：doctor/align --json 与 meta.json 里的家目录是 **JSON 转义形态**（C:\\Users\\x），而我只替换了原样/正斜杠两种写法 → 包里仍能 grep 到家目录明文。现在三种写法（原样、正斜杠、JSON 转义）都替换成 <home>，并在测试里加了一条「JSON 转义形态不能漏」的断言；本机重新生成诊断包实测：**无家目录明文、无 sk- 密钥**。**如果你已经用 0.10.51 生成过诊断包并分享出去，建议重新生成一次再分享。** npm test 共 **433 项** |
 | **v0.10.51** | 2026-10-19 | **一键诊断包 dsh-memory support**（可靠性线；#47 里用户贴的现场被 GitHub 截断，我拿不到完整信息，这功能就是为这类沟通做的）。一条命令生成 **zip**：meta（版本矩阵/平台/node/vault）/ doctor / align / status / 看门狗锁 / 宿主心跳 / 共享配置 / 沉淀日志尾巴（默认 200 行）+ README；写入前**统一脱敏**（家目录→<home>，sk-/ghp_/github_pat/Bearer/配置里 key 类字段→***）。实现为**零依赖**：自写 store/deflate ZIP 写入器（lib/zip.js，Windows 资源管理器可直接打开，实测 Expand-Archive 解压正常）。受限环境可加 --no-spawn 跳过子进程；--out 指定输出、--tail N 控制日志条数。新增 tests/support-bundle.test.mjs（4 项：脱敏、zip 结构、包内不含明文密钥、CLI 接线）。npm test 共 **433 项** |
 | **v0.10.50** | 2026-10-19 | **「模型不守 JSON」不再每轮白烧调用（#47 衍生改进）**。① 把「模型回了散文、输出里根本没有 JSON 对象」从笼统的 UNPARSEABLE_OUTPUT 里拆出来，给独立错误码 **MODEL_NOT_JSON**，文案直接说清「该模型可能不遵守结构化输出」。② 新增 `lib/model-strikes.js`：记下「哪个 provider/model 最近不守格式」（24h 窗口、最多 50 条），宿主选路时把它们**排到候选末尾**（不删除；全部命中过则按原顺序兜底，绝不没候选），并留一条「蒸馏候选已调整」日志。③ 效果：像 stepfun/step-api 这种会把蒸馏当聊天回的模型，第二轮起就不再优先尝试，省掉每次的无效调用。新增 `tests/model-strikes.test.mjs`（4 项：散文识别 / 排序稳定性 / 记录窗口与裁剪 / 接线守卫）。npm test 共 **429 项** |
 | **v0.10.49** | 2026-10-19 | **桌面版里「无法选择蒸馏模型」修复（#47）：独立页把 /llm-routes 与 /llm-test 代理给宿主 + 文案补一个状态**。根因：桌面版的「记忆」弹窗是 iframe 里的**独立页**，它没有 DSH 的 llm 服务 → /llm-routes 恒失败 → provider/model 只能手填。现在独立页读宿主心跳（<config>.host.json 里的端口，仅 127.0.0.1、心跳 120s 内有效），把这两个路由**转发给宿主**执行并标记 proxied；宿主不在线时给明确原因（面板直接显示，不再静默回退成手填）。② 版本卡状态矩阵补 restartRepair：**版本已对但没人保活**时提示「重新托管并保活」，不再出现「换成 v0.10.48（当前 v0.10.48）」这种自相矛盾的文案（截图实测）。npm test 共 **425 项** |

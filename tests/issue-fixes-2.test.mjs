@@ -157,8 +157,17 @@ test('#24 summarizeTurnDetailed：解析失败时 message 带原始报错与首�
   ].join('\n')
   const r = await summarizeTurnDetailed(llm, { provider: 'p', model: 'm' }, conv)
   assert.equal(r.card, undefined)
-  assert.equal(r.failure.code, 'UNPARSEABLE_OUTPUT')
-  assert.match(r.failure.message, /JSON\.parse 原始报错/, '原始报错必须可见（#24 的第二个缺陷）')
+  // 0.10.54（issue #48）起：截断有独立错误码（宿主据此加倍预算重试）
+  assert.equal(r.failure.code, 'TRUNCATED_OUTPUT')
+  assert.match(r.failure.message, /截断|未闭合/)
+
+  // 非截断的坏 JSON：仍必须带出**原始** JSON.parse 报错（#24 的第二个缺陷不能回退）
+  const notTruncated = '{"save": true, "title": 没有引号, "body": "x"}'
+  const llm2 = { async *stream() { yield { type: 'block-start', index: 0, blockType: 'text' }; yield { type: 'text-delta', index: 0, text: notTruncated }; yield { type: 'finish', reason: { kind: 'stop' } } } }
+  const r2 = await summarizeTurnDetailed(llm2, { provider: 'p', model: 'm' }, conv)
+  assert.equal(r2.card, undefined)
+  assert.equal(r2.failure.code, 'UNPARSEABLE_OUTPUT')
+  assert.match(r2.failure.message, /JSON\.parse 原始报错/, '原始报错必须可见（#24 的第二个缺陷）')
 })
 
 test('#24 maxTokenLadder：一路翻倍到 schema 上限，不再只翻一次', () => {

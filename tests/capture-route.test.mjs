@@ -81,7 +81,7 @@ test('finish.kind=max-tokens → 独立错误码 MAX_TOKENS（不是 UNPARSEABLE
   assert.doesNotMatch(r.failure.message, /UNPARSEABLE/, '不得再伪装成解析失败')
 })
 
-test('没给 finish 的截断输出 → 仍报 UNPARSEABLE_OUTPUT，但提示「疑似被截断」', async () => {
+test('没给 finish 的截断输出 → 独立错误码 TRUNCATED_OUTPUT（#48：宿主据此加倍预算重试）', async () => {
   const llm = fakeLlm({
     providers: [{ id: 'p' }], models: { p: [{ id: 'm' }] },
     chunks: [
@@ -91,8 +91,8 @@ test('没给 finish 的截断输出 → 仍报 UNPARSEABLE_OUTPUT，但提示「
     ],
   })
   const r = await summarizeTurnDetailed(llm, { provider: 'p', model: 'm' }, CONV)
-  assert.equal(r.failure.code, 'UNPARSEABLE_OUTPUT')
-  assert.match(r.failure.message, /疑似输出被截断/)
+  assert.equal(r.failure.code, 'TRUNCATED_OUTPUT', '截断要有独立错误码，才能走进「加大预算」的阶梯')
+  assert.match(r.failure.message, /截断/)
   assert.equal(looksTruncatedJson('{"a": 1}'), false)
   assert.equal(looksTruncatedJson('{"a": [1, 2'), true)
   assert.equal(looksTruncatedJson('{"a": "未闭合'), true)

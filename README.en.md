@@ -17,19 +17,35 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-eternal.gif" width="880" alt="Auto-capture + visual library + knowledge graph (demo)" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/cards.png" width="900" alt="Knowledge card list: every conversation is distilled into a card you can search, audit and trace back" />
 </p>
 
-> **Auto-captures knowledge after every conversation and survives across sessions; recall fetches only the relevant chunks — saves tokens, less noise.**
-> Fully self-built, zero third-party memory framework, no DSH source changes, one vault shared by every Agent, SQLite persistent storage, zero external dependencies.
+> **Every conversation is distilled into knowledge cards; nothing is forgotten across sessions, and recall fetches only the relevant chunks — fewer tokens, less noise.**
+> Fully self-built, zero third-party memory framework, no DSH source changes; one vault shared by every Agent, SQLite persistent storage, zero external dependencies.
 
-<p align="center"><strong>⭐ Star it if you like it!</strong> <br/><sub>DSH one-liner: <code>dsh plugin --profile web add memory-eternal</code></sub></p>
+<p align="center"><strong>⭐ If it saved you from explaining the same context again, a star means a lot</strong><br/><sub>DSH one-liner: <code>dsh plugin --profile web add memory-eternal</code></sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-popup.png" width="32%" alt="Memory popup: knowledge cards / search / knowledge graph" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-settings.png" width="32%" alt="DSH Settings → Memory: all options" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-sidebar.png" width="32%" alt="Sidebar quick entry" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="Knowledge graph: 897 nodes / 4257 edges, coloured by kind, cross-vault aggregation and export" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/health.png" width="32%" alt="Health overview: database / backups / auto-capture / versions — spot anything broken silently" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="Audit centre: AI-written cards are reviewed before they land; batch approve / reject / recycle" />
 </p>
+
+<p align="center"><sub>▲ Card list · knowledge graph · health · audit centre — real screenshots from a running instance (1280×860)</sub></p>
+
+---
+
+## ✨ What problem does it actually solve
+
+| What you hit | Before | After |
+| --- | --- | --- |
+| A project you talked about for three days, forgotten in a new session | dig through history, explain it again | each turn is distilled into a card; one `memory_recall` brings it back |
+| Cramming memory into the prompt blows the token budget | paste everything, get more expensive | only the relevant chunk is recalled (capped), fewer tokens and less noise |
+| You cannot fully trust what the AI wrote | no trace, no rollback | cards carry source / time / status, audited before landing, deletions go to the recycle bin |
+
+- **Visible**: cards, graph, health overview and capture log — four layers of visibility;
+- **Controllable**: audit modes, dedup and contradiction scans, batch merge, daily backups and one-command restore;
+- **Portable**: the vault is local Markdown + SQLite — git-managed and exportable, never locked inside the plugin.
 
 ---
 
@@ -170,7 +186,7 @@ Three concepts, don't mix them:
 > All settings live in the **vault left rail "Memory Config"** (or DSH Settings → Memory) — edit and hit "Save". Here's the full page (plugin info / Agent MCP mount status / auto-audit config):
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/memory-config.png" width="880" alt="Memory config page" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config.png" width="880" alt="Memory config page" />
 </p>
 
 ### 1. Most used
@@ -361,14 +377,15 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # is the standalone we
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.10.54** | 2026-10-20 | **More reliable distillation with local models (#48), plus a refreshed README with new screenshots**. ① **#48**: a local 30B model takes 40-60s to cold start while the distill timeout was **hardcoded to 45s**, so every cold start aborted; the timeout is now configurable via **captureTimeoutMs** (still 45s by default, 120000+ recommended for local inference) and **a timeout retries the same candidate once with a longer budget** instead of switching models. ② **The second shape of #48**: when the provider does not report max-tokens, a truncated answer only shows up as unterminated JSON, so a dedicated **TRUNCATED_OUTPUT** code now joins MAX_TOKENS on the "double the output budget and retry the same candidate" ladder. ③ The settings page gains a distill timeout (ms) field. ④ **README refresh**: all real screenshots (cards, a graph with 897 nodes / 4257 edges, health overview, audit centre, settings) plus a "what problem does it solve" comparison table and a clearer value proposition and star call-to-action (both languages). npm test now runs **440 checks** |
 | **v0.10.53** | 2026-10-20 | **Health panel (reliability line): all previously invisible state in one place**. A new "Health" card at the top of the usage page shows: ① **database** (journal mode, writability, last health check, with doctor guidance when bad); ② **backups** (count and age of the newest, amber past 7 days, red at zero); ③ **auto capture** (last success/failure with reason); ④ **versions** (disk / resident / host, plus a Start check button because align needs the npm registry and cannot run automatically). Data comes from existing endpoints: /overview now includes a **backups summary** (count/newestAt/last five filenames) alongside /capture-log and /align. Also **fixes a white-screen bug**: the card initially used tf(), which only exists in the ConfigPanel scope, so opening the usage page blanked the whole app; the panel checker gained two gates — **page alive (textLen<20 counts as blank)** and **Runtime.exceptionThrown capture** — because a blank page previously passed the overflow assertions. Adds tests/health-panel.test.mjs (4 checks). npm test now runs **437 checks** |
-| **v0.10.52** | 2026-10-19 | **Redaction hole in the diagnostic bundle (privacy fix; upgrade recommended)**. The 0.10.51 one-command bundle had a gap: the home directory appears in **JSON-escaped form** (C:\\Users\\x) inside doctor/align --json output and meta.json, while only the plain and forward-slash variants were replaced, so the bundle could still be grepped for the home path. All three variants (plain, forward slash, JSON escaped) now become <home>, with a test assert added for the escaped form; a freshly generated bundle on this machine verifies as **no home path and no sk- keys**. If you already generated and shared a bundle with 0.10.51, please regenerate it before sharing. npm test now runs **433 checks** |
 
 <details>
-<summary>Older release notes (v0.10.51 and earlier · 78 releases, click to expand)</summary>
+<summary>Older release notes (v0.10.52 and earlier · 79 releases, click to expand)</summary>
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.10.52** | 2026-10-19 | **Redaction hole in the diagnostic bundle (privacy fix; upgrade recommended)**. The 0.10.51 one-command bundle had a gap: the home directory appears in **JSON-escaped form** (C:\\Users\\x) inside doctor/align --json output and meta.json, while only the plain and forward-slash variants were replaced, so the bundle could still be grepped for the home path. All three variants (plain, forward slash, JSON escaped) now become <home>, with a test assert added for the escaped form; a freshly generated bundle on this machine verifies as **no home path and no sk- keys**. If you already generated and shared a bundle with 0.10.51, please regenerate it before sharing. npm test now runs **433 checks** |
 | **v0.10.51** | 2026-10-19 | **One-command diagnostic bundle: dsh-memory support** (reliability line; in #47 the user-pasted context was truncated by GitHub so I could not see the full picture — this exists for exactly that kind of exchange). A single command produces a **zip** with meta (version matrix / platform / node / vault), doctor, align, status, the watchdog lock, the host heartbeat, the shared config, the tail of the capture log (200 lines by default) and a README; everything is **redacted before writing** (home directory to <home>, sk-/ghp_/github_pat/Bearer and key-like config fields to ***). Implemented with **no dependencies**: a hand-written store/deflate ZIP writer (lib/zip.js) whose output opens in Windows Explorer (verified by extracting with Expand-Archive). In restricted environments --no-spawn skips the sub-processes, while --out and --tail N control destination and log length. Adds tests/support-bundle.test.mjs (redaction, zip structure, no plaintext secrets inside the bundle, CLI wiring). npm test now runs **433 checks** |
 | **v0.10.50** | 2026-10-19 | **Models that ignore JSON no longer burn a call every turn (a follow-up to #47)**. ① "The model replied with prose and produced no JSON object at all" is now separated from the generic UNPARSEABLE_OUTPUT failure and gets its own code **MODEL_NOT_JSON**, with wording that says the model likely does not follow structured output. ② New `lib/model-strikes.js` records which provider/model recently ignored the format (24h window, at most 50 entries) and the host moves those to the end of the candidate list when routing (never removing them; if every candidate was struck the original order is kept, so we never run out), logging a "candidates reordered" line. ③ Effect: models such as stepfun/step-api, which answer distillation prompts conversationally, stop being tried first from the second turn on, saving a pointless call each time. Adds `tests/model-strikes.test.mjs` (prose detection, stable ranking, record window and trimming, wiring guards). npm test now runs **429 checks** |
 | **v0.10.49** | 2026-10-19 | **Fixes "cannot choose the distillation model" in the desktop app (#47): the standalone page now proxies /llm-routes and /llm-test to the host, plus one more state in the matrix**. Root cause: the desktop memory popup is a **standalone page inside an iframe** with no DSH llm service, so /llm-routes always failed and provider/model had to be typed by hand. The standalone page now reads the host heartbeat (the port in <config>.host.json, 127.0.0.1 only, valid for 120s) and forwards those two routes to the host, marking the reply as proxied; when the host is offline the panel shows the concrete reason instead of silently falling back to text inputs. ② The version-card matrix gains restartRepair: when versions already match but nothing keeps the instance alive it says "re-register and keep it alive", no longer the self-contradictory "switch to v0.10.48 (currently v0.10.48)". npm test now runs **425 checks** |
