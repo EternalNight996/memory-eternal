@@ -395,6 +395,7 @@ export const ZH = {
   distillEnabled: '蒸馏知识卡(开=LLM 压缩, 关=原文卡零 LLM)',
   dedupByLLM: '语义去重喂 LLM(关=纯词法更省)',
   captureMaxTokens: '蒸馏输出上限(token)',
+  captureTimeoutMs: '蒸馏超时(毫秒；本地大模型冷启动建议 120000+)',
   recallMinScore: '召回相关性阈值(越高越省)',
   configNeedsDsh: '配置编辑需在 DSH 内打开（本页可能只读或有部分缺失）',
   installMcp: '安装 MCP',
@@ -844,6 +845,7 @@ export const EN = {
   distillEnabled: 'Distill cards (on=LLM compress, off=raw cards zero LLM)',
   dedupByLLM: 'Dedup feeds LLM (off=pure lexical, cheaper)',
   captureMaxTokens: 'Distill output cap (tokens)',
+  captureTimeoutMs: 'Distill timeout (ms; use 120000+ for cold local models)',
   recallMinScore: 'Recall min score (higher = cheaper)',
   configNeedsDsh: 'Edit config inside DSH (this page may be read-only or partially missing)',
   installMcp: 'Install MCP',
@@ -2293,6 +2295,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <Bool k="distillEnabled" label={t('distillEnabled')} />
                 <Bool k="dedupByLLM" label={t('dedupByLLM')} />
                 <F k="captureMaxTokens" label={t('captureMaxTokens')} type="number" />
+                <F k="captureTimeoutMs" label={t('captureTimeoutMs')} type="number" />
                 <F k="recallMinScore" label={t('recallMinScore')} type="number" />
                 <F k="captureCooldownMs" label={t('captureCooldownMs')} type="number" />
                 {/* issue #42 ①：下拉选 provider / model（动态拉取，不再手填编号）；取不到时回退成文本输入 */}

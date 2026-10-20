@@ -77,6 +77,9 @@ export const Config = z.object({
   // 默认值 900 → 2000（issue #18）：prompt 要求 300-800 字正文，900 会让超长会话常态化撞上限，
   // 输出被截断后旧代码还会把它误报成「解析失败」，最终落一张 raw 噪声卡。
   captureMaxTokens: z.number().min(100).max(4000).default(DEFAULT_CAPTURE_MAX_TOKENS),
+  // issue #48：蒸馏单次超时（毫秒）。本地 30B 模型冷启动要 40–60s，45s 必超时；
+  // 默认仍 45s（云端模型够用），本地推理用户可调到 120000+。超时后宿主会自动加时重试一次。
+  captureTimeoutMs: z.number().min(5000).max(600000).default(45000),
   // 召回相关性阈值（minScore），越高召回越少越精越省
   recallMinScore: z.number().min(0).max(50).default(2),
   // 注入体积可配置（召回）
@@ -736,16 +739,28 @@ export function apply(ctx, config) {
       const maxTokens = Number(cfg.captureMaxTokens) || DEFAULT_CAPTURE_MAX_TOKENS
       for (let i = 0; i < routes.length; i++) {
         route = routes[i]
-        let detailed = await summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens })
+        // issue #48：超时不再硬编码 45s（本地 30B 冷启动 40–60s 必超时），且超时后**同候选**用更长超时重试一次。
+        const baseTimeout = Math.max(5000, Number(cfg.captureTimeoutMs) || 45000)
+        const isTimeoutFailure = (x) => /ABORTED|TIMEOUT|ETIMEDOUT|aborted/i.test(String((x && (x.code + ' ' + x.message)) || ''))
+        const attempt = (budget, ms) => summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(ms), existing: neighbors, maxTokens: budget })
+        let detailed = await attempt(maxTokens, baseTimeout)
+        if (detailed.failure && isTimeoutFailure(detailed.failure)) {
+          const longer = Math.min(Math.max(Math.round(baseTimeout * 2.5), baseTimeout + 30000), 180000)
+          logCapture(sessionId, 'listen', `蒸馏超时（${route.provider}/${route.model}）：可能是模型冷启动 → 以 ${Math.round(longer / 1000)}s 超时重试同一候选`)
+          detailed = await attempt(maxTokens, longer)
+        }
         // #18 建议 3 + #24：撞输出上限不是「模型坏了」，把上限一路翻倍到 schema 上限。
         // 旧实现只翻倍**一次**：1200 → 2400 仍不够就照样退成原文卡，尽管 4000 本来装得下
         // （issue #24 里 9 次失败中有一半正是被这一限制吃掉的）。
+        // #48：JSON 被截断（TRUNCATED_OUTPUT）与 MAX_TOKENS 同类处理 —— 靠加倍预算而不是换模型
+        const truncLike = (x) => Boolean(x && (x.code === 'MAX_TOKENS' || x.code === 'TRUNCATED_OUTPUT'))
         let prevBudget = maxTokens
         for (const bigger of maxTokenLadder(maxTokens)) {
-          logCapture(sessionId, 'listen', `输出撞到 maxTokens=${prevBudget} 上限 → 以 ${bigger} 重试同一候选（${route.provider}/${route.model}）`)
-          detailed = await summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(45000), existing: neighbors, maxTokens: bigger })
+          if (!truncLike(detailed.failure)) break
+          logCapture(sessionId, 'listen', `输出撞到上限（${detailed.failure.code}，maxTokens=${prevBudget}）→ 以 ${bigger} 重试同一候选（${route.provider}/${route.model}）`)
+          detailed = await attempt(bigger, baseTimeout)
           prevBudget = bigger
-          if (!(detailed.failure && detailed.failure.code === 'MAX_TOKENS')) break
+
         }
         if (detailed.card !== undefined) { result = detailed.card; failure = null; break }
         if (detailed.failure) {
@@ -1194,6 +1209,7 @@ export function apply(ctx, config) {
                 captureProvider: cfg.captureProvider || '',
                 captureFollowSession: cfg.captureFollowSession === true,
                 captureFirstOnly: cfg.captureFirstOnly === true,
+                captureTimeoutMs: cfg.captureTimeoutMs ?? 45000,
                 captureModel: cfg.captureModel || '',
                 recallEmbedding: cfg.recallEmbedding || '',
                 sessionBudgetChars: cfg.sessionBudgetChars ?? 80000,
