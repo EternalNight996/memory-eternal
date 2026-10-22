@@ -68,7 +68,7 @@ test('渲染层兜底：坏 tags 不许把整棵 React 树带走（源码守卫�
   const client = read('src/client/index.tsx')
   assert.match(client, /const tagsOf = \(c\) => \(Array\.isArray\(c && c\.tags\) \? c\.tags : \[\]\)/, '要有渲染层兜底函数')
   assert.match(client, /tagsOf\(card\)\.length > 0/, '卡片列表要走兜底')
-  assert.match(client, /tagsOf\(card\)\.slice\(0, 4\)/, '卡片列表渲染标签要走兜底')
+  assert.match(client, /tagsOf\(card\)\.slice\(0, 2\)/, '卡片列表渲染标签要走兜底')
   assert.match(client, /\(Array\.isArray\(tags\) \? tags : \[\]\)\.slice\(0, 8\)/, '卡片阅读器的标签也要兜底')
   assert.doesNotMatch(client, /card\.tags\.slice\(/, '不许再直接对 card.tags 调 slice')
 })

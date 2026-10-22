@@ -10,6 +10,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
+import brandIcon from '../../assets/icon.png'
 import { snippetAround } from './snippet.js'
 import { versionCardState } from './version-state.js'
 // 「反馈异常」纯函数层（与宿主/独立 web 共用同一套脱敏与预填逻辑）
@@ -21,6 +22,17 @@ import { mergeLocalOverlay } from './config-merge.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
+
+async function openExternal(url) {
+  try {
+    const r = await fetch(`${API}/open-external?url=${encodeURIComponent(url)}`, { method: 'POST' })
+    const d = await r.json().catch(() => null)
+    if (r.ok && d && d.ok) return true
+  } catch { /* 落到 window.open */ }
+  try { const w = window.open(url, '_blank', 'noopener,noreferrer'); if (w) return true } catch { /* ignore */ }
+  try { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.click(); return true } catch { /* ignore */ }
+  return false
+}
 // 真分页页大小：首屏只拉一页（服务端 offset/limit），滚到底再续拉下一页
 const PAGE_SIZE = 100
 
@@ -48,7 +60,7 @@ export const ZH = {
   kindTool: '工具',
   kindMistake: '教训',
   cardsTab: '知识卡',
-  graphTab: '知识图谱',
+  graphTab: '知识星图',
   graph: '知识图谱',
   graphHint: '节点=知识卡；连线=[[链接]] 或共享标签。点击节点阅读卡片。',
   graphTip: '左键凸显 · Shift+拖拽框选 · 右键菜单 · 滚轮缩放 · 拖拽平移',
@@ -63,6 +75,9 @@ export const ZH = {
   updated: '更新于',
   created: '创建于',
   source: '来源',
+  contents: '目录',
+  related: '相关记忆',
+  file: '文件',
   close: '关闭',
   vaultDir: '记忆库目录',
   capture: '自动沉淀',
@@ -142,7 +157,7 @@ export const ZH = {
   defaultDownloads: '默认下载文件夹',
   exportCancel: '已取消导出',
   manage: '管理',
-  tabUsage: '用量/今日',
+  tabUsage: '运行状态',
   tabOptimize: '整理建议',
   adminLoadFail: '数据加载失败：请彻底重启 dsh-desktop（host 需加载新版 /memory-eternal 路由）',
   retry: '重试',
@@ -227,12 +242,14 @@ export const ZH = {
   mcpSetupHint: '「自动挂载 MCP」= 让 Claude Code / Codex / Cursor 这些工具能调用记忆库。开启后自动把它们配置好；关掉就不动你电脑上任何配置文件，需要时手动跑 dsh-memory setup。',
   mcpManageHint: '每个 agent 用下方按钮单独安装/卸载 MCP',
   tabConfig: '记忆配置',
-  tabAudit: '审核中心',
+  configPageSub: '写入、路由、审核与服务的本地配置',
+  tabAudit: '待审',
   statusApproved: '已审核',
   statusPending: '待审核',
   statusRejected: '已驳回',
   allStatus: '全部状态',
   tabRecycle: '回收中心',
+  recyclePageSub: '已删除的卡保留 30 天，可恢复或永久删除',
   pending: '待审核',
   rejected: '已驳回',
   selectAll: '全选',
@@ -307,6 +324,68 @@ export const ZH = {
   fbDiagFail: '诊断接口不可用（独立 web 或旧版宿主），请手动补充环境信息',
   fbOr: '或者',
   fbSelectAll: '全选',
+  auditTypeLabel: '类型',
+  auditInboxSub: '自动沉淀的卡先到这里 · 批准后进入记忆库',
+  auditUndo: '批准与驳回都可撤销',
+  auditSelected: '已选',
+  auditClearSelection: '清空',
+  preview: '预览',
+  supportGroup: '交流群',
+  supportSponsor: '赞助',
+  supportLegacy: '旧程序',
+  supportTitle: '支持与交流',
+  clickToZoom: '点击放大',
+  supportGroupHint: '扫码进交流群，遇到问题可以直接问。',
+  supportSponsorHint: '如果这个插件帮你省了时间，可以请作者喝杯咖啡。完全自愿，不影响任何功能。',
+  supportLegacyTitle: '旧程序（dsh-desktop）已停止维护',
+  supportLegacyBody: '作者自研的 dsh-desktop 已停止维护，官方 DeepSeek Harness 桌面版已覆盖同样能力，建议迁移。旧 profile 里如果还钉着已撤下的 dsh-desktop-shell@0.3.0，先删掉那套依赖，否则 pnpm install 会失败。',
+  supportReadme: '打开 README',
+  supportReleases: '历史版本',
+  supportFeedback: '异常反馈',
+  supportReplay: '重新查看引导',
+  onboardTitle: '30 秒认识记忆核心',
+  onboardSub: '你的 AI 会在每轮对话后自动沉淀知识卡，先审后入。',
+  onboardSkip: '跳过',
+  onboardBack: '上一步',
+  onboardNext: '下一步',
+  onboardStart: '开始使用',
+  onboardStep0Title: '先去 GitHub 点个 Star',
+  onboardStep0Body: 'Star 是作者继续维护最直接的反馈；想自己改代码或部署，就顺手 Fork 一份。',
+  onboardStar: 'Star / 点赞',
+  onboardFork: 'Fork',
+  onboardStarred: '已 Star，继续',
+  onboardStarHint: '之后可以随时点顶栏的 ★ Star 回来。',
+  onboardStep1Title: '自动沉淀，不用手动记',
+  onboardStep1Body: '每轮对话结束，值得留下的决策、根因和教训会被写成一张卡。先生成，再审核。',
+  onboardStep2Title: '读到有用的卡，点个 👍',
+  onboardStep2Body: '打开任意卡片，点 👍 有用 / 👎 没用。不用先搜索，按钮现在一直都在。它会帮助召回排序。',
+  onboardStep3Title: '左侧新增支持入口',
+  onboardStep3Body: '交流群、赞助、旧程序、异常反馈都在左栏底部；需要帮助时不用翻 README。',
+  onboardTip: '提示：这个引导可以在「支持与交流」里重新打开。',
+  navWorkspace: '工作区',
+  navSystem: '系统',
+  navSupport: '支持',
+  v5Local: '本地运行',
+  v5Star: '去 GitHub 点 Star',
+  runtimeTitle: '运行状态',
+  runtimeSub: '知识库、备份、自动沉淀与版本',
+  dbTitle: '知识库',
+  backupTitle: '备份',
+  captureTitle: '自动沉淀',
+  versionTitle: '版本',
+  cardsUnit: '张卡',
+  links: '连接',
+  todayReview: '今日回看',
+  openArrow: '打开 →',
+  reshuffle: '换一张',
+  insightDecision: '决策',
+  insightRoot: '根因',
+  insightLesson: '教训',
+  insightSummary: '摘要',
+  pinCard: '固定这张卡',
+  unpinCard: '取消固定',
+  pinnedOnly: '已固定',
+
   toastApproved: '已批准',
   toastRejected: '已驳回',
   toastCardDeleted: '已删除',
@@ -496,7 +575,7 @@ export const EN = {
   kindTool: 'Tools',
   kindMistake: 'Mistakes',
   cardsTab: 'Cards',
-  graphTab: 'Graph',
+  graphTab: 'Star map',
   graph: 'Knowledge Graph',
   graphHint: 'Nodes = cards; edges = [[links]] or shared tags. Click a node to read.',
   graphTip: 'Left-click highlights · Shift+drag box-select · right-click menu · scroll zoom · drag to pan',
@@ -511,6 +590,9 @@ export const EN = {
   updated: 'Updated',
   created: 'Created',
   source: 'Source',
+  contents: 'Contents',
+  related: 'Related',
+  file: 'File',
   close: 'Close',
   vaultDir: 'Vault directory',
   capture: 'Auto capture',
@@ -590,7 +672,7 @@ export const EN = {
   defaultDownloads: 'default Downloads folder',
   exportCancel: 'Export cancelled',
   manage: 'Manage',
-  tabUsage: 'Usage / Today',
+  tabUsage: 'Runtime',
   tabOptimize: 'Optimize',
   adminLoadFail: 'Load failed: fully restart dsh-desktop so the host picks up the new /memory-eternal routes',
   retry: 'Retry',
@@ -675,12 +757,14 @@ export const EN = {
   mcpSetupHint: '"Auto-mount MCP" = lets Claude Code / Codex / Cursor use the memory vault. On = auto-configures them; Off = never touches your machine config, run dsh-memory setup manually when needed.',
   mcpManageHint: 'Use each agent row to install/uninstall MCP individually',
   tabConfig: 'Memory Config',
-  tabAudit: 'Audit Center',
+  configPageSub: 'Local write, routing, audit and service settings',
+  tabAudit: 'Review',
   statusApproved: 'Approved',
   statusPending: 'Pending',
   statusRejected: 'Rejected',
   allStatus: 'All statuses',
   tabRecycle: 'Recycle Bin',
+  recyclePageSub: 'Deleted cards stay for 30 days; restore or purge',
   pending: 'Pending',
   rejected: 'Rejected',
   selectAll: 'Select all',
@@ -755,6 +839,68 @@ export const EN = {
   fbDiagFail: 'Diagnostics endpoint unavailable (standalone web or older host); please add environment info manually',
   fbOr: 'or',
   fbSelectAll: 'Select all',
+  auditTypeLabel: 'Type',
+  auditInboxSub: 'Captured cards land here · approve to publish',
+  auditUndo: 'Approve and reject are both undoable',
+  auditSelected: 'Selected',
+  auditClearSelection: 'Clear',
+  preview: 'Preview',
+  supportGroup: 'Community',
+  supportSponsor: 'Sponsor',
+  supportLegacy: 'Legacy app',
+  supportTitle: 'Support & community',
+  clickToZoom: 'Click to enlarge',
+  supportGroupHint: 'Scan to join the community; ask questions directly.',
+  supportSponsorHint: 'If this plugin saved you time, you can buy the author a coffee. Completely optional.',
+  supportLegacyTitle: 'Legacy app (dsh-desktop) is discontinued',
+  supportLegacyBody: 'The author’s dsh-desktop is discontinued; the official DeepSeek Harness desktop build covers the same capabilities. If an old profile still pins the withdrawn dsh-desktop-shell@0.3.0, remove that dependency or pnpm install will fail.',
+  supportReadme: 'Open README',
+  supportReleases: 'Releases',
+  supportFeedback: 'Report a bug',
+  supportReplay: 'Replay onboarding',
+  onboardTitle: '30 seconds with memory-eternal',
+  onboardSub: 'After every conversation, the AI distills knowledge cards. Review first, keep the good ones.',
+  onboardSkip: 'Skip',
+  onboardBack: 'Back',
+  onboardNext: 'Next',
+  onboardStart: 'Start using',
+  onboardStep0Title: 'Star the project on GitHub first',
+  onboardStep0Body: 'A Star is the most direct signal to keep maintaining it; Fork it if you want to modify or self-host.',
+  onboardStar: 'Star',
+  onboardFork: 'Fork',
+  onboardStarred: 'Starred, continue',
+  onboardStarHint: 'You can always come back via ★ Star in the top bar.',
+  onboardStep1Title: 'Auto-capture, no manual notes',
+  onboardStep1Body: 'When a session ends, decisions, root causes and lessons become a card. Capture first, review second.',
+  onboardStep2Title: 'Found a useful card? Tap 👍',
+  onboardStep2Body: 'Open any card and tap 👍 useful / 👎 not useful. No search needed: the buttons are always there. It helps recall ranking.',
+  onboardStep3Title: 'New support entries',
+  onboardStep3Body: 'Community, sponsor, legacy app and bug report live at the bottom of the left rail. No need to dig through the README.',
+  onboardTip: 'Tip: reopen this guide from Support & community.',
+  navWorkspace: 'Workspace',
+  navSystem: 'System',
+  navSupport: 'Support',
+  v5Local: 'Local',
+  v5Star: 'Star on GitHub',
+  runtimeTitle: 'Runtime status',
+  runtimeSub: 'Vault, backups, capture and version',
+  dbTitle: 'Vault',
+  backupTitle: 'Backups',
+  captureTitle: 'Auto capture',
+  versionTitle: 'Version',
+  cardsUnit: 'cards',
+  links: 'links',
+  todayReview: "Today's resurface",
+  openArrow: 'Open →',
+  reshuffle: 'Another',
+  insightDecision: 'Decision',
+  insightRoot: 'Root cause',
+  insightLesson: 'Lesson',
+  insightSummary: 'Summary',
+  pinCard: 'Pin this card',
+  unpinCard: 'Unpin',
+  pinnedOnly: 'Pinned',
+
   toastApproved: 'approved',
   toastRejected: 'rejected',
   toastCardDeleted: 'deleted',
@@ -978,7 +1124,7 @@ const CSS = `
 .mc-tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--dsw-alias-bg-base, #f3f4f6); border-radius: 999px; }
 .mc-tab { border: 0; background: transparent; color: inherit; border-radius: 999px; padding: 5px 14px; font-size: 12px; cursor: pointer; opacity: 0.7; }
 .mc-viewbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-.mc-rail { width: 54px; flex: none; display: flex; flex-direction: column; gap: 8px; align-items: stretch; padding-right: 12px; border-right: 1px solid var(--dsw-alias-border-l1, #e5e7eb); transition: width 0.18s ease; }
+.mc-rail { width: 54px; flex: none; display: flex; flex-direction: column; gap: 8px; align-items: stretch; padding-right: 12px; border-right: 1px solid var(--dsw-alias-border-l1, #e5e7eb); transition: width 0.18s ease; overflow-y: auto; }
 .mc-rail.open { width: 150px; }
 .mc-rail-collapse { align-self: flex-start; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-base, #f3f4f6); color: var(--dsw-alias-label-secondary, #6b7280); border-radius: 8px; width: 26px; height: 26px; line-height: 1; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
 .mc-rail-collapse:hover { color: var(--dsw-alias-label-primary, #111); border-color: var(--dsw-alias-brand-primary, #3b82f6); }
@@ -1017,6 +1163,137 @@ const CSS = `
 .mc-status { display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 999px; font-size: 10px; line-height: 16px; font-weight: 600; color: #fff; vertical-align: middle; }
 .mc-kind { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .mc-empty { text-align: center; padding: 40px 10px; opacity: 0.6; font-size: 13px; }
+/* ---- 审核中心：左侧类型栏 + 批量操作 ---- */
+.me-audit { display: block; container-type: inline-size; }
+.me-audit-types-top { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; width: 100%; padding-bottom: 8px; border-bottom: 1px solid rgba(127,127,127,.12); }
+.me-audit-types-label { padding: 0 5px 0 2px; font-size: 9px; letter-spacing: .14em; opacity: .5; font-weight: 600; text-transform: uppercase; }
+.me-audit-types-top .me-audit-kind { width: auto; padding: 3px 7px; gap: 5px; font-size: 10.5px; border-radius: 6px; }
+.me-audit-types-top .me-audit-kind-name { flex: none; }
+.me-audit-types-top .me-audit-kind-count { min-width: 16px; line-height: 14px; font-size: 9px; }
+.me-audit-filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; }
+.me-audit-filtercard { min-width: 0; }
+.me-audit-kinds { position: sticky; top: 0; width: 150px; flex: 0 0 150px; padding: 10px 8px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); }
+.me-audit-kinds-title { padding: 0 6px 7px; font-size: 10px; letter-spacing: .12em; opacity: .55; font-weight: 600; }
+.me-audit-kind { display: flex; align-items: center; gap: 7px; width: 100%; padding: 6px 7px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: inherit; font-size: 12px; cursor: pointer; text-align: left; }
+.me-audit-kind:hover { background: rgba(127,127,127,.08); }
+.me-audit-kind.active { border-color: rgba(99,102,241,.35); background: rgba(99,102,241,.13); }
+.me-audit-kind-dot { width: 7px; height: 7px; border-radius: 2px; flex: none; }
+.me-audit-kind-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.me-audit-kind-count { min-width: 18px; padding: 0 5px; border-radius: 5px; background: rgba(127,127,127,.12); font-size: 10px; line-height: 16px; text-align: center; opacity: .8; font-variant-numeric: tabular-nums; }
+.me-audit-kind-badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid; border-radius: 999px; font-size: 10px; line-height: 17px; white-space: nowrap; flex: none; }
+.me-audit-main { flex: 1; min-width: 0; display: flex; gap: 10px; align-items: flex-start; }
+.me-audit-queue { flex: 1; min-width: 0; }
+.me-audit-preview { flex: 0 0 500px; width: 500px; position: sticky; top: 0; display: flex; flex-direction: column; max-height: calc(100vh - 130px); overflow: hidden; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); }
+.me-audit-preview-head { flex: none; padding: 13px 14px 10px; border-bottom: 1px solid rgba(127,127,127,.12); }
+.me-audit-preview-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.me-audit-preview-head h3 { margin: 9px 0 0; font-size: 15px; line-height: 1.45; color: inherit; overflow-wrap: anywhere; }
+.me-audit-preview-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px; font-size: 10px; color: var(--dsw-alias-label-secondary, #6b7280); }
+.me-audit-preview-reason { color: #f59e0b; }
+.me-audit-preview-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 14px 16px; }
+.me-audit-preview-body .md-doc { font-size: 12px; }
+.me-audit-preview-body .md-doc table, .me-audit-preview-body .md-doc pre { display: block; max-width: 100%; overflow-x: auto; }
+.me-audit-preview-summary { margin: 0; font-size: 12px; line-height: 1.75; opacity: .72; }
+.me-audit-preview-empty { padding: 24px 12px; text-align: center; font-size: 12px; opacity: .55; }
+.me-audit-preview-actions { flex: none; display: flex; gap: 7px; padding: 10px 14px; border-top: 1px solid rgba(127,127,127,.12); }
+.me-audit-row-actions { display: flex; align-items: center; gap: 4px; flex: none; margin-left: auto; }
+.me-audit-row { border-bottom: 1px solid rgba(127,127,127,.12); }
+.me-audit-row:last-child { border-bottom: 0; }
+.me-audit-row:hover { background: rgba(127,127,127,.035); }\n.me-audit-row.active { background: rgba(255,122,69,.055); box-shadow: inset 2px 0 0 #ff7a45; }\n.me-audit-row-main { cursor: pointer; }
+.me-audit-row-main { display: flex; align-items: flex-start; gap: 9px; padding: 10px 8px; min-width: 0; }
+.me-audit-row-main > input { margin-top: 7px; flex: none; }
+.me-audit-row-expand { padding: 2px 5px !important; flex: none; margin-top: 4px; opacity: .55; }
+.me-audit-row-tile { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid; border-radius: 8px; font-size: 14px; flex: none; margin-top: 1px; }
+.me-audit-row-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.me-audit-row-top { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.me-audit-row-kind { font-size: 10px; color: #b0b7c1; }
+.me-audit-row-state { padding: 0 5px; border-radius: 4px; font-size: 9px; line-height: 15px; background: rgba(245,158,11,.1); color: #fbbf24; }
+.me-audit-row-state.rejected { background: rgba(248,113,113,.1); color: #f87171; }
+.me-audit-row-time { margin-left: auto; font-size: 9.5px; color: #99a1ac; white-space: nowrap; }
+.me-audit-row-title { padding: 0; border: 0; background: transparent; text-align: left; color: #f3f5f8; font-size: 13px; line-height: 1.5; font-weight: 600; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.me-audit-row-title:hover { color: #ff9a72; }
+.me-audit-row-reason { margin: 0; font-size: 11px; line-height: 1.55; color: #aeb5bf; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.me-audit-row-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 9.5px; color: #8f98a4; }
+.me-audit-row-meta span { white-space: nowrap; }
+.me-audit-row .me-audit-row-actions { align-items: center; padding-top: 3px; }
+@container (max-width: 1120px) { .me-audit-main { flex-direction: row; } .me-audit-preview { display: flex; flex: 0 0 460px; width: 460px; max-height: calc(100vh - 130px); position: sticky; top: 0; } }
+@container (max-width: 950px) {
+  .me-audit-kinds { position: static; flex: 0 0 100%; width: 100%; display: flex; flex-wrap: wrap; gap: 3px; padding: 8px; }
+  .me-audit-kinds-title { width: 100%; padding-bottom: 4px; }
+  .me-audit-kind { width: auto; }
+  .me-audit-row-sev, .me-audit-row-reason { display: none; }
+}
+@container (max-width: 900px) {
+  .mc-audit-batchcard { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px !important; }
+  .mc-audit-batchcard > label, .mc-audit-batchcard > span, .mc-audit-batchcard > b { grid-column: 1 / -1; }
+  .mc-audit-batchcard > .mc-btn { width: 100%; }
+  .mc-audit-batchcard > div[style*="flex: 1"] { display: none; }
+}
+@media (max-width: 1100px) {
+  .me-v5 .mc-rail, .me-v5 .mc-rail.open { width: 68px; padding: 10px 8px; }
+  .me-v5 .mc-v5-railbrand, .me-v5 .mc-rail-sec, .me-v5 .mc-rail-label { display: none; }
+  .me-v5 .mc-railbtn { justify-content: center; padding: 0; }
+}
+@container (max-width: 1100px) {
+  .me-v5 .mc-rail, .me-v5 .mc-rail.open { width: 68px; padding: 10px 8px; }
+  .me-v5 .mc-v5-railbrand, .me-v5 .mc-rail-sec, .me-v5 .mc-rail-label { display: none; }
+  .me-v5 .mc-railbtn { justify-content: center; padding: 0; }
+}
+@media (max-width: 1180px) { .me-audit-main { flex-direction: row; } .me-audit-preview { display: flex; flex: 0 0 460px; width: 460px; max-height: calc(100vh - 130px); position: sticky; top: 0; } }
+@media (max-width: 900px) { .me-audit-main { gap: 8px; } .me-audit-preview { flex-basis: 360px; width: 360px; } }
+.me-audit-bulk { position: sticky; bottom: 0; z-index: 6; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 10px; background: var(--dsw-alias-bg-layer-1, #fff); box-shadow: 0 -8px 24px rgba(0,0,0,.12); }
+/* ---- 支持与交流 / 首次引导 ---- */
+.me-support { max-width: 720px; }
+.me-support-tabs { display: flex; gap: 6px; padding: 10px 18px 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
+.me-support-tab { border: 0; border-bottom: 2px solid transparent; background: transparent; color: inherit; opacity: .6; font-size: 12px; padding: 7px 9px; cursor: pointer; }
+.me-support-tab.active { opacity: 1; border-bottom-color: var(--dsw-alias-brand-primary, #6366f1); font-weight: 600; }
+.me-support-body { padding: 16px 18px; overflow: auto; }
+.me-support-qr { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.me-support-qr figure { margin: 0; }
+.me-support-qr img { width: 190px; max-width: 46vw; display: block; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 10px; background: #fff; padding: 6px; cursor: zoom-in; }
+.me-lightbox { position: fixed; inset: 0; z-index: 1300; display: flex; align-items: center; justify-content: center; padding: 34px; background: rgba(0,0,0,.84); backdrop-filter: blur(8px); WebkitBackdropFilter: blur(8px); }
+.me-lightbox img { max-width: 90vw; max-height: 88vh; border-radius: 10px; background: #fff; padding: 7px; box-shadow: 0 30px 90px rgba(0,0,0,.65); cursor: default; }
+.me-lightbox-close { position: absolute; right: 22px; top: 18px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; font-size: 16px; }
+.me-lightbox-close:hover { background: rgba(255,255,255,.22); }
+.me-support-qr figcaption { margin-top: 6px; font-size: 11px; opacity: .6; text-align: center; }
+.me-support-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.me-support-note { margin: 0 0 10px; font-size: 11.5px; line-height: 1.75; opacity: .72; }
+.me-support-link { color: var(--dsw-alias-brand-primary, #6366f1); font-size: 11.5px; }
+.me-guide { max-width: 620px; }
+.me-guide-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px 10px; }
+.me-guide-head b { font-size: 15px; }
+.me-guide-head .spacer { flex: 1; }
+.me-guide-dots { display: flex; gap: 5px; padding: 0 20px 4px; }
+.me-guide-dot { width: 16px; height: 3px; border-radius: 2px; background: rgba(127,127,127,.22); }
+.me-guide-dot.on { background: var(--dsw-alias-brand-primary, #6366f1); }
+.me-guide-body { padding: 12px 20px 6px; }
+.me-guide-body h3 { margin: 0 0 8px; font-size: 16px; }
+.me-guide-body p { margin: 0; font-size: 12.5px; line-height: 1.8; opacity: .75; }
+.me-guide-github { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.me-guide-github .mc-btn { text-decoration: none; }
+.me-guide-github-hint { flex-basis: 100%; font-size: 10.5px; color: #99a1ac; }
+.me-guide-like { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 9px 16px; border: 1px solid rgba(16,185,129,.35); border-radius: 9px; background: rgba(16,185,129,.10); font-size: 15px; font-weight: 600; animation: me-guide-pulse 1.8s ease-in-out infinite; }
+.me-guide-thumb { font-size: 26px; line-height: 1; }
+@keyframes me-guide-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } 50% { box-shadow: 0 0 0 7px rgba(16,185,129,.12); } }
+.me-guide-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.me-guide-chips span { padding: 4px 9px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 7px; font-size: 11px; opacity: .78; }
+.me-guide-actions { display: flex; align-items: center; gap: 8px; padding: 14px 20px 18px; }
+.me-guide-actions .spacer { flex: 1; }
+.me-guide-tip { font-size: 10px; opacity: .5; }
+@media (max-width: 720px) {
+  .mc-rail, .mc-rail.open { width: 54px; padding-right: 8px; }
+  .mc-rail .mc-rail-label { display: none; }
+  .mc-rail .mc-railbtn { justify-content: center; padding-left: 0; padding-right: 0; }
+  .mc-rail .mc-rail-collapse { display: none; }
+  .me-guide-head span { display: none; }
+  .me-guide-actions { flex-wrap: wrap; }
+  .me-guide-tip { display: none; }
+}
+@media (max-width: 760px) {
+  .me-audit { flex-direction: column; }
+  .me-audit-kinds { position: static; width: 100%; flex: none; display: flex; flex-wrap: wrap; gap: 3px; padding: 8px; }
+  .me-audit-kinds-title { width: 100%; padding-bottom: 4px; }
+  .me-audit-kind { width: auto; }
+}
 .mc-flag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); margin-left: 6px; }
 /* 侧栏按钮上的计数徽标（审核中心 = 隔离区待审数，回收中心 = 回收站数） */
 .mc-dot { position: absolute; top: 2px; right: 2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 9.5px; line-height: 15px; font-weight: 700; text-align: center; box-shadow: 0 0 0 2px var(--dsw-alias-bg-base, rgba(0,0,0,.35)); }
@@ -1050,13 +1327,45 @@ const CSS = `
 .me-modal-title h2 { margin: 0; font-size: 17px; font-weight: 700; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .me-modal-title span { font-size: 12px; opacity: 0.55; white-space: nowrap; flex: 0 0 auto; }
 .me-modal-title .me-wicon { width: 26px; height: 26px; flex: none; }
-.me-modal-title .me-wicon svg { display: block; width: 100%; height: 100%; }
+.me-modal-title .me-wicon svg, .me-modal-title .me-wicon img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .me-modal-head .spacer { flex: 1; }
-.me-modal-close { border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: transparent; color: inherit; border-radius: 8px; width: 30px; height: 30px; line-height: 1; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.me-modal-close:hover { background: var(--dsw-alias-bg-layer-1, #f3f4f6); }
+.me-modal-close { border: 0; background: transparent; color: inherit; border-radius: 8px; width: 30px; height: 30px; line-height: 1; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: .55; transition: background .15s ease, color .15s ease, opacity .15s ease; }
+.me-modal-close svg { width: 15px; height: 15px; }
+.me-modal-close:hover { background: rgba(255,122,69,.12); color: #ff9a72; opacity: 1; }
+.me-modal-close:active { background: rgba(255,122,69,.18); }
 .me-modal-body { flex: 1; padding: 18px 20px; overflow: hidden; display: flex; }
 .me-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.66); z-index: 1002; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .me-dialog { background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border-radius: 14px; max-width: 760px; width: 100%; max-height: 84vh; display: flex; flex-direction: column; box-sizing: border-box; box-shadow: 0 24px 60px rgba(0,0,0,0.5); border: 1px solid var(--dsw-alias-border-l1, #2c333c); }
+.me-reader-dialog { max-width: 1180px; }
+.me-reader-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
+.me-reader-main { margin: 0 auto; }
+.me-reader-callout { margin: 0 0 18px; padding: 11px 13px; border-left: 3px solid var(--dsw-alias-brand-primary, #ff7a45); border-radius: 0 8px 8px 0; background: linear-gradient(90deg, rgba(255,122,69,.09), rgba(255,122,69,.02)); }
+.me-reader-callout-k { display: block; margin-bottom: 3px; color: #ff9a72; font-size: 9px; font-weight: 650; letter-spacing: .08em; }
+.me-reader-callout p { margin: 0; color: #c7ccd4; font-size: 12px; line-height: 1.75; }
+.me-reader-side { min-height: 0; overflow: auto; padding: 16px 16px 26px; border-left: 1px solid var(--dsw-alias-border-l1, #2c333c); background: rgba(127,127,127,.025); }
+.me-reader-side .side-label { margin: 16px 0 6px; font-size: 9px; letter-spacing: .13em; text-transform: uppercase; font-weight: 650; opacity: .48; }
+.me-reader-side .side-label:first-child { margin-top: 0; }
+.me-reader-side-val { font-size: 11px; line-height: 1.6; opacity: .72; overflow-wrap: anywhere; }
+.me-reader-side-val.mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; }
+.me-reader-toc { display: flex; flex-direction: column; gap: 2px; }
+.me-reader-toc button { display: flex; gap: 7px; text-align: left; padding: 4px 5px; border: 0; background: transparent; border-radius: 5px; font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary, #9aa3af); }
+.me-reader-toc button:hover { background: rgba(127,127,127,.09); color: var(--dsw-alias-label-primary, #e9ecf1); }
+.me-reader-toc button.lv2 { padding-left: 13px; }
+.me-reader-toc button.lv3 { padding-left: 22px; }
+.me-reader-toc button span { flex: none; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 8.5px; opacity: .45; padding-top: 1px; }
+.me-reader-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.me-reader-tags .mc-chip { font-size: 9.5px; padding: 2px 7px; }
+.me-reader-related { display: flex; flex-direction: column; gap: 4px; }
+.me-reader-related button { display: flex; gap: 7px; align-items: flex-start; text-align: left; padding: 6px 7px; border: 1px solid var(--dsw-alias-border-l1, #2c333c); border-radius: 7px; background: transparent; font-size: 10.5px; line-height: 1.45; color: var(--dsw-alias-label-primary, #e9ecf1); }
+.me-reader-related button:hover { border-color: var(--dsw-alias-brand-primary, #ff7a45); }
+.me-reader-related button b { font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.me-reader-related button span { flex: none; }
+.md-h { scroll-margin-top: 14px; }
+@media (max-width: 860px) {
+  .me-reader-dialog { max-width: 760px; }
+  .me-reader-body { grid-template-columns: 1fr; }
+  .me-reader-side { display: none; }
+}
 .me-dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
 .me-dialog-head h3 { margin: 0; font-size: 15px; }
 /* 标题过长时不许挤压按钮（用户反馈，见图 1/图 2）：
@@ -1204,6 +1513,195 @@ const CSS = `
   top: var(--dsh-frame-overlay-top, 68px);
   height: calc(100vh - var(--dsh-frame-overlay-top, 68px));
   max-height: calc(100vh - var(--dsh-frame-overlay-top, 68px));
+}
+/* ---- V5：Memory Atlas 主题（RC） ---- */
+.memory-eternal-root.me-v5 {
+  --dsw-alias-bg-base: #1e2228;
+  --dsw-alias-bg-layer-1: #262b33;
+  --dsw-alias-bg-layer-2: #2f353e;
+  --dsw-alias-border-l1: #3a404a;
+  --dsw-alias-border-l2: #454c57;
+  --dsw-alias-label-primary: #f3f5f8;
+  --dsw-alias-label-secondary: #b0b7c1;
+  --dsw-alias-accent: #ff7a45;
+  --dsw-alias-brand-primary: #ff7a45;
+  background: #1e2228;
+  color: #f3f5f8;
+}
+.me-v5 .mc-v5-top { flex: none; height: 54px; display: flex; align-items: center; gap: 9px; padding: 0 16px; border-bottom: 1px solid #343a43; background: linear-gradient(180deg, rgba(35,39,46,.98), rgba(30,34,40,.96)); }
+.me-v5 .mc-v5-top .spacer { flex: 1 1 auto; }
+.me-v5 .mc-v5-top.in-host { padding-right: 108px; }
+.me-v5 .mc-v5-logo { width: 22px; height: 22px; border-radius: 7px; object-fit: cover; flex: none; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+.me-v5 .mc-v5-crumb { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #b0b7c1; white-space: nowrap; }
+.me-v5 .mc-v5-crumb b { color: #f3f5f8; font-weight: 600; }
+.me-v5 .mc-v5-crumb i { color: #5a616d; font-style: normal; }
+.me-v5 .mc-v5-top-actions { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.me-v5 .mc-v5-sys { display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 9px; border: 1px solid #3a404a; border-radius: 999px; color: #b0b7c1; font-size: 10px; white-space: nowrap; }
+.me-v5 .mc-v5-sys i { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,.1); }
+.me-v5 .mc-v5-ver { height: 24px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 6px; background: rgba(127,127,127,.08); color: #99a1ac; font-family: var(--mono, ui-monospace, monospace); font-size: 9.5px; white-space: nowrap; }
+.me-v5 .mc-v5-star { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border: 1px solid #454c57; border-radius: 7px; background: transparent; color: #dde2e9; font-size: 10.5px; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.me-v5 .mc-v5-star:hover { border-color: rgba(255,122,69,.45); color: #ff9a72; }
+.me-v5 .mc-v5-help { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #454c57; border-radius: 50%; background: transparent; color: #b0b7c1; font-size: 12px; font-weight: 650; cursor: pointer; }
+.me-v5 .mc-v5-help:hover { border-color: rgba(255,122,69,.45); color: #ff9a72; }
+.me-v5 .me-modal-body { background: #1e2228; container-type: inline-size; }
+.me-v5 .mc-rail { width: 68px; gap: 2px; padding: 12px 10px 12px 8px; background: #1b1f25; border-right: 1px solid #343a43; }
+.me-v5 .mc-rail.open { width: 228px; }
+.me-v5 .mc-v5-rail-top { display: flex; align-items: center; gap: 8px; padding: 0 4px 11px; }
+.me-v5 .mc-v5-railbrand { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; }
+.me-v5 .mc-v5-railbrand .mark { width: 27px; height: 27px; display: block; border-radius: 8px; object-fit: cover; background: #fff; border: 1px solid #3a404a; padding: 1px; flex: none; }
+.me-v5 .mc-v5-railbrand b { display: block; font-size: 13px; color: #f3f5f8; white-space: nowrap; }
+.me-v5 .mc-v5-railbrand span { display: block; margin-top: 1px; font-size: 8px; letter-spacing: .16em; color: #99a1ac; white-space: nowrap; }
+.me-v5 .mc-rail-collapse { margin-left: auto; width: 24px; height: 24px; border: 0; border-radius: 6px; background: transparent; color: #b0b7c1; }
+.me-v5 .mc-rail-collapse:hover { background: rgba(255,255,255,.05); color: #f3f5f8; border-color: transparent; }
+.me-v5 .mc-rail-sec { padding: 12px 10px 5px; font-size: 9px; letter-spacing: .14em; font-weight: 600; color: #99a1ac; text-transform: uppercase; }
+.me-v5 .mc-rail:not(.open) .mc-v5-railbrand, .me-v5 .mc-rail:not(.open) .mc-rail-sec { display: none; }
+.me-v5 .mc-railbtn { height: 37px; padding: 0 10px; gap: 10px; border: 0; border-radius: 9px; background: transparent; color: #b0b7c1; font-size: 12.5px; font-weight: 500; }
+.me-v5 .mc-railbtn:hover { background: rgba(255,255,255,.04); color: #f3f5f8; border-color: transparent; }
+.me-v5 .mc-railbtn.active { background: linear-gradient(90deg, rgba(255,122,69,.16), rgba(255,122,69,.04)); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,122,69,.18); }
+.me-v5 .mc-railbtn.active .mc-rail-ico { color: #ff7a45; }
+.me-v5 .mc-railbtn .mc-rail-ico { font-size: 16px; }
+.me-v5 .mc-rail:not(.open) .mc-railbtn { justify-content: center; padding: 0; }
+.me-v5 .mc-main { background: #1e2228; }
+.me-v5 .mc-card, .me-v5 .me-audit-kinds, .me-v5 .me-audit-bulk { background: #262b33; border-color: #3a404a; }
+.me-v5 .mc-toolbar input[type=text] { background: #262b33; border-color: #454c57; border-radius: 8px; color: #f3f5f8; }
+.me-v5 .mc-btn { background: #2a3038; border-color: #454c57; color: #dde2e9; border-radius: 8px; }
+.me-v5 .mc-btn:hover { border-color: #ff7a45; color: #fff; opacity: 1; }
+.me-v5 .mc-btn.me-on { background: #ff7a45; border-color: transparent; color: #160d08; box-shadow: 0 6px 18px rgba(255,122,69,.2); }
+.me-v5 .mc-chip { border-color: #454c57; color: #b0b7c1; background: transparent; }
+.me-v5 .mc-chip.active { border-color: rgba(255,122,69,.4); color: #ff9a72; background: rgba(255,122,69,.06); }
+.me-v5 .mc-tabs { background: #262b33; border: 1px solid #3a404a; }
+.me-v5 .mc-tab.active { background: #30363f; }
+.me-v5 .mc-cardrow { background: #262b33; border-color: #3a404a; border-radius: 12px; }
+.me-v5 .mc-cardrow:hover { border-color: rgba(255,122,69,.35); box-shadow: 0 10px 30px rgba(0,0,0,.28); }
+.me-v5 .mc-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 11px; }
+.me-v5 .mc-v5-pagehead { display: flex; align-items: flex-end; gap: 16px; padding: 8px 4px 16px; }
+.me-v5 .mc-v5-eyebrow { font-size: 9px; letter-spacing: .16em; color: #ff7a45; font-weight: 650; margin-bottom: 5px; }
+.me-v5 .mc-v5-pagehead h1 { margin: 0; font-size: 26px; line-height: 1.2; letter-spacing: -.02em; font-weight: 650; color: #f0f2f5; }
+.me-v5 .mc-v5-pagehead p { margin: 6px 0 0; font-size: 11.5px; line-height: 1.6; color: #b0b7c1; max-width: 56ch; }
+.me-v5 .mc-v5-pagehead-stats { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 10.5px; color: #99a1ac; }
+.me-v5 .mc-v5-pagehead-stats b { color: #f3f5f8; font-weight: 650; }
+.me-v5 .mc-v5-pagehead-stats span + span { position: relative; padding-left: 12px; }
+.me-v5 .mc-v5-pagehead-stats span + span::before { content: ''; position: absolute; left: 0; top: 50%; width: 3px; height: 3px; border-radius: 50%; background: #5a616d; transform: translateY(-50%); }
+.me-v5 .mc-v5-audithead { flex: none; padding-bottom: 12px; }
+.me-v5 .mc-v5-audit-trust { display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; padding: 4px 9px; border: 1px solid #363c46; border-radius: 999px; background: #22262d; color: #b0b7c1; font-size: 10px; white-space: nowrap; }
+.me-v5 .mc-v5-recycle-hint { margin: 0 2px 10px; font-size: 11px; color: #99a1ac; }
+.me-v5 .mc-v5-recycle { overflow: hidden; padding: 0 !important; }
+.me-v5 .mc-v5-recycle-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border-bottom: 1px solid rgba(127,127,127,.12); }
+.me-v5 .mc-v5-recycle-row:last-child { border-bottom: 0; }
+.me-v5 .mc-v5-recycle-row:hover { background: rgba(127,127,127,.035); }
+.me-v5 .mc-v5-recycle-tile { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid; border-radius: 9px; font-size: 15px; flex: none; }
+.me-v5 .mc-v5-recycle-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.me-v5 .mc-v5-recycle-copy b { font-size: 12.5px; line-height: 1.5; color: #f3f5f8; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-v5 .mc-v5-recycle-copy span { font-size: 10px; color: #99a1ac; }
+.me-v5 .mc-v5-recycle-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.me-v5 .mc-danger { color: #f87171; }
+.me-v5 .mc-v5-empty-state { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 34px 16px; text-align: center; font-size: 12px; color: #99a1ac; }
+.me-v5 .mc-v5-empty-state b { color: #e5e9ef; font-size: 13px; }
+.me-v5 .mc-v5-empty-state span { font-size: 11px; }
+@media (max-width: 640px) { .me-v5 .mc-v5-recycle-row { flex-wrap: wrap; } .me-v5 .mc-v5-recycle-actions { width: 100%; padding-left: 42px; } }
+.me-v5 .mc-v5-pagecount { margin-left: auto; padding-bottom: 4px; font-size: 10px; color: #99a1ac; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.me-v5 .mc-v5-card { min-height: 176px; padding: 13px 14px 11px; gap: 7px; }
+.me-v5 .mc-v5-card-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.me-v5 .mc-v5-card-kind { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid; border-radius: 999px; font-size: 9.5px; line-height: 17px; white-space: nowrap; }
+.me-v5 .mc-v5-card-tile { width: 23px; height: 23px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid; border-radius: 7px; font-size: 12px; flex: none; }
+.me-v5 .mc-v5-card-kind-name { font-size: 9.5px; color: #b0b7c1; white-space: nowrap; }
+.me-v5 .mc-v5-pin { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; font-size: 9px; opacity: .35; flex: none; }
+.me-v5 .mc-v5-pin:hover, .me-v5 .mc-v5-pin.on { opacity: 1; background: rgba(255,122,69,.12); }
+.me-v5 .mc-v5-card.pinned { border-color: rgba(255,122,69,.32); }
+.me-v5 .mc-v5-card-insight { display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
+.me-v5 .mc-v5-insight-k { flex: none; margin-top: 1px; padding: 1px 4px; border-radius: 4px; background: rgba(255,122,69,.09); color: #ff9a72; font-size: 8.5px; line-height: 14px; white-space: nowrap; }
+.me-v5 .mc-v5-card-lead { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.me-v5 .mc-v5-mini { flex: none; opacity: .9; }
+.me-v5 .mc-v5-conn { display: inline-flex; align-items: center; gap: 3px; color: #e0a184; }
+.me-v5 .mc-v5-conn b { color: #ff9a72; }
+.me-v5 .mc-chip-n { margin-left: 5px; padding: 0 4px; border-radius: 4px; background: rgba(127,127,127,.12); font-size: 9px; line-height: 14px; opacity: .7; }
+.me-v5 .mc-v5-card .mc-tag.more { opacity: .55; }
+.me-v5 .mc-v5-card-status { font-size: 9px; padding: 1px 6px; border-radius: 999px; line-height: 15px; }
+.me-v5 .mc-v5-card-status.pending { color: #fbbf24; background: rgba(251,191,36,.1); }
+.me-v5 .mc-v5-card-status.rejected { color: #fb7185; background: rgba(251,113,133,.1); }
+.me-v5 .mc-v5-card-time { font-size: 9px; color: #99a1ac; white-space: nowrap; }
+.me-v5 .mc-v5-card-title { margin: 1px 0 0; font-size: 13.5px; line-height: 1.48; font-weight: 600; color: #f3f5f8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.me-v5 .mc-v5-card-lead { margin: 0; font-size: 11px; line-height: 1.65; color: #b9bfc9; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.me-v5 .mc-v5-card-tags { margin-top: 0; }
+.me-v5 .mc-v5-card-foot { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 7px; border-top: 1px solid rgba(127,127,127,.1); font-size: 9.5px; color: #99a1ac; }
+.me-v5 .mc-v5-conn { color: #e6a98c; }
+.me-v5 .mc-v5-author { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+.me-v5 .mc-v5-feature { display: flex; align-items: stretch; gap: 18px; margin-bottom: 11px; padding: 18px 20px; border: 1px solid rgba(255,122,69,.22); border-radius: 14px; background: linear-gradient(115deg, rgba(255,122,69,.09), rgba(255,122,69,.02) 55%, rgba(255,255,255,.01)); cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+.me-v5 .mc-v5-feature:hover { border-color: rgba(255,122,69,.45); transform: translateY(-1px); }
+.me-v5 .mc-v5-feature-copy { flex: 1; min-width: 0; }
+.me-v5 .mc-v5-feature h3 { margin: 3px 0 0; font-size: 20px; line-height: 1.35; font-weight: 650; color: #f3f5f8; overflow-wrap: anywhere; }
+.me-v5 .mc-v5-feature p { margin: 8px 0 0; font-size: 11.5px; line-height: 1.7; color: #b9bfc9; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.me-v5 .mc-v5-feature-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 9.5px; color: #99a1ac; }
+.me-v5 .mc-v5-feature-side { flex: none; width: 88px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 2px; border-left: 1px solid rgba(255,122,69,.16); padding-left: 16px; }
+.me-v5 .mc-v5-feature-side b { font-size: 26px; line-height: 1; color: #ff9a72; font-weight: 650; }
+.me-v5 .mc-v5-feature-side span { font-size: 9.5px; color: #99a1ac; }
+.me-v5 .mc-v5-feature-open { margin-top: 7px; color: #ff9a72 !important; }
+.me-v5 .mc-v5-feature-shuffle { margin-top: 5px; padding: 2px 6px; border: 1px solid rgba(255,122,69,.28); border-radius: 5px; background: transparent; color: #ff9a72; font-size: 9px; cursor: pointer; }
+.me-v5 .mc-v5-feature-shuffle:hover { background: rgba(255,122,69,.1); }
+@media (max-width: 720px) { .me-v5 .mc-v5-feature { flex-direction: column; padding: 15px; } .me-v5 .mc-v5-feature-side { width: 100%; flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; border-left: 0; border-top: 1px solid rgba(255,122,69,.16); padding: 8px 0 0; } .me-v5 .mc-v5-feature h3 { font-size: 17px; } }
+@media (max-width: 760px) { .me-v5 .mc-v5-top { height: 50px; padding: 0 10px; gap: 6px; } .me-v5 .mc-v5-top.in-host { padding-right: 76px; } .me-v5 .mc-v5-ver, .me-v5 .mc-v5-star-label { display: none; } .me-v5 .mc-v5-star { padding: 0 7px; } .me-v5 .mc-v5-sys { padding: 0 7px; } }
+.me-v5 .mc-v5-statusgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.me-v5 .mc-v5-statuscard { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 13px 14px; border: 1px solid #30353e; border-radius: 12px; background: #1c1f25; min-width: 0; }
+.me-v5 .mc-v5-status-ico { position: absolute; right: 12px; top: 11px; opacity: .55; font-size: 14px; }
+.me-v5 .mc-v5-statuscard b { font-size: 22px; line-height: 1.2; color: #f3f5f8; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.me-v5 .mc-v5-statuscard > span:not(.mc-v5-status-ico) { font-size: 10.5px; color: #b0b7c1; }
+.me-v5 .mc-v5-statuscard small { font-size: 9.5px; color: #99a1ac; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.me-v5 .mc-v5-graphhead { flex: none; padding: 0 4px 10px; }
+.me-v5 .me-graph-count { display: none; }
+.me-v5 .mc-v5-graph-legend { position: absolute; left: 12px; top: 12px; z-index: 2; min-width: 130px; padding: 9px 10px; border: 1px solid rgba(127,127,127,.18); border-radius: 9px; background: rgba(28,31,37,.78); backdrop-filter: blur(10px); WebkitBackdropFilter: blur(10px); pointer-events: none; }
+.me-v5 .mc-v5-graph-legend-title { margin-bottom: 6px; font-size: 8.5px; letter-spacing: .14em; color: #99a1ac; font-weight: 650; }
+.me-v5 .mc-v5-graph-legend-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 10px; color: #b0b7c1; }
+.me-v5 .mc-v5-graph-legend-row i { width: 6px; height: 6px; border-radius: 2px; flex: none; }
+.me-v5 .mc-v5-graph-legend-row span { flex: 1; }
+.me-v5 .mc-v5-graph-legend-row b { color: #e9ecf1; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .me-v5 .mc-v5-statusgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .me-v5 .mc-v5-graph-legend { display: none; } }
+.me-v5 .mc-stats { gap: 10px; }
+.me-v5 .mc-stats .mc-card { border-radius: 12px; }
+.me-v5 .mc-stat b { color: #f0f2f5; font-weight: 650; }
+.me-v5 .mc-stat span { color: #b0b7c1; }
+.me-v5 .me-modal-head { background: #1b1f25; border-bottom-color: #343a43; }
+.me-v5 .me-dialog { background: #242930; border-color: #454c57; }
+.me-v5 .me-dialog-head { border-bottom-color: #3a404a; }
+.me-v5 .md-doc { color: #dde2e9; }
+.me-v5 .md-doc h1, .me-v5 .md-doc h2, .me-v5 .md-doc h3 { color: #f3f5f8; }
+.me-v5 .me-audit-kind.active { border-color: rgba(255,122,69,.3); background: rgba(255,122,69,.1); }
+.me-v5 .me-audit-bulk { box-shadow: 0 -8px 24px rgba(0,0,0,.32); }
+.me-v5 .mc-dot { background: #ff7a45; color: #160d08; }
+.me-audit-eye { display: none; align-items: center; justify-content: center; padding: 2px 6px; }
+.me-audit-drawer-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.46); backdrop-filter: blur(2px); }
+.me-audit-drawer-close { display: none; position: absolute; top: 9px; right: 9px; z-index: 3; width: 27px; height: 27px; padding: 0; justify-content: center; }
+@container (max-width: 1120px) {
+  .me-audit-eye { display: inline-flex; }
+  .me-audit-preview.drawer-open { display: flex; position: fixed; top: 0; right: 0; bottom: 0; z-index: 81; width: min(440px, 92vw); max-height: none; height: 100dvh; border-radius: 0; box-shadow: -24px 0 70px rgba(0,0,0,.45); }
+  .me-audit-preview.drawer-open .me-audit-drawer-close { display: inline-flex; }
+  .me-audit-preview.drawer-open .me-audit-preview-head { padding-right: 42px; }
+}
+@media (max-width: 1100px) {
+  .me-v5 .mc-rail, .me-v5 .mc-rail.open { width: 68px; padding: 10px 8px; }
+  .me-v5 .mc-v5-railbrand, .me-v5 .mc-rail-sec, .me-v5 .mc-rail-label { display: none; }
+  .me-v5 .mc-railbtn { justify-content: center; padding: 0; }
+}
+@container (max-width: 1100px) {
+  .me-v5 .mc-rail, .me-v5 .mc-rail.open { width: 68px; padding: 10px 8px; }
+  .me-v5 .mc-v5-railbrand, .me-v5 .mc-rail-sec, .me-v5 .mc-rail-label { display: none; }
+  .me-v5 .mc-railbtn { justify-content: center; padding: 0; }
+}
+@media (max-width: 720px) {
+  .me-v5 .mc-rail, .me-v5 .mc-rail.open { width: 54px; padding: 10px 8px; }
+  .me-v5 .mc-v5-railbrand, .me-v5 .mc-rail-sec { display: none; }
+  .me-v5 .mc-v5-top { height: 46px; padding: 0 12px; }
+  .me-v5 .mc-v5-crumb { font-size: 10px; }
+  .me-v5 .mc-v5-pagehead h1 { font-size: 21px; }
+  .me-v5 .mc-v5-pagehead p { display: none; }
+  .me-v5 .mc-v5-pagehead { padding-bottom: 10px; }
+  .me-audit-queue .mc-card { min-width: 0; }
+  .me-audit-queue .mc-card > div[style*="flex: 1"] { display: none; }
+  .me-audit-queue .mc-card .mc-btn { flex: 0 0 auto; }
+
+  .mc-audit-batchcard { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px !important; }
+  .mc-audit-batchcard > label, .mc-audit-batchcard > span, .mc-audit-batchcard > b { grid-column: 1 / -1; }
+  .mc-audit-batchcard > .mc-btn { width: 100%; }
+  .mc-audit-batchcard > div[style*="flex: 1"] { display: none; }
 }
 `
 
@@ -1357,7 +1855,8 @@ function DatabaseIcon() {
 // 构建期由 build.mjs 注入（esbuild define）；直接跑源码（如 SSR 测试）时为 undefined，用 typeof 安全降级。
 const CLIENT_VERSION = typeof __ME_CLIENT_VERSION__ === 'string' ? __ME_CLIENT_VERSION__ : ''
 
-export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
+export function MemoryLibrary({ t, inModal, onClose }) {
+  const inHost = typeof window !== 'undefined' && (!!window.__DSH_BOOT__ || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
   const [overview, setOverview] = useState(null)
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1367,6 +1866,18 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const [query, setQuery] = useState('')
   const [agentFilter, setAgentFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [pinned, setPinned] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('me-pinned-v5') || '[]')) } catch { return new Set() }
+  })
+  const [onlyPinned, setOnlyPinned] = useState(false)
+  const togglePin = useCallback((path) => {
+    setPinned((s) => {
+      const n = new Set(s)
+      if (n.has(path)) n.delete(path); else n.add(path)
+      try { localStorage.setItem('me-pinned-v5', JSON.stringify([...n])) } catch { /* 隐私模式忽略 */ }
+      return n
+    })
+  }, [])
   // 标签筛选（点击芯片即筛，可与搜索/类型/状态叠加）
   const [tagPick, setTagPick] = useState('')
   // 'cards' | 'graph' | 'stats' | 'audit' | 'optimize' | 'config'
@@ -1393,6 +1904,22 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
   const [reader, setReader] = useState(null)
   const [allVaults, setAllVaults] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
+  const [supportTab, setSupportTab] = useState('group')
+  const [onboardOpen, setOnboardOpen] = useState(false)
+  const finishOnboard = useCallback(() => {
+    setOnboardOpen(false)
+    try { localStorage.setItem('me-onboard-v2', '1') } catch { /* 隐私模式忽略 */ }
+  }, [])
+  const openSupport = useCallback((tab = 'group') => { setSupportTab(tab); setSupportOpen(true) }, [])
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('me-onboard-v2')) return
+      if (view !== 'cards') return
+      const id = setTimeout(() => setOnboardOpen(true), 900)
+      return () => clearTimeout(id)
+    } catch { /* 隐私模式不弹 */ }
+  }, [view])
   const [railOpen, setRailOpen] = useState(true)
   const [newCard, setNewCard] = useState(null)
   const [dataVer, setDataVer] = useState(0)
@@ -1603,27 +2130,66 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
     let arr = cards.slice()
     if (agentFilter !== 'all') arr = arr.filter((c) => normAgent(c.submittedBy) === agentFilter)
     if (statusFilter !== 'all') arr = arr.filter((c) => (c.status || 'approved') === statusFilter)
+    if (onlyPinned) arr = arr.filter((c) => pinned.has(c.path))
     if (sort === 'title') arr.sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
     else if (sort === 'hot') arr.sort((a, b) => ((b.weight || b.links || 0) - (a.weight || a.links || 0)))
     else arr.sort((a, b) => (new Date(b.updated || 0).getTime() - new Date(a.updated || 0).getTime()))
     return arr
-  }, [cards, sort, agentFilter, statusFilter])
+  }, [cards, sort, agentFilter, statusFilter, onlyPinned, pinned])
   const cardAgents = useMemo(() => [...new Set(cards.map((c) => normAgent(c.submittedBy)))], [cards])
+  const connMap = useMemo(() => {
+    const m = {}
+    for (const c of cards) {
+      const set = new Set(c.tags || [])
+      let n = 0
+      for (const o of cards) if (o.path !== c.path && (o.tags || []).some((x) => set.has(x))) n++
+      m[c.path] = n
+    }
+    return m
+  }, [cards])
+  const [featuredPath, setFeaturedPath] = useState(null)
+  const featuredCard = useMemo(() => {
+    if (!sortedCards.length) return null
+    const chosen = featuredPath ? sortedCards.find((c) => c.path === featuredPath) : null
+    if (chosen) return chosen
+    const old = sortedCards.find((c) => Date.now() - new Date(c.updated || 0).getTime() > 21 * 86400000)
+    return old || sortedCards[0]
+  }, [sortedCards, featuredPath])
+  const nextFeature = () => {
+    if (!sortedCards.length) return
+    const i = sortedCards.findIndex((c) => c.path === (featuredCard && featuredCard.path))
+    setFeaturedPath(sortedCards[(i + 1 + sortedCards.length) % sortedCards.length].path)
+  }
+  const showFeature = !query && kind === 'all' && !tagPick && statusFilter === 'all' && !!featuredCard
 
   return (
-    <div className="memory-eternal-root" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="memory-eternal-root me-v5" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <style>{CSS}</style>
+      {!inModal && (
+        <div className={`mc-v5-top${inHost ? ' in-host' : ''}`}>
+          <img className="mc-v5-logo" src={brandIcon} alt="" />
+          <span className="mc-v5-crumb"><b>{t('memoryTitle')}</b><i>/</i><span>{t(view === 'cards' ? 'cardsTab' : view === 'graph' ? 'graphTab' : view === 'stats' ? 'tabUsage' : view === 'audit' ? 'tabAudit' : view === 'optimize' ? 'tabRecycle' : 'tabConfig')}</span></span>
+          <div className="spacer" />
+          <div className="mc-v5-top-actions">
+            <span className="mc-v5-sys"><i />{t('v5Local')}</span>
+            <span className="mc-v5-ver">v{CLIENT_VERSION}</span>
+            <button type="button" className="mc-v5-star" onClick={() => openExternal('https://github.com/EternalNight996/memory-eternal')} title={t('v5Star')}>★ <span className="mc-v5-star-label">Star</span></button>
+            <button type="button" className="mc-v5-help" onClick={() => openSupport('group')} title={t('supportTitle')} aria-label={t('supportTitle')}>?</button>
+          </div>
+        </div>
+      )}
       {libToast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (libToast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: libToast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{libToast.ok ? '✓' : '✕'}</span><span>{libToast.msg}</span></div>}
       {inModal && (
         <div className="me-modal-head">
           <div className="me-modal-title">
-            <span className="me-wicon"><DatabaseIcon /></span>
+            <span className="me-wicon"><img src={brandIcon} alt="" /></span>
             <h2>{t('memoryTitle')}</h2>
             <span>{t('memoryHint')}</span>
           </div>
           <div className="spacer" />
-          {onFull && <button type="button" className="me-modal-close" onClick={onFull} aria-label={full ? t('exitFull') : t('fullscreen')}>{full ? '❐' : '⛶'}</button>}
-          <button type="button" className="me-modal-close" onClick={onClose} aria-label={t('close')}>✕</button>
+          <button type="button" className="me-modal-close me-modal-x" onClick={onClose} aria-label={t('close')} title={t('close')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
         </div>
       )}
       {capHealth && capHealth.ok === false && (
@@ -1638,7 +2204,11 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
       )}
       <div className="me-modal-body">
         <div className={`mc-rail${railOpen ? ' open' : ''}`}>
-          <button type="button" className="mc-rail-collapse" onClick={() => setRailOpen((v) => !v)} aria-label={railOpen ? t('collapse') : t('expand')} title={railOpen ? t('collapse') : t('expand')}>{railOpen ? '«' : '»'}</button>
+          <div className="mc-v5-rail-top">
+            {railOpen && <div className="mc-v5-railbrand"><img className="mark" src={brandIcon} alt="" /><div><b>{t('memoryTitle')}</b><span>MEMORY ATLAS</span></div></div>}
+            <button type="button" className="mc-rail-collapse" onClick={() => setRailOpen((v) => !v)} aria-label={railOpen ? t('collapse') : t('expand')} title={railOpen ? t('collapse') : t('expand')}>{railOpen ? '«' : '»'}</button>
+          </div>
+          {railOpen && <div className="mc-rail-sec">{t('navWorkspace')}</div>}
           <button type="button" className={`mc-railbtn${view === 'cards' ? ' active' : ''}`} onClick={() => goView('cards')} title={t('cardsTab')}>
             <span className="mc-rail-ico">🧠</span>
             {railOpen && <span className="mc-rail-label">{t('cardsTab')}</span>}
@@ -1656,6 +2226,7 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
             {railOpen && <span className="mc-rail-label">{t('tabAudit')}</span>}
             {quarantinePending > 0 && <span className="mc-dot">{quarantinePending > 99 ? '99+' : quarantinePending}</span>}
           </button>
+          {railOpen && <div className="mc-rail-sec">{t('navSystem')}</div>}
           <button type="button" className={`mc-railbtn${view === 'optimize' ? ' active' : ''}`} onClick={() => goView('optimize')} title={t('tabRecycle')}>
             <span className="mc-rail-ico">♻️</span>
             {railOpen && <span className="mc-rail-label">{t('tabRecycle')}</span>}
@@ -1664,6 +2235,19 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
           <button type="button" className={`mc-railbtn${view === 'config' ? ' active' : ''}`} onClick={() => goView('config')} title={t('tabConfig')}>
             <span className="mc-rail-ico">⚙️</span>
             {railOpen && <span className="mc-rail-label">{t('tabConfig')}</span>}
+          </button>
+          {railOpen && <div className="mc-rail-sec">{t('navSupport')}</div>}
+          <button type="button" className="mc-railbtn" onClick={() => openSupport('group')} title={t('supportGroup')}>
+            <span className="mc-rail-ico">💬</span>
+            {railOpen && <span className="mc-rail-label">{t('supportGroup')}</span>}
+          </button>
+          <button type="button" className="mc-railbtn" onClick={() => openSupport('sponsor')} title={t('supportSponsor')}>
+            <span className="mc-rail-ico">☕</span>
+            {railOpen && <span className="mc-rail-label">{t('supportSponsor')}</span>}
+          </button>
+          <button type="button" className="mc-railbtn" onClick={() => openSupport('legacy')} title={t('supportLegacy')}>
+            <span className="mc-rail-ico">🧩</span>
+            {railOpen && <span className="mc-rail-label">{t('supportLegacy')}</span>}
           </button>
           <button type="button" className="mc-railbtn" onClick={() => setFeedbackOpen(true)} title={t('fbNav')}>
             <span className="mc-rail-ico">🐞</span>
@@ -1680,15 +2264,20 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
           </div>
         ) : null}
         {view === 'cards' && (
-        <div className="mc-stats">
-          <StatCell label={t('total')} value={overview ? overview.total : '—'} />
-          <StatCell label={t('recent')} value={overview ? overview.recent : '—'} />
-          <StatCell label={t('tags')} value={overview ? overview.tags : '—'} />
-          {/* 两套存储：待审/驳回在隔离区（overview.quarantine），主库 total 只含 approved */}
-          <StatCell label={t('pending')} value={overview?.quarantine?.pending ?? overview?.status?.pending ?? 0} />
-          <StatCell label={t('rejected')} value={overview?.quarantine?.rejected ?? overview?.status?.rejected ?? 0} />
-          <StatCell label={t('cardCount')} value={overview ? overview.byKind?.knowledge ?? 0 : '—'} />
-        </div>
+          <div className="mc-v5-pagehead">
+            <div>
+              <div className="mc-v5-eyebrow">MEMORY LIBRARY</div>
+              <h1>{t('memoryTitle')}</h1>
+              <p>{t('memoryHint')}</p>
+              <div className="mc-v5-pagehead-stats">
+                <span><b>{overview?.total ?? '—'}</b> {t('cardsUnit')}</span>
+                <span>{t('recent')} +{overview?.recent ?? 0}</span>
+                <span>{t('pending')} {overview?.quarantine?.pending ?? overview?.status?.pending ?? 0}</span>
+                <span>{t('rejected')} {overview?.quarantine?.rejected ?? overview?.status?.rejected ?? 0}</span>
+              </div>
+            </div>
+            <span className="mc-v5-pagecount">{cards.length} / {cardTotal}</span>
+          </div>
         )}
 
         {view === 'cards' && (
@@ -1718,8 +2307,10 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
             {KIND_IDS.map((k) => (
               <button key={k} type="button" className={`mc-chip${kind === k ? ' active' : ''}`} onClick={() => onKind(k)}>
                 {k === 'all' ? t('all') : t(KIND_LABELS[k])}
+                <span className="mc-chip-n">{k === 'all' ? (overview?.total ?? 0) : (overview?.byKind?.[k] ?? 0)}</span>
               </button>
             ))}
+            <button type="button" className={`mc-chip${onlyPinned ? ' active' : ''}`} onClick={() => setOnlyPinned((v) => !v)}>📌 {t('pinnedOnly')}<span className="mc-chip-n">{pinned.size}</span></button>
             <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
               <option value="all">🤖 {t('allAgents')}</option>
               {agentOptions(cardAgents).map((a) => <option key={a} value={a}>{a}</option>)}
@@ -1746,7 +2337,27 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
               ? <div className="mc-empty">{t('error')}：{error} <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('retry')}</button></div>
             : cards.length === 0
               ? <div className="mc-empty">{t('empty')}</div>
-              : <><div className="mc-grid">{sortedCards.map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
+              : <>{showFeature && (
+                <div className="mc-v5-feature" onClick={() => openCard(featuredCard)}>
+                  <div className="mc-v5-feature-copy">
+                    <div className="mc-v5-eyebrow">{t('todayReview')}</div>
+                    <h3>{featuredCard.title}</h3>
+                    <p>{cardLead(featuredCard)}</p>
+                    <div className="mc-v5-feature-meta">
+                      <span>{KIND_EMOJI[featuredCard.kind] || '📎'} {t(KIND_LABELS[featuredCard.kind] || 'kindKnowledge')}</span>
+                      <span>🕒 {fmtDate(featuredCard.updated)}</span>
+                      {(featuredCard.tags || []).slice(0, 3).map((tag) => <span key={tag}>#{tag}</span>)}
+                    </div>
+                  </div>
+                  <div className="mc-v5-feature-side">
+                    <MiniGraph n={connMap[featuredCard.path] || 0} color={KIND_COLORS[featuredCard.kind] || KIND_COLORS.other} size={58} />
+                    <b>{connMap[featuredCard.path] || 0}</b>
+                    <span>{t('links')}</span>
+                    <button type="button" className="mc-v5-feature-shuffle" onClick={(e) => { e.stopPropagation(); nextFeature() }}>{t('reshuffle')}</button>
+                    <span className="mc-v5-feature-open">{t('openArrow')}</span>
+                  </div>
+                </div>
+              )}<div className="mc-grid">{sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} pinned={pinned.has(card.path)} onPin={togglePin} links={connMap[card.path] || 0} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
           }
         </div>
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
@@ -1767,7 +2378,9 @@ export function MemoryLibrary({ t, inModal, onClose, onFull, full }) {
         </div>
 
         {feedbackOpen && <FeedbackModal t={t} onClose={() => setFeedbackOpen(false)} />}
-        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) setReader(next) }} onTagClick={onTagPick} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />}
+        {supportOpen && <SupportModal t={t} tab={supportTab} onTab={setSupportTab} onClose={() => setSupportOpen(false)} onFeedback={() => { setSupportOpen(false); setFeedbackOpen(true) }} onReplay={() => { setSupportOpen(false); setOnboardOpen(true) }} />}
+        {onboardOpen && <Onboarding t={t} onDone={finishOnboard} />}
+        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) openCard(next) }} onTagClick={onTagPick} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} allCards={sortedCards} onOpenRelated={(c) => openCard(c)} />}
         <NewCardModal t={t} newCard={newCard} setNewCard={setNewCard} onCreated={() => { loadAll(); bump(); setLibToast({ ok: true, msg: t('created') }); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />
         </div>
       </div>
@@ -2106,6 +2719,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
       <style>{CSS}</style>
       {toast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (toast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: toast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{toast.ok ? '✓' : '✕'}</span><span style={{ wordBreak: 'break-all' }}>{toast.msg}</span></div>}
       <div style={{ overflow: 'auto', padding: 4 }}>
+        {!compact && (
+          <div className="mc-v5-pagehead">
+            <div>
+              <div className="mc-v5-eyebrow">MEMORY CONFIG</div>
+              <h1>{t('tabConfig')}</h1>
+              <p>{t('configPageSub')}</p>
+            </div>
+            <span className="mc-v5-audit-trust">🛡 {t('v5Local')}</span>
+          </div>
+        )}
         {err && <div className="mc-card" style={{ borderLeft: '4px solid #ef4444', background: 'rgba(239,68,68,0.08)', padding: '12px 14px', marginBottom: 10 }}>
           <div style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600, marginBottom: 6 }}>⚠ {err}</div>
           <button type="button" className="mc-btn" onClick={load}>↻ {t('retry')}</button>
@@ -2428,13 +3051,14 @@ function AuditPanel({ t, onReload, version }) {
   const [agentF, setAgentF] = useState('all')
   const [dateF, setDateF] = useState('')
   const [sel, setSel] = useState(new Set())
+  const [previewPath, setPreviewPath] = useState(null)
   const [busy, setBusy] = useState('')
   const [toast, setToast] = useState(null)
   const [tab, setTab] = useState('pending')
   const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000) }
   const agents = [...new Set([...pending, ...rejected].map((c) => c.submittedBy).filter(Boolean))]
   const load = useCallback(async () => {
-    try { const r = await fetch(`${API}/audit/list`).then((x) => x.json()); if (r.ok) { setPending(r.pending || []); setRejected(r.rejected || []); setSel(new Set()); setOpen(new Set()); setBodies({}) } } catch {}
+    try { const r = await fetch(`${API}/audit/list`).then((x) => x.json()); if (r.ok) { setPending(r.pending || []); setRejected(r.rejected || []); setSel(new Set()); setBodies({}) } } catch {}
   }, [])
   useEffect(() => { load() }, [version, load])
   const items = (tab === 'pending' ? pending : rejected).filter((c) => {
@@ -2443,6 +3067,18 @@ function AuditPanel({ t, onReload, version }) {
     if (dateF) { const d = (c.created || '').slice(0, 10); if (d && d !== dateF) return false }
     return true
   })
+  // 左侧类型栏的计数：只按 agent/date 收窄，不按当前 kind，否则切到某类型后其他类型都变 0。
+  const kindCounts = useMemo(() => {
+    const base = tab === 'pending' ? pending : rejected
+    const m = { all: 0 }
+    base.forEach((c) => {
+      if (agentF !== 'all' && normAgent(c.submittedBy) !== agentF) return
+      if (dateF) { const d = (c.created || '').slice(0, 10); if (d && d !== dateF) return }
+      m.all++
+      m[c.kind || 'other'] = (m[c.kind || 'other'] || 0) + 1
+    })
+    return m
+  }, [pending, rejected, tab, agentF, dateF])
   const toggle = (p) => setSel((s) => { const n = new Set(s); if (n.has(p)) { n.delete(p) } else { n.add(p) }; return n })
   const applyStatus = async (status, paths) => {
     const list = paths || [...sel]
@@ -2464,110 +3100,160 @@ function AuditPanel({ t, onReload, version }) {
       else notify(verb + ' ' + list.length + ' 张')
     } catch (e) { notify(t('toastFailed') + ': ' + String((e && e.message) || e), false) } finally { setBusy('') }
   }
-  // issue #27：审核中心过去只列标题，看不到正文、只能盲批。现在每行可就地展开「frontmatter + 正文」，
-  // 正文**按需拉取**（/card?status=pending|rejected，服务端只放行确实在队列里的 path），列表不做 N 次全量读。
-  const [open, setOpen] = useState(new Set())
+  // issue #27：审核中心过去只列标题，看不到正文、只能盲批。
+  // 现在点击队列行直接更新右侧判词面板，正文按需拉取；不再用行内展开/弹窗。
   const [bodies, setBodies] = useState({})
   const bodyState = (p) => bodies[p] || {}
-  const toggleOpen = async (c) => {
-    const path = c.path
-    const willOpen = !open.has(path)
-    setOpen((s) => { const n = new Set(s); if (willOpen) n.add(path); else n.delete(path); return n })
-    if (!willOpen || bodies[path]) return
-    setBodies((b) => ({ ...b, [path]: { loading: true } }))
-    try {
-      const status = c.status || (tab === 'pending' ? 'pending' : 'rejected')
-      const r = await fetch(`${API}/card?path=${encodeURIComponent(path)}&status=${status}`).then((x) => x.json())
-      if (r && r.ok) setBodies((b) => ({ ...b, [path]: { text: r.text || '' } }))
-      else setBodies((b) => ({ ...b, [path]: { error: (r && r.error) || 'HTTP' } }))
-    } catch (e) { setBodies((b) => ({ ...b, [path]: { error: String((e && e.message) || e) } })) }
-  }
   const toggled = [...sel]
+  const previewCard = items.find((c) => c.path === previewPath) || items[0] || null
+  const previewSt = previewCard ? bodyState(previewCard.path) : {}
+  useEffect(() => {
+    const c = previewCard
+    if (!c || bodies[c.path]) return
+    let alive = true
+    const p = c.path
+    setBodies((b) => ({ ...b, [p]: { loading: true } }))
+    const status = c.status || (tab === 'pending' ? 'pending' : 'rejected')
+    fetch(`${API}/card?path=${encodeURIComponent(p)}&status=${status}`).then((x) => x.json()).then((r) => {
+      if (!alive) return
+      if (r && r.ok) setBodies((b) => ({ ...b, [p]: { text: r.text || '' } }))
+      else setBodies((b) => ({ ...b, [p]: { error: (r && r.error) || 'HTTP' } }))
+    }).catch((e) => { if (alive) setBodies((b) => ({ ...b, [p]: { error: String((e && e.message) || e) } })) })
+    return () => { alive = false }
+  }, [previewCard && previewCard.path, tab])
+  const clearSel = () => setSel(new Set())
+  const switchTab = (next) => { setTab(next); clearSel() }
+  const kindList = ['all', ...KIND_IDS.filter((k) => k !== 'all')]
   return (
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1, minHeight: 0 }}>
       <style>{CSS}</style>
       <div style={{ overflow: 'auto', padding: 4 }}>
         <InlineToast toast={toast} />
-        <div className="mc-card" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <b style={{ fontSize: 12 }}>🛡️ {t('tabAudit')}</b>
-          <div style={{ flex: 1 }} />
-          <select value={kindF} onChange={(e) => setKindF(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
-            <option value="all">{t('all')}</option>
-            {KIND_IDS.filter((k) => k !== 'all').map((k) => <option key={k} value={k}>{t(KIND_LABELS[k])}</option>)}
-          </select>
-          <select value={agentF} onChange={(e) => setAgentF(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
-            <option value="all">{t('allAgents')}</option>
-            {agentOptions(agents).map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-          <input type="date" value={dateF} onChange={(e) => setDateF(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }} />
-        </div>
-        <div className="mc-card" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button type="button" className={`mc-btn${tab === 'pending' ? ' me-on' : ''}`} onClick={() => setTab('pending')}>{t('pending')}（{pending.length}）</button>
-          <button type="button" className={`mc-btn${tab === 'rejected' ? ' me-on' : ''}`} onClick={() => setTab('rejected')}>{t('rejected')}（{rejected.length}）</button>
-          <div style={{ flex: 1 }} />
-          <label style={{ fontSize: 12 }}><input type="checkbox" checked={items.length > 0 && toggled.length === items.length} onChange={(e) => { if (e.target.checked) { setSel(new Set(items.map((c) => c.path))) } else { setSel(new Set()) } }} /> {t('selectAll')}</label>
-          <button type="button" className="mc-btn me-on" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</button>
-          {tab === 'pending'
-            ? <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</button>
-            : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete')}</button>}
-        </div>
-        {items.length ? (
-          <div className="mc-card" style={{ display: 'flex', flexDirection: 'column' }}>
-            {items.map((c) => {
-              const st = bodyState(c.path)
-              const isOpen = open.has(c.path)
-              return (
-                <div key={c.path} style={{ borderBottom: '1px solid rgba(127,127,127,0.12)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', fontSize: 12 }}>
-                    <input type="checkbox" checked={sel.has(c.path)} onChange={() => toggle(c.path)} />
-                    {/* #27：点这里看正文 —— 审核的前提是能读到内容，而不是只看标题盲批 */}
-                    <button type="button" className="mc-btn" style={{ padding: '0 6px' }} title={t(isOpen ? 'collapse' : 'expand')} aria-expanded={isOpen} onClick={() => toggleOpen(c)}>{isOpen ? '▾' : '▸'}</button>
-                    <span className="mc-kind" style={{ background: KIND_COLORS[c.kind] || '#999' }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} title={t(isOpen ? 'collapse' : 'expand')} onClick={() => toggleOpen(c)}>{c.title}</span>
-                    <span style={{ fontSize: 10, opacity: 0.6 }}>{normAgent(c.submittedBy)}</span>
-                    <span style={{ fontSize: 10, opacity: 0.6 }}>{c.created ? c.created.slice(0, 16).replace('T', ' ') : '-'}</span>
-                    <span style={{ fontSize: 10, opacity: 0.6 }}>{c.kind}</span>
-                    <span style={{ fontSize: 10, opacity: 0.6, color: c.severity === 'high' ? '#f87171' : '#9ca3af' }}>{c.severity}</span>
-                    <span style={{ fontSize: 10, opacity: 0.6, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.reason || '-'}</span>
-                    {tab === 'pending' ? (
-                      <>
-                        <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                        <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} onClick={() => applyStatus('rejected', [c.path])}>✕</button>
-                      </>
-                    ) : (
-                      <>
-                        <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('restore')} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                        <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
-                      </>
-                    )}
-                  </div>
-                  {isOpen && (
-                    <div style={{ padding: '2px 10px 12px 34px' }}>
-                      {st.loading && <div style={{ fontSize: 12, opacity: 0.6 }}>⏳ {t('loading')}</div>}
-                      {st.error && <div style={{ fontSize: 12, color: '#f87171' }}>⚠ {t('auditBodyFail')}：{st.error}</div>}
-                      {st.text != null && (
-                        <>
-                          <div className="md-meta" style={{ marginBottom: 6 }}>
-                            <span className="md-chip md-chip-kind" style={{ color: KIND_COLORS[c.kind] || '#6B7280', borderColor: (KIND_COLORS[c.kind] || '#6B7280') + '59', background: (KIND_COLORS[c.kind] || '#6B7280') + '1a' }}>{KIND_EMOJI[c.kind] || '📎'} {t(KIND_LABELS[c.kind] || 'kindKnowledge')}</span>
-                            {(Array.isArray(c.tags) ? c.tags : []).slice(0, 8).map((tag) => <span key={tag} className="md-chip md-chip-tag">🏷 {tag}</span>)}
-                            {!!c.reason && <span className="md-chip md-chip-st-warn">⚑ {c.reason}</span>}
-                          </div>
-                          <div className="md-doc" style={{ maxHeight: 340, overflow: 'auto' }} dangerouslySetInnerHTML={{ __html: renderMd(splitFrontmatter(st.text).body) }} />
-                          {tab === 'pending' && (
-                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                              <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={() => applyStatus('approved', [c.path])}>✓ {t('approve')}</button>
-                              <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => applyStatus('rejected', [c.path])}>✕ {t('reject')}</button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+        <div className="mc-v5-pagehead mc-v5-audithead">
+          <div>
+            <div className="mc-v5-eyebrow">REVIEW INBOX</div>
+            <h1>{t('tabAudit')}</h1>
+            <p>{t('auditInboxSub')}</p>
           </div>
-        ) : <div style={{ opacity: 0.6, fontSize: 12, padding: 20, textAlign: 'center' }}>{t('noAuditItems')}</div>}
+          <span className="mc-v5-pagecount">{pending.length} 张</span>
+          <span className="mc-v5-audit-trust">🛡 {t('auditUndo')}</span>
+        </div>
+        <div className="me-audit">
+          <div className="mc-card mc-audit-filtercard" style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="me-audit-filter-row">
+              <b style={{ fontSize: 12 }}>🛡️ {t('tabAudit')}</b>
+              <div style={{ flex: 1 }} />
+              <select value={agentF} onChange={(e) => { setAgentF(e.target.value); clearSel() }} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
+                <option value="all">{t('allAgents')}</option>
+                {agentOptions(agents).map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <input type="date" value={dateF} onChange={(e) => { setDateF(e.target.value); clearSel() }} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }} />
+            </div>
+            <div className="me-audit-types-top">
+              <span className="me-audit-types-label">{t('auditTypeLabel')}</span>
+              {kindList.map((k) => {
+                const color = k === 'all' ? 'var(--dsw-alias-label-secondary, #9ca3af)' : (KIND_COLORS[k] || '#6B7280')
+                return (
+                  <button key={k} type="button" className={`me-audit-kind${kindF === k ? ' active' : ''}`} onClick={() => { setKindF(k); clearSel() }}>
+                    <span className="me-audit-kind-dot" style={{ background: color }} />
+                    <span className="me-audit-kind-name">{k === 'all' ? t('all') : t(KIND_LABELS[k])}</span>
+                    <span className="me-audit-kind-count">{kindCounts[k] || 0}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div className="me-audit-main">
+            <div className="me-audit-queue">
+            <div className="mc-card mc-audit-batchcard" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button type="button" className={`mc-btn${tab === 'pending' ? ' me-on' : ''}`} onClick={() => switchTab('pending')}>{t('pending')}（{pending.length}）</button>
+              <button type="button" className={`mc-btn${tab === 'rejected' ? ' me-on' : ''}`} onClick={() => switchTab('rejected')}>{t('rejected')}（{rejected.length}）</button>
+              <div style={{ flex: 1 }} />
+              <label style={{ fontSize: 12 }}><input type="checkbox" checked={items.length > 0 && toggled.length === items.length} onChange={(e) => { if (e.target.checked) { setSel(new Set(items.map((c) => c.path))) } else { setSel(new Set()) } }} /> {t('selectAll')}（{items.length}）</label>
+              <span style={{ fontSize: 11, opacity: 0.65 }}>{t('auditSelected')} {toggled.length}</span>
+              <button type="button" className="mc-btn me-on" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</button>
+              {tab === 'pending'
+                ? <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</button>
+                : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete')}</button>}
+              {toggled.length > 0 && <button type="button" className="mc-btn" onClick={clearSel}>{t('auditClearSelection')}</button>}
+            </div>
+            {items.length ? (
+              <div className="mc-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                {items.map((c) => {
+                  const color = KIND_COLORS[c.kind] || '#6B7280'
+                  return (
+                    <div key={c.path} className={`me-audit-row${previewCard && previewCard.path === c.path ? " active" : ""}`}>
+                      <div className="me-audit-row-main" onClick={() => setPreviewPath(c.path)}>
+                        <input type="checkbox" checked={sel.has(c.path)} onClick={(e) => e.stopPropagation()} onChange={() => toggle(c.path)} />
+                        <span className="me-audit-row-tile" style={{ color, borderColor: color + '38', background: color + '18' }}>{KIND_EMOJI[c.kind] || '📎'}</span>
+                        <div className="me-audit-row-copy">
+                          <div className="me-audit-row-top">
+                            <span className="me-audit-row-kind">{t(KIND_LABELS[c.kind] || 'kindKnowledge')}</span>
+                            <span className={`me-audit-row-state ${tab === 'pending' ? 'pending' : 'rejected'}`}>{tab === 'pending' ? '⏳ ' + t('statusPending') : '⛔ ' + t('statusRejected')}</span>
+                            <span className="me-audit-row-time">{c.created ? c.created.slice(0, 16).replace('T', ' ') : '-'}</span>
+                          </div>
+                          <button type="button" className="me-audit-row-title" title={c.title} onClick={() => setPreviewPath(c.path)}>{c.title}</button>
+                          {(c.reason || c.summary) && <p className="me-audit-row-reason">{c.reason || c.summary}</p>}
+                          <div className="me-audit-row-meta">
+                            <span>🤖 {normAgent(c.submittedBy)}</span>
+                            {(Array.isArray(c.tags) ? c.tags : []).slice(0, 3).map((tag) => <span key={tag}>#{tag}</span>)}
+                          </div>
+                        </div>
+                        <div className="me-audit-row-actions" onClick={(e) => e.stopPropagation()}>
+                          {tab === 'pending' ? (
+                            <>
+                              <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => applyStatus('approved', [c.path])}>✓</button>
+                              <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} onClick={() => applyStatus('rejected', [c.path])}>✕</button>
+                            </>
+                          ) : (
+                            <>
+                              <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('restore')} onClick={() => applyStatus('approved', [c.path])}>✓</button>
+                              <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : <div style={{ opacity: 0.6, fontSize: 12, padding: 20, textAlign: 'center' }}>{t('noAuditItems')}</div>}
+            </div>
+            <aside className="me-audit-preview">
+              {previewCard ? (
+                <>
+                  <div className="me-audit-preview-head">
+                    <div className="me-audit-preview-top">
+                      <span className="me-audit-kind-badge" style={{ color: KIND_COLORS[previewCard.kind] || '#6B7280', borderColor: (KIND_COLORS[previewCard.kind] || '#6B7280') + '59', background: (KIND_COLORS[previewCard.kind] || '#6B7280') + '1a' }}>{KIND_EMOJI[previewCard.kind] || '📎'} {t(KIND_LABELS[previewCard.kind] || 'kindKnowledge')}</span>
+                      <span className={`md-chip ${tab === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad'}`}>{tab === 'pending' ? '⏳ ' + t('statusPending') : '⛔ ' + t('statusRejected')}</span>
+                      <span className="spacer" style={{ flex: 1 }} />
+                      <span style={{ fontSize: 10, opacity: 0.55 }}>{previewCard.created ? previewCard.created.slice(0, 16).replace('T', ' ') : ''}</span>
+                    </div>
+                    <h3>{previewCard.title}</h3>
+                    <div className="me-audit-preview-meta">
+                      <span>🤖 {normAgent(previewCard.submittedBy)}</span>
+                      {!!previewCard.reason && <span className="me-audit-preview-reason">⚑ {previewCard.reason}</span>}
+                      {(Array.isArray(previewCard.tags) ? previewCard.tags : []).slice(0, 5).map((tag) => <span key={tag}>#{tag}</span>)}
+                    </div>
+                  </div>
+                  <div className="me-audit-preview-body">
+                    {previewSt.loading && <div className="me-audit-preview-empty">⏳ {t('loading')}</div>}
+                    {previewSt.error && <div className="me-audit-preview-empty" style={{ color: '#f87171' }}>⚠ {t('auditBodyFail')}：{previewSt.error}</div>}
+                    {previewSt.text != null
+                      ? <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(stripRepeatedTitle(splitFrontmatter(previewSt.text).body, previewCard.title)) }} />
+                      : (!previewSt.loading && <p className="me-audit-preview-summary">{previewCard.summary || ''}</p>)}
+                  </div>
+                  <div className="me-audit-preview-actions">
+                    <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path])}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</button>
+                    {tab === 'pending'
+                      ? <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => applyStatus('rejected', [previewCard.path])}>✕ {t('reject')}</button>
+                      : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>🗑 {t('restoreDelete')}</button>}
+                  </div>
+                </>
+              ) : <div className="me-audit-preview-empty">{t('noAuditItems')}</div>}
+            </aside>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -2601,60 +3287,137 @@ function RecoverPanel({ t, onReload, version }) {
       <style>{CSS}</style>
       <div style={{ overflow: 'auto', padding: 4 }}>
         <InlineToast toast={toast} />
-        <div className="mc-card" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <b style={{ fontSize: 12 }}>🗑️ {t('tabRecycle')}</b>
-          <span style={{ fontSize: 11, opacity: 0.6 }}>{t('recycleHint')}</span>
-          <div style={{ flex: 1 }} />
-          <button type="button" className="mc-btn" disabled={!!busy || items.length === 0} title={items.length ? '' : t('emptyRecycle')} onClick={async () => { setBusy('purgeAll'); try { const r = await fetch(API + '/recycle/purge-expired?days=0'); const d = await r.json().catch(() => null); await load(); notify(r.ok ? t('toastPurgedExpired') + (d && d.purged != null ? '（' + d.purged + '）' : '') : t('toastFailed'), r.ok) } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') } }}>{t('emptyRecycle')}</button>
-        </div>
-        {items.length ? (
-          <div className="mc-card" style={{ display: 'flex', flexDirection: 'column' }}>
-            {items.map((c) => (
-              <div key={c.path} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', borderBottom: '1px solid rgba(127,127,127,0.12)', fontSize: 12 }}>
-                <span className="mc-kind" style={{ background: KIND_COLORS[c.kind] || '#999' }} />
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
-                <span style={{ fontSize: 10, opacity: 0.6 }}>{t('deletedAt')} {(c.deletedAt || '').slice(0, 10)}</span>
-                <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => action('restore', c.path)}>{t('restore')}</button>
-                <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('purgeConfirm'))) action('purge', c.path) }}>{t('purge')}</button>
-              </div>
-            ))}
+        <div className="mc-v5-pagehead">
+          <div>
+            <div className="mc-v5-eyebrow">RECYCLE CENTER</div>
+            <h1>{t('tabRecycle')}</h1>
+            <p>{t('recyclePageSub')}</p>
           </div>
-        ) : <div className="mc-card" style={{ padding: 18, fontSize: 12.5, opacity: 0.78, textAlign: 'center', lineHeight: 1.9 }}>🗑️ {t('emptyRecycle')}<br /><span style={{ fontSize: 11.5 }}>{t('recycleEmptyHint').split('{days}').join('30')}</span></div>}
+          <span className="mc-v5-pagecount">{items.length}</span>
+          <button type="button" className="mc-btn" disabled={!!busy || items.length === 0} title={items.length ? '' : t('emptyRecycle')} onClick={async () => { setBusy('purgeAll'); try { const r = await fetch(API + '/recycle/purge-expired?days=0'); const d = await r.json().catch(() => null); await load(); notify(r.ok ? t('toastPurgedExpired') + (d && d.purged != null ? '（' + d.purged + '）' : '') : t('toastFailed'), r.ok) } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') } }}>🗑 {t('emptyRecycle')}</button>
+        </div>
+        <div className="mc-v5-recycle-hint">{t('recycleHint')}</div>
+        {items.length ? (
+          <div className="mc-card mc-v5-recycle">
+            {items.map((c) => {
+              const color = KIND_COLORS[c.kind] || '#6B7280'
+              return (
+                <div key={c.path} className="mc-v5-recycle-row">
+                  <span className="mc-v5-recycle-tile" style={{ color, background: color + '18', borderColor: color + '38' }}>{KIND_EMOJI[c.kind] || '📎'}</span>
+                  <div className="mc-v5-recycle-copy">
+                    <b>{c.title}</b>
+                    <span>{t(KIND_LABELS[c.kind] || 'kindKnowledge')} · {t('deletedAt')} {(c.deletedAt || '').slice(0, 10)}</span>
+                  </div>
+                  <div className="mc-v5-recycle-actions">
+                    <button type="button" className="mc-btn" disabled={!!busy} onClick={() => action('restore', c.path)}>{t('restore')}</button>
+                    <button type="button" className="mc-btn mc-danger" disabled={!!busy} onClick={() => { if (window.confirm(t('purgeConfirm'))) action('purge', c.path) }}>{t('purge')}</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : <div className="mc-card mc-v5-empty-state">🗑️ <b>{t('emptyRecycle')}</b><span>{t('recycleEmptyHint').split('{days}').join('30')}</span></div>}
       </div>
     </div>
   )
 }
 
-const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick }) => (  <article className="mc-cardrow mc-card" onClick={() => onOpen(card)}>
-    <h4>
-      <span className="mc-kind" style={{ background: KIND_COLORS[card.kind] || KIND_COLORS.other }} />
-      <span style={{ marginRight: 4 }}>{KIND_EMOJI[card.kind] || '📎'}</span>
-      {query ? highlightMatches(card.title, query) : card.title}
-      {isNewCard(card.updated) && <span className="mc-new">{t('newBadge')}</span>}
-      {card.status === 'pending' && <span className="mc-status" style={{ background: '#f59e0b' }}>⏳ {t('statusPending')}</span>}
-      {card.status === 'rejected' && <span className="mc-status" style={{ background: '#ef4444' }}>❌ {t('statusRejected')}</span>}
-      {(!card.status || card.status === 'approved') && <span className="mc-status" style={{ background: '#10b981' }}>✅ {t('statusApproved')}</span>}
-    </h4>
-    <p>{query ? highlightMatches(card.summary || '', query) : (card.summary || '')}</p>
-    {/* 搜索命中片段（含高亮）：让人一眼看到「为什么命中」，而不是只有标题/摘要 */}
-    {query && (() => {
-      const sn = snippetAround(card.body || '', query)
-      return sn ? <p className="mc-snippet">{highlightMatches(sn, query)}</p> : null
-    })()}
-    {tagsOf(card).length > 0 && (
-      <div className="mc-tags">
-        {tagsOf(card).slice(0, 4).map((tag) => <button key={tag} type="button" className="mc-tag mc-tag-click" title={tag} onClick={(e) => { e.stopPropagation(); onTagClick && onTagClick(tag) }}>🏷 {tag}</button>)}
+const stripRepeatedTitle = (md, title) => {
+  const lines = String(md || '').split(/\r?\n/)
+  const norm = (s) => String(s || '').replace(/[#*_`]/g, '').replace(/[\s:：\-–—·]/g, '').trim()
+  const target = norm(title)
+  for (;;) {
+    let i = 0
+    while (i < lines.length && !lines[i].trim()) i++
+    const m = /^#{1,2}\s+(.+?)\s*$/.exec(lines[i] || '')
+    if (!m || norm(m[1]) !== target) break
+    lines.splice(i, 1)
+    while (i < lines.length && !lines[i].trim()) lines.splice(i, 1)
+  }
+  return lines.join('\n')
+}
+const tocOfMarkdown = (md) => {
+  const out = []
+  let inFence = false
+  let n = 0
+  for (const raw of String(md || '').split(/\r?\n/)) {
+    const line = raw.trim()
+    if (/^```/.test(line)) { inFence = !inFence; continue }
+    if (inFence) continue
+    const m = /^(#{1,6})\s+(.+)$/.exec(line)
+    if (!m) continue
+    n++
+    const level = m[1].length
+    if (level <= 3) out.push({ id: 'md-h-' + n, level, text: m[2].replace(/[#*_`>\[\]()]/g, '').replace(/\s+/g, ' ').trim() })
+  }
+  return out
+}
+const cardLead = (card) => {
+  const s = String(card.summary || '').replace(/[#>*_`]/g, ' ').replace(/\s+/g, ' ').trim()
+  return s.length > 150 ? s.slice(0, 148) + '…' : s
+}
+const cardInsightKey = (card) => {
+  const s = String(card.summary || '').toLowerCase()
+  if (/决策|结论|决定|decision/.test(s)) return 'insightDecision'
+  if (/根因|原因|root cause/.test(s)) return 'insightRoot'
+  if (/教训|避免|lesson/.test(s)) return 'insightLesson'
+  return 'insightSummary'
+}
+const MiniGraph = ({ n = 0, color = '#ff9a72', size = 30 }) => {
+  const count = Math.max(2, Math.min(6, Number(n) || 2))
+  const pts = Array.from({ length: count }, (_, i) => {
+    const a = (-Math.PI / 2) + (i * Math.PI * 2 / count)
+    const r = i % 2 ? 13 : 16
+    return [20 + Math.cos(a) * r, 20 + Math.sin(a) * r]
+  })
+  return (
+    <svg className="mc-v5-mini" width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
+      {pts.map(([x, y], i) => <line key={'l' + i} x1="20" y1="20" x2={x} y2={y} stroke={color} strokeOpacity=".35" />)}
+      {pts.map(([x, y], i) => <circle key={'c' + i} cx={x} cy={y} r={i % 2 ? 2.2 : 1.8} fill={color} fillOpacity={i % 2 ? .8 : .55} />)}
+      <circle cx="20" cy="20" r="2.6" fill={color} />
+    </svg>
+  )
+}
+const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, links }) => {
+  const color = KIND_COLORS[card.kind] || KIND_COLORS.other
+  const linkCount = Number(links ?? card.links ?? card.weight ?? 0)
+  const tags = tagsOf(card)
+  return (
+    <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}`} onClick={() => onOpen(card)}>
+      <div className="mc-v5-card-top">
+        <span className="mc-v5-card-tile" style={{ color, background: color + '18', borderColor: color + '38' }}>{KIND_EMOJI[card.kind] || '📎'}</span>
+        <span className="mc-v5-card-kind-name">{t(KIND_LABELS[card.kind] || 'kindKnowledge')}</span>
+        {card.status === 'pending' && <span className="mc-v5-card-status pending">⏳ {t('statusPending')}</span>}
+        {card.status === 'rejected' && <span className="mc-v5-card-status rejected">⛔ {t('statusRejected')}</span>}
+        {isNewCard(card.updated) && <span className="mc-new">{t('newBadge')}</span>}
+        <span className="spacer" style={{ flex: 1 }} />
+        <span className="mc-v5-card-time">{fmtDate(card.updated)}</span>
+        {onPin && <button type="button" className={`mc-v5-pin${pinned ? ' on' : ''}`} title={t(pinned ? 'unpinCard' : 'pinCard')} aria-label={t(pinned ? 'unpinCard' : 'pinCard')} onClick={(e) => { e.stopPropagation(); onPin(card.path) }}>📌</button>}
       </div>
-    )}
-    <footer>
-      <span>{KIND_EMOJI[card.kind] || '📎'} {t(KIND_LABELS[card.kind])}</span>
-      {<span style={{ fontSize: 10, opacity: 0.6 }}>🤖 {normAgent(card.submittedBy)}</span>}
-      <span>📅 {fmtDate(card.updated)}</span>
-      <span className="spacer" style={{ flex: 1 }} />
-      <button type="button" className="mc-card-del" title={t('delete')} onClick={(e) => { e.stopPropagation(); if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>🗑</button>
-    </footer>
-  </article>
-)
+      <h4 className="mc-v5-card-title">{query ? highlightMatches(card.title, query) : card.title}</h4>
+      <div className="mc-v5-card-insight">
+        <span className="mc-v5-insight-k">{t(cardInsightKey(card))}</span>
+        <span className="mc-v5-card-lead">{query ? highlightMatches(card.summary || '', query) : cardLead(card)}</span>
+      </div>
+      {query && (() => {
+        const sn = snippetAround(card.body || '', query)
+        return sn ? <p className="mc-snippet">{highlightMatches(sn, query)}</p> : null
+      })()}
+      {tagsOf(card).length > 0 && (
+        <div className="mc-tags mc-v5-card-tags">
+          {tagsOf(card).slice(0, 2).map((tag) => <button key={tag} type="button" className="mc-tag mc-tag-click" title={tag} onClick={(e) => { e.stopPropagation(); onTagClick && onTagClick(tag) }}>#{tag}</button>)}
+          {tags.length > 2 && <span className="mc-tag more">+{tags.length - 2}</span>}
+        </div>
+      )}
+      <footer className="mc-v5-card-foot">
+        {linkCount > 0 && <span className="mc-v5-conn"><MiniGraph n={linkCount} color={color} /> <b>{linkCount}</b> {t('links')}</span>}
+        <span className="mc-v5-author">🤖 {normAgent(card.submittedBy)}</span>
+        <span className="spacer" style={{ flex: 1 }} />
+        <button type="button" className="mc-card-del" title={t('delete')} onClick={(e) => { e.stopPropagation(); if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>🗑</button>
+      </footer>
+    </article>
+  )
+}
 
 // 管理面板：用量/今日 + 整理建议（非破坏预览）+ 会话预算。
 function LibraryAdmin({ t, tab, onReload, version }) {
@@ -2728,7 +3491,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
       if (b && b.ok) setBudget(b)
       if (c && c.ok) setCaptureLog(c)
       if (k && k.ok) setAgentCards(k.cards || [])
-      if (o && o.ok) setHealth({ db: o.db, backups: o.backups, total: o.total, degraded: o.degraded === true })
+      if (o && o.ok) setHealth({ db: o.db, backups: o.backups, total: o.total, version: o.version, degraded: o.degraded === true })
       setErr(!s || !s.ok ? t('adminLoadFail') : '')
     } catch (e) { setErr(t('adminLoadFail')) }
   }
@@ -2857,6 +3620,41 @@ function LibraryAdmin({ t, tab, onReload, version }) {
           </div>}
           {tab === 'stats' && (
             <div>
+              <div className="mc-v5-pagehead">
+                <div>
+                  <div className="mc-v5-eyebrow">SYSTEM STATUS</div>
+                  <h1>{t('runtimeTitle')}</h1>
+                  <p>{t('runtimeSub')}</p>
+                </div>
+                <span className="mc-v5-pagecount">{health ? `${health.total || 0} ${t('cardsUnit')}` : ''}</span>
+                <button type="button" className="mc-btn" onClick={() => fetchAll()}>↻ {t('refresh')}</button>
+              </div>
+              <div className="mc-v5-statusgrid">
+                <div className="mc-v5-statuscard">
+                  <span className="mc-v5-status-ico">🗄️</span>
+                  <b>{health ? (health.total || 0) : '—'}</b>
+                  <span>{t('dbTitle')}</span>
+                  <small>{health?.db?.journalMode || health?.db?.journal_mode || 'SQLite'}</small>
+                </div>
+                <div className="mc-v5-statuscard">
+                  <span className="mc-v5-status-ico">💾</span>
+                  <b>{health?.backups?.count ?? '—'}</b>
+                  <span>{t('backupTitle')}</span>
+                  <small>{health?.backups?.newestAt ? `${Math.max(0, Math.floor((Date.now() - Number(health.backups.newestAt)) / 86400000))} 天前` : '—'}</small>
+                </div>
+                <div className="mc-v5-statuscard">
+                  <span className="mc-v5-status-ico">✨</span>
+                  <b>{captureLog?.available ? (captureLog.health?.ok ? '正常' : '异常') : '—'}</b>
+                  <span>{t('captureTitle')}</span>
+                  <small>{captureLog?.health?.lastAt ? fmtDate(new Date(captureLog.health.lastAt).toISOString()) : '—'}</small>
+                </div>
+                <div className="mc-v5-statuscard">
+                  <span className="mc-v5-status-ico">🏷️</span>
+                  <b>{health?.version || '—'}</b>
+                  <span>{t('versionTitle')}</span>
+                  <small>{t('v5Local')}</small>
+                </div>
+              </div>
               {/* 健康概览：把「看不见的状态」集中一处（库 / 备份 / 沉淀 / 版本） */}
               <div className="mc-card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -3041,7 +3839,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
           {tab === 'optimize' && (
             <div>
               {/* 手动触发工具条：搜索扫描 + 一键优化（不自动执行） */}
-              <div className="mc-card" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="mc-card mc-audit-batchcard" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <b style={{ fontSize: 12 }}>{t('organizeTitle')}</b>
                 <div style={{ flex: 1 }} />
                 <button type="button" className="mc-btn" disabled={!!busy} onClick={scanOptimize}>{busy === 'scan' ? t('exporting') : '🔍 ' + t('scanAndOrganize')}</button>
@@ -3359,7 +4157,146 @@ function FeedbackModal({ t, onClose }) {
   )
 }
 
-function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate, onTagClick }) {
+function SupportModal({ t, tab, onTab, onClose, onFeedback, onReplay }) {
+  const [zoom, setZoom] = useState(null)
+  useEffect(() => {
+    if (!zoom) return
+    const onKey = (e) => { if (e.key === 'Escape') setZoom(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoom])
+  const tabs = [
+    { id: 'group', label: t('supportGroup') },
+    { id: 'sponsor', label: t('supportSponsor') },
+    { id: 'legacy', label: t('supportLegacy') },
+  ]
+  const readme = 'https://github.com/EternalNight996/memory-eternal/blob/main/README.md'
+  const qr = (src, caption) => (
+    <figure>
+      <img src={src} alt={caption} loading="lazy" title={t('clickToZoom')} onClick={(e) => setZoom(e.currentTarget.currentSrc || src)} onError={(e) => {
+        const img = e.currentTarget
+        if (img.dataset.fb) return
+        img.dataset.fb = '1'
+        img.src = 'https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/' + String(src).split('/').pop()
+      }} />
+      <figcaption>{caption}</figcaption>
+    </figure>
+  )
+  return (
+    <div className="me-overlay" onClick={onClose}>
+      <style>{CSS}</style>
+      <div className="me-dialog me-support" onClick={(e) => e.stopPropagation()}>
+        <div className="me-dialog-head">
+          <h3>💬 {t('supportTitle')}</h3>
+          <div className="me-head-actions">
+            <button type="button" className="mc-btn" onClick={onClose}>{t('close')}</button>
+          </div>
+        </div>
+        <div className="me-support-tabs">
+          {tabs.map((x) => <button key={x.id} type="button" className={`me-support-tab${tab === x.id ? ' active' : ''}`} onClick={() => onTab(x.id)}>{x.label}</button>)}
+        </div>
+        <div className="me-support-body">
+          {tab === 'group' && (
+            <>
+              <p className="me-support-note">{t('supportGroupHint')}</p>
+              <div className="me-support-qr">
+                {qr('support/group-qr.jpg', t('supportGroup'))}
+              </div>
+              <p className="me-support-note" style={{ marginTop: 12 }}><a className="me-support-link" href={readme} target="_blank" rel="noreferrer">{t('supportReadme')} ↗</a></p>
+            </>
+          )}
+          {tab === 'sponsor' && (
+            <>
+              <p className="me-support-note">{t('supportSponsorHint')}</p>
+              <div className="me-support-qr">
+                {qr('support/wechat-pay.jpg', '微信收款码')}
+                {qr('support/wechat-reward.jpg', '微信赞赏码')}
+              </div>
+              <p className="me-support-note" style={{ marginTop: 12 }}>打赏完全自愿，不影响任何功能；插件本体始终开源免费（MIT）。<br /><a className="me-support-link" href="https://github.com/EternalNight996/memory-eternal/blob/main/SPONSOR.md" target="_blank" rel="noreferrer">SPONSOR.md ↗</a></p>
+            </>
+          )}
+          {tab === 'legacy' && (
+            <>
+              <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>{t('supportLegacyTitle')}</h3>
+              <p className="me-support-note">{t('supportLegacyBody')}</p>
+              <div className="me-support-actions">
+                <a className="mc-btn" href={readme} target="_blank" rel="noreferrer">📖 {t('supportReadme')} ↗</a>
+                <a className="mc-btn" href="https://github.com/EternalNight996/memory-eternal/releases" target="_blank" rel="noreferrer">🏷 {t('supportReleases')} ↗</a>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="me-support-actions" style={{ padding: '0 18px 16px', marginTop: 0 }}>
+          <button type="button" className="mc-btn" onClick={onFeedback}>🐞 {t('supportFeedback')}</button>
+          <button type="button" className="mc-btn" onClick={onReplay}>✨ {t('supportReplay')}</button>
+        </div>
+      </div>
+      {zoom && (
+        <div className="me-lightbox" role="dialog" aria-modal="true" aria-label={t('close')} onClick={(e) => { e.stopPropagation(); setZoom(null) }}>
+          <button type="button" className="me-lightbox-close" onClick={(e) => { e.stopPropagation(); setZoom(null) }} aria-label={t('close')}>✕</button>
+          <img src={zoom} alt="" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Onboarding({ t, onDone }) {
+  const [step, setStep] = useState(0)
+  const repo = 'https://github.com/EternalNight996/memory-eternal'
+  const steps = [
+    { title: t('onboardStep0Title'), body: t('onboardStep0Body') },
+    { title: t('onboardStep1Title'), body: t('onboardStep1Body') },
+    { title: t('onboardStep2Title'), body: t('onboardStep2Body') },
+    { title: t('onboardStep3Title'), body: t('onboardStep3Body') },
+  ]
+  const last = step === steps.length - 1
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onDone() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onDone])
+  return (
+    <div className="me-overlay" style={{ zIndex: 1006 }}>
+      <style>{CSS}</style>
+      <div className="me-dialog me-guide">
+        <div className="me-guide-head">
+          <b>✨ {t('onboardTitle')}</b>
+          <div className="spacer" />
+          <span style={{ fontSize: 11, opacity: 0.55 }}>{t('onboardSub')}</span>
+        </div>
+        <div className="me-guide-dots">
+          {steps.map((_, i) => <span key={i} className={`me-guide-dot${i <= step ? ' on' : ''}`} />)}
+        </div>
+        <div className="me-guide-body">
+          <h3>{steps[step].title}</h3>
+          <p>{steps[step].body}</p>
+          {step === 0 && (
+            <div className="me-guide-github">
+              <button type="button" className="mc-btn me-on" onClick={() => openExternal(repo)}>★ {t('onboardStar')}</button>
+              <button type="button" className="mc-btn" onClick={() => openExternal(repo + '/fork')}>⑂ {t('onboardFork')}</button>
+              <span className="me-guide-github-hint">{t('onboardStarHint')}</span>
+            </div>
+          )}
+          {step === 1 && <div className="me-guide-chips"><span>自动沉淀</span><span>先审后入</span><span>只召回相关小块</span></div>}
+          {step === 2 && <div className="me-guide-like"><span className="me-guide-thumb">👍</span> 有用</div>}
+          {step === 3 && <div className="me-guide-chips"><span>💬 {t('supportGroup')}</span><span>☕ {t('supportSponsor')}</span><span>🧩 {t('supportLegacy')}</span><span>🐞 {t('supportFeedback')}</span></div>}
+        </div>
+        <div className="me-guide-actions">
+          <button type="button" className="mc-btn" onClick={onDone}>{t('onboardSkip')}</button>
+          <div className="spacer" />
+          <span className="me-guide-tip">{t('onboardTip')}</span>
+          {step > 0 && <button type="button" className="mc-btn" onClick={() => setStep((v) => v - 1)}>{t('onboardBack')}</button>}
+          {last
+            ? <button type="button" className="mc-btn me-on" onClick={onDone}>{t('onboardStart')}</button>
+            : <button type="button" className="mc-btn me-on" onClick={() => setStep((v) => v + 1)}>{step === 0 ? t('onboardStarred') : t('onboardNext')}</button>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate, onTagClick, allCards, onOpenRelated }) {
   // 读卡进度（0–100）：长卡片下让人知道还剩多少
   const [progress, setProgress] = useState(0)
   // 复制反馈（1.5s 自动消失）：没有它用户点了按钮不知道成没成
@@ -3394,12 +4331,25 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
   const status = (metaOf('status') || 'approved').toLowerCase()
   const kindColor = KIND_COLORS[kind] || '#6B7280'
   const long = (body || '').length > 460
+  const cleanBody = useMemo(() => stripRepeatedTitle(body, card.title), [body, card.title])
+  const readerLead = useMemo(() => {
+    const summary = cardLead(card)
+    if (summary) return summary
+    const line = cleanBody.split(/\r?\n/).map((x) => x.trim()).find((x) => x && !/^#{1,2}\s/.test(x)) || ''
+    const s = line.replace(/[#>*_`]/g, '').replace(/\s+/g, ' ').trim()
+    return s.length > 150 ? s.slice(0, 148) + '…' : s
+  }, [card, cleanBody])
+  const toc = useMemo(() => tocOfMarkdown(cleanBody), [cleanBody])
+  const related = useMemo(() => {
+    const set = new Set(tags)
+    return (allCards || []).filter((c) => c.path !== card.path && (c.tags || []).some((x) => set.has(x))).slice(0, 3)
+  }, [allCards, card.path, tags.join('|')])
   // 默认「全部展开」，可收起（用户要求：打开卡片即读全文，需要时再折起来）。
   const [expanded, setExpanded] = useState(true)
   return (
     <div className="me-overlay" onClick={onClose}>
       <style>{CSS}</style>
-      <div className="me-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="me-dialog me-reader-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="me-dialog-head">
           <h3 title={card.title}><span style={{ marginRight: 6, flex: 'none' }}>{KIND_EMOJI[kind] || '📎'}</span>{card.title}</h3>
           <div className="me-head-actions">
@@ -3407,7 +4357,8 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
             <button type="button" className="mc-btn" title={t('copyBody')} onClick={() => copyText(body, t('copyBody'))}>📋 {t('copyBody')}</button>
             <button type="button" className="mc-btn" title={t('copyPath')} onClick={() => copyText(card.path, t('copyPath'))}>🔗 {t('copyPath')}</button>
             <button type="button" className="mc-btn" title={t('readWidth')} onClick={() => { const order = ['narrow', 'mid', 'wide']; const next = order[(order.indexOf(widthMode) + 1) % order.length]; setWidthMode(next); try { localStorage.setItem('me-read-width', next) } catch { /* 隐私模式忽略 */ } }}>{t('readWidth')} · {t(widthMode === 'narrow' ? 'widthNarrow' : widthMode === 'wide' ? 'widthWide' : 'widthMid')}</button>
-            {query && <><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button><button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbNotUseful')}</button></>}
+            <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button>
+            <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbIrr')}</button>
             {long && <button type="button" className="mc-btn" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>{expanded ? t('collapse') : t('expand')}</button>}
             <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => { if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>{t('delete')}</button>
             <button type="button" className="mc-btn" onClick={onClose}>{t('close')}</button>
@@ -3421,11 +4372,60 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
           {!!metaOf('source') && <span className="md-chip md-date">📥 {metaOf('source')}</span>}
         </div>
         <div className="me-read-progress" aria-hidden="true"><i style={{ width: progress + '%' }} /></div>
-        <div className="me-dialog-body"
-          style={{ maxWidth: WIDTH_PX[widthMode], margin: '0 auto', width: '100%', boxSizing: 'border-box', ...(expanded ? {} : { maxHeight: 300, overflow: 'hidden' }) }}
-          onScroll={(e) => { const el = e.currentTarget; const max = el.scrollHeight - el.clientHeight; setProgress(max <= 0 ? 100 : Math.min(100, Math.max(0, (el.scrollTop / max) * 100))) }}
-          onClick={expanded ? undefined : (e) => { e.stopPropagation(); setExpanded(true) }}>
-          <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(body) }} />
+        <div className="me-reader-body">
+          <div className="me-dialog-body me-reader-main"
+            style={{ maxWidth: WIDTH_PX[widthMode], margin: '0 auto', width: '100%', boxSizing: 'border-box', ...(expanded ? {} : { maxHeight: 300, overflow: 'hidden' }) }}
+            onScroll={(e) => { const el = e.currentTarget; const max = el.scrollHeight - el.clientHeight; setProgress(max <= 0 ? 100 : Math.min(100, Math.max(0, (el.scrollTop / max) * 100))) }}
+            onClick={expanded ? undefined : (e) => { e.stopPropagation(); setExpanded(true) }}>
+            {!!readerLead && (
+              <div className="me-reader-callout">
+                <span className="me-reader-callout-k">{t(cardInsightKey(card))}</span>
+                <p>{readerLead}</p>
+              </div>
+            )}
+            <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(cleanBody) }} />
+          </div>
+          <aside className="me-reader-side">
+            {toc.length > 0 && (
+              <>
+                <div className="side-label">{t('contents')}</div>
+                <div className="me-reader-toc">
+                  {toc.map((h, i) => (
+                    <button key={h.id} type="button" className={`lv${h.level}`} onClick={() => { const el = document.getElementById(h.id); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }) }}>
+                      <span>{String(i + 1).padStart(2, '0')}</span>{h.text}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="side-label">{t('source')}</div>
+            <div className="me-reader-side-val">{metaOf('source') || card.submittedBy || '—'}</div>
+            <div className="side-label">{t('updated')}</div>
+            <div className="me-reader-side-val">{fmtDate(metaOf('updated') || card.updated)}</div>
+            <div className="side-label">{t('file')}</div>
+            <div className="me-reader-side-val mono">{card.path}</div>
+            {tags.length > 0 && (
+              <>
+                <div className="side-label">{t('tags')}</div>
+                <div className="me-reader-tags">
+                  {tags.slice(0, 8).map((tag) => <button key={tag} type="button" className="mc-chip" onClick={() => onTagClick && onTagClick(tag)}>#{tag}</button>)}
+                </div>
+              </>
+            )}
+            {related.length > 0 && (
+              <>
+                <div className="side-label">{t('related')}</div>
+                <div className="me-reader-related">
+                  {related.map((r) => (
+                    <button key={r.path} type="button" onClick={() => onOpenRelated && onOpenRelated(r)}>
+                      <span>{KIND_EMOJI[r.kind] || '📎'}</span>
+                      <b>{r.title}</b>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </aside>
         </div>
         {!expanded && <div className="md-collapsed-hint" onClick={(e) => { e.stopPropagation(); setExpanded(true) }}>{t('expand')} ⌄</div>}
       </div>
@@ -3490,8 +4490,16 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
   }, [reload, onMutate])
 
   return (
-    <div className="me-graph">
+    <div className="me-graph me-v5-graph">
       <style>{CSS}</style>
+      <div className="mc-v5-pagehead mc-v5-graphhead">
+        <div>
+          <div className="mc-v5-eyebrow">KNOWLEDGE GRAPH</div>
+          <h1>{t('graphTab')}</h1>
+          <p>{t('graphHint')}</p>
+        </div>
+        <span className="mc-v5-pagecount">{data ? `${data.nodes.length} ${t('nodes')} · ${countEdges(data.edges)} ${t('edges')}` : ''}</span>
+      </div>
       {error && <div className="mc-empty">{t('error')}：{error}</div>}
       {!data && !error && <div className="mc-empty">{t('loading')}</div>}
       {data && data.nodes.length === 0 && <div className="mc-empty">{t('emptyGraph')}</div>}
@@ -3567,6 +4575,11 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     for (const n of nodes) { for (const tg of (n.tags || [])) { const t0 = String(tg).trim(); if (t0) m.set(t0, (m.get(t0) || 0) + 1) } }
     return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24).map(([t0, n0]) => ({ tag: t0, n: n0 }))
   }, [nodes])
+  const kindStats = useMemo(() => {
+    const m = {}
+    for (const n of nodes) m[n.kind || 'other'] = (m[n.kind || 'other'] || 0) + 1
+    return m
+  }, [nodes])
   const noMatch = (() => { const q = search.trim().toLowerCase(); return !!q && !nodes.some((n) => (n.title || n.name || '').toLowerCase().includes(q) || String(n.kind || '').toLowerCase().includes(q) || String(KIND_LABELS[n.kind] || '').toLowerCase().includes(q)) })()
   // 搜索变化时唤醒仿真重绘（否则布局停车后搜索不刷新）
   useEffect(() => { const s = simRef.current; if (s && s.wake) s.wake() }, [search])
@@ -3590,7 +4603,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     if (!canvas || nodes.length === 0) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    const dpr = Math.max(1, window.devicePixelRatio || 1)
+    const dpr = Math.min(1.5, Math.max(1, window.devicePixelRatio || 1))
     const degrade = () => document.documentElement.getAttribute('data-theme') === 'dark'
 
     const deg = {}
@@ -3612,6 +4625,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     simRef.current = sim
 
     let lastW = 0, lastH = 0
+    let gridPath = null, gridKey = ''
     const resize = () => {
       const w = canvas.clientWidth, h = canvas.clientHeight
       sim.w = w; sim.h = h
@@ -3656,9 +4670,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
 
     // 滚轮/初始视图共用同一个「度」：一格 = ×ZOOM_STEP（滚轮、放大/缩小按钮、初始 fit 一致）。
     const ZOOM_STEP = 1.1
-    // 初始视图比「刚好铺满」再**缩小两个度**：节点不再挤到边缘，四周留出可拖拽/框选的余量。
-    // 用户说的「缩小两个度」= 两格滚轮 = ×(1/1.1)² ≈ 0.826，所以这里直接复用 ZOOM_STEP，改步长时不会漂。
-    const INITIAL_ZOOM_OUT_STEPS = 2
+    // 初始视图比「刚好铺满」再**缩小三度**：节点不再挤到边缘，四周留出可拖拽/框选的余量。
+    // 用户反馈：卡数量多时默认视图偏大、放大容易卡；再缩小一度，默认先看全局。
+    const INITIAL_ZOOM_OUT_STEPS = 3
     const fit = () => {
       if (!sim.nodes.length) return
       let minX = 1/0, maxX = -1/0, minY = 1/0, maxY = -1/0
@@ -3667,7 +4681,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       const spanX = (maxX - minX) + pad * 2, spanY = (maxY - minY) + pad * 2
       const z = Math.min(sim.w / spanX, sim.h / spanY)
       // 展示全部：按边界精确缩放（不放大裁剪），让所有节点一屏可见、无滚动。
-      // 再叠一个「初始视图缩小两度」的系数（重置视图按钮也走这里，行为与首次打开一致）。
+      // 再叠一个「初始视图缩小三度」的系数（重置视图按钮也走这里，行为与首次打开一致）。
       const initialZoomOut = Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS)
       sim.zoom = Math.max(0.35, Math.min(1.8, z * initialZoomOut))
       sim.panX = sim.w / 2 - ((minX + maxX) / 2) * sim.zoom
@@ -3685,12 +4699,18 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       const kfTag = sim.tagFilter
       const kf = sim.kindFilter
       const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      // grid
+      // grid：只构建一次 Path2D，尺寸变化时重建；不再每帧 stroke 上百次
       ctx.save()
+      const gk = sim.w + 'x' + sim.h
+      if (!gridPath || gridKey !== gk) {
+        gridPath = new Path2D()
+        for (let gx = 0; gx < sim.w; gx += 24) { gridPath.moveTo(gx, 0); gridPath.lineTo(gx, sim.h) }
+        for (let gy = 0; gy < sim.h; gy += 24) { gridPath.moveTo(0, gy); gridPath.lineTo(sim.w, gy) }
+        gridKey = gk
+      }
       ctx.strokeStyle = degrade() ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
       ctx.lineWidth = 0.5
-      for (let gx = 0; gx < sim.w; gx += 24) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, sim.h); ctx.stroke() }
-      for (let gy = 0; gy < sim.h; gy += 24) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(sim.w, gy); ctx.stroke() }
+      ctx.stroke(gridPath)
       ctx.restore()
       ctx.save()
       ctx.translate(sim.panX, sim.panY); ctx.scale(sim.zoom, sim.zoom)
@@ -3728,7 +4748,10 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       // 边按「颜色 + 透明度 + 线宽」分桶，用 Path2D 一次描边：
       // 原来每条边一次 beginPath/stroke（2.7k 条 = 2.7k 次绘制调用），现在只按配色桶数描边。
       const edgeBuckets = new Map()
+      // 大图远景：先不画边，优先保证拖动/缩放帧率；放大后再显示关系
+      const skipEdges = sim.nodes.length > 1200 && sim.zoom < 0.3
       sim.edges.forEach((e) => {
+        if (skipEdges) return
         const s = nodeMap[e.sourceNodeId], t = nodeMap[e.targetNodeId]
         if (!s || !t) return
         // 视口剔除：两端都在屏幕外就不画（放大后大部分边都被剔掉）
@@ -4027,6 +5050,12 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       </div>
       <div className="me-graph-canvas" style={{ position: 'relative', overflow: 'hidden' }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'grab' }} />
+        <div className="mc-v5-graph-legend">
+          <div className="mc-v5-graph-legend-title">连接簇</div>
+          {Object.keys(KG.colors).filter((k) => kindStats[k]).map((k) => (
+            <div key={k} className="mc-v5-graph-legend-row"><i style={{ background: KG.colors[k] }} /><span>{t(KIND_LABELS[k] || 'kindKnowledge')}</span><b>{kindStats[k]}</b></div>
+          ))}
+        </div>
         <div className="me-graph-tooltip" ref={tooltipRef} style={{ display: 'none', position: 'absolute', zIndex: 4, pointerEvents: 'none', background: 'rgba(28,28,32,0.88)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#eee', borderRadius: 8, padding: '7px 10px', fontSize: 12, maxWidth: 220, boxShadow: '0 8px 24px rgba(0,0,0,.2)' }} />
         {noMatch && <div className="mc-empty" style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}>{t('noMatch')}</div>}
         {ctx && <div className="me-graph-ctx-back" style={{ position: 'fixed', inset: 0, zIndex: 30 }} onMouseDown={() => setCtx(null)} />}

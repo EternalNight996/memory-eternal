@@ -42,12 +42,12 @@ test('待审卡的正文读得到（展开视图渲染的就是它），批/驳�
   assert.equal(after1.rejected.length, 0, '批准不等于驳回')
 })
 
-test('源码守卫：审核中心可展开正文 + 就地批驳；正文按需拉取（不把整库正文塞进列表）', () => {
+test('源码守卫：审核中心右侧判词面板显示正文 + 直接批驳；正文按需拉取（不把整库正文塞进列表）', () => {
   const client = read('src/client/index.tsx')
-  assert.match(client, /const toggleOpen = async \(c\) =>/, '要有展开/收起')
-  assert.match(client, /\/card\?path=\$\{encodeURIComponent\(path\)\}&status=\$\{status\}/, '正文要按需拉 /card?status=')
-  assert.match(client, /renderMd\(splitFrontmatter\(st\.text\)\.body\)/, '展开后要用同一套 Markdown 渲染（不是裸文本）')
-  assert.match(client, /tab === 'pending' && \([\s\S]{0,400}?applyStatus\('approved', \[c\.path\]\)/, '展开块里要能直接批准')
+  assert.match(client, /const previewSt = previewCard \? bodyState\(previewCard\.path\)/, '要有右侧判词预览')
+  assert.match(client, /\/card\?path=\$\{encodeURIComponent\(p\)\}&status=\$\{status\}/, '正文要按需拉 /card?status=')
+  assert.match(client, /renderMd\(stripRepeatedTitle\(splitFrontmatter\(previewSt\.text\)\.body, previewCard\.title\)\)/, '判词面板要用同一套 Markdown 渲染（不是裸文本）')
+  assert.match(client, /applyStatus\('approved', \[previewCard\.path\]\)/, '判词面板里要能直接批准')
   assert.equal((client.match(/auditBodyFail:/g) || []).length, 2, '中英词条各一条（否则英文界面显示 key）')
   const api = read('lib/api.js')
   assert.match(api, /const q = await auditQueue\(vaultRoot\)[\s\S]{0,200}?inQueue/, '未审核正文只能对队列里的 path 放行')

@@ -1287,6 +1287,21 @@ export function apply(ctx, config) {
           // 是相对路径，所以在这三个路由下都会解析到 /memory-eternal/ui/app.js —— 天然同源。
           // 为什么记忆库页也要同源（issue #29）：iframe 过去指向「常驻实例监听的那个端口」，
           // 而自愈/漂移会让那个端口变成死地址 → 记忆页「拒绝连接」。同源后地址与端口彻底解耦。
+          if (pathname.startsWith(API_PREFIX + '/ui/support/')) {
+            const name = pathname.slice((API_PREFIX + '/ui/support/').length)
+            if (!/^[a-z0-9-]+\.(jpg|jpeg|png)$/i.test(name)) {
+              res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+              return res.end('not found')
+            }
+            try {
+              const buf = await fs.readFile(path.join(PACKAGE_ROOT, 'web', 'support', name))
+              res.writeHead(200, { 'Content-Type': /\.png$/i.test(name) ? 'image/png' : 'image/jpeg', 'Cache-Control': 'public, max-age=3600' })
+              return res.end(buf)
+            } catch (error) {
+              res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+              return res.end('not found')
+            }
+          }
           if (pathname === API_PREFIX + '/ui/app' || pathname === API_PREFIX + '/ui/config' || pathname === API_PREFIX + '/ui/app.js') {
             const { readFile } = fs
             const webRoot = path.join(PACKAGE_ROOT, 'web')

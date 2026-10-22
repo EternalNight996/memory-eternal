@@ -121,6 +121,7 @@ export function renderMd(text) {
   })
 
   const out = []
+  let hid = 0
   let para = []
   let list = null
   let quote = null
@@ -148,7 +149,8 @@ export function renderMd(text) {
     if ((m = /^(#{1,6})\s+(.+)$/.exec(line))) {
       flushAll()
       const [ico, tone] = headOf(m[2])
-      out.push('<div class="md-h md-h-' + (m[1].length <= 2 ? 'h1' : 'h2') + ' md-c-' + tone + '"><span class="md-ico">' + ico + '</span><span class="md-hx">' + renderInline(m[2]) + '</span></div>')
+      hid++
+      out.push('<div id="md-h-' + hid + '" class="md-h md-h-' + (m[1].length <= 2 ? 'h1' : 'h2') + ' md-c-' + tone + '"><span class="md-ico">' + ico + '</span><span class="md-hx">' + renderInline(m[2]) + '</span></div>')
       continue
     }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { flushAll(); out.push('<hr class="md-hr"/>'); continue }

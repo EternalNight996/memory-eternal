@@ -24,8 +24,8 @@ test('按钮不被压扁、但按钮组可换行（否则 8 个按钮在 760px �
   assert.match(src, /\.me-dialog-head \.me-head-actions \.mc-btn \{ flex: 0 0 auto; white-space: nowrap; \}/, '按钮自身也不许缩/换行')
 })
 
-test('两个多按钮头部都走 .me-head-actions（阅读器 + 导出图谱）', () => {
-  assert.equal((src.match(/className="me-head-actions"/g) || []).length, 2, '阅读器与导出图谱各一处')
+test('多按钮头部都走 .me-head-actions（阅读器 + 导出图谱 + 支持弹窗）', () => {
+  assert.equal((src.match(/className="me-head-actions"/g) || []).length, 3, '阅读器、导出图谱与支持弹窗各一处')
   const reader = src.slice(src.indexOf('<h3 title={card.title}>'), src.indexOf('<h3 title={card.title}>') + 1400)
   assert.match(reader, /className="me-head-actions"/, '阅读器的按钮组要带类')
 })
