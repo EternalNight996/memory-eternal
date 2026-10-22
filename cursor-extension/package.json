@@ -1,0 +1,54 @@
+{
+  "name": "memory-eternal",
+  "displayName": "Memory Atlas",
+  "description": "Memory-eternal: open the local Memory Atlas library, review queue and knowledge graph in a Cursor/VS Code webview.",
+  "version": "0.12.0",
+  "publisher": "EternalNight996",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EternalNight996/memory-eternal"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:memory-eternal.view",
+    "onCommand:memory-eternal.open"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "memory-eternal",
+          "title": "Memory Atlas",
+          "icon": "icon.png"
+        }
+      ]
+    },
+    "views": {
+      "memory-eternal": [
+        {
+          "id": "memory-eternal.view",
+          "name": "记忆",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "memory-eternal.open",
+        "title": "Memory Atlas: Open"
+      }
+    ]
+  },
+  "files": [
+    "extension.js",
+    "icon.png",
+    "README.md"
+  ]
+}

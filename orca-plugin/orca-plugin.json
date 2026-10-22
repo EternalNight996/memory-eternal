@@ -1,0 +1,36 @@
+{
+  "manifestVersion": 1,
+  "id": "memory-eternal",
+  "publisher": "eternalnight996",
+  "name": "memory-eternal",
+  "version": "0.12.0",
+  "description": "Memory Atlas for Orca: open the local memory vault, pending review and knowledge graph from a sandboxed Orca panel.",
+  "author": {
+    "name": "EternalNight996",
+    "url": "https://github.com/EternalNight996"
+  },
+  "repository": "https://github.com/EternalNight996/memory-eternal",
+  "icon": "assets/icon.png",
+  "engines": {
+    "orca": ">=1.4.0"
+  },
+  "pluginApi": 1,
+  "contributes": {
+    "panels": [
+      {
+        "id": "memory",
+        "title": "记忆",
+        "icon": "brain",
+        "entry": "panel.html"
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "workspace:read"
+    },
+    {
+      "kind": "terminal:send"
+    }
+  ]
+}

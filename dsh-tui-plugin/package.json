@@ -1,0 +1,29 @@
+{
+  "name": "memory-eternal-tui",
+  "version": "0.12.0",
+  "description": "Open Memory Atlas from dsh-TUI with /memory.",
+  "type": "module",
+  "main": "main.js",
+  "files": [
+    "main.js",
+    "dsh-plugin.json",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-tui",
+    "memory-eternal",
+    "memory",
+    "plugin"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  }
+}

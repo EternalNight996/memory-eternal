@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Memory Atlas</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 18px 16px 22px;
+    font-family: var(--font-sans, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--foreground, #f3f5f8);
+    background:
+      radial-gradient(120% 80% at 100% 0%, rgba(255,122,69,.10), transparent 55%),
+      var(--background, #1e2228);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .mark {
+    width: 38px; height: 38px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 11px; font-size: 21px;
+    background: rgba(255,122,69,.10);
+    border: 1px solid rgba(255,122,69,.24);
+  }
+  .brand h1 { margin: 0; font-size: 16px; line-height: 1.2; font-weight: 650; }
+  .brand p { margin: 2px 0 0; font-size: 10px; letter-spacing: .12em; color: var(--muted-foreground, #99a1ac); }
+  .card {
+    padding: 14px;
+    border: 1px solid var(--border, #3a404a);
+    border-radius: 12px;
+    background: var(--card, rgba(38,43,51,.92));
+  }
+  .card h2 { margin: 0 0 5px; font-size: 12.5px; font-weight: 600; }
+  .card p { margin: 0; color: var(--muted-foreground, #b0b7c1); font-size: 11px; }
+  .row { display: flex; flex-direction: column; gap: 5px; margin-top: 13px; }
+  .row label { font-size: 10px; color: var(--muted-foreground, #99a1ac); }
+  select {
+    width: 100%;
+    padding: 7px 8px;
+    border-radius: 7px;
+    border: 1px solid var(--border, #3a404a);
+    background: var(--secondary, #2a2f37);
+    color: var(--foreground, #f3f5f8);
+    font: inherit;
+    font-size: 11px;
+  }
+  button {
+    width: 100%;
+    margin-top: 13px;
+    padding: 9px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--primary, #ff7a45);
+    color: var(--primary-foreground, #1b1f25);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.06); }
+  button:disabled { opacity: .45; cursor: default; }
+  .status { min-height: 1.6em; margin: 10px 0 0; font-size: 10.5px; color: var(--muted-foreground, #99a1ac); }
+  .fallback { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border, #3a404a); font-size: 10.5px; color: var(--muted-foreground, #99a1ac); }
+  .fallback code {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(127,127,127,.12);
+    color: var(--foreground, #f3f5f8);
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 10px;
+  }
+  .warn { color: var(--destructive, #f87171); }
+  .ok { color: #4ade80; }
+</style>
+</head>
+<body>
+  <div class="brand">
+    <div class="mark">🧠</div>
+    <div>
+      <h1>Memory Atlas</h1>
+      <p>MEMORY ETERNAL</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>本地记忆库</h2>
+    <p>记忆库、待审、读卡器与知识星图都在 Web 面板里；Orca 只负责一键打开，不复制第二套 UI。</p>
+
+    <div class="row">
+      <label for="terminal">发送到终端</label>
+      <select id="terminal"><option value="">正在读取工作区…</option></select>
+    </div>
+
+    <button id="open" disabled>打开 Memory Atlas</button>
+    <p id="status" class="status"></p>
+
+    <div class="fallback">
+      如果按钮无响应，在任意终端执行：
+      <code>dsh-memory open</code>
+      <br/>Web 地址：<code>http://127.0.0.1:7999/</code>
+    </div>
+  </div>
+
+  <script>
+    'use strict'
+
+    var seq = 0
+    var pending = new Map()
+    var statusEl = document.getElementById('status')
+    var terminalEl = document.getElementById('terminal')
+    var openBtn = document.getElementById('open')
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text || ''
+      statusEl.className = 'status' + (cls ? ' ' + cls : '')
+    }
+
+    function call(action, params) {
+      return new Promise(function (resolve, reject) {
+        var requestId = 'req-' + (++seq)
+        pending.set(requestId, { resolve: resolve, reject: reject })
+        window.parent.postMessage({
+          type: 'orca-panel-action',
+          requestId: requestId,
+          action: action,
+          params: params || {}
+        }, '*')
+      })
+    }
+
+    window.addEventListener('message', function (event) {
+      var data = event.data
+      if (!data || data.type !== 'orca-panel-action-result') return
+      var entry = pending.get(data.requestId)
+      if (!entry) return
+      pending.delete(data.requestId)
+      if (data.ok) entry.resolve(data.value)
+      else entry.reject(new Error(data.error || data.errorCode || 'action failed'))
+    })
+
+    async function loadTerminals() {
+      try {
+        var ctx = await call('workspace.readContext')
+        var terminals = (ctx && ctx.terminals) || []
+        terminalEl.innerHTML = ''
+        if (!terminals.length) {
+          var opt = document.createElement('option')
+          opt.value = ''
+          opt.textContent = '请先打开一个 Orca 终端'
+          terminalEl.appendChild(opt)
+          openBtn.disabled = true
+          setStatus('需要一个终端来执行 dsh-memory open。', 'warn')
+          return
+        }
+        terminals.forEach(function (term, index) {
+          var opt = document.createElement('option')
+          opt.value = term.id
+          opt.textContent = '终端 ' + (index + 1)
+          terminalEl.appendChild(opt)
+        })
+        openBtn.disabled = false
+        setStatus('已就绪。')
+      } catch (err) {
+        setStatus('无法读取工作区终端：' + err.message, 'warn')
+      }
+    }
+
+    openBtn.addEventListener('click', async function () {
+      var terminalId = terminalEl.value
+      if (!terminalId) {
+        setStatus('请先选择一个终端。', 'warn')
+        return
+      }
+      openBtn.disabled = true
+      setStatus('正在拉起 Memory Atlas…')
+      try {
+        await call('terminal.sendText', {
+          terminalId: terminalId,
+          text: 'dsh-memory open',
+          enter: true
+        })
+        setStatus('已发送 dsh-memory open。浏览器/WebView 打开后即可使用。', 'ok')
+      } catch (err) {
+        setStatus('打开失败：' + err.message + '。请在终端手动执行 dsh-memory open。', 'warn')
+      } finally {
+        openBtn.disabled = false
+      }
+    })
+
+    loadTerminals()
+  </script>
+</body>
+</html>
