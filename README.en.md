@@ -53,7 +53,7 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-reader.png" width="72%" alt="Native terminal long-form reader: TOC, body, related memories and scrolling" />
 </p>
-<p align="center"><sub>▲ New in v0.13: in-Web terminal guide · native terminal audit (select-all/batch) · long-form reader</sub></p>
+<p align="center"><sub>▲ New in v0.14: in-Web terminal guide · native terminal audit (select-all/batch) · long-form reader</sub></p>
 
 ---
 
@@ -62,14 +62,81 @@
 | Platform / host | Memory Atlas UI | Review / approve | Knowledge graph | Entry and status |
 |---|---|---|---|---|
 | **DSH desktop / Web** | Fully embedded | ✅ | ✅ | Sidebar “Memory”, supported |
+| **Any terminal (TUI)** | Native terminal UI | ✅ select-all / batch | Clusters / adjacency | [`dsh-memory tui --live`](#-terminal-tui), no absolute path |
 | **Orca** | Sidebar launcher | In Web UI | In Web UI | Right sidebar “Memory”, [new in this release](orca-plugin/README.md) |
-| **dsh-tui** | Native `/audit` + `/memory` | Native scene | Native scene | [new in this release](dsh-tui-plugin/README.md) |
+| **dsh-tui** | Native `/audit` + full TUI | Native scene | Native scene | [new in this release](dsh-tui-plugin/README.md) |
 | **Codex** | Opens browser | In Web UI | In Web UI | [`memory-open` skill](skills/memory-open/SKILL.md), new in this release |
 | **Claude Code** | Browser / Pane | In Web UI | In Web UI | `/memory-eternal:memory-open`, new in this release |
 | **Cursor** | Embedded Webview | ✅ | ✅ | [Extension Webview](cursor-extension/README.md), new in this release |
 | **Pure Web** | Canonical implementation | ✅ | ✅ | `http://127.0.0.1:7999/` |
 
 > Principle: **one Web UI is the single source of truth**. Hosts that can embed use a Webview; hosts that cannot get a thin launcher only. Every entry opens the same version, so DSH and Web never drift.
+
+---
+
+## 🖥️ Terminal (TUI)
+
+The Web UI is not the only entry. The terminal version is a **native TUI** over the same memory vault — built for fast review, select-all, long-form reading and a low-distraction workflow.
+
+### One command for any user
+
+No clone, no `cd`, no local absolute path:
+
+```bash
+npx -y -p memory-eternal dsh-memory tui --live
+```
+
+On a machine where `memory-eternal` is already installed:
+
+```bash
+dsh-memory tui --live          # read-only: real review queue
+dsh-memory tui --live --write  # write: real approve / reject
+```
+
+If `dsh-memory` is not on PATH, use the `npx` command above; it downloads and runs the current npm version.
+
+### What is inside
+
+| Page | Capability |
+|---|---|
+| Library | search, kind filters, today's resurface, reading |
+| Review | select-all / invert, batch approve, batch reject, verdict |
+| Star map | clusters, adjacency, related cards |
+| Runtime | vault, backups, version, capture log |
+| Recycle bin | restore, purge |
+| Settings | auto-capture, failure alerts, audit, retention, theme |
+| Reader | long-form wrapping, TOC, related memories, scrolling |
+
+### Keys
+
+| Key | Action |
+|---|---|
+| `1–6` | switch main page |
+| `Tab` | cycle pages |
+| `↑↓` / `j k` | move |
+| `←→` / `t` | switch kind |
+| `Space` | multi-select / toggle setting |
+| `s` / `Ctrl+A` | select all / invert |
+| `a` | approve current or batch |
+| `r` | reject current or batch; restore in recycle bin |
+| `d` | purge in recycle bin |
+| `Enter` | read card / toggle setting |
+| `L` | open the long-form reader directly |
+| `j k` / `PgUp` `PgDn` / `g G` | reader scroll / page / top-bottom |
+| `/` | search |
+| `Esc` | back / clear |
+| `?` | help |
+| `q` | quit |
+
+### Why the Web UI does not embed the TUI
+
+The terminal TUI relies on the alternate screen, raw key events and a character grid; an iframe cannot reproduce it faithfully. The Web “Terminal” page therefore provides copy-ready commands and a preview; the real run happens in a terminal, while dsh-tui uses the native `/audit` scene.
+
+### Limits
+
+- No images / QR / Canvas graph in the terminal; the graph becomes clusters and adjacency.
+- Colors and borders depend on the terminal font; on Windows use Windows Terminal or the VS Code integrated terminal.
+- `--live` is read-only by default; real review requires `--write`.
 
 ---
 
