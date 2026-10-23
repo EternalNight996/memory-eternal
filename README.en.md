@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
-  <img src="https://img.shields.io/badge/release-v0.14.3-FF7A45" alt="v0.14.3" />
+  <img src="https://img.shields.io/badge/release-v0.15.0-FF7A45" alt="v0.15.0" />
   <a href="https://eternalnight996.github.io/memory-eternal/"><img src="https://img.shields.io/badge/Live%20Demo-online-FF7A45" alt="Live demo" /></a>
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
@@ -62,7 +62,7 @@
 | Platform / host | Memory Atlas UI | Review / approve | Knowledge graph | Entry and status |
 |---|---|---|---|---|
 | **DSH desktop / Web** | Fully embedded | ✅ | ✅ | Sidebar “Memory”, supported |
-| **Any terminal (TUI)** | Native terminal UI | ✅ select-all / batch | Clusters / adjacency | [`dsh-memory tui --live`](#-terminal-tui), no absolute path |
+| **Any terminal (TUI)** | Native terminal UI | ✅ select-all / batch | Clusters / adjacency | [`dsh-memory tui`](#-terminal-tui), no absolute path |
 | **Orca** | Sidebar launcher | In Web UI | In Web UI | Right sidebar “Memory”, [new in this release](orca-plugin/README.md) |
 | **dsh-tui** | Native `/audit` + full TUI | Native scene | Native scene | [new in this release](dsh-tui-plugin/README.md) |
 | **Codex** | Opens browser | In Web UI | In Web UI | [`memory-open` skill](skills/memory-open/SKILL.md), new in this release |
@@ -83,19 +83,20 @@ The Web UI is not the only entry. The terminal version is a **native TUI** over 
 No clone, no `cd`, no local absolute path:
 
 ```bash
-npx -y -p memory-eternal dsh-memory tui --live
+npx -y -p memory-eternal dsh-memory tui
 ```
 
 On a machine where `memory-eternal` is already installed:
 
 ```bash
-dsh-memory tui --live          # read-only: real review queue
-dsh-memory tui --live --write  # write: real approve / reject
+dsh-memory tui          # live by default: library/review/graph/status/recycle
+dsh-memory tui --write  # write: real approve / reject
+dsh-memory tui --demo   # sample data
 ```
 
 If `dsh-memory` is not on PATH, use the `npx` command above; it downloads and runs the current npm version.
 
-> The `tui` subcommand ships in **0.14.1+**. An older CLI prints help; upgrade with `npm i -g --force memory-eternal@0.14.3`.
+> The `tui` subcommand ships in **0.14.1+**. An older CLI prints help; upgrade with `npm i -g --force memory-eternal@0.15.0`.
 
 ### What is inside
 
@@ -138,7 +139,7 @@ The terminal TUI relies on the alternate screen, raw key events and a character 
 
 - No images / QR / Canvas graph in the terminal; the graph becomes clusters and adjacency.
 - Colors and borders depend on the terminal font; on Windows use Windows Terminal or the VS Code integrated terminal.
-- `--live` is read-only by default; real review requires `--write`.
+- Read-only by default; real review requires `--write`; use `--demo` for sample data.
 
 ---
 
@@ -176,7 +177,7 @@ cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
 # right after a release, @latest can be held back by pnpm's minimum-release-age gate or a cached
 # packument (it silently stays on the old version): pin the version instead — pnpm adds it to the
 # workspace's minimumReleaseAgeExclude automatically
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.14.3
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.15.0
 
 # verify the version, then restart the host
 node -e "console.log(require('memory-eternal/package.json').version)"
@@ -240,7 +241,7 @@ dsh-memory setup [--dry-run]             # re-run / preview auto-mount (idempote
 dsh-memory mcp                           # MCP stdio (mount to any MCP client)
 dsh-memory serve [--port 7999]           # run web in foreground
 dsh-memory open                          # ensure web alive + open browser
-dsh-memory tui --live                    # full terminal client (read-only; --write to review)
+dsh-memory tui                    # full terminal client (read-only; --write to review)
 dsh-memory watchdog [--port 7799]        # watchdog keep-alive (standalone process)
 dsh-memory status [--json]               # resident watchdog: pid / port / version / alive
                                          # plus the version **actually served on the port**
@@ -485,15 +486,16 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # is the standalone we
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.15.0** | 2026-10-23 | **Live TUI by default**: `dsh-memory tui` no longer needs `--live`; it loads the real library, review queue, graph, runtime and recycle bin by default. `--demo` is opt-in sample data, and `--write` is required for real review. Also fixes empty-queue sample fallback and fake library/graph/status data. |
 | **v0.14.3** | 2026-10-23 | **Live data across the whole TUI**: `--live` now loads the real library (paginated), graph nodes/edges, runtime totals/backups/version and recycle bin; the library/graph/status pages no longer show fake 999 nodes, 0.12.0 or demo logs. Review stays on the real queue, and cards are fetched with their real status. |
-| **v0.14.2** | 2026-10-23 | **Live empty-queue fix**: `dsh-memory tui --live` no longer falls back to sample data when the real pending queue is empty; it stays in LIVE mode and shows the empty state. The path-free npx entry and the 0.14.1 old-global-CLI upgrade note remain. |
 
 <details>
 <summary>Older release notes (v0.10.52 and earlier · 79 releases, click to expand)</summary>
 
 | Version | Date | Highlights |
 |---|---|---|
-| **v0.14.1** | 2026-10-23 | **Portable terminal entry**: new `dsh-memory tui --live` lets any installed user launch the full terminal client without `cd`-ing into the repo or hard-coding a local path; the Web terminal page now shows the same read-only/write commands. |
+| **v0.14.2** | 2026-10-23 | **Live empty-queue fix**: `dsh-memory tui` no longer falls back to sample data when the real pending queue is empty; it stays in LIVE mode and shows the empty state. The path-free npx entry and the 0.14.1 old-global-CLI upgrade note remain. |
+| **v0.14.1** | 2026-10-23 | **Portable terminal entry**: new `dsh-memory tui` lets any installed user launch the full terminal client without `cd`-ing into the repo or hard-coding a local path; the Web terminal page now shows the same read-only/write commands. |
 | **v0.14.0** | 2026-10-23 | **Web terminal entry + fresh screenshots**: the library rail gains a Terminal page with copy-ready commands, the dsh-tui `/audit` guide and a terminal preview, so terminal-only features are discoverable from the Web UI; README adds real screenshots for the terminal audit, long-form reader and Web terminal page; the native dsh-tui `/audit` scene ships. |
 | **v0.13.0** | 2026-10-23 | **Full TUI + native dsh-tui audit**: the terminal client now covers library, audit, graph, status, recycle, settings, long-form reader and search; audit gains select-all and batch approve/reject; `--live` talks to the local API (read-only by default, `--write` to mutate); a native dsh-tui `/audit` scene replaces the browser-only entry. |
 | **v0.12.0** | 2026-10-22 | **Cross-host launchers**: Orca right-sidebar Memory panel, dsh-tui `/memory`, Codex / Claude `memory-open` skill, and a Cursor / VS Code Webview extension; README gains a platform support table; one Web UI stays the single source of truth — Webview where it works, a thin launcher everywhere else, with no new agent permissions. |

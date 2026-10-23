@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
-  <img src="https://img.shields.io/badge/release-v0.14.3-FF7A45" alt="v0.14.3" />
+  <img src="https://img.shields.io/badge/release-v0.15.0-FF7A45" alt="v0.15.0" />
   <a href="https://eternalnight996.github.io/memory-eternal/"><img src="https://img.shields.io/badge/Live%20Demo-online-FF7A45" alt="Live demo" /></a>
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
@@ -62,7 +62,7 @@
 | 平台 / 宿主 | Memory Atlas UI | 待审 / 批驳 | 知识星图 | 入口与状态 |
 |---|---|---|---|---|
 | **DSH 桌面版 / Web** | 完整内嵌 | ✅ | ✅ | 左栏「记忆」，已支持 |
-| **任意终端（TUI）** | 终端原生 | ✅ 全选 / 批量批驳 | 连接簇 / 邻接表 | [`dsh-memory tui --live`](#-终端版tui)，免绝对路径 |
+| **任意终端（TUI）** | 终端原生 | ✅ 全选 / 批量批驳 | 连接簇 / 邻接表 | [`dsh-memory tui`](#-终端版tui)，免绝对路径 |
 | **Orca** | 侧栏启动器 | Web 内完成 | Web 内完成 | 右栏「记忆」，[本版新增](orca-plugin/README.md) |
 | **dsh-tui** | 原生 `/audit` + 完整 TUI | 原生场景 | 原生场景 | [本版新增](dsh-tui-plugin/README.md) |
 | **Codex** | 浏览器打开 | Web 内完成 | Web 内完成 | [`memory-open` skill](skills/memory-open/SKILL.md)，本版新增 |
@@ -83,19 +83,20 @@ Web 不是唯一入口。终端版是同一套记忆库的**原生 TUI**，适�
 不需要克隆仓库、不需要 `cd`、不需要填写本机绝对路径：
 
 ```bash
-npx -y -p memory-eternal dsh-memory tui --live
+npx -y -p memory-eternal dsh-memory tui
 ```
 
 已经安装 `memory-eternal` 的机器：
 
 ```bash
-dsh-memory tui --live          # 只读：读取真实待审队列
-dsh-memory tui --live --write  # 写入：允许真实批准/驳回
+dsh-memory tui          # 默认实时：记忆库/待审/星图/状态/回收站
+dsh-memory tui --write  # 写入：允许真实批准/驳回
+dsh-memory tui --demo   # 示例数据（无 API 时也可看效果）
 ```
 
 `dsh-memory` 不在 PATH 时，直接用上面的 `npx` 命令；它会临时下载并运行当前 npm 版本。
 
-> `tui` 子命令从 **0.14.1** 开始提供。旧版 `dsh-memory` 会显示帮助；升级：`npm i -g --force memory-eternal@0.14.3`。
+> `tui` 子命令从 **0.14.1** 开始提供。旧版 `dsh-memory` 会显示帮助；升级：`npm i -g --force memory-eternal@0.15.0`。
 
 ### 终端版包含
 
@@ -139,7 +140,7 @@ dsh-memory tui --live --write  # 写入：允许真实批准/驳回
 
 - 终端不渲染图片 / 二维码 / Canvas 星图；星图使用连接簇和邻接表。
 - 长文、颜色和边框依赖终端字体；Windows 建议 Windows Terminal / VS Code 集成终端。
-- `--live` 默认只读；真实批驳必须显式加 `--write`。
+- 默认只读；真实批驳必须显式加 `--write`；示例数据用 `--demo`。
 
 ---
 
@@ -176,7 +177,7 @@ cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
 
 # 刚发新版时 @latest 可能被 pnpm 的最小发布年龄门槛/元数据缓存挡住（静默停在旧版）：
 # 直接指定版本号最快，pnpm 会自动把它加进 workspace 的 minimumReleaseAgeExclude
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.14.3
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.15.0
 
 # 验版本（应等于上面装的号），然后重启对应宿主生效
 node -e "console.log(require('memory-eternal/package.json').version)"
@@ -252,7 +253,7 @@ dsh-memory connect <claude|codex|cursor>  # 写会话结束自动沉淀 hook（�
 dsh-memory mcp                       # MCP stdio（挂任意 MCP 客户端）
 dsh-memory serve [--port 7999]       # 前台跑 web
 dsh-memory open                      # ensure web 存活 + 开浏览器
-dsh-memory tui --live                # 完整终端客户端（只读真实队列；--write 才批驳）
+dsh-memory tui                # 完整终端客户端（只读真实队列；--write 才批驳）
 dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
 dsh-memory status [--json]           # 看常驻 watchdog：pid / 端口 / 版本 / 是否存活
                                      # 以及**端口上真正在服务的版本**（锁里的版本号只是 watchdog 自述）
@@ -518,15 +519,16 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.15.0** | 2026-10-23 | **TUI 默认实时**：`dsh-memory tui` 不再需要 `--live`，默认加载真实记忆库、待审、星图、状态、回收站；`--demo` 才使用示例数据；`--write` 才允许批驳；同时修复空队列误回退示例、记忆库/星图/状态假数据问题。 |
 | **v0.14.3** | 2026-10-23 | **终端实时数据全页打通**：`--live` 现在同时加载真实记忆库（全量分页）、知识星图节点/连线、运行状态总数/备份/版本、回收站；不再在记忆库/星图/状态页显示 999 节点、0.12.0、示例日志等假数据；待审仍为真实队列，读卡按卡状态请求正文。 |
-| **v0.14.2** | 2026-10-23 | **实时空队列修复**：`dsh-memory tui --live` 在真实待审为 0 时不再回退示例数据，显示 LIVE 空队列；同时保留 `npx -p memory-eternal dsh-memory tui --live` 的免路径入口与 0.14.1 的旧全局 CLI 升级提示。 |
 
 <details>
 <summary>更早的更新日志（v0.10.52 及以前 · 共 79 版，点开查看）</summary>
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
-| **v0.14.1** | 2026-10-23 | **终端入口免绝对路径**：新增 `dsh-memory tui --live`，任意用户安装插件后可直接运行完整终端客户端，无需 `cd` 到仓库或填写本机绝对路径；Web 终端页同步改为只读/写入两条通用命令。 |
+| **v0.14.2** | 2026-10-23 | **实时空队列修复**：`dsh-memory tui` 在真实待审为 0 时不再回退示例数据，显示 LIVE 空队列；同时保留 `npx -p memory-eternal dsh-memory tui` 的免路径入口与 0.14.1 的旧全局 CLI 升级提示。 |
+| **v0.14.1** | 2026-10-23 | **终端入口免绝对路径**：新增 `dsh-memory tui`，任意用户安装插件后可直接运行完整终端客户端，无需 `cd` 到仓库或填写本机绝对路径；Web 终端页同步改为只读/写入两条通用命令。 |
 | **v0.14.0** | 2026-10-23 | **Web 终端入口 + 新功能截图**：记忆库左栏新增「终端版」，内置运行命令、dsh-tui `/audit` 引导与终端预览，解决 Web 无法展示 TUI 的问题；README 新增终端审核、长文读卡器和 Web 终端页真实截图；dsh-tui 原生 `/audit` 正式接入。 |
 | **v0.13.0** | 2026-10-23 | **完整 TUI + dsh-tui 原生审核**：终端客户端补齐记忆库、待审、星图、运行状态、回收站、设置、长文读卡器与搜索；待审支持全选/批量批驳；`--live` 直连本地 API（默认只读，`--write` 才写）；新增 dsh-tui 原生 `/audit` 场景，不再只是打开浏览器。 |
 | **v0.12.0** | 2026-10-22 | **跨宿主入口**：Orca 右侧栏「记忆」启动器、dsh-tui `/memory` 命令、Codex / Claude `memory-open` skill、Cursor / VS Code Webview 扩展；README 新增平台支持表；坚持一套 Web UI 唯一真源，能内嵌的用 Webview，不能内嵌的只做启动器；不新增 agent 权限。 |
