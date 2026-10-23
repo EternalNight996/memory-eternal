@@ -64,6 +64,7 @@
   }
   button:hover { filter: brightness(1.06); }
   button:disabled { opacity: .45; cursor: default; }
+  button.secondary { margin-top: 7px; background: transparent; color: var(--foreground, #f3f5f8); border-color: var(--border, #3a404a); }
   .status { min-height: 1.6em; margin: 10px 0 0; font-size: 10.5px; color: var(--muted-foreground, #99a1ac); }
   .fallback { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border, #3a404a); font-size: 10.5px; color: var(--muted-foreground, #99a1ac); }
   .fallback code {
@@ -98,11 +99,12 @@
       <select id="terminal"><option value="">正在读取工作区…</option></select>
     </div>
 
-    <button id="open" disabled>打开 Memory Atlas</button>
+    <button id="openOrca" disabled>在 Orca 浏览器打开</button>
+    <button id="openBrowser" class="secondary" disabled>外部浏览器打开</button>
     <p id="status" class="status"></p>
 
     <div class="fallback">
-      如果按钮无响应，在任意终端执行：
+      “在 Orca 浏览器打开”会执行 <code>orca tab create</code>，需要 <code>orca</code> CLI 在 PATH；失败时用外部浏览器：
       <code>dsh-memory open</code>
       <br/>Web 地址：<code>http://127.0.0.1:7999/</code>
     </div>
@@ -115,7 +117,8 @@
     var pending = new Map()
     var statusEl = document.getElementById('status')
     var terminalEl = document.getElementById('terminal')
-    var openBtn = document.getElementById('open')
+    var openOrcaBtn = document.getElementById('openOrca')
+    var openBrowserBtn = document.getElementById('openBrowser')
 
     function setStatus(text, cls) {
       statusEl.textContent = text || ''
@@ -155,8 +158,9 @@
           opt.value = ''
           opt.textContent = '请先打开一个 Orca 终端'
           terminalEl.appendChild(opt)
-          openBtn.disabled = true
-          setStatus('需要一个终端来执行 dsh-memory open。', 'warn')
+          openOrcaBtn.disabled = true
+          openBrowserBtn.disabled = true
+          setStatus('需要一个终端来打开 Memory Atlas。', 'warn')
           return
         }
         terminals.forEach(function (term, index) {
@@ -165,33 +169,44 @@
           opt.textContent = '终端 ' + (index + 1)
           terminalEl.appendChild(opt)
         })
-        openBtn.disabled = false
+        openOrcaBtn.disabled = false
+        openBrowserBtn.disabled = false
         setStatus('已就绪。')
       } catch (err) {
         setStatus('无法读取工作区终端：' + err.message, 'warn')
       }
     }
 
-    openBtn.addEventListener('click', async function () {
+    async function sendCommand(text, okText) {
       var terminalId = terminalEl.value
       if (!terminalId) {
         setStatus('请先选择一个终端。', 'warn')
         return
       }
-      openBtn.disabled = true
-      setStatus('正在拉起 Memory Atlas…')
+      openOrcaBtn.disabled = true
+      openBrowserBtn.disabled = true
+      setStatus('正在打开 Memory Atlas…')
       try {
         await call('terminal.sendText', {
           terminalId: terminalId,
-          text: 'dsh-memory open',
+          text: text,
           enter: true
         })
-        setStatus('已发送 dsh-memory open。浏览器/WebView 打开后即可使用。', 'ok')
+        setStatus(okText, 'ok')
       } catch (err) {
         setStatus('打开失败：' + err.message + '。请在终端手动执行 dsh-memory open。', 'warn')
       } finally {
-        openBtn.disabled = false
+        openOrcaBtn.disabled = false
+        openBrowserBtn.disabled = false
       }
+    }
+
+    openOrcaBtn.addEventListener('click', function () {
+      sendCommand('orca tab create --url http://127.0.0.1:7999/', '已发送 orca tab create。若 Orca 内置浏览器打开，即可在 Orca 内使用 Memory Atlas。')
+    })
+
+    openBrowserBtn.addEventListener('click', function () {
+      sendCommand('dsh-memory open', '已发送 dsh-memory open。浏览器打开后即可使用 Memory Atlas。')
     })
 
     loadTerminals()

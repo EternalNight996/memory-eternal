@@ -1,11 +1,13 @@
 {
   "name": "memory-eternal-tui",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Open Memory Atlas from dsh-TUI with /memory.",
   "type": "module",
   "main": "main.js",
   "files": [
     "main.js",
+    "scene.js",
+    "demo.mjs",
     "dsh-plugin.json",
     "cordis.patch.yml",
     "README.md"

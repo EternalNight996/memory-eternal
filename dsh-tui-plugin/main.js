@@ -3,12 +3,15 @@
 // 这里不做第二套 TUI UI：命令只负责把用户送到同一套 Memory Atlas Web UI。
 // 审批仍然在 Web 里由人完成，不新增 agent 工具，也不触碰审核守卫。
 import { spawn } from 'node:child_process'
+import { AuditScene } from './scene.js'
 
 export const name = 'memory-eternal-tui'
 export const inject = ['agents']
 
 const URL = 'http://127.0.0.1:7999/'
 const COMMAND_ID = 'memory-eternal-tui.open'
+const AUDIT_COMMAND_ID = 'memory-eternal-tui.audit'
+const AUDIT_SCENE_ID = 'memory-eternal-tui-audit'
 
 function openUrl() {
   const cmd = process.platform === 'win32' ? 'rundll32' : process.platform === 'darwin' ? 'open' : 'xdg-open'
@@ -41,6 +44,32 @@ export function apply(ctx) {
   const host = ctx.get('tuiPluginHost', false)
   if (!host) return
 
+  // tuiScenes can mount after this activation on a cold boot. Soft-probe and
+  // retry briefly instead of silently leaving /audit dead for the session.
+  let sceneDisposer = null
+  let sceneTimer = null
+  let attempts = 0
+  const registerScene = () => {
+    sceneTimer = null
+    const scenes = ctx.get('tuiScenes', false)
+    if (scenes && !sceneDisposer) {
+      try {
+        sceneDisposer = scenes.register({ id: AUDIT_SCENE_ID, title: 'Memory Atlas / 待审', component: AuditScene }, ctx)
+      } catch (error) {
+        console.warn('[memory-eternal-tui] scene registration failed:', error)
+      }
+    }
+    if (!sceneDisposer && attempts < 40) {
+      attempts += 1
+      sceneTimer = setTimeout(registerScene, 50)
+    }
+  }
+  registerScene()
+  ctx.effect(() => {
+    if (sceneTimer) clearTimeout(sceneTimer)
+    if (sceneDisposer) sceneDisposer()
+  })
+
   const dispose = host.registerCommand(ctx, COMMAND_ID, {
     recordInput: false,
     handler: () => {
@@ -49,6 +78,20 @@ export function apply(ctx) {
     },
   })
   ctx.effect(() => dispose)
+
+  const disposeAudit = host.registerCommand(ctx, AUDIT_COMMAND_ID, {
+    recordInput: false,
+    handler: () => {
+      const runtime = ctx.get('tuiScenes', false)
+      if (!runtime) return { kind: 'error', text: '当前 dsh-tui 没有 scenes 运行时' }
+      if (runtime.active?.id === AUDIT_SCENE_ID) runtime.close()
+      const opened = runtime.open(AUDIT_SCENE_ID)
+      return opened
+        ? { kind: 'success', text: 'Memory Atlas / 待审 已打开' }
+        : { kind: 'error', text: '审核场景未注册' }
+    },
+  })
+  ctx.effect(() => disposeAudit)
 }
 
 export default { name, inject, apply }
