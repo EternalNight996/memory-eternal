@@ -63,8 +63,8 @@ export const ZH = {
   terminalTab: '终端版',
   terminalTitle: '终端完整版',
   terminalIntro: 'Web UI 不渲染终端原生 TUI。要完整批卡、长文滚动和全选，请打开本机终端；或者直接在 dsh-tui 里用 /audit。',
-  terminalRun: '在本机终端运行',
-  terminalTui: '在 dsh-tui 内使用',
+  terminalRun: '只读体验（真实队列）',
+  terminalTui: '写入模式（真实批驳）',
   terminalWhy: '为什么不直接嵌进网页',
   terminalWhyBody: '终端 TUI 依赖 alternate screen、原始键盘事件和字符网格，无法用 iframe 忠实嵌入。这里给出真实命令，打开后就是同一套界面。',
   terminalCopy: '复制命令',
@@ -588,8 +588,8 @@ export const EN = {
   terminalTab: 'Terminal',
   terminalTitle: 'Full terminal UI',
   terminalIntro: 'The Web UI does not render the native terminal TUI. For select-all, batch review and long-form scrolling, open a local terminal or use /audit inside dsh-tui.',
-  terminalRun: 'Run in a local terminal',
-  terminalTui: 'Use inside dsh-tui',
+  terminalRun: 'Read-only live queue',
+  terminalTui: 'Write mode (real review)',
   terminalWhy: 'Why not embed it in the page',
   terminalWhyBody: 'The terminal TUI relies on the alternate screen, raw key events and a character grid; an iframe cannot reproduce it faithfully. These are the real commands.',
   terminalCopy: 'Copy command',
@@ -1877,8 +1877,8 @@ const CLIENT_VERSION = typeof __ME_CLIENT_VERSION__ === 'string' ? __ME_CLIENT_V
 
 function TerminalGuide({ t }) {
   const [copied, setCopied] = useState('')
-  const runCmd = 'cd F:\\MyApp\\eternal\\memory-eternal\nnode dsh-tui-plugin/demo.mjs --live'
-  const tuiCmd = 'dsh plugin --profile dsh-tui add ./dsh-tui-plugin\ndsh --profile dsh-tui\n/audit'
+  const runCmd = 'dsh-memory tui --live'
+  const tuiCmd = 'dsh-memory tui --live --write'
   const copy = async (text, key) => {
     try { await navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(''), 1600) } catch {}
   }
@@ -1899,7 +1899,8 @@ function TerminalGuide({ t }) {
           <pre style={code}>{runCmd}</pre>
           <button type="button" style={button} onClick={() => copy(runCmd, 'run')}>{copied === 'run' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
           <div style={{ marginTop: 12, color: '#99a1ac', fontSize: 12, lineHeight: 1.7 }}>
-            `--live` 读取真实待审队列；默认只读，批准/驳回请显式加 `--write`。
+            `--live` 读取真实待审队列；默认只读，确认后才用 `--write`。
+            <br />没有 `dsh-memory` 命令时：`npx -p memory-eternal dsh-memory tui --live`
           </div>
         </div>
         <div style={card}>
@@ -1907,7 +1908,7 @@ function TerminalGuide({ t }) {
           <pre style={code}>{tuiCmd}</pre>
           <button type="button" style={button} onClick={() => copy(tuiCmd, 'tui')}>{copied === 'tui' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
           <div style={{ marginTop: 12, color: '#99a1ac', fontSize: 12, lineHeight: 1.7 }}>
-            原生 `/audit` 在 dsh-tui 内批卡，不打开浏览器。
+            真实批准/驳回；不确定时先用只读模式。
           </div>
         </div>
       </div>

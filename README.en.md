@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
-  <img src="https://img.shields.io/badge/release-v0.14.0-FF7A45" alt="v0.14.0" />
+  <img src="https://img.shields.io/badge/release-v0.14.1-FF7A45" alt="v0.14.1" />
   <a href="https://eternalnight996.github.io/memory-eternal/"><img src="https://img.shields.io/badge/Live%20Demo-online-FF7A45" alt="Live demo" /></a>
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
@@ -107,7 +107,7 @@ cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
 # right after a release, @latest can be held back by pnpm's minimum-release-age gate or a cached
 # packument (it silently stays on the old version): pin the version instead — pnpm adds it to the
 # workspace's minimumReleaseAgeExclude automatically
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.14.0
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.14.1
 
 # verify the version, then restart the host
 node -e "console.log(require('memory-eternal/package.json').version)"
@@ -171,6 +171,7 @@ dsh-memory setup [--dry-run]             # re-run / preview auto-mount (idempote
 dsh-memory mcp                           # MCP stdio (mount to any MCP client)
 dsh-memory serve [--port 7999]           # run web in foreground
 dsh-memory open                          # ensure web alive + open browser
+dsh-memory tui --live                    # full terminal client (read-only; --write to review)
 dsh-memory watchdog [--port 7799]        # watchdog keep-alive (standalone process)
 dsh-memory status [--json]               # resident watchdog: pid / port / version / alive
                                          # plus the version **actually served on the port**
@@ -415,14 +416,15 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # is the standalone we
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.14.1** | 2026-10-23 | **Portable terminal entry**: new `dsh-memory tui --live` lets any installed user launch the full terminal client without `cd`-ing into the repo or hard-coding a local path; the Web terminal page now shows the same read-only/write commands. |
 | **v0.14.0** | 2026-10-23 | **Web terminal entry + fresh screenshots**: the library rail gains a Terminal page with copy-ready commands, the dsh-tui `/audit` guide and a terminal preview, so terminal-only features are discoverable from the Web UI; README adds real screenshots for the terminal audit, long-form reader and Web terminal page; the native dsh-tui `/audit` scene ships. |
-| **v0.13.0** | 2026-10-23 | **Full TUI + native dsh-tui audit**: the terminal client now covers library, audit, graph, status, recycle, settings, long-form reader and search; audit gains select-all and batch approve/reject; `--live` talks to the local API (read-only by default, `--write` to mutate); a native dsh-tui `/audit` scene replaces the browser-only entry. |
 
 <details>
 <summary>Older release notes (v0.10.52 and earlier · 79 releases, click to expand)</summary>
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.13.0** | 2026-10-23 | **Full TUI + native dsh-tui audit**: the terminal client now covers library, audit, graph, status, recycle, settings, long-form reader and search; audit gains select-all and batch approve/reject; `--live` talks to the local API (read-only by default, `--write` to mutate); a native dsh-tui `/audit` scene replaces the browser-only entry. |
 | **v0.12.0** | 2026-10-22 | **Cross-host launchers**: Orca right-sidebar Memory panel, dsh-tui `/memory`, Codex / Claude `memory-open` skill, and a Cursor / VS Code Webview extension; README gains a platform support table; one Web UI stays the single source of truth — Webview where it works, a thin launcher everywhere else, with no new agent permissions. |
 | **v0.11.0** | 2026-10-22 | **Memory Atlas stable release**: the full V5 UI lands — 4-column library cards with daily resurface and mini connection graphs; review top type bar + queue + right verdict sidebar (no bottom bar, no popups); knowledge graph page head/cluster legend + DPR, grid and edge rendering optimizations; four runtime status cards; reader TOC and related memories; Jinwu brand icon; click-to-zoom QR codes; onboarding starts with Star/Fork; GitHub/Gitee/npm shipped together. |
 | **v0.11.0-rc.1** | 2026-10-21 | **V5 preview RC**: Memory Atlas dark ember theme, 228px rail and topbar; V5 card grid and page head; audit top type bar + queue + verdict preview + select-all batch approve/reject; smaller graph default; first-run guide (👍 emphasised), reader TOC/related memory, and support rail (community/sponsor/legacy/bug report); public demo updated to V5. |

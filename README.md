@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
-  <img src="https://img.shields.io/badge/release-v0.14.0-FF7A45" alt="v0.14.0" />
+  <img src="https://img.shields.io/badge/release-v0.14.1-FF7A45" alt="v0.14.1" />
   <a href="https://eternalnight996.github.io/memory-eternal/"><img src="https://img.shields.io/badge/Live%20Demo-online-FF7A45" alt="Live demo" /></a>
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
@@ -106,7 +106,7 @@ cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
 
 # 刚发新版时 @latest 可能被 pnpm 的最小发布年龄门槛/元数据缓存挡住（静默停在旧版）：
 # 直接指定版本号最快，pnpm 会自动把它加进 workspace 的 minimumReleaseAgeExclude
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.14.0
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.14.1
 
 # 验版本（应等于上面装的号），然后重启对应宿主生效
 node -e "console.log(require('memory-eternal/package.json').version)"
@@ -182,6 +182,7 @@ dsh-memory connect <claude|codex|cursor>  # 写会话结束自动沉淀 hook（�
 dsh-memory mcp                       # MCP stdio（挂任意 MCP 客户端）
 dsh-memory serve [--port 7999]       # 前台跑 web
 dsh-memory open                      # ensure web 存活 + 开浏览器
+dsh-memory tui --live                # 完整终端客户端（只读真实队列；--write 才批驳）
 dsh-memory watchdog [--port 7799]    # 看门狗保活 web（独立进程）
 dsh-memory status [--json]           # 看常驻 watchdog：pid / 端口 / 版本 / 是否存活
                                      # 以及**端口上真正在服务的版本**（锁里的版本号只是 watchdog 自述）
@@ -447,14 +448,15 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.14.1** | 2026-10-23 | **终端入口免绝对路径**：新增 `dsh-memory tui --live`，任意用户安装插件后可直接运行完整终端客户端，无需 `cd` 到仓库或填写本机绝对路径；Web 终端页同步改为只读/写入两条通用命令。 |
 | **v0.14.0** | 2026-10-23 | **Web 终端入口 + 新功能截图**：记忆库左栏新增「终端版」，内置运行命令、dsh-tui `/audit` 引导与终端预览，解决 Web 无法展示 TUI 的问题；README 新增终端审核、长文读卡器和 Web 终端页真实截图；dsh-tui 原生 `/audit` 正式接入。 |
-| **v0.13.0** | 2026-10-23 | **完整 TUI + dsh-tui 原生审核**：终端客户端补齐记忆库、待审、星图、运行状态、回收站、设置、长文读卡器与搜索；待审支持全选/批量批驳；`--live` 直连本地 API（默认只读，`--write` 才写）；新增 dsh-tui 原生 `/audit` 场景，不再只是打开浏览器。 |
 
 <details>
 <summary>更早的更新日志（v0.10.52 及以前 · 共 79 版，点开查看）</summary>
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.13.0** | 2026-10-23 | **完整 TUI + dsh-tui 原生审核**：终端客户端补齐记忆库、待审、星图、运行状态、回收站、设置、长文读卡器与搜索；待审支持全选/批量批驳；`--live` 直连本地 API（默认只读，`--write` 才写）；新增 dsh-tui 原生 `/audit` 场景，不再只是打开浏览器。 |
 | **v0.12.0** | 2026-10-22 | **跨宿主入口**：Orca 右侧栏「记忆」启动器、dsh-tui `/memory` 命令、Codex / Claude `memory-open` skill、Cursor / VS Code Webview 扩展；README 新增平台支持表；坚持一套 Web UI 唯一真源，能内嵌的用 Webview，不能内嵌的只做启动器；不新增 agent 权限。 |
 | **v0.11.0** | 2026-10-22 | **Memory Atlas 正式版**：V5 UI 全量落地 —— 记忆库 4 列知识卡 + 今日回看 + 固定/连接微缩图；待审顶部类型条 + 队列 + 右侧判词栏（无底部栏、无弹窗）；知识星图 V5 页头/连接簇图例 + DPR/网格/边渲染优化；运行状态四张状态卡；读卡器右侧目录/相关记忆；金乌品牌图标；二维码点击放大；首次引导先 Star/Fork；GitHub/Gitee/npm 三端同步。 |
 | **v0.11.0-rc.1** | 2026-10-21 | **V5 预览 RC**：Memory Atlas 深色余烬视觉、228px 侧栏与顶栏；记忆库 V5 卡片网格 + 页头；审核顶部类型条 + 队列 + 判词预览 + 全选批量批准/驳回；星图默认缩小；首次引导（重点 👍）、读卡器目录/相关记忆与左栏交流群/赞助/旧程序/异常反馈；公开 Demo 同步 V5。 |
