@@ -95,6 +95,8 @@ dsh-memory tui --live --write  # write: real approve / reject
 
 If `dsh-memory` is not on PATH, use the `npx` command above; it downloads and runs the current npm version.
 
+> The `tui` subcommand ships in **0.14.1+**. An older CLI prints help; upgrade with `npm i -g --force memory-eternal@0.14.1`.
+
 ### What is inside
 
 | Page | Capability |

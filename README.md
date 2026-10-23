@@ -95,6 +95,8 @@ dsh-memory tui --live --write  # 写入：允许真实批准/驳回
 
 `dsh-memory` 不在 PATH 时，直接用上面的 `npx` 命令；它会临时下载并运行当前 npm 版本。
 
+> `tui` 子命令从 **0.14.1** 开始提供。旧版 `dsh-memory` 会显示帮助；升级：`npm i -g --force memory-eternal@0.14.1`。
+
 ### 终端版包含
 
 | 页面 | 能力 |
