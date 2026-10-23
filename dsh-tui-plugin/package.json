@@ -1,6 +1,6 @@
 {
   "name": "memory-eternal-tui",
-  "version": "0.14.2",
+  "version": "0.14.3",
   "description": "Open Memory Atlas from dsh-TUI with /memory.",
   "type": "module",
   "main": "main.js",

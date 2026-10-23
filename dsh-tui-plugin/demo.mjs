@@ -237,7 +237,8 @@ function panel(title, lines, w, h, accent = C.border) {
 const kindOf = (c) => KIND[c.kind] || KIND.project
 const filtered = (state) => {
   const q = state.query.trim().toLowerCase()
-  return state.cards.filter((c) => {
+  const base = state.screen === 'library' ? (state.libraryCards || state.cards) : state.cards
+  return base.filter((c) => {
     if (state.kind !== 'all' && c.kind !== state.kind) return false
     if (!q) return true
     return (c.title + ' ' + c.summary + ' ' + c.tags.join(' ')).toLowerCase().includes(q)
@@ -246,9 +247,10 @@ const filtered = (state) => {
 
 function typeRow(state, w) {
   const labels = [['全部', 'all'], ['项目', 'project'], ['知识', 'knowledge'], ['教训', 'mistake'], ['内容', 'content'], ['工具', 'tool'], ['提示词', 'prompt']]
+  const base = state.screen === 'library' ? (state.libraryCards || state.cards) : state.cards
   const line = sgr(C.faint, '类型  ') + labels.map(([label, key]) => {
     const active = state.kind === key
-    const count = key === 'all' ? state.cards.length : state.cards.filter((c) => c.kind === key).length
+    const count = key === 'all' ? base.length : base.filter((c) => c.kind === key).length
     return tone(` ${active ? '●' : '○'} ${label} ${count} `, active ? C.text : C.dim, active ? C.chipBg : '')
   }).join(' ')
   return ' ' + clip(line + '   ' + sgr(C.faint, '←→ 类型'), w - 1)
@@ -392,24 +394,49 @@ function readerView(state, w, h) {
 }
 
 function graphView(state, w, h) {
-  const cluster = [['项目', 417, C.blue], ['知识', 219, C.violet], ['内容', 112, C.pink], ['教训', 185, C.red], ['工具', 51, C.cyan], ['提示词', 12, C.amber]]
-  const card = filtered(state)[state.index] || CARDS[0]
-  const lines = [sgr(C.ember, '知识星图'), `${sgr(C.dim, '999 节点 · 4713 连线')}`, '', sgr(C.dim, '连接簇')]
-  cluster.forEach(([label, n, color]) => lines.push(`  ${sgr(color, '●')} ${sgr(C.text, label).padEnd(8)} ${sgr(C.dim, String(n))}`))
-  lines.push('', sgr(C.border, '─'.repeat(Math.max(1, w - 2))), '', `${sgr(C.dim, '选中')}  ${sgr(C.text, card.title)}`, `  ${sgr(C.dim, '↔ 12 张相连')}  ${card.tags.map((t) => sgr(C.ember, '#' + t)).join(' ')}`, '', sgr(C.dim, '相关卡片'))
-  CARDS.filter((c) => c.id !== card.id).slice(0, 4).forEach((r) => lines.push(`${sgr(kindOf(r).color, '→')} ${sgr(C.dim, r.title)}`))
+  const data = state.graphData
+  const nodes = Array.isArray(data?.nodes) ? data.nodes : []
+  const edges = Array.isArray(data?.edges) ? data.edges : []
+  const node = nodes[state.graphIndex] || nodes[0]
+  const counts = {}
+  for (const n of nodes) counts[n.kind] = (counts[n.kind] || 0) + 1
+  const labels = [['项目', 'project', C.blue], ['知识', 'knowledge', C.violet], ['内容', 'content', C.pink], ['教训', 'mistake', C.red], ['工具', 'tool', C.cyan], ['提示词', 'prompt', C.amber]]
+  const lines = [sgr(C.ember, '知识星图'), `${sgr(C.dim, `${nodes.length} 节点 · ${edges.length} 连线`)}`, '', sgr(C.dim, '连接簇')]
+  labels.forEach(([label, key, color]) => lines.push(`  ${sgr(color, '●')} ${sgr(C.text, label).padEnd(8)} ${sgr(C.dim, String(counts[key] || 0))}`))
+  lines.push('', sgr(C.border, '─'.repeat(Math.max(1, w - 2))), '', `${sgr(C.dim, '选中')}  ${sgr(C.text, node?.title || '暂无节点')}`)
+  if (node) {
+    const rel = []
+    for (const e of edges) {
+      if (e.source === node.id) rel.push(e.target)
+      else if (e.target === node.id) rel.push(e.source)
+    }
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    lines.push(`  ${sgr(C.dim, `↔ ${rel.length} 张相连`)}  ${(node.tags || []).slice(0, 4).map((t) => sgr(C.ember, '#' + t)).join(' ')}`, '', sgr(C.dim, '相关卡片'))
+    rel.slice(0, 4).forEach((id) => {
+      const r = byId.get(id)
+      if (r) lines.push(`${sgr(kindOf(r).color, '→')} ${sgr(C.dim, r.title)}`)
+    })
+  }
   return [panel('知识星图', lines, w, h, C.violet)]
 }
 
 function statusView(state, w, h) {
+  const o = state.overview
+  const total = o?.total ?? state.libraryCards?.length ?? 0
+  const backups = o?.backups?.count ?? 0
+  const version = o?.version || '—'
+  const pending = o?.quarantine?.pending ?? state.cards.length
+  const rejected = o?.quarantine?.rejected ?? 0
+  const deleted = o?.quarantine?.deleted ?? state.recycle.length
+  const recent = o?.recent ?? 0
+  const dbOk = o?.db?.writable !== false
   const lines = [
-    `${sgr(C.ember, '●')} ${sgr(C.text, '记忆库')} ${sgr(C.amber, '999')}     ${sgr(C.dim, '备份')} ${sgr(C.text, '7')}     ${sgr(C.dim, '版本')} ${sgr(C.text, '0.12.0')}`,
-    `${sgr(C.green, '●')} ${sgr(C.text, '自动沉淀')} ${sgr(C.green, '正常')}   ${sgr(C.dim, '上次')} ${sgr(C.text, '18:20')}   ${sgr(C.dim, '队列')} ${sgr(C.text, '0')}`,
-    '', sgr(C.border, '─'.repeat(Math.max(1, w - 2))), '', sgr(C.dim, '沉淀日志'),
-    `${sgr(C.faint, '18:20')}  ${sgr(C.green, 'created')}   新卡：Orca 右侧栏启动器`,
-    `${sgr(C.faint, '18:18')}  ${sgr(C.blue, 'listen')}    会话事件 32 条 → 有效 1199 字`,
-    `${sgr(C.faint, '18:16')}  ${sgr(C.faint, 'skip')}      低信号会话，未生成卡片`,
-    '', sgr(C.dim, '审核'), `${sgr(C.amber, '6')} 张待审   ${sgr(C.dim, '回收站')} 3 张   ${sgr(C.dim, '常驻')} 7999`,
+    `${sgr(C.ember, '●')} ${sgr(C.text, '记忆库')} ${sgr(C.amber, String(total))}     ${sgr(C.dim, '备份')} ${sgr(C.text, String(backups))}     ${sgr(C.dim, '版本')} ${sgr(C.text, version)}`,
+    `${sgr(dbOk ? C.green : C.red, '●')} ${sgr(C.text, '数据库')} ${sgr(dbOk ? C.green : C.red, dbOk ? '可写' : '不可写')}   ${sgr(C.dim, '近 7 天')} ${sgr(C.text, String(recent))}   ${sgr(C.dim, '待审')} ${sgr(C.text, String(pending))}`,
+    '', sgr(C.border, '─'.repeat(Math.max(1, w - 2))), '', sgr(C.dim, '队列'),
+    `${sgr(C.amber, String(pending))} 张待审    ${sgr(C.red, String(rejected))} 张已驳回    ${sgr(C.dim, String(deleted))} 张回收站`,
+    '', sgr(C.dim, '库根目录'), `${sgr(C.text, o?.vaultDir || '示例数据')}`,
+    '', sgr(C.faint, '数据来自实时 /overview；没有日志接口时不伪造日志。'),
   ]
   return [panel('运行状态', lines, w, h, C.green)]
 }
@@ -486,7 +513,8 @@ function frame(state) {
   const rows = Math.max(24, process.stdout.rows || 36)
   const screen = state.help ? 'help' : state.screen
   const label = screen === 'help' ? '帮助' : SCREENS[screen]?.label || '记忆库'
-  const counts = `${sgr(C.amber, String(state.cards.length))} ${sgr(C.dim, '待审')}` + (state.marked.size ? `  ${sgr(C.amber, '已选 ' + state.marked.size)}` : '')
+  const totalNow = state.screen === 'library' ? (state.libraryCards || state.cards).length : state.cards.length
+  const counts = `${sgr(C.amber, String(totalNow))} ${sgr(C.dim, state.screen === 'library' ? '记忆' : '待审')}` + (state.marked.size ? `  ${sgr(C.amber, '已选 ' + state.marked.size)}` : '')
   const mode = state.live ? (writeMode ? 'LIVE / WRITE' : 'LIVE / READONLY') : 'LOCAL MEMORY'
   const title = `${sgr(C.ember, '●')} ${sgr(C.ember, 'MEMORY ATLAS')}  ${sgr(C.faint, mode)}  ${sgr(C.faint, '/')} ${sgr(C.text, label)}`
   const right = `${counts}  ${keycap('?', '帮助')} ${keycap('q', '退出')}`
@@ -544,6 +572,7 @@ function toLiveCard(c) {
     time: fmtTime(c.updated || c.created),
     tags: Array.isArray(c.tags) ? c.tags.slice(0, 5) : [],
     summary: cleanSummary(c.summary || ''),
+    status: c.status || 'pending',
     body: [],
   }
 }
@@ -553,18 +582,44 @@ function parseCardBody(text) {
   return clean.split(/\r?\n/).map((line) => line.replace(/^#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '· ').trimEnd())
 }
 
+async function loadAllCards(status) {
+  const out = []
+  let offset = 0
+  for (;;) {
+    const page = await apiJson(`/cards?status=${status}&limit=500&offset=${offset}`)
+    out.push(...(page.cards || []))
+    if (!page.cards?.length || out.length >= (page.total || 0)) break
+    offset += page.cards.length
+  }
+  return { cards: out, total: out.length }
+}
+
 async function loadLive(state) {
   try {
-    const [cardsData, overview] = await Promise.all([
-      apiJson('/cards?status=pending&limit=300'),
+    const [cardsData, libraryData, overview, graphData, recycleData] = await Promise.all([
+      loadAllCards('pending'),
+      loadAllCards('approved').catch(() => ({ cards: [] })),
       apiJson('/overview').catch(() => null),
+      apiJson('/graph').catch(() => null),
+      apiJson('/recycle/list').catch(() => ({ items: [] })),
     ])
     state.cards = cardsData.cards.map(toLiveCard)
+    state.libraryCards = libraryData.cards.map(toLiveCard)
     state.overview = overview
+    state.graphData = graphData
+    state.recycle = (recycleData.items || []).map((c) => ({
+      title: c.title || c.path,
+      kind: c.kind || 'knowledge',
+      time: fmtTime(c.deletedAt || c.updated || c.created),
+      reason: c.reason || '已删除',
+      path: c.path,
+    }))
     state.index = 0
-    if (!state.cards.length) state.toast = { text: '实时队列为空（0 张待审）', ok: true }
     state.marked.clear()
     if (selectAllAtStart) state.cards.forEach((c) => state.marked.add(c.id))
+    if (!state.cards.length) {
+      state.toast = { text: `0 张待审 · 已加载 ${state.libraryCards.length} 张记忆`, ok: true }
+    }
     state.live = true
     state.liveError = ''
   } catch (err) {
@@ -582,7 +637,7 @@ async function main() {
     readerCard: screenArg === 'reader' ? CARDS.find((c) => c.id === 'longform') || CARDS[0] : null,
     readerBack: 'audit', readerScroll: scrollArg > 0 ? scrollArg : 0, readerMax: 0, recycle: RECYCLE.slice(), recycleIndex: 0,
     settings: SETTINGS.map((s) => ({ ...s })), settingsIndex: 0, help: screenArg === 'help', toast: null,
-    live: false, liveError: '', overview: null,
+    live: false, liveError: '', overview: null, libraryCards: CARDS.slice(), graphData: null, graphIndex: 0,
   }
   if (liveMode) await loadLive(state)
   if (once) { draw(state); return }
@@ -600,6 +655,22 @@ async function main() {
   const toast = (text, ok = true) => { state.toast = { text, ok }; draw(state); setTimeout(() => { state.toast = null; draw(state) }, 1600) }
   const visible = () => filtered(state)
   const selectedCard = () => visible()[state.index]
+
+  const recycleAction = async (purge) => {
+    const item = state.recycle[state.recycleIndex]
+    if (!item) return
+    if (state.live && item.path) {
+      try {
+        await apiJson('/recycle/' + (purge ? 'purge' : 'restore') + '?path=' + encodeURIComponent(item.path))
+      } catch (err) {
+        toast('操作失败：' + err.message, false)
+        return
+      }
+    }
+    state.recycle.splice(state.recycleIndex, 1)
+    state.recycleIndex = Math.max(0, state.recycleIndex - 1)
+    toast((purge ? '✕ 已彻底删除：' : '✓ 已恢复：') + item.title, !purge)
+  }
 
   const removeSelected = async (decision) => {
     const cards = visible()
@@ -628,8 +699,8 @@ async function main() {
     toast(`${decision === 'a' ? '✓ 已批准' : '✕ 已驳回'} ${targets.length} 张：${targets[0].title}`, decision === 'a')
   }
 
-  const openReader = async () => {
-    const card = selectedCard()
+  const openReader = async (override) => {
+    const card = override || selectedCard()
     if (!card) return
     state.readerCard = card
     state.readerBack = state.screen
@@ -638,8 +709,9 @@ async function main() {
     if (state.live && !card.body.length) {
       card.body = ['加载正文…']
       draw(state)
+      const status = card.status || (state.readerBack === 'audit' ? 'pending' : 'approved')
       try {
-        const data = await apiJson('/card?path=' + encodeURIComponent(card.id) + '&status=pending')
+        const data = await apiJson('/card?path=' + encodeURIComponent(card.id) + '&status=' + status)
         card.body = parseCardBody(data.text)
       } catch (err) {
         card.body = ['正文加载失败：' + err.message]
@@ -698,15 +770,19 @@ async function main() {
     if (state.screen === 'recycle') {
       if (key.name === 'up' || str === 'k') { state.recycleIndex = Math.max(0, state.recycleIndex - 1); draw(state); return }
       if (key.name === 'down' || str === 'j') { state.recycleIndex = Math.min(state.recycle.length - 1, state.recycleIndex + 1); draw(state); return }
-      if (str === 'r' && state.recycle.length) { const [x] = state.recycle.splice(state.recycleIndex, 1); state.recycleIndex = Math.max(0, state.recycleIndex - 1); toast('✓ 已恢复：' + x.title); return }
-      if (str === 'd' && state.recycle.length) { const [x] = state.recycle.splice(state.recycleIndex, 1); state.recycleIndex = Math.max(0, state.recycleIndex - 1); toast('✕ 已彻底删除：' + x.title, false); return }
+      if (str === 'r' && state.recycle.length) { void recycleAction(false); return }
+      if (str === 'd' && state.recycle.length) { void recycleAction(true); return }
       return
     }
     if (state.screen === 'graph') {
-      const cards = visible()
-      if (key.name === 'up' || str === 'k') { state.index = Math.max(0, state.index - 1); draw(state); return }
-      if (key.name === 'down' || str === 'j') { state.index = Math.min(Math.max(0, cards.length - 1), state.index + 1); draw(state); return }
-      if (key.name === 'return' || key.name === 'enter') { openReader(); return }
+      const nodes = Array.isArray(state.graphData?.nodes) ? state.graphData.nodes : []
+      if (key.name === 'up' || str === 'k') { state.graphIndex = Math.max(0, state.graphIndex - 1); draw(state); return }
+      if (key.name === 'down' || str === 'j') { state.graphIndex = Math.min(Math.max(0, nodes.length - 1), state.graphIndex + 1); draw(state); return }
+      if (key.name === 'return' || key.name === 'enter') {
+        const node = nodes[state.graphIndex]
+        if (node) void openReader({ ...node, id: node.id, status: 'approved', body: [] })
+        return
+      }
       return
     }
     if (state.screen === 'status') return
