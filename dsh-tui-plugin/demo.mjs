@@ -559,10 +559,10 @@ async function loadLive(state) {
       apiJson('/cards?status=pending&limit=300'),
       apiJson('/overview').catch(() => null),
     ])
-    if (!cardsData.cards.length) throw new Error('没有待审卡')
     state.cards = cardsData.cards.map(toLiveCard)
     state.overview = overview
     state.index = 0
+    if (!state.cards.length) state.toast = { text: '实时队列为空（0 张待审）', ok: true }
     state.marked.clear()
     if (selectAllAtStart) state.cards.forEach((c) => state.marked.add(c.id))
     state.live = true
