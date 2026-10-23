@@ -6,6 +6,7 @@
 //   dsh-memory capture <text | - > [--source TAG]         手动沉淀（- 读 stdin）
 //   dsh-memory serve [--port N] [--vault DIR]             启动 Web UI（前台常驻）
 //   dsh-memory open [--port N]                            确保 Web 存活并用浏览器打开
+//   dsh-memory tui [--live] [--write]                     打开完整终端客户端（无需绝对路径）
 //   dsh-memory mcp                                        MCP stdio server（各 agent 挂载）
 //   dsh-memory setup [--claude-only|--codex-only|--cursor-only] [--dry-run] [--no-hooks]
 //                                                         自动挂载 MCP 到已装的 agent
@@ -108,6 +109,14 @@ async function main() {
       await startWebServer({ port, vaultRoot: vault })
       process.on('SIGINT', () => process.exit(0))
       process.on('SIGTERM', () => process.exit(0))
+      return
+    }
+    case 'tui': {
+      const { spawn } = await import('node:child_process')
+      const { fileURLToPath } = await import('node:url')
+      const demo = fileURLToPath(new URL('../dsh-tui-plugin/demo.mjs', import.meta.url))
+      const child = spawn(process.execPath, [demo, ...argv.slice(1)], { stdio: 'inherit', windowsHide: false })
+      child.on('exit', (code) => process.exit(code ?? 0))
       return
     }
     case 'open': {
