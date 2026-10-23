@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
-  <img src="https://img.shields.io/badge/release-v0.12.0-FF7A45" alt="v0.12.0" />
+  <img src="https://img.shields.io/badge/release-v0.13.0-FF7A45" alt="v0.13.0" />
   <a href="https://eternalnight996.github.io/memory-eternal/"><img src="https://img.shields.io/badge/Live%20Demo-online-FF7A45" alt="Live demo" /></a>
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
@@ -54,7 +54,7 @@
 |---|---|---|---|---|
 | **DSH desktop / Web** | Fully embedded | ✅ | ✅ | Sidebar “Memory”, supported |
 | **Orca** | Sidebar launcher | In Web UI | In Web UI | Right sidebar “Memory”, [new in this release](orca-plugin/README.md) |
-| **dsh-tui** | Opens browser | In Web UI | In Web UI | `/memory`, [new in this release](dsh-tui-plugin/README.md) |
+| **dsh-tui** | Native `/audit` + `/memory` | Native scene | Native scene | [new in this release](dsh-tui-plugin/README.md) |
 | **Codex** | Opens browser | In Web UI | In Web UI | [`memory-open` skill](skills/memory-open/SKILL.md), new in this release |
 | **Claude Code** | Browser / Pane | In Web UI | In Web UI | `/memory-eternal:memory-open`, new in this release |
 | **Cursor** | Embedded Webview | ✅ | ✅ | [Extension Webview](cursor-extension/README.md), new in this release |
@@ -98,7 +98,7 @@ cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
 # right after a release, @latest can be held back by pnpm's minimum-release-age gate or a cached
 # packument (it silently stays on the old version): pin the version instead — pnpm adds it to the
 # workspace's minimumReleaseAgeExclude automatically
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.12.0
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.13.0
 
 # verify the version, then restart the host
 node -e "console.log(require('memory-eternal/package.json').version)"
@@ -406,14 +406,15 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # is the standalone we
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.13.0** | 2026-10-23 | **Full TUI + native dsh-tui audit**: the terminal client now covers library, audit, graph, status, recycle, settings, long-form reader and search; audit gains select-all and batch approve/reject; `--live` talks to the local API (read-only by default, `--write` to mutate); a native dsh-tui `/audit` scene replaces the browser-only entry. |
 | **v0.12.0** | 2026-10-22 | **Cross-host launchers**: Orca right-sidebar Memory panel, dsh-tui `/memory`, Codex / Claude `memory-open` skill, and a Cursor / VS Code Webview extension; README gains a platform support table; one Web UI stays the single source of truth — Webview where it works, a thin launcher everywhere else, with no new agent permissions. |
-| **v0.11.0** | 2026-10-22 | **Memory Atlas stable release**: the full V5 UI lands — 4-column library cards with daily resurface and mini connection graphs; review top type bar + queue + right verdict sidebar (no bottom bar, no popups); knowledge graph page head/cluster legend + DPR, grid and edge rendering optimizations; four runtime status cards; reader TOC and related memories; Jinwu brand icon; click-to-zoom QR codes; onboarding starts with Star/Fork; GitHub/Gitee/npm shipped together. |
 
 <details>
 <summary>Older release notes (v0.10.52 and earlier · 79 releases, click to expand)</summary>
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.11.0** | 2026-10-22 | **Memory Atlas stable release**: the full V5 UI lands — 4-column library cards with daily resurface and mini connection graphs; review top type bar + queue + right verdict sidebar (no bottom bar, no popups); knowledge graph page head/cluster legend + DPR, grid and edge rendering optimizations; four runtime status cards; reader TOC and related memories; Jinwu brand icon; click-to-zoom QR codes; onboarding starts with Star/Fork; GitHub/Gitee/npm shipped together. |
 | **v0.11.0-rc.1** | 2026-10-21 | **V5 preview RC**: Memory Atlas dark ember theme, 228px rail and topbar; V5 card grid and page head; audit top type bar + queue + verdict preview + select-all batch approve/reject; smaller graph default; first-run guide (👍 emphasised), reader TOC/related memory, and support rail (community/sponsor/legacy/bug report); public demo updated to V5. |
 | **v0.10.54** | 2026-10-20 | **More reliable distillation with local models (#48), plus a refreshed README with new screenshots**. ① **#48**: a local 30B model takes 40-60s to cold start while the distill timeout was **hardcoded to 45s**, so every cold start aborted; the timeout is now configurable via **captureTimeoutMs** (still 45s by default, 120000+ recommended for local inference) and **a timeout retries the same candidate once with a longer budget** instead of switching models. ② **The second shape of #48**: when the provider does not report max-tokens, a truncated answer only shows up as unterminated JSON, so a dedicated **TRUNCATED_OUTPUT** code now joins MAX_TOKENS on the "double the output budget and retry the same candidate" ladder. ③ The settings page gains a distill timeout (ms) field. ④ **README refresh**: all real screenshots (cards, a graph with 897 nodes / 4257 edges, health overview, audit centre, settings) plus a "what problem does it solve" comparison table and a clearer value proposition and star call-to-action (both languages). npm test now runs **440 checks** |
 | **v0.10.53** | 2026-10-20 | **Health panel (reliability line): all previously invisible state in one place**. A new "Health" card at the top of the usage page shows: ① **database** (journal mode, writability, last health check, with doctor guidance when bad); ② **backups** (count and age of the newest, amber past 7 days, red at zero); ③ **auto capture** (last success/failure with reason); ④ **versions** (disk / resident / host, plus a Start check button because align needs the npm registry and cannot run automatically). Data comes from existing endpoints: /overview now includes a **backups summary** (count/newestAt/last five filenames) alongside /capture-log and /align. Also **fixes a white-screen bug**: the card initially used tf(), which only exists in the ConfigPanel scope, so opening the usage page blanked the whole app; the panel checker gained two gates — **page alive (textLen<20 counts as blank)** and **Runtime.exceptionThrown capture** — because a blank page previously passed the overflow assertions. Adds tests/health-panel.test.mjs (4 checks). npm test now runs **437 checks** |

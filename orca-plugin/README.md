@@ -4,6 +4,18 @@
 
 ## 安装
 
+### 推荐：Git URL
+
+Orca → Settings → Plugins → Install plugin → **Git URL**：
+
+```text
+https://github.com/EternalNight996/memory-eternal-orca#v0.12.1
+```
+
+Orca 会固定到 `v0.12.0` tag。
+
+### 本地目录
+
 1. 确认本机已安装并运行 `memory-eternal`（默认 Web 服务 `http://127.0.0.1:7999/`）。
 2. 确认终端能找到 CLI：
 

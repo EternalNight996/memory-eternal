@@ -2,9 +2,9 @@
   "$schema": "urn:dsh-std:community-draft:dsh-plugin:0.15",
   "id": "memory-eternal-tui",
   "name": "memory-eternal-tui",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "manifestVersion": "0.15",
-  "description": "Open the local Memory Atlas Web UI from dsh-TUI.",
+  "description": "Open Memory Atlas from dsh-TUI: native /audit scene plus browser launcher.",
   "facets": {
     "host": {
       "entry": "main.js",
@@ -26,6 +26,11 @@
         "id": "memory-eternal-tui.open",
         "title": "memory",
         "description": "Open Memory Atlas in the browser"
+      },
+      {
+        "id": "memory-eternal-tui.audit",
+        "title": "audit",
+        "description": "Open the native Memory Atlas audit scene"
       }
     ]
   },

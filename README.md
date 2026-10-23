@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
-  <img src="https://img.shields.io/badge/release-v0.12.0-FF7A45" alt="v0.12.0" />
+  <img src="https://img.shields.io/badge/release-v0.13.0-FF7A45" alt="v0.13.0" />
   <a href="https://eternalnight996.github.io/memory-eternal/"><img src="https://img.shields.io/badge/Live%20Demo-online-FF7A45" alt="Live demo" /></a>
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
@@ -54,7 +54,7 @@
 |---|---|---|---|---|
 | **DSH 桌面版 / Web** | 完整内嵌 | ✅ | ✅ | 左栏「记忆」，已支持 |
 | **Orca** | 侧栏启动器 | Web 内完成 | Web 内完成 | 右栏「记忆」，[本版新增](orca-plugin/README.md) |
-| **dsh-tui** | 浏览器打开 | Web 内完成 | Web 内完成 | `/memory`，[本版新增](dsh-tui-plugin/README.md) |
+| **dsh-tui** | 原生 `/audit` + `/memory` | 原生场景 | 原生场景 | [本版新增](dsh-tui-plugin/README.md) |
 | **Codex** | 浏览器打开 | Web 内完成 | Web 内完成 | [`memory-open` skill](skills/memory-open/SKILL.md)，本版新增 |
 | **Claude Code** | 浏览器打开 / Pane | Web 内完成 | Web 内完成 | `/memory-eternal:memory-open`，本版新增 |
 | **Cursor** | Webview 内嵌 | ✅ | ✅ | [扩展 Webview](cursor-extension/README.md)，本版新增 |
@@ -97,7 +97,7 @@ cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
 
 # 刚发新版时 @latest 可能被 pnpm 的最小发布年龄门槛/元数据缓存挡住（静默停在旧版）：
 # 直接指定版本号最快，pnpm 会自动把它加进 workspace 的 minimumReleaseAgeExclude
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.12.0
+cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.13.0
 
 # 验版本（应等于上面装的号），然后重启对应宿主生效
 node -e "console.log(require('memory-eternal/package.json').version)"
@@ -438,14 +438,15 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.13.0** | 2026-10-23 | **完整 TUI + dsh-tui 原生审核**：终端客户端补齐记忆库、待审、星图、运行状态、回收站、设置、长文读卡器与搜索；待审支持全选/批量批驳；`--live` 直连本地 API（默认只读，`--write` 才写）；新增 dsh-tui 原生 `/audit` 场景，不再只是打开浏览器。 |
 | **v0.12.0** | 2026-10-22 | **跨宿主入口**：Orca 右侧栏「记忆」启动器、dsh-tui `/memory` 命令、Codex / Claude `memory-open` skill、Cursor / VS Code Webview 扩展；README 新增平台支持表；坚持一套 Web UI 唯一真源，能内嵌的用 Webview，不能内嵌的只做启动器；不新增 agent 权限。 |
-| **v0.11.0** | 2026-10-22 | **Memory Atlas 正式版**：V5 UI 全量落地 —— 记忆库 4 列知识卡 + 今日回看 + 固定/连接微缩图；待审顶部类型条 + 队列 + 右侧判词栏（无底部栏、无弹窗）；知识星图 V5 页头/连接簇图例 + DPR/网格/边渲染优化；运行状态四张状态卡；读卡器右侧目录/相关记忆；金乌品牌图标；二维码点击放大；首次引导先 Star/Fork；GitHub/Gitee/npm 三端同步。 |
 
 <details>
 <summary>更早的更新日志（v0.10.52 及以前 · 共 79 版，点开查看）</summary>
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.11.0** | 2026-10-22 | **Memory Atlas 正式版**：V5 UI 全量落地 —— 记忆库 4 列知识卡 + 今日回看 + 固定/连接微缩图；待审顶部类型条 + 队列 + 右侧判词栏（无底部栏、无弹窗）；知识星图 V5 页头/连接簇图例 + DPR/网格/边渲染优化；运行状态四张状态卡；读卡器右侧目录/相关记忆；金乌品牌图标；二维码点击放大；首次引导先 Star/Fork；GitHub/Gitee/npm 三端同步。 |
 | **v0.11.0-rc.1** | 2026-10-21 | **V5 预览 RC**：Memory Atlas 深色余烬视觉、228px 侧栏与顶栏；记忆库 V5 卡片网格 + 页头；审核顶部类型条 + 队列 + 判词预览 + 全选批量批准/驳回；星图默认缩小；首次引导（重点 👍）、读卡器目录/相关记忆与左栏交流群/赞助/旧程序/异常反馈；公开 Demo 同步 V5。 |
 | **v0.10.54** | 2026-10-20 | **本地大模型蒸馏更稳（#48）+ README 焕新与最新截图**。① **#48**：本地 30B 模型冷启动要 40–60 秒，而蒸馏超时**硬编码 45 秒** → 每次冷启动必报 ABORTED；现在超时可配 **captureTimeoutMs**（默认仍 45s，本地推理建议 120000+），且**超时后自动用更长超时重试同一候选一次**（不直接换模型）。② **#48 的第二种形态**：模型不给 max-tokens finish 时，截断只表现为「JSON 未闭合」→ 新增独立错误码 **TRUNCATED_OUTPUT**，与 MAX_TOKENS 一起走「加倍输出预算重试同一候选」的阶梯。③ 配置页新增「蒸馏超时（毫秒）」输入项。④ **README 焕新**：全部换成真实运行截图（知识卡 / 知识图谱 897 节点 4257 连线 / 健康概览 / 审核中心 / 配置页）+ 新增「它到底解决什么问题」对照表 + 更清晰的卖点与 Star 引导（中英同步）。npm test 共 **440 项** |
 | **v0.10.53** | 2026-10-20 | **健康面板（可靠性线）：把看不见的状态集中一处**。在「用量/今日」顶部新增「🩺 健康概览」：① **知识库**（journal 模式 / 可写 / 最后一次体检时间，异常时给 doctor 指引）；② **备份**（数量 + 最近一次多久前，>7 天标黄、0 备份标红）；③ **自动沉淀**（最近一次成功/失败与原因）；④ **版本**（磁盘 / 常驻 / 宿主；未检查时给「开始检查」按钮，因为 align 要联网比 npm 不能自动跑）。数据来自既有接口：/overview 新增 **backups 摘要**（count/newestAt/最近 5 个文件名），加上 /capture-log 与 /align。**顺带修一个白屏 bug**：健康卡最初误用了 ConfigPanel 作用域的 tf() → 点开「用量/今日」整页白屏；同时给 panel-check 补了两道闸 —— **页面存活（textLen<20 判空白页）** 与 **Runtime.exceptionThrown 捕获**，因为「白屏没有横向溢出」原本会让检查通过。新增 tests/health-panel.test.mjs（4 项）。npm test 共 **437 项** |
