@@ -174,7 +174,7 @@ const SETTINGS = [
 const argv = new Set(process.argv.slice(2))
 const once = argv.has('--once')
 const selectAllAtStart = argv.has('--select-all')
-const liveMode = argv.has('--live')
+const liveMode = !argv.has('--demo') && !argv.has('--sample')
 const writeMode = argv.has('--write')
 const API = process.env.MEMORY_ETERNAL_API || 'http://127.0.0.1:7999/memory-eternal/api'
 const screenArg = (process.argv.find((a) => a.startsWith('--screen=')) || '').split('=')[1]

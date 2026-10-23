@@ -1877,8 +1877,8 @@ const CLIENT_VERSION = typeof __ME_CLIENT_VERSION__ === 'string' ? __ME_CLIENT_V
 
 function TerminalGuide({ t }) {
   const [copied, setCopied] = useState('')
-  const runCmd = 'dsh-memory tui --live'
-  const tuiCmd = 'dsh-memory tui --live --write'
+  const runCmd = 'dsh-memory tui'
+  const tuiCmd = 'dsh-memory tui --write'
   const copy = async (text, key) => {
     try { await navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(''), 1600) } catch {}
   }
@@ -1899,8 +1899,8 @@ function TerminalGuide({ t }) {
           <pre style={code}>{runCmd}</pre>
           <button type="button" style={button} onClick={() => copy(runCmd, 'run')}>{copied === 'run' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
           <div style={{ marginTop: 12, color: '#99a1ac', fontSize: 12, lineHeight: 1.7 }}>
-            `--live` 读取真实待审队列；默认只读，确认后才用 `--write`。
-            <br />没有 `dsh-memory` 命令时：`npx -p memory-eternal dsh-memory tui --live`
+            默认读取真实记忆库与待审队列；只读，确认后才用 `--write`。示例数据用 `--demo`。
+            <br />没有 `dsh-memory` 命令时：`npx -p memory-eternal dsh-memory tui`
           </div>
         </div>
         <div style={card}>
