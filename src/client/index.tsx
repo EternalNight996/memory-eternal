@@ -60,6 +60,16 @@ export const ZH = {
   kindTool: '工具',
   kindMistake: '教训',
   cardsTab: '知识卡',
+  terminalTab: '终端版',
+  terminalTitle: '终端完整版',
+  terminalIntro: 'Web UI 不渲染终端原生 TUI。要完整批卡、长文滚动和全选，请打开本机终端；或者直接在 dsh-tui 里用 /audit。',
+  terminalRun: '在本机终端运行',
+  terminalTui: '在 dsh-tui 内使用',
+  terminalWhy: '为什么不直接嵌进网页',
+  terminalWhyBody: '终端 TUI 依赖 alternate screen、原始键盘事件和字符网格，无法用 iframe 忠实嵌入。这里给出真实命令，打开后就是同一套界面。',
+  terminalCopy: '复制命令',
+  terminalCopied: '已复制',
+  terminalPreview: '终端预览',
   graphTab: '知识星图',
   graph: '知识图谱',
   graphHint: '节点=知识卡；连线=[[链接]] 或共享标签。点击节点阅读卡片。',
@@ -575,6 +585,16 @@ export const EN = {
   kindTool: 'Tools',
   kindMistake: 'Mistakes',
   cardsTab: 'Cards',
+  terminalTab: 'Terminal',
+  terminalTitle: 'Full terminal UI',
+  terminalIntro: 'The Web UI does not render the native terminal TUI. For select-all, batch review and long-form scrolling, open a local terminal or use /audit inside dsh-tui.',
+  terminalRun: 'Run in a local terminal',
+  terminalTui: 'Use inside dsh-tui',
+  terminalWhy: 'Why not embed it in the page',
+  terminalWhyBody: 'The terminal TUI relies on the alternate screen, raw key events and a character grid; an iframe cannot reproduce it faithfully. These are the real commands.',
+  terminalCopy: 'Copy command',
+  terminalCopied: 'Copied',
+  terminalPreview: 'Terminal preview',
   graphTab: 'Star map',
   graph: 'Knowledge Graph',
   graphHint: 'Nodes = cards; edges = [[links]] or shared tags. Click a node to read.',
@@ -1855,6 +1875,66 @@ function DatabaseIcon() {
 // 构建期由 build.mjs 注入（esbuild define）；直接跑源码（如 SSR 测试）时为 undefined，用 typeof 安全降级。
 const CLIENT_VERSION = typeof __ME_CLIENT_VERSION__ === 'string' ? __ME_CLIENT_VERSION__ : ''
 
+function TerminalGuide({ t }) {
+  const [copied, setCopied] = useState('')
+  const runCmd = 'cd F:\\MyApp\\eternal\\memory-eternal\nnode dsh-tui-plugin/demo.mjs --live'
+  const tuiCmd = 'dsh plugin --profile dsh-tui add ./dsh-tui-plugin\ndsh --profile dsh-tui\n/audit'
+  const copy = async (text, key) => {
+    try { await navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(''), 1600) } catch {}
+  }
+  const card = { border: '1px solid #3a404a', borderRadius: 14, background: '#22262d', padding: '16px 18px' }
+  const code = { margin: '10px 0 0', padding: '12px 14px', borderRadius: 10, background: '#171a1f', border: '1px solid #333943', color: '#f3f5f8', fontSize: 12.5, lineHeight: 1.7, overflowX: 'auto', fontFamily: 'ui-monospace, Consolas, monospace' }
+  const button = { marginTop: 10, border: '1px solid #4a515c', background: 'transparent', color: '#ffb08a', borderRadius: 9, padding: '7px 12px', fontSize: 12, cursor: 'pointer' }
+  return (
+    <div style={{ padding: '22px 26px 34px', maxWidth: 1040, color: '#f3f5f8' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+        <h2 style={{ margin: 0, fontSize: 24, letterSpacing: '-.02em' }}>{t('terminalTitle')}</h2>
+        <span style={{ color: '#99a1ac', fontSize: 12 }}>TUI · LIVE · dsh-tui</span>
+      </div>
+      <p style={{ margin: '9px 0 20px', color: '#aeb5bf', fontSize: 13.5, lineHeight: 1.8 }}>{t('terminalIntro')}</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, .9fr)', gap: 14 }}>
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>▸ {t('terminalRun')}</div>
+          <pre style={code}>{runCmd}</pre>
+          <button type="button" style={button} onClick={() => copy(runCmd, 'run')}>{copied === 'run' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
+          <div style={{ marginTop: 12, color: '#99a1ac', fontSize: 12, lineHeight: 1.7 }}>
+            `--live` 读取真实待审队列；默认只读，批准/驳回请显式加 `--write`。
+          </div>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>▸ {t('terminalTui')}</div>
+          <pre style={code}>{tuiCmd}</pre>
+          <button type="button" style={button} onClick={() => copy(tuiCmd, 'tui')}>{copied === 'tui' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
+          <div style={{ marginTop: 12, color: '#99a1ac', fontSize: 12, lineHeight: 1.7 }}>
+            原生 `/audit` 在 dsh-tui 内批卡，不打开浏览器。
+          </div>
+        </div>
+      </div>
+
+      <div style={{ ...card, marginTop: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>▸ {t('terminalPreview')}</div>
+        <pre style={{ ...code, marginTop: 10, color: '#d7dce3', fontSize: 12, lineHeight: 1.5 }}>
+{`╭─ MEMORY ATLAS / 待审 ─────────────────────────────╮
+│  类型  ● 全部 7   ○ 项目 3   ○ 知识 1   ○ 教训 1  │
+│                                                    │
+│  ▣ 全选 7    已选 3     s 全选                     │
+│  ▌◉ [项目] memory-eternal V5 收口                 │
+│  ◉  [知识] MVCheck 多相机独立成像参数             │
+│  ◉  [教训] shj-web 端口菜单错位                   │
+│                                                    │
+│  [a] 批准 3   [r] 驳回   [s] 反选   [Esc] 清空    │
+╰────────────────────────────────────────────────────╯`}
+        </pre>
+      </div>
+
+      <div style={{ marginTop: 16, color: '#99a1ac', fontSize: 12.5, lineHeight: 1.8 }}>
+        <b style={{ color: '#f3f5f8' }}>{t('terminalWhy')}</b><br />{t('terminalWhyBody')}
+      </div>
+    </div>
+  )
+}
+
 export function MemoryLibrary({ t, inModal, onClose }) {
   const inHost = typeof window !== 'undefined' && (!!window.__DSH_BOOT__ || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
   const [overview, setOverview] = useState(null)
@@ -1880,11 +1960,11 @@ export function MemoryLibrary({ t, inModal, onClose }) {
   }, [])
   // 标签筛选（点击芯片即筛，可与搜索/类型/状态叠加）
   const [tagPick, setTagPick] = useState('')
-  // 'cards' | 'graph' | 'stats' | 'audit' | 'optimize' | 'config'
+  // 'cards' | 'graph' | 'stats' | 'audit' | 'optimize' | 'config' | 'terminal'
   const [view, setView] = useState(() => {
     try {
       const tab = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('tab')
-      const map = { cards: 'cards', graph: 'graph', usage: 'stats', stats: 'stats', audit: 'audit', recycle: 'optimize', optimize: 'optimize', config: 'config' }
+      const map = { cards: 'cards', graph: 'graph', usage: 'stats', stats: 'stats', audit: 'audit', recycle: 'optimize', optimize: 'optimize', config: 'config', terminal: 'terminal' }
       if (tab && map[tab]) return map[tab] // 深链：?tab=audit / config / graph / usage / recycle
     } catch {}
     return 'cards'
@@ -2168,7 +2248,7 @@ export function MemoryLibrary({ t, inModal, onClose }) {
       {!inModal && (
         <div className={`mc-v5-top${inHost ? ' in-host' : ''}`}>
           <img className="mc-v5-logo" src={brandIcon} alt="" />
-          <span className="mc-v5-crumb"><b>{t('memoryTitle')}</b><i>/</i><span>{t(view === 'cards' ? 'cardsTab' : view === 'graph' ? 'graphTab' : view === 'stats' ? 'tabUsage' : view === 'audit' ? 'tabAudit' : view === 'optimize' ? 'tabRecycle' : 'tabConfig')}</span></span>
+          <span className="mc-v5-crumb"><b>{t('memoryTitle')}</b><i>/</i><span>{t(view === 'cards' ? 'cardsTab' : view === 'graph' ? 'graphTab' : view === 'stats' ? 'tabUsage' : view === 'audit' ? 'tabAudit' : view === 'optimize' ? 'tabRecycle' : view === 'terminal' ? 'terminalTab' : 'tabConfig')}</span></span>
           <div className="spacer" />
           <div className="mc-v5-top-actions">
             <span className="mc-v5-sys"><i />{t('v5Local')}</span>
@@ -2231,6 +2311,10 @@ export function MemoryLibrary({ t, inModal, onClose }) {
             <span className="mc-rail-ico">♻️</span>
             {railOpen && <span className="mc-rail-label">{t('tabRecycle')}</span>}
             {quarantineDeleted > 0 && <span className="mc-dot" style={{ background: '#6b7280' }}>{quarantineDeleted > 99 ? '99+' : quarantineDeleted}</span>}
+          </button>
+          <button type="button" className={`mc-railbtn${view === 'terminal' ? ' active' : ''}`} onClick={() => goView('terminal')} title={t('terminalTab')}>
+            <span className="mc-rail-ico">▸_</span>
+            {railOpen && <span className="mc-rail-label">{t('terminalTab')}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'config' ? ' active' : ''}`} onClick={() => goView('config')} title={t('tabConfig')}>
             <span className="mc-rail-ico">⚙️</span>
@@ -2363,6 +2447,9 @@ export function MemoryLibrary({ t, inModal, onClose }) {
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
           {/* active 必须跟着视图走：以前恒为 true → 打开任何视图都拉 890KB 图谱（约 3.5s） */}
           {visited.has('graph') && <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} visible={view === 'graph'} />}
+        </div>
+        <div style={{ display: view === 'terminal' ? 'contents' : 'none' }}>
+          {visited.has('terminal') && <TerminalGuide t={t} />}
         </div>
         <div style={{ display: view === 'config' ? 'contents' : 'none' }}>
           {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />}
