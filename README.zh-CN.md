@@ -125,7 +125,13 @@ npx -y -p memory-eternal dsh-memory tui   # 终端里的实时待审队列
 |:---:|:---:|
 | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ 群二维码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.png" width="240" alt="微信群二维码" /> |
 
-> 打赏完全自愿，不影响任何功能；插件本体始终开源免费（MIT）。[SPONSOR.md](SPONSOR.md)
+**如果这个插件帮你省了时间，可以请作者喝杯咖啡（两个码任选其一）：**
+
+| 微信收款码 | 微信赞赏码 |
+|:---:|:---:|
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg" width="200" alt="微信收款码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="200" alt="微信赞赏码" /> |
+
+> 打赏完全自愿，不影响任何功能；插件本体始终开源免费（MIT）。详见 [SPONSOR.md](SPONSOR.md)。
 
 ## 📄 License
 
