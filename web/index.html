@@ -37,10 +37,24 @@
   }
   html, body { margin: 0; padding: 0; height: 100%; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif; }
   #root { height: 100vh; }
+  /* 首屏加载提示（用户群反馈：点开「记忆」先是白屏，不知道有没有在加载）。
+     app.js 约 460KB：下载 → 解析 → 执行 → 首轮接口请求都要时间，这段纯空白会被当成「坏了」。
+     这里是纯 HTML/CSS（不依赖任何 JS，app.js 挂了也照样显示），React 挂载后由 src/web/index.jsx 移除。 */
+  #boot { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-secondary); font-size: 13px; letter-spacing: .02em; }
+  /* 不确定进度条（首屏不知道剩多少，横向流动表示"在动"）；WebView/Electron 都支持纯 CSS 动画 */
+  #boot .me-boot-bar { width: 220px; max-width: 70vw; height: 5px; border-radius: 999px; overflow: hidden; background: rgba(127,127,127,.22); }
+  #boot .me-boot-bar-fill { display: block; width: 38%; height: 100%; border-radius: 999px; background: var(--dsw-alias-brand-primary); animation: me-boot-slide 1.15s ease-in-out infinite; }
+  #boot .me-boot-tip { opacity: .72; }
+  @keyframes me-boot-slide { 0% { transform: translateX(-105%); } 100% { transform: translateX(270%); } }
+  @media (prefers-reduced-motion: reduce) { #boot .me-boot-bar-fill { animation-duration: 2.6s; } }
 </style>
 </head>
 <body>
   <div id="root"></div>
+  <div id="boot" role="status" aria-live="polite">
+    <div class="me-boot-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="加载进度"><span class="me-boot-bar-fill"></span></div>
+    <div class="me-boot-tip">加载记忆中…</div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

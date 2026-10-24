@@ -41,17 +41,72 @@ function openMemory() {
 }
 
 export function apply(ctx) {
-  const host = ctx.get('tuiPluginHost', false)
-  if (!host) return
+  // ── 为什么不能「拿不到 tuiPluginHost 就直接 return」────────────────────────
+  // tuiPluginHost / tuiScenes 都是**后挂载**的 TUI seam：cordis 只保证插件被拉起来，
+  // 不保证它激活时宿主 seam 已经就绪。旧实现 `const host = ctx.get('tuiPluginHost', false); if (!host) return`
+  // 一旦抢跑就永久放弃 —— 表现为命令面板里根本没有 /memory、/audit（issue #50 用户实测）。
+  // 参照 dsh-tui-find（同宿主同 API）：软探测 + 50ms 小步轮询，挂上再注册；10s 还没挂
+  // 就安静收手（确实没有 TUI 运行时的组合不该报错）。
+  const HOST_POLL_MS = 50
+  const HOST_MAX_ATTEMPTS = 200 // ≈10s
+  let disposed = false
+  let hostTimer = null
+  let hostAttempts = 0
+  let hostDisposer = null
 
-  // tuiScenes can mount after this activation on a cold boot. Soft-probe and
-  // retry briefly instead of silently leaving /audit dead for the session.
+  const probe = (name) => {
+    try { return ctx.get(name, false) } catch { return false }
+  }
+
+  const registerCommands = (host) => {
+    const disposers = []
+    disposers.push(host.registerCommand(ctx, COMMAND_ID, {
+      recordInput: false,
+      handler: () => {
+        openMemory()
+        return { kind: 'success', text: `Memory Atlas 已打开：${URL}` }
+      },
+    }))
+    disposers.push(host.registerCommand(ctx, AUDIT_COMMAND_ID, {
+      recordInput: false,
+      handler: () => {
+        const runtime = probe('tuiScenes')
+        if (!runtime) return { kind: 'error', text: '当前 dsh-tui 没有 scenes 运行时' }
+        if (runtime.active?.id === AUDIT_SCENE_ID) runtime.close()
+        const opened = runtime.open(AUDIT_SCENE_ID)
+        return opened
+          ? { kind: 'success', text: 'Memory Atlas / 待审 已打开' }
+          : { kind: 'error', text: '审核场景未注册' }
+      },
+    }))
+    return () => { for (const d of disposers) { try { if (typeof d === 'function') d() } catch { /* 卸载失败不影响其他 */ } } }
+  }
+
+  const tryRegisterCommands = () => {
+    hostTimer = null
+    if (disposed) return
+    const host = probe('tuiPluginHost')
+    if (!host) {
+      hostAttempts += 1
+      if (hostAttempts < HOST_MAX_ATTEMPTS) hostTimer = setTimeout(tryRegisterCommands, HOST_POLL_MS)
+      return
+    }
+    try {
+      hostDisposer = registerCommands(host)
+    } catch (error) {
+      console.warn('[memory-eternal-tui] command registration failed:', error)
+    }
+  }
+  tryRegisterCommands()
+
+  // tuiScenes 同样可能晚于本插件挂载：沿用原来的软探测 + 50ms 重试（最多 ~2s）。
   let sceneDisposer = null
   let sceneTimer = null
   let attempts = 0
   const registerScene = () => {
     sceneTimer = null
-    const scenes = ctx.get('tuiScenes', false)
+    if (disposed) return
+    const scenes = probe('tuiScenes')
     if (scenes && !sceneDisposer) {
       try {
         sceneDisposer = scenes.register({ id: AUDIT_SCENE_ID, title: 'Memory Atlas / 待审', component: AuditScene }, ctx)
@@ -65,33 +120,12 @@ export function apply(ctx) {
     }
   }
   registerScene()
-  ctx.effect(() => {
+
+  ctx.effect(() => () => {
+    disposed = true
+    if (hostTimer) clearTimeout(hostTimer)
     if (sceneTimer) clearTimeout(sceneTimer)
+    if (hostDisposer) hostDisposer()
     if (sceneDisposer) sceneDisposer()
   })
-
-  const dispose = host.registerCommand(ctx, COMMAND_ID, {
-    recordInput: false,
-    handler: () => {
-      openMemory()
-      return { kind: 'success', text: `Memory Atlas 已打开：${URL}` }
-    },
-  })
-  ctx.effect(() => dispose)
-
-  const disposeAudit = host.registerCommand(ctx, AUDIT_COMMAND_ID, {
-    recordInput: false,
-    handler: () => {
-      const runtime = ctx.get('tuiScenes', false)
-      if (!runtime) return { kind: 'error', text: '当前 dsh-tui 没有 scenes 运行时' }
-      if (runtime.active?.id === AUDIT_SCENE_ID) runtime.close()
-      const opened = runtime.open(AUDIT_SCENE_ID)
-      return opened
-        ? { kind: 'success', text: 'Memory Atlas / 待审 已打开' }
-        : { kind: 'error', text: '审核场景未注册' }
-    },
-  })
-  ctx.effect(() => disposeAudit)
 }
-
-export default { name, inject, apply }

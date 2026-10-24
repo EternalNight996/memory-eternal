@@ -1,12 +1,13 @@
 {
   "name": "memory-eternal-tui",
-  "version": "0.15.0",
-  "description": "Open Memory Atlas from dsh-TUI with /memory.",
+  "version": "0.16.0",
+  "description": "Memory Atlas for dsh-TUI: /audit scene with reason/severity, batch confirmation and reject reasons.",
   "type": "module",
   "main": "main.js",
   "files": [
     "main.js",
     "scene.js",
+    "demo-audit.mjs",
     "demo.mjs",
     "dsh-plugin.json",
     "cordis.patch.yml",
@@ -15,11 +16,30 @@
   "keywords": [
     "dsh",
     "dsh-tui",
+    "dsh-tui-plugin",
     "memory-eternal",
     "memory",
+    "audit",
     "plugin"
   ],
   "license": "MIT",
+  "author": "EternalNight996",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EternalNight996/memory-eternal.git",
+    "directory": "dsh-tui-plugin"
+  },
+  "homepage": "https://github.com/EternalNight996/memory-eternal/tree/main/dsh-tui-plugin",
+  "bugs": {
+    "url": "https://github.com/EternalNight996/memory-eternal/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

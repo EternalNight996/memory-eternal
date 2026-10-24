@@ -742,7 +742,9 @@ export function apply(ctx, config) {
         // issue #48：超时不再硬编码 45s（本地 30B 冷启动 40–60s 必超时），且超时后**同候选**用更长超时重试一次。
         const baseTimeout = Math.max(5000, Number(cfg.captureTimeoutMs) || 45000)
         const isTimeoutFailure = (x) => /ABORTED|TIMEOUT|ETIMEDOUT|aborted/i.test(String((x && (x.code + ' ' + x.message)) || ''))
-        const attempt = (budget, ms) => summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(ms), existing: neighbors, maxTokens: budget })
+        // issue #51：把真实会话 id 透传给 LLM（opencode-go 网关靠它注入 x-opencode-session，
+        // 缺了首跳固定 400 MissingSessionID）。同一会话的蒸馏请求也因此能被网关按会话归并。
+        const attempt = (budget, ms) => summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(ms), existing: neighbors, maxTokens: budget, sessionId })
         let detailed = await attempt(maxTokens, baseTimeout)
         if (detailed.failure && isTimeoutFailure(detailed.failure)) {
           const longer = Math.min(Math.max(Math.round(baseTimeout * 2.5), baseTimeout + 30000), 180000)

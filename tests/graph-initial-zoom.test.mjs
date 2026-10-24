@@ -26,7 +26,9 @@ test('初始视图缩小三个度：系数 = (1/1.1)³ ≈ 0.751，且只应用�
 
 test('滚轮与初始视图共用同一个「度」：onWheel 不再硬编码 1.1', () => {
   assert.match(src, /sim\.zoom \* \(e\.deltaY < 0 \? ZOOM_STEP : 1 \/ ZOOM_STEP\)/, '滚轮用 ZOOM_STEP')
-  const wheelBlock = src.slice(src.indexOf('const onWheel'), src.indexOf('canvas.addEventListener("wheel"'))
+  // 切片必须真的落在 onWheel 函数体内：源码里监听器用的是单引号，
+  // 之前这里写成双引号 → indexOf 返回 -1 → 切片一路吃到文件末尾（注释里出现 "1.1" 就误报）。
+  const wheelBlock = src.slice(src.indexOf('const onWheel'), src.indexOf("canvas.addEventListener('wheel'"))
   assert.doesNotMatch(wheelBlock, /1\.1/, 'onWheel 里不应再有硬编码的 1.1（否则改步长时初始视图会漂）')
 })
 

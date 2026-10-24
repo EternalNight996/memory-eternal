@@ -37,3 +37,17 @@ function WebApp() {
 
 const root = createRoot(document.getElementById('root'))
 root.render(<WebApp />)
+
+// 首帧真的提交之后再撤掉 index.html 里的静态加载提示（#boot）。
+// 不用固定 setTimeout：app.js 执行完 → React 提交首帧之间还有渲染调度，慢机上会提前撤掉又露出白屏。
+let bootTries = 0
+const dropBoot = () => {
+  const rootEl = document.getElementById('root')
+  if (rootEl && rootEl.childElementCount > 0) {
+    const boot = document.getElementById('boot')
+    if (boot) boot.remove()
+    return
+  }
+  if (++bootTries < 900) requestAnimationFrame(dropBoot) // 最多等 ~15s；真等不到就保留提示，总比白屏强
+}
+requestAnimationFrame(dropBoot)
