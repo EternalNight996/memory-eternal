@@ -1279,6 +1279,8 @@
   function setView(v) {
     if (!VIEW_NAMES[v] && v !== 'recycle' && v !== 'config') v = 'library';
     state.view = v;
+    // 视图与 URL hash 保持同步：导航 / 快捷键 / 审核返回等任意切换都能直接复制地址
+    try { if ((location.hash || '').replace('#', '') !== v) history.replaceState(null, '', '#' + v); } catch (e) { /* 隐私模式忽略 */ }
     if ((v === 'recycle' || v === 'config') && !$('#view-' + v)) {
       var sec = document.createElement('section');
       sec.className = 'view';
@@ -2632,14 +2634,15 @@
   mountLibrary();
   mountAudit();
   bindGlobal();
+  var hv = (location.hash || '').replace('#', '');
   try {
-    if (!localStorage.getItem(GUIDE_KEY)) setTimeout(openGuide, 900);
+    // 带 hash 深链时不弹首次引导：否则引导层挡住目标视图，新访客会以为 #graph 没渲染
+    if (!localStorage.getItem(GUIDE_KEY) && !hv) setTimeout(openGuide, 900);
   } catch (e) { /* 隐私模式不弹 */ }
   if (!D.approved.length) {
     $('#grid').innerHTML = '<div class="empty" style="grid-column:1/-1"><h3>还没有数据</h3><p>先运行 preview/snapshot.mjs 生成本地快照。</p></div>';
   }
   // hash deep link
-  var hv = (location.hash || '').replace('#', '');
   if (hv && (VIEW_NAMES[hv] || hv === 'recycle' || hv === 'config')) setView(hv);
   window.addEventListener('hashchange', function () {
     var v = (location.hash || '').replace('#', '');
