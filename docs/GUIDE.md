@@ -249,6 +249,7 @@ dsh-memory stop [--port 7799]            # stop the resident watchdog (+ the web
                                          # then re-checks who still holds the port and warns
 dsh-memory restart [--port 7799]         # stop + respawn (apply a new version)
                                          # also reaps port owners the lock never registered, then verifies the served version
+dsh-memory ledger [--days 7] [--json]     # memory ledger: recall injection / distillation calls / usefulness
 dsh-memory audit list [--status pending|rejected|approved|deleted|all] [--limit N] [--json]
                                          # list cards; the total is never rewritten by --limit (which caps output only)
                                          # all = audit queue (pending + rejected), excluding approved / deleted
