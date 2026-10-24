@@ -1,6 +1,6 @@
 {
   "name": "memory-eternal-tui",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Memory Atlas for dsh-TUI: /audit scene with reason/severity, batch confirmation and reject reasons.",
   "type": "module",
   "main": "main.js",

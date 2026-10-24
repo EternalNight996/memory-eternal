@@ -11,6 +11,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.17.0** | 2026-10-25 | **记忆账本 + 私有化部署 + 开源落地页**：① 新增 SQLite ledger 表、lib/ledger.js、召回/沉淀埋点、GET /api/ledger 与「运行状态 → 记忆账本」卡片，召回注入 / 蒸馏调用 / 有用率可量化；新增 dsh-memory ledger [--days N] [--json] 终端入口。② 私有化部署：Dockerfile / docker-compose / Caddy（TLS + Basic Auth）/ systemd 示例，serve --host 支持容器与内网，新增 docs/DEPLOY.md。③ README 改为英文默认 + 中文镜像 README.zh-CN.md，完整手册与更新日志归档 docs/，新增 20 秒真录屏 GIF、GitHub Pages 官网、在线 Demo、social preview 与打赏二维码。④ Demo 支持 URL hash 深链与记忆账本卡；修复 GitHub Pages favicon 404。 |
 | **v0.16.0** | 2026-10-24 | **配置页与 MCP 兼容性大更新**：①「记忆配置」专业化重做——统一分区卡片（图标 / 标题 / 说明）、Switch 开关、粘性保存栏 +「未保存」状态、数值单位提示；「一键推荐」改为方案卡并加点击反馈（选中态 / Toast / 脏状态联动）。②「Agent MCP 挂载状态」改为自动识别：Claude Code / Codex / Cursor 可一键挂载，Gemini CLI / Windsurf / Cline / VS Code 只读识别；自动列出每个客户端已配置的 MCP 并汇总，支持「重新检测」。③ Web 首屏加载提示 + 知识星图分帧预热，消除打开记忆页 / 星图的白屏与卡顿。④ 修复 issue #51：LLM 蒸馏请求带 sessionId，opencode-go 等网关不再 MissingSessionID 400、不再每轮白烧调用。⑤「Web 版」入口只允许本机地址（端口取 watchdog 实际端口）。⑥ README 展示重做（新截图、平台表 ✅/⏳、配置章 UX 重排）。新增 9 个测试文件，npm test 全绿。 |
 | **v0.14.3** | 2026-10-23 | **终端实时数据全页打通**：`--live` 现在同时加载真实记忆库（全量分页）、知识星图节点/连线、运行状态总数/备份/版本、回收站；不再在记忆库/星图/状态页显示 999 节点、0.12.0、示例日志等假数据；待审仍为真实队列，读卡按卡状态请求正文。 |
 
