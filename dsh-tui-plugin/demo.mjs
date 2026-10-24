@@ -2,6 +2,7 @@
 // Memory Atlas TUI —— 完整交互原型
 // node dsh-tui-plugin/demo.mjs
 // 静态帧：node dsh-tui-plugin/demo.mjs --once --no-color
+// 定位列表：node dsh-tui-plugin/demo.mjs --once --no-color --screen=library --index=900
 // 全选预览：node dsh-tui-plugin/demo.mjs --once --no-color --select-all
 //
 // 示例数据，不连接真实 vault，不写任何卡片。
@@ -179,6 +180,8 @@ const writeMode = argv.has('--write')
 const API = process.env.MEMORY_ETERNAL_API || 'http://127.0.0.1:7999/memory-eternal/api'
 const screenArg = (process.argv.find((a) => a.startsWith('--screen=')) || '').split('=')[1]
 const scrollArg = Number((process.argv.find((a) => a.startsWith('--scroll=')) || '').split('=')[1] || 0)
+// --index=N：设定初始选中项；列表窗口会跟着它滚动，便于自动化验收位置
+const indexArg = Number((process.argv.find((a) => a.startsWith('--index=')) || '').split('=')[1])
 const useColor = !argv.has('--no-color') && !process.env.NO_COLOR
 
 const sgr = (code, text) => (useColor ? code + text + C.reset : text)
@@ -227,11 +230,53 @@ const wrap = (text, n) => {
 function panel(title, lines, w, h, accent = C.border) {
   const inner = Math.max(1, w - 2)
   const t = ' ' + title + ' '
-  const top = sgr(accent, '╭─') + sgr(accent, t) + sgr(accent, '─'.repeat(Math.max(0, inner - width(t))) + '╮')
+  // 顶框总宽必须等于内框 + 左右边框（= w）：标题两侧各多占 1 列，否则右边会多出 1 列
+  const top = sgr(accent, '╭─') + sgr(accent, t) + sgr(accent, '─'.repeat(Math.max(0, inner - width(t) - 1)) + '╮')
   const bottom = sgr(accent, '╰' + '─'.repeat(inner) + '╯')
   const body = []
   for (let i = 0; i < h - 2; i++) body.push(sgr(C.border, '│') + pad(clip(lines[i] || '', inner), inner) + sgr(C.border, '│'))
   return [top, ...body, bottom].join('\n')
+}
+
+// ── 列表窗口 + 滚动条 ────────────────────────────────────────────────
+// 记忆库 / 待审队列不再全量渲染：只渲染 listTop 起的一屏，右侧 1 列画
+// 滚动条（滑轨 │ / 滑块 █），并保证 state.index 始终落在窗口内。
+const SCROLL_THUMB = '█'
+const SCROLL_TRACK = '│'
+
+function windowInfo(state, total, visible) {
+  const count = Math.max(0, Number.isFinite(total) ? Math.floor(total) : 0)
+  const vis = Math.max(1, Number.isFinite(visible) ? Math.floor(visible) : 1)
+  let index = Math.max(0, Math.min(Math.floor(Number(state.index) || 0), Math.max(0, count - 1)))
+  let top = Math.max(0, Math.floor(Number(state.listTop) || 0))
+  if (index < top) top = index
+  else if (index >= top + vis) top = index - vis + 1
+  top = Math.min(top, Math.max(0, count - vis))
+  state.index = index
+  state.listTop = top
+  return { total: count, visible: vis, index, top, end: Math.min(count, top + vis) }
+}
+
+function scrollChar(row, rows, view) {
+  if (!view || view.total <= view.visible || rows <= 0) return ' '
+  const thumbH = Math.min(rows, Math.max(1, Math.round((view.visible / view.total) * rows)))
+  const maxTop = Math.max(1, view.total - view.visible)
+  const pos = Math.round((Math.min(view.top, maxTop) / maxTop) * (rows - thumbH))
+  return row >= pos && row < pos + thumbH ? sgr(C.ember, SCROLL_THUMB) : sgr(C.faint, SCROLL_TRACK)
+}
+
+// panel 会把每行 clip/pad 到 inner 宽度：这里先把正文压到 inner-1，再补滚动条列，
+// 所以右边框不会被挤掉；不需要滚动时该列留空。
+function scrollPanel(title, lines, w, h, accent, view) {
+  const inner = Math.max(1, w - 2)
+  const rows = Math.max(0, h - 2)
+  if (!view) return panel(title, lines, w, h, accent)
+  const cw = Math.max(1, inner - 1)
+  const composed = []
+  for (let i = 0; i < rows; i++) {
+    composed.push(pad(clip(lines[i] || '', cw), cw) + scrollChar(i, rows, view))
+  }
+  return panel(title, composed, w, h, accent)
 }
 
 const kindOf = (c) => KIND[c.kind] || KIND.project
@@ -261,14 +306,18 @@ function searchRow(state, w) {
   return ' ' + sgr(C.faint, '/ ') + sgr(state.searchMode ? C.text : C.faint, text) + '   ' + sgr(C.faint, 'Enter 确认 · Esc 清空')
 }
 
-function queueLines(cards, state, w) {
+function queueLines(cards, state, w, view) {
   if (!cards.length) return ['', sgr(C.green, '  ✓ 没有匹配的卡片'), '', sgr(C.dim, '  按 Esc 清空搜索 / 筛选')]
   const lines = []
   const chosen = cards.filter((c) => state.marked.has(c.id)).length
   const all = cards.length > 0 && chosen === cards.length
   lines.push(`  ${all ? sgr(C.ember, '▣') : sgr(C.faint, '☐')} ${sgr(C.dim, all ? '反选' : '全选')} ${cards.length}    ${chosen ? sgr(C.amber, '已选 ' + chosen) : sgr(C.faint, '已选 0')}    ${keycap('s', all ? '反选' : '全选')}`)
   lines.push('')
-  cards.forEach((card, i) => {
+  // 只渲染窗口内的项：view.top..view.end（0 张 / 全量时退化为原行为）
+  const from = view ? view.top : 0
+  const to = view ? view.end : cards.length
+  for (let i = from; i < to; i++) {
+    const card = cards[i]
     const k = kindOf(card)
     const selected = i === state.index
     const marked = state.marked.has(card.id)
@@ -282,7 +331,7 @@ function queueLines(cards, state, w) {
     if (selected) meta = tone(pad(clip(meta, w), w), '', C.selectedBg)
     lines.push(clip(meta, w))
     lines.push('')
-  })
+  }
   return lines
 }
 
@@ -313,11 +362,17 @@ function previewLines(card, w) {
 
 function auditView(state, w, h) {
   const cards = filtered(state)
-  const selected = cards[state.index]
   const qw = Math.max(40, Math.floor((w - 1) * 0.4))
   const pw = w - qw - 1
   const ph = h - 2
-  const q = panel(`队列 ${cards.length}${state.marked.size ? ' ◉' + state.marked.size : ''}`, queueLines(cards, state, qw - 2), qw, ph)
+  // 队列面板内高 = ph-2；前 2 行是全选/已选说明，其余按每卡 3 行开窗
+  const rows = Math.max(0, ph - 2)
+  const visible = Math.max(1, Math.floor(Math.max(0, rows - 2) / 3) || 1)
+  const view = windowInfo(state, cards.length, visible)
+  state.listPage = view.visible
+  const selected = cards[view.index]
+  const pos = cards.length ? ` · ${view.top + 1}-${view.end}/${cards.length}` : ''
+  const q = scrollPanel(`队列 ${cards.length}${state.marked.size ? ' ◉' + state.marked.size : ''}${pos}`, queueLines(cards, state, qw - 3, view), qw, ph, C.border, view)
   const p = panel('判词', previewLines(selected, pw - 2), pw, ph, C.ember)
   const ql = q.split('\n'), pl = p.split('\n')
   const out = [typeRow(state, w), '']
@@ -336,19 +391,33 @@ function cardRow(card, selected, w, compact) {
 
 function libraryView(state, w, h) {
   const cards = filtered(state)
-  const lines = [typeRow(state, w), '', searchRow(state, w), '']
+  const inner = Math.max(1, w - 2)
+  // 右侧留 1 列给滚动条：正文宽度 = 内框宽度 - 1
+  const cw = Math.max(1, inner - 1)
+  const bodyRows = Math.max(0, h - 2)
   const feature = cards[0] || CARDS[0]
-  lines.push(`${sgr(C.ember, '✦ 今日回看')}   ${sgr(C.text, feature.title)}`)
-  lines.push(`  ${sgr(C.dim, feature.summary)}`)
-  lines.push(`  ${feature.tags.map((t) => tone(' #' + t + ' ', C.ember, C.chipBg)).join(' ')}`)
-  lines.push('', sgr(C.border, '─'.repeat(Math.max(1, w - 2))), '')
-  lines.push(`${sgr(C.dim, '全部记忆')}  ${sgr(C.faint, cards.length + ' 张 · 按 Enter 读卡')}`)
-  lines.push('')
-  cards.forEach((card, i) => {
-    lines.push(...cardRow(card, i === state.index, w - 2, true))
+  const header = [
+    typeRow(state, cw), '',
+    searchRow(state, cw), '',
+    `${sgr(C.ember, '✦ 今日回看')}   ${sgr(C.text, feature.title)}`,
+    `  ${sgr(C.dim, feature.summary)}`,
+    `  ${feature.tags.map((t) => tone(' #' + t + ' ', C.ember, C.chipBg)).join(' ')}`,
+    '', sgr(C.border, '─'.repeat(Math.max(1, cw))), '',
+    `${sgr(C.dim, '全部记忆')}  ${sgr(C.faint, cards.length + ' 张 · 按 Enter 读卡')}`,
+    '',
+  ]
+  const listRows = Math.max(0, bodyRows - header.length)
+  // 每张卡固定 2 行正文 + 1 行空行；只渲染这一屏
+  const visible = Math.max(1, Math.floor(listRows / 3) || 1)
+  const view = windowInfo(state, cards.length, visible)
+  state.listPage = view.visible
+  const lines = header.slice()
+  for (let i = view.top; i < view.end; i++) {
+    lines.push(...cardRow(cards[i], i === view.index, cw, true))
     lines.push('')
-  })
-  return [panel('记忆库', lines, w, h, C.border)]
+  }
+  const title = cards.length ? `记忆库 · ${view.top + 1}-${view.end}/${cards.length}` : '记忆库 · 0/0'
+  return [scrollPanel(title, lines, w, h, C.border, view)]
 }
 
 function readerView(state, w, h) {
@@ -478,6 +547,8 @@ function helpView(w, h) {
     `  ${keycap('1')}–${keycap('6')}        记忆库 / 待审 / 星图 / 状态 / 回收 / 设置`,
     `  ${keycap('Tab')}        切换页面`,
     `  ${keycap('↑↓')} ${keycap('jk')}   移动`,
+    `  ${keycap('PgUp/PgDn')} 列表翻页（记忆库 / 待审）`,
+    `  ${keycap('g/G')}       列表首 / 尾`,
     `  ${keycap('←→')} ${keycap('t')}   切换类型`,
     `  ${keycap('Enter')}      读卡 / 切换设置`,
     `  ${keycap('Space')}      多选 / 切换设置`,
@@ -501,16 +572,19 @@ function footer(state, w) {
   if (state.screen === 'settings') return ' ' + [keycap('↑↓', '移动'), keycap('Enter', '切换'), keycap('Space', '切换'), keycap('Esc', '返回')].join(' ')
   if (state.screen === 'recycle') return ' ' + [keycap('↑↓', '移动'), keycap('r', '恢复'), keycap('d', '删除')].join(' ')
   if (state.screen === 'audit' && state.marked.size) return ' ' + [keycap('a', '批准 ' + state.marked.size), keycap('r', '驳回'), keycap('s', '反选'), keycap('Esc', '清空')].join(' ')
-  if (state.screen === 'audit') return ' ' + [keycap('↑↓', '移动'), keycap('←→', '类型'), keycap('Space', '多选'), keycap('s', '全选'), keycap('a', '批准'), keycap('r', '驳回'), keycap('Enter', '读卡'), keycap('1-6', '页面'), keycap('?', '帮助')].join(' ')
-  if (state.screen === 'library') return ' ' + [keycap('↑↓', '移动'), keycap('←→', '类型'), keycap('/', '搜索'), keycap('Enter', '读卡'), keycap('1-6', '页面')].join(' ')
+  if (state.screen === 'audit') return ' ' + [keycap('↑↓', '移动'), keycap('PgUp/PgDn', '翻页'), keycap('g/G', '首/尾'), keycap('←→', '类型'), keycap('Space', '多选'), keycap('s', '全选'), keycap('a', '批准'), keycap('r', '驳回'), keycap('Enter', '读卡'), keycap('1-6', '页面'), keycap('?', '帮助')].join(' ')
+  if (state.screen === 'library') return ' ' + [keycap('↑↓', '移动'), keycap('PgUp/PgDn', '翻页'), keycap('g/G', '首/尾'), keycap('←→', '类型'), keycap('/', '搜索'), keycap('Enter', '读卡'), keycap('1-6', '页面')].join(' ')
   if (state.screen === 'graph') return ' ' + [keycap('↑↓', '切换卡片'), keycap('Enter', '读卡'), keycap('1-6', '页面')].join(' ')
   if (state.screen === 'status') return ' ' + [keycap('1-6', '页面'), keycap('Tab', '切换'), keycap('?', '帮助')].join(' ')
   return ' ' + [keycap('1-6', '页面'), keycap('Tab', '切换'), keycap('?', '帮助')].join(' ')
 }
 
 function frame(state) {
-  const w = Math.max(72, Math.min(useColor ? 140 : 120, process.stdout.columns || 120))
-  const rows = Math.max(24, process.stdout.rows || 36)
+  // 非 TTY（管道 / --once 重定向）时退化到 COLUMNS/LINES，便于自动化验收终端尺寸
+  const cols = Number(process.stdout.columns) || Number(process.env.COLUMNS) || 0
+  const rowsRaw = Number(process.stdout.rows) || Number(process.env.LINES) || 0
+  const w = Math.max(72, Math.min(useColor ? 140 : 120, cols || 120))
+  const rows = Math.max(24, rowsRaw || 36)
   const screen = state.help ? 'help' : state.screen
   const label = screen === 'help' ? '帮助' : SCREENS[screen]?.label || '记忆库'
   const totalNow = state.screen === 'library' ? (state.libraryCards || state.cards).length : state.cards.length
@@ -615,6 +689,7 @@ async function loadLive(state) {
       path: c.path,
     }))
     state.index = 0
+    state.listTop = 0
     state.marked.clear()
     if (selectAllAtStart) state.cards.forEach((c) => state.marked.add(c.id))
     if (!state.cards.length) {
@@ -639,7 +714,12 @@ async function main() {
     settings: SETTINGS.map((s) => ({ ...s })), settingsIndex: 0, help: screenArg === 'help', toast: null,
     live: false, liveError: '', overview: null, libraryCards: CARDS.slice(), graphData: null, graphIndex: 0,
   }
+  state.initialIndex = Number.isFinite(indexArg) && indexArg > 0 ? Math.floor(indexArg) : 0
+  state.listTop = 0
+  state.listPage = 1
   if (liveMode) await loadLive(state)
+  // --index=N 在实时数据加载后仍要生效（loadLive 内部会把 index 归零）
+  if (state.initialIndex) state.index = state.initialIndex
   if (once) { draw(state); return }
   if (!process.stdout.isTTY) { process.stderr.write('请在有 TTY 的终端里运行；预览用 --once\n'); process.exitCode = 1; return }
 
@@ -695,6 +775,7 @@ async function main() {
     const ids = new Set(targets.map((c) => c.id))
     state.cards = state.cards.filter((c) => !ids.has(c.id))
     state.index = 0
+    state.listTop = 0
     state.marked.clear()
     toast(`${decision === 'a' ? '✓ 已批准' : '✕ 已驳回'} ${targets.length} 张：${targets[0].title}`, decision === 'a')
   }
@@ -725,6 +806,7 @@ async function main() {
     const i = ids.indexOf(state.screen === 'reader' ? state.readerBack : state.screen)
     state.screen = ids[(i + dir + ids.length) % ids.length]
     state.index = 0
+    state.listTop = 0
     draw(state)
   }
 
@@ -745,7 +827,7 @@ async function main() {
     if (key.name === 'tab') { cycle(key.shift ? -1 : 1); return }
     if (/^[1-6]$/.test(str)) {
       const id = ['library', 'audit', 'graph', 'status', 'recycle', 'settings'][Number(str) - 1]
-      state.screen = id; state.index = 0; draw(state); return
+      state.screen = id; state.index = 0; state.listTop = 0; draw(state); return
     }
     if (state.screen === 'reader') {
       if (key.name === 'escape') { state.screen = state.readerBack; draw(state); return }
@@ -790,22 +872,28 @@ async function main() {
     if (str === 't' || key.name === 'right' || str === 'l') {
       const keys = ['all', 'project', 'knowledge', 'mistake', 'content', 'tool', 'prompt']
       state.kind = keys[(keys.indexOf(state.kind) + 1) % keys.length]
-      state.index = 0; state.marked.clear(); draw(state); return
+      state.index = 0; state.listTop = 0; state.marked.clear(); draw(state); return
     }
     if (key.name === 'left' || str === 'h') {
       const keys = ['all', 'project', 'knowledge', 'mistake', 'content', 'tool', 'prompt']
       state.kind = keys[(keys.indexOf(state.kind) - 1 + keys.length) % keys.length]
-      state.index = 0; state.marked.clear(); draw(state); return
+      state.index = 0; state.listTop = 0; state.marked.clear(); draw(state); return
     }
     if (state.screen === 'audit' && (str === 's' || (key.ctrl && key.name === 'a'))) {
       const all = cards.length > 0 && cards.every((c) => state.marked.has(c.id))
       cards.forEach((c) => all ? state.marked.delete(c.id) : state.marked.add(c.id))
       draw(state); return
     }
+    // 列表翻页：一次走一屏（state.listPage 由 libraryView / auditView 渲染时写入）
+    const pageStep = Math.max(1, state.listPage || 1)
+    if (key.name === 'pageup') { state.index = Math.max(0, state.index - pageStep); draw(state); return }
+    if (key.name === 'pagedown') { state.index = Math.min(Math.max(0, cards.length - 1), state.index + pageStep); draw(state); return }
+    if (str === 'g') { state.index = 0; draw(state); return }
+    if (str === 'G') { state.index = Math.max(0, cards.length - 1); draw(state); return }
     if (key.name === 'up' || str === 'k') { state.index = Math.max(0, state.index - 1); draw(state); return }
     if (key.name === 'down' || str === 'j') { state.index = Math.min(Math.max(0, cards.length - 1), state.index + 1); draw(state); return }
     if (key.name === 'return' || key.name === 'enter') { openReader(); return }
-    if (key.name === 'escape') { state.query = ''; state.kind = 'all'; state.marked.clear(); state.index = 0; draw(state); return }
+    if (key.name === 'escape') { state.query = ''; state.kind = 'all'; state.marked.clear(); state.index = 0; state.listTop = 0; draw(state); return }
     if (state.screen === 'audit' && (key.name === 'space' || str === ' ')) {
       const c = cards[state.index]; if (c) { state.marked.has(c.id) ? state.marked.delete(c.id) : state.marked.add(c.id) } draw(state); return
     }

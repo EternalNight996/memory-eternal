@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
-  <img src="https://img.shields.io/badge/release-v0.15.0-FF7A45" alt="v0.15.0" />
+  <img src="https://img.shields.io/badge/release-v0.16.0-FF7A45" alt="v0.16.0" />
   <a href="https://eternalnight996.github.io/memory-eternal/"><img src="https://img.shields.io/badge/Live%20Demo-online-FF7A45" alt="Live demo" /></a>
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
@@ -94,7 +94,7 @@ dsh-memory tui --demo   # 示例数据（无 API 时也可看效果）
 
 `dsh-memory` 不在 PATH 时，直接用上面的 `npx` 命令；它会临时下载并运行当前 npm 版本。
 
-> `tui` 子命令从 **0.14.1** 开始提供。旧版 `dsh-memory` 会显示帮助；升级：`npm i -g --force memory-eternal@0.15.0`。
+> `tui` 子命令从 **0.14.1** 开始提供。旧版 `dsh-memory` 会显示帮助；升级：`npm i -g --force memory-eternal@0.16.0`。
 
 ### 终端版包含
 
@@ -519,7 +519,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
-| **v0.15.0** | 2026-10-23 | **TUI 默认实时**：`dsh-memory tui` 不再需要 `--live`，默认加载真实记忆库、待审、星图、状态、回收站；`--demo` 才使用示例数据；`--write` 才允许批驳；同时修复空队列误回退示例、记忆库/星图/状态假数据问题。 |
+| **v0.16.0** | 2026-10-24 | **配置页与 MCP 兼容性大更新**：①「记忆配置」专业化重做——统一分区卡片（图标 / 标题 / 说明）、Switch 开关、粘性保存栏 +「未保存」状态、数值单位提示；「一键推荐」改为方案卡并加点击反馈（选中态 / Toast / 脏状态联动）。②「Agent MCP 挂载状态」改为自动识别：Claude Code / Codex / Cursor 可一键挂载，Gemini CLI / Windsurf / Cline / VS Code 只读识别；自动列出每个客户端已配置的 MCP 并汇总，支持「重新检测」。③ Web 首屏加载提示 + 知识星图分帧预热，消除打开记忆页 / 星图的白屏与卡顿。④ 修复 issue #51：LLM 蒸馏请求带 sessionId，opencode-go 等网关不再 MissingSessionID 400、不再每轮白烧调用。⑤「Web 版」入口只允许本机地址（端口取 watchdog 实际端口）。⑥ README 展示重做（新截图、平台表 ✅/⏳、配置章 UX 重排）。新增 9 个测试文件，npm test 全绿。 |
 | **v0.14.3** | 2026-10-23 | **终端实时数据全页打通**：`--live` 现在同时加载真实记忆库（全量分页）、知识星图节点/连线、运行状态总数/备份/版本、回收站；不再在记忆库/星图/状态页显示 999 节点、0.12.0、示例日志等假数据；待审仍为真实队列，读卡按卡状态请求正文。 |
 
 <details>
@@ -527,6 +527,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.15.0** | 2026-10-23 | **TUI 默认实时**：`dsh-memory tui` 不再需要 `--live`，默认加载真实记忆库、待审、星图、状态、回收站；`--demo` 才使用示例数据；`--write` 才允许批驳；同时修复空队列误回退示例、记忆库/星图/状态假数据问题。 |
 | **v0.14.2** | 2026-10-23 | **实时空队列修复**：`dsh-memory tui` 在真实待审为 0 时不再回退示例数据，显示 LIVE 空队列；同时保留 `npx -p memory-eternal dsh-memory tui` 的免路径入口与 0.14.1 的旧全局 CLI 升级提示。 |
 | **v0.14.1** | 2026-10-23 | **终端入口免绝对路径**：新增 `dsh-memory tui`，任意用户安装插件后可直接运行完整终端客户端，无需 `cd` 到仓库或填写本机绝对路径；Web 终端页同步改为只读/写入两条通用命令。 |
 | **v0.14.0** | 2026-10-23 | **Web 终端入口 + 新功能截图**：记忆库左栏新增「终端版」，内置运行命令、dsh-tui `/audit` 引导与终端预览，解决 Web 无法展示 TUI 的问题；README 新增终端审核、长文读卡器和 Web 终端页真实截图；dsh-tui 原生 `/audit` 正式接入。 |

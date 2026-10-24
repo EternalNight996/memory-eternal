@@ -1,20 +1,27 @@
 {
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "memory-eternal",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "记忆核心（Memory Eternal）：对话结束后自动沉淀知识卡到本地记忆库（~/.dsh/memory-vault），支持检索 / 召回 / 审核中心。",
   "author": {
     "name": "EternalNight996",
     "url": "https://github.com/EternalNight996"
   },
   "license": "MIT",
-  "hooks": { "source": "./hooks/hooks.claude.json" },
-  "skills": ["./skills/"],
+  "hooks": {
+    "source": "./hooks/hooks.claude.json"
+  },
+  "skills": [
+    "./skills/"
+  ],
   "mcp_servers": [
     {
       "name": "memory",
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/dsh-memory.mjs", "mcp"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/bin/dsh-memory.mjs",
+        "mcp"
+      ]
     }
   ]
 }

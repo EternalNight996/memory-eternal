@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-3B82F6" alt="DSH plugin" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm version" />
-  <img src="https://img.shields.io/badge/release-v0.15.0-FF7A45" alt="v0.15.0" />
+  <img src="https://img.shields.io/badge/release-v0.16.0-FF7A45" alt="v0.16.0" />
   <a href="https://eternalnight996.github.io/memory-eternal/"><img src="https://img.shields.io/badge/Live%20Demo-online-FF7A45" alt="Live demo" /></a>
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="GitHub stars" />
   <img src="https://img.shields.io/github/license/EternalNight996/memory-eternal" alt="license" />
@@ -94,7 +94,7 @@ dsh-memory tui --demo   # sample data
 
 If `dsh-memory` is not on PATH, use the `npx` command above; it downloads and runs the current npm version.
 
-> The `tui` subcommand ships in **0.14.1+**. An older CLI prints help; upgrade with `npm i -g --force memory-eternal@0.15.0`.
+> The `tui` subcommand ships in **0.14.1+**. An older CLI prints help; upgrade with `npm i -g --force memory-eternal@0.16.0`.
 
 ### What is inside
 
@@ -486,7 +486,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # is the standalone we
 
 | Version | Date | Highlights |
 |---|---|---|
-| **v0.15.0** | 2026-10-23 | **Live TUI by default**: `dsh-memory tui` no longer needs `--live`; it loads the real library, review queue, graph, runtime and recycle bin by default. `--demo` is opt-in sample data, and `--write` is required for real review. Also fixes empty-queue sample fallback and fake library/graph/status data. |
+| **v0.16.0** | 2026-10-24 | **Config page and MCP compatibility refresh**: ① the Memory Config page is rebuilt for clarity — uniform section cards (icon / title / hint), Switch toggles, a sticky save bar with unsaved-change state, and unit hints; the one-click presets become selectable plan cards with click feedback (selected state / toast / dirty-state sync). ② Agent MCP mount status turns into auto-detection: Claude Code / Codex / Cursor remain one-click managed, while Gemini CLI / Windsurf / Cline / VS Code are detected read-only; every client lists its configured MCP servers with a summary and a Re-scan action. ③ A first-paint loading indicator and frame-budgeted knowledge-graph warmup remove the blank-page / freeze on opening memory or the graph. ④ Fixes issue #51 by passing sessionId on LLM distillation requests, so gateways such as opencode-go no longer return MissingSessionID 400 or burn a call every turn. ⑤ The Web entry only opens local URLs and resolves the resident port from the watchdog lock. ⑥ README showcase rework (new screenshots, ✅/⏳ platform table, config-section UX reorder). 9 new test files; npm test is green. |
 | **v0.14.3** | 2026-10-23 | **Live data across the whole TUI**: `--live` now loads the real library (paginated), graph nodes/edges, runtime totals/backups/version and recycle bin; the library/graph/status pages no longer show fake 999 nodes, 0.12.0 or demo logs. Review stays on the real queue, and cards are fetched with their real status. |
 
 <details>
@@ -494,6 +494,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # is the standalone we
 
 | Version | Date | Highlights |
 |---|---|---|
+| **v0.15.0** | 2026-10-23 | **Live TUI by default**: `dsh-memory tui` no longer needs `--live`; it loads the real library, review queue, graph, runtime and recycle bin by default. `--demo` is opt-in sample data, and `--write` is required for real review. Also fixes empty-queue sample fallback and fake library/graph/status data. |
 | **v0.14.2** | 2026-10-23 | **Live empty-queue fix**: `dsh-memory tui` no longer falls back to sample data when the real pending queue is empty; it stays in LIVE mode and shows the empty state. The path-free npx entry and the 0.14.1 old-global-CLI upgrade note remain. |
 | **v0.14.1** | 2026-10-23 | **Portable terminal entry**: new `dsh-memory tui` lets any installed user launch the full terminal client without `cd`-ing into the repo or hard-coding a local path; the Web terminal page now shows the same read-only/write commands. |
 | **v0.14.0** | 2026-10-23 | **Web terminal entry + fresh screenshots**: the library rail gains a Terminal page with copy-ready commands, the dsh-tui `/audit` guide and a terminal preview, so terminal-only features are discoverable from the Web UI; README adds real screenshots for the terminal audit, long-form reader and Web terminal page; the native dsh-tui `/audit` scene ships. |

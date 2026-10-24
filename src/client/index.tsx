@@ -17,6 +17,8 @@ import { versionCardState } from './version-state.js'
 import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
 // 图谱 LOD：视口剔除 + 标签预算（放大后卡顿的根治手段）
 import { visibleWorldRect, inRect, pickLabelIds, labelBudget } from './graph-lod.js'
+// 图谱预热策略：分帧 + 时间预算（替代原来「200 次同步 tick」造成的 1s+ 主线程冻结/空白）
+import { WARM_FRAME_BUDGET_MS, warmTicksFor } from './graph-warmup.js'
 // 保存后不闪烁：宿主 volatile 回流滞后期间，用本地叠加层顶住输入框的值
 import { mergeLocalOverlay } from './config-merge.js'
 
@@ -43,7 +45,10 @@ export const inject = ['slots', 'locale']
 
 export const ZH = {
   nav: '记忆',
+  // 加载提示统一「进度条 + 文案」（用户群要求：不要干等，要看得见进度）。
+  // 网络阶段是不确定进度条，布局阶段是真实百分比。
   loading: '加载中…',
+  loadingGraph: '正在加载知识星图…',
   refresh: '刷新',
   overview: '记忆库概览',
   total: '知识卡',
@@ -60,6 +65,10 @@ export const ZH = {
   kindTool: '工具',
   kindMistake: '教训',
   cardsTab: '知识卡',
+  webTab: 'Web 版',
+  webOpening: '正在用默认浏览器打开 Web 版…',
+  webOpened: '已用默认浏览器打开 Web 版',
+  webOpenFail: '打开浏览器失败，可手动访问',
   terminalTab: '终端版',
   terminalTitle: '终端完整版',
   terminalIntro: 'Web UI 不渲染终端原生 TUI。要完整批卡、长文滚动和全选，请打开本机终端；或者直接在 dsh-tui 里用 /audit。',
@@ -130,6 +139,7 @@ export const ZH = {
   exitFull: '退出全屏',
   copyFail: '复制失败',
   timeDim: '时间维',
+  graphWarming: '正在布局 {n} 个节点…',
   timeNew: '3 天内',
   timeRecent: '2 周内',
   timeMonth: '1 月内',
@@ -492,6 +502,28 @@ export const ZH = {
   uninstallConfirm: '确认卸载该智能体的 MCP？Claude Code/Codex 将无法再调用记忆库。',
   presetConfig: '一键推荐配置',
   presetHint: '点击填充对应方案，点保存生效',
+  planApplied: '已填入「{plan}」· 点「保存配置」生效',
+  planDescA: '个人开发推荐 · 蒸馏 4000 · 关看门狗',
+  planDescB: '预算敏感 · 关蒸馏 · 近 0 成本',
+  planDescC: '长项目 · 开看门狗 · 高质量',
+  cfgSubCore: '自动沉淀 / 召回 / 库目录与去重策略',
+  cfgSubMulti: '按项目隔离记忆库，切换后 CLI / MCP / hooks 同步生效',
+  cfgSubCost: '控制 LLM 调用与召回规模，直接决定花多少钱',
+  cfgSubAudit: '什么内容需要你人工确认后才进主库',
+  cfgSubService: '保活、看门狗与版本自愈，一般保持默认即可',
+  cfgDirty: '有未保存的更改',
+  cfgClean: '已同步',
+  unitChars: '字',
+  unitPerDay: '张 / 天',
+  unitTokens: 'tokens',
+  unitMs: '毫秒',
+  unitTimes: '次',
+  unitDays: '天',
+  mcpAutoHint: '自动识别已安装的 Agent 与其 MCP 配置（只读探测，不改任何文件）',
+  mcpRefresh: '重新检测',
+  mcpSummary: '识别到 {agents} 个 Agent · {servers} 个 MCP · {mounted} 个已挂载本插件',
+  mcpNoServers: '未配置 MCP',
+  mcpDetectedOnly: '仅识别',
   planA: 'A 轻量省心',
   planB: 'B 极致省钱',
   planC: 'C 高质量',
@@ -569,6 +601,7 @@ export const ZH = {
 export const EN = {
   nav: 'Memory',
   loading: 'Loading…',
+  loadingGraph: 'Loading knowledge graph…',
   refresh: 'Refresh',
   overview: 'Memory Overview',
   total: 'Cards',
@@ -585,6 +618,10 @@ export const EN = {
   kindTool: 'Tools',
   kindMistake: 'Mistakes',
   cardsTab: 'Cards',
+  webTab: 'Web version',
+  webOpening: 'Opening the web version in your browser…',
+  webOpened: 'Opened the web version in your browser',
+  webOpenFail: 'Could not open a browser; visit this URL manually',
   terminalTab: 'Terminal',
   terminalTitle: 'Full terminal UI',
   terminalIntro: 'The Web UI does not render the native terminal TUI. For select-all, batch review and long-form scrolling, open a local terminal or use /audit inside dsh-tui.',
@@ -599,6 +636,7 @@ export const EN = {
   graph: 'Knowledge Graph',
   graphHint: 'Nodes = cards; edges = [[links]] or shared tags. Click a node to read.',
   graphTip: 'Left-click highlights · Shift+drag box-select · right-click menu · scroll zoom · drag to pan',
+  graphWarming: 'Laying out {n} nodes…',
   rebuild: 'Rebuild',
   reset: 'Reset',
   expandAll: 'Expand all',
@@ -1019,6 +1057,28 @@ export const EN = {
   uninstallConfirm: 'Confirm uninstall MCP for this agent? Claude Code/Codex will lose access to the memory vault.',
   presetConfig: 'One-click preset config',
   presetHint: 'Click to fill a plan, then hit Save',
+  planApplied: 'Filled "{plan}" — hit "Save config" to apply',
+  planDescA: 'Personal dev · distill 4000 · watchdog off',
+  planDescB: 'Budget · no distill · ~zero cost',
+  planDescC: 'Long projects · watchdog on · high quality',
+  cfgSubCore: 'Capture / recall / vault dir and dedup strategy',
+  cfgSubMulti: 'Per-project vaults; CLI / MCP / hooks follow the active one',
+  cfgSubCost: 'Control LLM calls and recall size — this is your bill',
+  cfgSubAudit: 'What must be reviewed before entering the main vault',
+  cfgSubService: 'Keep-alive, watchdog and version self-heal — defaults are fine',
+  cfgDirty: 'Unsaved changes',
+  cfgClean: 'Synced',
+  unitChars: 'chars',
+  unitPerDay: 'cards / day',
+  unitTokens: 'tokens',
+  unitMs: 'ms',
+  unitTimes: 'times',
+  unitDays: 'days',
+  mcpAutoHint: 'Auto-detects installed agents and their MCP configs (read-only probe)',
+  mcpRefresh: 'Re-scan',
+  mcpSummary: '{agents} agents · {servers} MCP servers · {mounted} mounting this plugin',
+  mcpNoServers: 'No MCP configured',
+  mcpDetectedOnly: 'detected only',
   planA: 'A Light',
   planB: 'B Budget',
   planC: 'C Premium',
@@ -1141,6 +1201,55 @@ const CSS = `
 .mc-new { display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; line-height: 16px; font-weight: 600; color: #fff; background: linear-gradient(135deg, #f97316, #ef4444); vertical-align: middle; }
 .mc-hl { background: rgba(245,158,11,0.35); color: inherit; border-radius: 2px; padding: 0 1px; }
 .mc-btn:hover { opacity: 0.85; }
+.mc-btn:active { transform: scale(0.97); }
+.mc-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* ---- 记忆配置页（专业表单布局） ---- */
+.mc-cfg { width: 100%; }
+.mc-cfg-sec { margin-bottom: 12px; padding: 16px 18px !important; }
+.mc-cfg-sec-head { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 14px; }
+.mc-cfg-sec-ico { flex: none; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgba(127,127,127,.12); }
+.mc-cfg-sec-title { font-size: 13.5px; font-weight: 650; letter-spacing: .2px; line-height: 1.35; }
+.mc-cfg-sec-sub { font-size: 11.5px; opacity: .58; margin-top: 3px; line-height: 1.55; }
+.mc-cfg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 13px 16px; }
+.mc-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 12px; }
+.mc-field-label { font-size: 11.5px; opacity: .62; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.mc-field-hint { font-size: 10.5px; opacity: .45; line-height: 1.4; }
+.mc-field input, .mc-field select { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font-size: 12px; transition: border-color .15s, box-shadow .15s; }
+.mc-field input:focus, .mc-field select:focus { outline: none; border-color: var(--dsw-alias-brand-primary, #3b82f6); box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
+.mc-field input:disabled, .mc-field select:disabled { opacity: .55; cursor: not-allowed; }
+.mc-switch { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; font-size: 12px; line-height: 1.5; min-width: 0; }
+.mc-switch input { appearance: none; -webkit-appearance: none; flex: none; width: 34px; height: 20px; margin: 1px 0 0; border-radius: 999px; background: var(--dsw-alias-border-l2, #cbd5e1); position: relative; cursor: pointer; transition: background .16s; }
+.mc-switch input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28); transition: transform .16s; }
+.mc-switch input:checked { background: var(--dsw-alias-brand-primary, #3b82f6); }
+.mc-switch input:checked::after { transform: translateX(14px); }
+.mc-switch span { padding-top: 1px; white-space: normal; overflow-wrap: anywhere; }
+.mc-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.mc-plan { text-align: left; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: transparent; border-radius: 10px; padding: 11px 13px; cursor: pointer; color: inherit; font: inherit; display: flex; flex-direction: column; gap: 4px; transition: border-color .16s, transform .16s, box-shadow .16s; }
+.mc-plan:hover { border-color: var(--dsw-alias-brand-primary, #3b82f6); transform: translateY(-1px); }
+.mc-plan.on { border-color: var(--dsw-alias-brand-primary, #3b82f6); box-shadow: 0 0 0 1px var(--dsw-alias-brand-primary, #3b82f6) inset, 0 6px 18px rgba(59,130,246,.14); background: rgba(59,130,246,.06); }
+.mc-plan b { font-size: 12.5px; font-weight: 650; }
+.mc-plan span { font-size: 10.5px; opacity: .56; line-height: 1.5; }
+.mc-plan:disabled { opacity: .55; cursor: not-allowed; }
+.mc-cfg-actions { position: sticky; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 10px; padding: 11px 4px; margin-top: 2px; background: linear-gradient(to top, var(--dsw-alias-bg-layer-1, #fff) 72%, rgba(0,0,0,0)); }
+.mc-cfg-dirty { font-size: 11.5px; color: #f59e0b; display: inline-flex; align-items: center; gap: 6px; }
+.mc-cfg-dirty::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
+.mc-cfg-clean { font-size: 11.5px; opacity: .45; }
+.mc-cfg-spacer { flex: 1; }
+.mc-mcp-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(127,127,127,.12); }
+.mc-mcp-row:first-child { border-top: 0; padding-top: 2px; }
+.mc-mcp-main { flex: 1; min-width: 0; }
+.mc-mcp-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; line-height: 1.5; }
+.mc-mcp-badge { font-size: 10px; padding: 1px 7px; border-radius: 999px; background: rgba(127,127,127,.14); opacity: .85; white-space: nowrap; }
+.mc-mcp-servers { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.mc-mcp-servers code { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); opacity: .85; }
+.mc-mcp-servers code.on { border-color: rgba(16,185,129,.55); background: rgba(16,185,129,.12); opacity: 1; }
+.mc-mcp-path { font-size: 10.5px; opacity: .38; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-mcp-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.mc-mcp-summary { font-size: 11.5px; opacity: .62; margin-bottom: 6px; }
+.me-v5 .mc-cfg-sec-ico { background: rgba(255,122,69,.14); }
+.me-v5 .mc-plan:hover { border-color: rgba(255,122,69,.6); }
+.me-v5 .mc-plan.on { border-color: #ff7a45; box-shadow: 0 0 0 1px #ff7a45 inset, 0 6px 18px rgba(255,122,69,.16); background: rgba(255,122,69,.1); }
+.me-v5 .mc-cfg-actions { background: linear-gradient(to top, #21252c 72%, rgba(0,0,0,0)); }
 .mc-tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--dsw-alias-bg-base, #f3f4f6); border-radius: 999px; }
 .mc-tab { border: 0; background: transparent; color: inherit; border-radius: 999px; padding: 5px 14px; font-size: 12px; cursor: pointer; opacity: 0.7; }
 .mc-viewbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -1341,7 +1450,27 @@ const CSS = `
 /* ---- full library modal ---- */
 .me-overlay-top { position: fixed; inset: 0; z-index: 1001; background: rgba(0,0,0,0.72); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 28px; }
 .me-modal { width: min(1380px, 98vw); height: min(98vh, 1080px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border: 1px solid var(--dsw-alias-border-l1, #2c333c); border-radius: 18px; box-shadow: 0 34px 90px rgba(0,0,0,0.6); overflow: hidden; animation: me-pop 0.22s cubic-bezier(0.2,0.8,0.2,1); }
+/* 弹窗必须永远装得进遮罩的 28px×2 内边距。98vh 的弹窗 + 56px 内边距在多数窗口高度下会溢出，
+   flex 居中把顶边顶到可视区外/顶进桌面壳的 caption —— 右上角控制条压到原生窗口按钮上，
+   点击被系统接管：用户反馈的「右上角缩小/关闭点不动」就是这个。夹死高度 = 居中恒等于顶对齐。 */
+.me-overlay-top .me-modal:not(.me-modal-full) { height: min(calc(100vh - 56px), 1080px); max-height: calc(100vh - 56px); }
 @keyframes me-pop { from { opacity: 0; transform: translateY(12px) scale(0.985); } }
+/* ---- 统一「加载中」提示（进度条 + 文案）------------------------------------
+   用户群反馈：点开知识星图/记忆库时先是白屏，不知道是在加载还是坏了；要「进度条」。
+   现在所有加载态共用一个 .me-progress：
+     - 网络/首屏阶段 → 不确定进度条（左右流动，表示"在动"）；
+     - 布局阶段（知道还剩多少 tick）→ 真百分比（is-determinate + width）。
+   进度条纯 CSS 动画，不依赖 JS 定时器，也不会因主线程忙而停住。 */
+.me-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 40px 10px; opacity: .85; font-size: 13px; }
+.me-loading-text { opacity: .82; letter-spacing: .01em; }
+.me-progress { position: relative; width: min(280px, 72vw); height: 5px; border-radius: 999px; overflow: hidden; background: rgba(127,127,127,.22); }
+.me-progress-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 38%; border-radius: 999px; background: var(--dsw-alias-brand-primary, #3b82f6); animation: me-prog-slide 1.15s ease-in-out infinite; }
+.me-progress.is-determinate .me-progress-fill { animation: none; transition: width .18s linear; }
+@keyframes me-prog-slide { 0% { transform: translateX(-105%); } 100% { transform: translateX(270%); } }
+.me-progress-sm { width: 92px; height: 4px; }
+@media (prefers-reduced-motion: reduce) { .me-progress-fill { animation-duration: 2.6s; } }
+/* iframe 首帧之前的兜底提示：iframe 自身背景设为透明，加载完成由 onLoad 撤掉这层 */
+.me-frame-boot { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: var(--dsw-alias-bg-base, #111418); color: var(--dsw-alias-label-secondary, #9aa3af); font-size: 13px; pointer-events: none; }
 .me-modal-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
 .me-modal-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .me-modal-title h2 { margin: 0; font-size: 17px; font-weight: 700; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -1353,6 +1482,23 @@ const CSS = `
 .me-modal-close svg { width: 15px; height: 15px; }
 .me-modal-close:hover { background: rgba(255,122,69,.12); color: #ff9a72; opacity: 1; }
 .me-modal-close:active { background: rgba(255,122,69,.18); }
+/* ---- 弹窗右上角窗口控制条（参考桌面客户端标题栏：扁平、细线、悬停才出底、关闭悬停变红）----
+   格子高度 = iframe 顶栏行高（54px，窄屏 50/46）：图标因此与「本地运行 / 版本 / Star / ?」同一基线；
+   宽度 46px，两颗正好落在 iframe 顶栏预留的 108px 安全区（窄屏 96px）里，贴死右上圆角。
+   图标走内联 SVG 而不是 ⤢/× 字符 —— 不依赖系统字体，线宽与系统 caption 一致。 */
+.me-wctl { position: absolute; top: 0; right: 0; z-index: 30; display: flex; align-items: stretch; }
+.me-wctl-btn { width: 46px; height: 54px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--dsw-alias-label-secondary, #9aa3af); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .12s ease, color .12s ease; }
+.me-wctl-btn svg { width: 13px; height: 13px; display: block; }
+.me-wctl-btn:last-child { border-top-right-radius: 17px; }
+.me-wctl-btn:hover { background: rgba(127,127,127,.16); color: var(--dsw-alias-label-primary, #e9ecf1); }
+.me-wctl-btn:active { background: rgba(127,127,127,.26); }
+.me-wctl-btn:focus-visible { outline: 2px solid rgba(255,122,69,.7); outline-offset: -2px; }
+.me-wctl-close:hover { background: #e81123; color: #fff; }
+.me-wctl-close:active { background: #c50f1f; }
+/* 与 iframe 内 .mc-v5-top 的高度断点对齐（iframe 宽 = 窗口宽 − 56px 左右）：
+   ≤816 窗口 → iframe ≤760 → 顶栏 50px；≤776 窗口 → iframe ≤720 → 顶栏 46px。 */
+@media (max-width: 816px) { .me-wctl-btn { height: 50px; } }
+@media (max-width: 776px) { .me-wctl-btn { width: 44px; height: 46px; } }
 .me-modal-body { flex: 1; padding: 18px 20px; overflow: hidden; display: flex; }
 .me-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.66); z-index: 1002; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .me-dialog { background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border-radius: 14px; max-width: 760px; width: 100%; max-height: 84vh; display: flex; flex-direction: column; box-sizing: border-box; box-shadow: 0 24px 60px rgba(0,0,0,0.5); border: 1px solid var(--dsw-alias-border-l1, #2c333c); }
@@ -1489,6 +1635,14 @@ const CSS = `
 [data-windows-titlebar] .me-overlay {
   top: var(--dsh-windows-titlebar-height, 0px);
 }
+/* Windows 桌面版：遮罩已下移 caption 高度，但 98vh + 56px 内边距仍然装不下 —— 居中溢出
+   会把弹窗顶边顶回 caption 区，右上角控制条正好压在原生「最小化/关闭」上，点下去命中系统
+   按钮（表现为「缩小/关闭用不了」）。把高度夹到「可视高 − caption − 上下各 28px」，
+   居中即等于顶边恒在 caption 下方。 */
+[data-windows-titlebar] .me-overlay-top .me-modal:not(.me-modal-full) {
+  height: min(calc(100vh - var(--dsh-windows-titlebar-height, 0px) - 56px), 1080px);
+  max-height: calc(100vh - var(--dsh-windows-titlebar-height, 0px) - 56px);
+}
 .me-modal-full {
   position: fixed;
   inset: 0;
@@ -1550,6 +1704,8 @@ const CSS = `
 }
 .me-v5 .mc-v5-top { flex: none; height: 54px; display: flex; align-items: center; gap: 9px; padding: 0 16px; border-bottom: 1px solid #343a43; background: linear-gradient(180deg, rgba(35,39,46,.98), rgba(30,34,40,.96)); }
 .me-v5 .mc-v5-top .spacer { flex: 1 1 auto; }
+/* 右上角 108px 安全区：给 WebModal（左栏「记忆」/「配置」打开的全屏弹窗）的窗口控制条让位。
+   控制条是两颗 46px 按钮（窄屏 2×44=88px），所以窄屏预留 96px、宽屏 108px。 */
 .me-v5 .mc-v5-top.in-host { padding-right: 108px; }
 .me-v5 .mc-v5-logo { width: 22px; height: 22px; border-radius: 7px; object-fit: cover; flex: none; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
 .me-v5 .mc-v5-crumb { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #b0b7c1; white-space: nowrap; }
@@ -1659,7 +1815,7 @@ const CSS = `
 .me-v5 .mc-v5-feature-shuffle { margin-top: 5px; padding: 2px 6px; border: 1px solid rgba(255,122,69,.28); border-radius: 5px; background: transparent; color: #ff9a72; font-size: 9px; cursor: pointer; }
 .me-v5 .mc-v5-feature-shuffle:hover { background: rgba(255,122,69,.1); }
 @media (max-width: 720px) { .me-v5 .mc-v5-feature { flex-direction: column; padding: 15px; } .me-v5 .mc-v5-feature-side { width: 100%; flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; border-left: 0; border-top: 1px solid rgba(255,122,69,.16); padding: 8px 0 0; } .me-v5 .mc-v5-feature h3 { font-size: 17px; } }
-@media (max-width: 760px) { .me-v5 .mc-v5-top { height: 50px; padding: 0 10px; gap: 6px; } .me-v5 .mc-v5-top.in-host { padding-right: 76px; } .me-v5 .mc-v5-ver, .me-v5 .mc-v5-star-label { display: none; } .me-v5 .mc-v5-star { padding: 0 7px; } .me-v5 .mc-v5-sys { padding: 0 7px; } }
+@media (max-width: 760px) { .me-v5 .mc-v5-top { height: 50px; padding: 0 10px; gap: 6px; } .me-v5 .mc-v5-top.in-host { padding-right: 96px; } .me-v5 .mc-v5-ver, .me-v5 .mc-v5-star-label { display: none; } .me-v5 .mc-v5-star { padding: 0 7px; } .me-v5 .mc-v5-sys { padding: 0 7px; } }
 .me-v5 .mc-v5-statusgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .me-v5 .mc-v5-statuscard { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 13px 14px; border: 1px solid #30353e; border-radius: 12px; background: #1c1f25; min-width: 0; }
 .me-v5 .mc-v5-status-ico { position: absolute; right: 12px; top: 11px; opacity: .55; font-size: 14px; }
@@ -1802,8 +1958,21 @@ function MemoryFooterButton({ t, locale, wide }) {
 
 /** 侧边栏底部「⚙ 配置」按钮 → 弹窗内嵌 web 配置视图（?tab=config）。 */
 /** 全屏弹窗内嵌 web 端（渲染走 web，与浏览器访问同一份 UI）。可选 tab 指定初始视图。 */
+/** 窗口控制条图标：13px、1.4px 细线，和桌面客户端 caption 同一视觉语言（不依赖字体字形）。 */
+function WctlMaximizeGlyph() {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><rect x="2.9" y="2.9" width="10.2" height="10.2" rx="1.7" /></svg>
+}
+function WctlRestoreGlyph() {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><rect x="2.6" y="5.4" width="8" height="8" rx="1.5" /><path d="M5.6 5.4V4.1c0-.9.7-1.6 1.6-1.6h4.7c.9 0 1.6.7 1.6 1.6v4.7c0 .9-.7 1.6-1.6 1.6h-1.3" /></svg>
+}
+function WctlCloseGlyph() {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true"><path d="M3.9 3.9l8.2 8.2M12.1 3.9l-8.2 8.2" /></svg>
+}
 function WebModal({ t, locale, onClose, tab }) {
   const [full, setFull] = useState(false)
+  // iframe 首帧之前不能是纯白块（用户群反馈的「打开记忆先白屏」）：iframe 背景置透明，
+  // 由 onLoad 撤掉盖在上面的马赛克式加载提示。
+  const [frameReady, setFrameReady] = useState(false)
   const iframeRef = useRef(null)
   const base = useWebUrl()
   // 跟随 DSH 系统语言：订阅 locale 快照（getSnapshot/subscribe，同 slots 响应式链路）
@@ -1840,12 +2009,19 @@ function WebModal({ t, locale, onClose, tab }) {
       <style>{CSS}</style>
       <div className={'me-modal' + (full ? ' me-modal-full' : '')} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
-          {/* 右上角控制条：全屏 toggle + 关闭。浮在 iframe 上方，半透明背景。 */}
-          <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 4, padding: '4px 6px', background: 'var(--dsw-alias-bg-overlay, rgba(17,24,39,0.45))', borderRadius: 8, backdropFilter: 'blur(4px)' }}>
-            <button type="button" onClick={() => setFull((f) => !f)} aria-label={full ? t('exitFullscreen') : t('enterFullscreen')} title={full ? t('exitFullscreen') : t('enterFullscreen')} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{full ? '⤡' : '⤢'}</button>
-            <button type="button" onClick={onClose} aria-label={t('close')} title={t('close')} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          {/* 右上角窗口控制条：桌面客户端标题栏风格（扁平细线、悬停才出底、关闭悬停变红）。
+              两颗 46×34 贴死弹窗右上圆角，正好落在 iframe 顶栏预留的 108px 安全区里；
+              弹窗高度已被上面的 clamp 规则约束，永远不会压到桌面壳的原生窗口按钮上。 */}
+          <div className="me-wctl">
+            <button type="button" className="me-wctl-btn" data-me-wctl={full ? 'restore' : 'full'} aria-pressed={full} onClick={() => setFull((f) => !f)} aria-label={full ? t('exitFullscreen') : t('enterFullscreen')} title={full ? t('exitFullscreen') : t('enterFullscreen')}>
+              {full ? <WctlRestoreGlyph /> : <WctlMaximizeGlyph />}
+            </button>
+            <button type="button" className="me-wctl-btn me-wctl-close" data-me-wctl="close" onClick={onClose} aria-label={t('close')} title={t('close')}>
+              <WctlCloseGlyph />
+            </button>
           </div>
-          <iframe ref={iframeRef} src={url} title="memory-eternal" allow="clipboard-write; clipboard-read" style={{ width: '100%', flex: 1, border: 0, borderRadius: 'inherit', background: 'var(--dsw-alias-bg-base, #fff)' }} />
+          <iframe ref={iframeRef} src={url} title="memory-eternal" allow="clipboard-write; clipboard-read" onLoad={() => setFrameReady(true)} style={{ width: '100%', flex: 1, border: 0, borderRadius: 'inherit', background: 'transparent' }} />
+          {!frameReady && <div className="me-frame-boot" role="status" aria-live="polite"><ProgressBar /><span className="me-loading-text">{t('loading')}</span></div>}
         </div>
       </div>
     </div>
@@ -1936,7 +2112,36 @@ function TerminalGuide({ t }) {
   )
 }
 
-export function MemoryLibrary({ t, inModal, onClose }) {
+// 面板级错误边界：插件此前没有 ErrorBoundary —— 任何渲染期异常（组件/effect）都会让
+// React 直接卸载整棵树，用户看到的就是「整页白屏，Console 里只有一个红字」。
+// 现在最外层兜住：显示可读的错误 + 一键重新加载，至少不丢上下文、能自助恢复。
+class PanelErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error) { return { error: error || new Error('unknown') } }
+  componentDidCatch(error, info) {
+    try { console.warn('[memory-eternal] 记忆面板渲染异常（已兜底，不再整页白屏）', error, info && info.componentStack) } catch (e) { /* ignore */ }
+  }
+  render() {
+    if (!this.state.error) return this.props.children
+    const msg = String((this.state.error && this.state.error.message) || this.state.error || 'unknown')
+    return (
+      <div style={{ padding: '22px 24px', fontFamily: 'system-ui, "Segoe UI", "Microsoft YaHei", sans-serif', color: 'var(--dsw-alias-label-primary, #1f2937)' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>记忆面板渲染出错</div>
+        <div style={{ fontSize: 12.5, opacity: 0.75, lineHeight: 1.7, marginBottom: 14, wordBreak: 'break-all' }}>{msg}</div>
+        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 14, lineHeight: 1.7 }}>已经兜底住，不会再整页白屏。点「重新加载」可恢复；反复出现请用左栏「反馈异常」带上这段报错。</div>
+        <button type="button" className="mc-btn" onClick={() => { try { window.location.reload() } catch (e) { /* ignore */ } }}>重新加载</button>
+      </div>
+    )
+  }
+}
+
+export function MemoryLibrary(props) {
+  return <PanelErrorBoundary><MemoryLibraryInner {...props} /></PanelErrorBoundary>
+}
+function MemoryLibraryInner({ t, inModal, onClose }) {
   const inHost = typeof window !== 'undefined' && (!!window.__DSH_BOOT__ || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
   const [overview, setOverview] = useState(null)
   const [cards, setCards] = useState([])
@@ -1993,6 +2198,35 @@ export function MemoryLibrary({ t, inModal, onClose }) {
     try { localStorage.setItem('me-onboard-v2', '1') } catch { /* 隐私模式忽略 */ }
   }, [])
   const openSupport = useCallback((tab = 'group') => { setSupportTab(tab); setSupportOpen(true) }, [])
+  // 左侧栏「Web 版」：用系统默认浏览器打开独立 Web UI。
+  // 顺序：① 服务端 /open-web（真·系统浏览器，Host/常驻都可以；带本地白名单）
+  //       ② 失败再退回 window.open（老宿主还没有这条路由时，至少能在浏览器/新窗口打开）
+  //       ③ 都失败就把地址显示出来，让用户自己粘。
+  const webBusyRef = useRef(false)
+  const openWebVersion = useCallback(async () => {
+    if (webBusyRef.current) return
+    webBusyRef.current = true
+    const show = (msg, ok = true) => {
+      if (libToastTimer.current) clearTimeout(libToastTimer.current)
+      setLibToast({ ok, msg })
+      libToastTimer.current = setTimeout(() => setLibToast(null), 3000)
+    }
+    show(t('webOpening'))
+    try {
+      const r = await fetch(`${API}/open-web`, { method: 'POST' }).then((x) => x.json()).catch(() => null)
+      if (r && r.ok && r.url) { show(t('webOpened') + ' · ' + r.url); return }
+      // 老宿主/独立页没有 /open-web 时：先查地址，再用 window.open 兜底
+      const info = await fetch(`${API}/web-info`).then((x) => x.json()).catch(() => null)
+      // 兜底地址用常驻实例默认端口，而不是宿主同源壳：宿主壳在外部浏览器里要 DSH 登录态，不叫「Web 版」。
+      const url = (info && info.ok && info.url) || 'http://127.0.0.1:7999/'
+      const w = window.open(url, '_blank', 'noopener,noreferrer')
+      show(w ? t('webOpened') + ' · ' + url : t('webOpenFail') + ' · ' + url, !!w)
+    } catch (e) {
+      show(t('webOpenFail'), false)
+    } finally {
+      webBusyRef.current = false
+    }
+  }, [t])
   useEffect(() => {
     try {
       if (localStorage.getItem('me-onboard-v2')) return
@@ -2317,6 +2551,12 @@ export function MemoryLibrary({ t, inModal, onClose }) {
             <span className="mc-rail-ico">▸_</span>
             {railOpen && <span className="mc-rail-label">{t('terminalTab')}</span>}
           </button>
+          {/* 「Web 版」：直接用系统默认浏览器打开本机独立 Web UI（不是切视图，所以不加 active）。
+              为什么走服务端：iframe 里 window.open 常被宿主拦；服务端用 rundll32/open/xdg-open 起真浏览器。 */}
+          <button type="button" className="mc-railbtn" onClick={openWebVersion} title={t('webTab')} aria-label={t('webTab')}>
+            <span className="mc-rail-ico">🌐</span>
+            {railOpen && <span className="mc-rail-label">{t('webTab')}</span>}
+          </button>
           <button type="button" className={`mc-railbtn${view === 'config' ? ' active' : ''}`} onClick={() => goView('config')} title={t('tabConfig')}>
             <span className="mc-rail-ico">⚙️</span>
             {railOpen && <span className="mc-rail-label">{t('tabConfig')}</span>}
@@ -2417,7 +2657,7 @@ export function MemoryLibrary({ t, inModal, onClose }) {
 
         <div style={{ display: view === 'cards' ? 'contents' : 'none' }}>
           {loading
-            ? <div className="mc-empty">{t('loading')}</div>
+            ? <LoadingNote text={t('loading')} />
             : error
               ? <div className="mc-empty">{t('error')}：{error} <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('retry')}</button></div>
             : cards.length === 0
@@ -2534,6 +2774,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   }, [version, checkVersion])
   const [runSetup, setRunSetup] = useState('')
   const [toast, setToast] = useState(null)
+  const [appliedPlan, setAppliedPlan] = useState('')
+  const [dirty, setDirty] = useState(false)
   const toastTimer = useRef(null)
   const notify = (msg, ok = true) => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast({ msg, ok }); toastTimer.current = setTimeout(() => setToast(null), 1900) }
   // 「重启常驻实例」：常驻 web（默认 7999）比 DSH 宿主活得久 —— 升级只换磁盘文件，端口上那个
@@ -2627,6 +2869,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
         const merged = mergeLocalOverlay(c.config ?? {}, savedOverlayRef.current)
         savedOverlayRef.current = merged.overlay
         setForm({ ...merged.values })
+        setDirty(false)
         setDsh(c.dsh ?? null)
         setReadonly(c.writable === false)
         setViaPending(c.viaPending === true)
@@ -2636,6 +2879,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
         // /config 不可用（如独立 web server 7999 无 DSH settings）：降级用 /budget 展示 + 提示
         if (b && b.ok) {
           setForm({ ...b })
+          setDirty(false)
           setReadonly(true)
           setErr(t('configNeedsDsh'))
         } else {
@@ -2647,7 +2891,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     } catch (e) { setErr(t('adminLoadFail')) }
   }, [t])
   useEffect(() => { load() }, [version, load])
-  const set = (k, v) => { dirtyRef.current = true; setForm((f) => ({ ...(f ?? {}), [k]: v })) }
+  const set = (k, v) => { dirtyRef.current = true; setDirty(true); setAppliedPlan(''); setForm((f) => ({ ...(f ?? {}), [k]: v })) }
   useEffect(() => { reloadRef.current = load }, [load])
   // SSE 订阅：配置变更即时到达（不依赖手动刷新）
   useEffect(() => {
@@ -2721,7 +2965,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
           msg = (d.retried ? '♻ ' : '') + t('savedOk') + extra
         }
         savedOverlayRef.current = { ...savedOverlayRef.current, ...payload }
-        if (okStyle) setSaved(msg)
+        if (okStyle) { setAppliedPlan(''); setDirty(false); setSaved(msg) }
         else setErr(msg)
         notify(msg, okStyle)
         await load()
@@ -2730,11 +2974,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
     } catch { setErr(t('saveFail')); notify(t('saveFail'), false) }
     finally { setBusy('') }
   }
-  const resetForm = () => { savedOverlayRef.current = {}; setForm({ ...(cfg?.config ?? {}) }); setSaved('') }
+  const resetForm = () => { savedOverlayRef.current = {}; setForm({ ...(cfg?.config ?? {}) }); setAppliedPlan(''); setDirty(false); setSaved('') }
   // -- 多库（#10）：vaultProfiles / activeVault 的可视化编辑 --
   const VAULT_SRC_KEYS = { env: 'vaultSrcEnv', profile: 'vaultSrcProfile', workspace: 'vaultSrcWorkspace', vaultDir: 'vaultSrcVaultDir', default: 'vaultSrcDefault' }
   const profilesOf = (f) => (Array.isArray(f?.vaultProfiles) ? f.vaultProfiles : [])
-  const updateProfile = (i, key, value) => setForm((f) => {
+  const updateProfile = (i, key, value) => { dirtyRef.current = true; setDirty(true); setForm((f) => {
     const list = profilesOf(f).map((x) => ({ ...(x || {}) }))
     const row = { ...(list[i] || {}) }
     if (key === 'match') {
@@ -2743,9 +2987,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
     } else row[key] = value
     list[i] = row
     return { ...(f ?? {}), vaultProfiles: list }
-  })
-  const addProfile = () => setForm((f) => ({ ...(f ?? {}), vaultProfiles: [...profilesOf(f), { name: '', path: '' }] }))
-  const removeProfile = (i) => setForm((f) => ({ ...(f ?? {}), vaultProfiles: profilesOf(f).filter((_, k) => k !== i) }))
+  }) }
+  const addProfile = () => { dirtyRef.current = true; setDirty(true); setForm((f) => ({ ...(f ?? {}), vaultProfiles: [...profilesOf(f), { name: '', path: '' }] })) }
+  const removeProfile = (i) => { dirtyRef.current = true; setDirty(true); setForm((f) => ({ ...(f ?? {}), vaultProfiles: profilesOf(f).filter((_, k) => k !== i) })) }
   const vcChip = { fontSize: 11, padding: '2px 8px', background: 'var(--dsw-alias-bg-layer-2, #f3f4f6)', borderRadius: 6 }
   const vaultInput = { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 12, minWidth: 0 }
   // 三套推荐方案值（A轻量/B省钱/C高质量）——一键填充表单
@@ -2754,12 +2998,19 @@ function ConfigPanel({ t, onReload, version, compact }) {
     B: { label: t('planB'), autoWebMode: 'init', watchdogAutoSpawn: false, distillEnabled: false, dedupByLLM: false, captureMaxTokens: 500, recallMinScore: 3, recallLimit: 3, recallSummaryLen: 80, recallIncludeBody: false, captureMinChars: 300, maxCardsPerDay: 40, captureCooldownMs: 300000 },
     C: { label: t('planC'), autoWebMode: 'interval', watchdogAutoSpawn: true, distillEnabled: true, dedupByLLM: true, captureMaxTokens: 1200, recallMinScore: 1, recallLimit: 8, recallSummaryLen: 200, recallIncludeBody: true, captureCooldownMs: 120000 },
   }
-  const applyPlan = async (key) => {
+  const applyPlan = (key) => {
     const plan = PLANS[key]
     if (!plan) return
     setForm((f) => ({ ...(f ?? {}), ...plan }))
+    dirtyRef.current = true
+    setDirty(true)
+    setAppliedPlan(key)
+    notify(tf('planApplied', { plan: plan.label }))
   }
   // 单智能体安装/卸载 MCP：POST /mcp/action，操作后刷新状态
+  const refreshSetup = async () => {
+    try { const s = await fetch(API + '/setup-status').then((r) => r.json()); if (s && s.ok) setSetupStatus(s) } catch { /* 探测失败保持旧数据 */ }
+  }
   const mcpAction = async (agent, action) => {
     setBusy(agent + action)
     try {
@@ -2771,9 +3022,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
     } catch { notify(t('mergeFail'), false) }
     finally { setBusy('') }
   }
-  const F = ({ k, label, type = 'text', step, min, max }) => (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, minWidth: 0 }}>
-      <span style={{ opacity: 0.6, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{label || k}</span>
+  const F = ({ k, label, hint, type = 'text', step, min, max }) => (
+    <label className="mc-field">
+      <span className="mc-field-label">{label || k}</span>
       <input
         type={type}
         step={step} min={min} max={max}
@@ -2783,8 +3034,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
           // 清空时保留空串（Number('') === 0 会静默变成 0，再被 schema 以 min 拒绝 → 用户只看到「保存失败」）
           set(k, type === 'number' ? (raw === '' ? '' : Number(raw)) : raw)
         }}
-        style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}
       />
+      {hint ? <span className="mc-field-hint">{hint}</span> : null}
     </label>
   )
   // schema 里 default(true) 的开关：宿主快照里**还没有这个键**时（旧宿主没升级、或共享配置还没写过它），
@@ -2796,12 +3047,30 @@ function ConfigPanel({ t, onReload, version, compact }) {
     const raw = form ? form[k] : undefined
     const on = raw === undefined ? BOOL_DEFAULT_ON.has(k) : !!raw
     return (
-      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, minWidth: 0, lineHeight: 1.5 }}>
-        <input type="checkbox" checked={on} onChange={(e) => set(k, e.target.checked)} style={{ marginTop: 2, flex: '0 0 auto' }} />
-        <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{label || k}</span>
+      <label className="mc-switch">
+        <input type="checkbox" checked={on} onChange={(e) => set(k, e.target.checked)} />
+        <span>{label || k}</span>
       </label>
     )
   }
+  // 统一分区：图标 + 标题 + 一句说明 + 内容（配置页所有区块共用，视觉一致）
+  const CfgSection = ({ icon, title, sub, children }) => (
+    <div className="mc-card mc-cfg-sec">
+      <div className="mc-cfg-sec-head">
+        <div className="mc-cfg-sec-ico">{icon}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="mc-cfg-sec-title">{title}</div>
+          {sub ? <div className="mc-cfg-sec-sub">{sub}</div> : null}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>{children}</div>
+    </div>
+  )
+  const mcpList = (setupStatus && Array.isArray(setupStatus.agents)) ? setupStatus.agents : []
+  const mcpInstalled = mcpList.filter((a) => a.installed)
+  const mcpServersAll = [...new Set(mcpInstalled.flatMap((a) => (Array.isArray(a.servers) ? a.servers : [])))]
+  const mcpMounted = mcpList.filter((a) => a.mcpConfigured && !a.isDsh).length
+  const mcpHasServerData = mcpList.some((a) => Array.isArray(a.servers))
   return (
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
       <style>{CSS}</style>
@@ -2885,84 +3154,104 @@ function ConfigPanel({ t, onReload, version, compact }) {
             {vc && vc.checkError && <div style={{ marginTop: 8, fontSize: 11.5, color: '#b91c1c' }}>{t('vcCheckFail')}：{vc.checkError}</div>}
           </div>
         )}
-        {/* DSH / Agent 状态面板（含 DSH 宿主行） */}
+        {/* DSH / Agent 状态面板：自动识别本机 Agent 与其已配置的 MCP（含 DSH 宿主行） */}
         {setupStatus && setupStatus.agents && (
-          <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <b style={{ fontSize: 12 }}>🔌 {t('mcpSetupStatus')}</b>
-              <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 11, opacity: 0.6 }}>{t('mcpManageHint')}</span>
+          <div className="mc-card mc-cfg-sec">
+            <div className="mc-cfg-sec-head">
+              <div className="mc-cfg-sec-ico">🔌</div>
+              <div style={{ minWidth: 0 }}>
+                <div className="mc-cfg-sec-title">{t('mcpSetupStatus')}</div>
+                <div className="mc-cfg-sec-sub">{t('mcpAutoHint')}</div>
+              </div>
+              <span className="mc-cfg-spacer" />
+              <button type="button" className="mc-btn" style={{ padding: '2px 8px', flex: 'none' }} onClick={refreshSetup}>{t('mcpRefresh')}</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {setupStatus.agents.map((a) => (
-                <div key={a.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <span style={{ flex: 1 }}>
-                    <b>{a.isDsh ? t('dshHostLabel') : a.name}</b>
-                    {a.isDsh && a.version && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.5 }}>v{a.version}</span>}
-                    {!a.installed && <span style={{ marginLeft: 6, opacity: 0.6 }}>({t('notInstalled')})</span>}
-                    {a.installed && a.mcpConfigured === false && <span style={{ marginLeft: 6, color: '#f59e0b' }}>({t('noMcpEntry')})</span>}
-                    {a.mcpConfigured === true && <span style={{ marginLeft: 6, color: '#10b981' }}>✓ {t('healthy')}</span>}
-                    {a.mcpConfigured === true && a.mcpMatchesCurrentNode === false && <span style={{ marginLeft: 6, color: '#9ca3af', fontSize: 10 }}>({t('nodePathNote')})</span>}
-                    {a.isDsh && <span style={{ marginLeft: 6, opacity: 0.6, fontSize: 11 }}>({t('recallTool')}: {a.recallTool ? t('enabled') : t('disabled')})</span>}
-                  </span>
-                  {a.hook && <span style={{ fontSize: 11, opacity: 0.7 }}>hook: {a.hook}</span>}
-                  {!a.isDsh && a.installed && a.mcpConfigured === false && (
-                    <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => mcpAction(a.name, 'install')}>{t('installMcp')}</button>
-                  )}
-                  {!a.isDsh && a.installed && a.mcpConfigured === true && (
-                    <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('uninstallConfirm'))) mcpAction(a.name, 'uninstall') }}>{t('uninstallMcp')}</button>
-                  )}
+            {mcpHasServerData ? <div className="mc-mcp-summary">{tf('mcpSummary', { agents: mcpInstalled.length, servers: mcpServersAll.length, mounted: mcpMounted })}</div> : null}
+            {mcpList.map((a) => {
+              const hasServers = Array.isArray(a.servers)
+              const servers = hasServers ? a.servers : []
+              const title = a.isDsh ? t('dshHostLabel') : (a.label || a.name)
+              return (
+                <div key={a.name + (a.mcpPath || '')} className="mc-mcp-row" style={{ opacity: a.installed ? 1 : 0.55 }}>
+                  <div className="mc-mcp-main">
+                    <div className="mc-mcp-title">
+                      <b>{title}</b>
+                      {a.isDsh && a.version && <span className="mc-mcp-badge">v{a.version}</span>}
+                      {!a.installed && <span className="mc-mcp-badge">{t('notInstalled')}</span>}
+                      {a.installed && a.mcpConfigured === false && <span className="mc-mcp-badge" style={{ color: '#f59e0b' }}>{t('noMcpEntry')}</span>}
+                      {a.mcpConfigured === true && <span className="mc-mcp-badge" style={{ color: '#10b981' }}>✓ {t('healthy')}</span>}
+                      {a.mcpConfigured === true && a.mcpMatchesCurrentNode === false && <span className="mc-mcp-badge">{t('nodePathNote')}</span>}
+                      {a.isDsh && <span className="mc-mcp-badge">{t('recallTool')}: {a.recallTool ? t('enabled') : t('disabled')}</span>}
+                      {a.detectedOnly && <span className="mc-mcp-badge">{t('mcpDetectedOnly')}</span>}
+                      {a.reason && <span className="mc-mcp-badge" style={{ color: '#f59e0b' }}>{a.reason}</span>}
+                    </div>
+                    {hasServers ? (servers.length ? (
+                      <div className="mc-mcp-servers">
+                        {servers.map((s) => <code key={s} className={s === 'memory' ? 'on' : ''}>{s}</code>)}
+                      </div>
+                    ) : (a.installed ? <div className="mc-mcp-servers"><span style={{ fontSize: 10.5, opacity: 0.45 }}>{t('mcpNoServers')}</span></div> : null)) : null}
+                    {a.mcpPath && <div className="mc-mcp-path" title={a.mcpPath}>{a.mcpPath}</div>}
+                  </div>
+                  <div className="mc-mcp-actions">
+                    {a.hook && <span style={{ fontSize: 10.5, opacity: 0.55 }}>hook: {a.hook}</span>}
+                    {!a.isDsh && !a.detectedOnly && a.installed && a.mcpConfigured === false && (
+                      <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => mcpAction(a.name, 'install')}>{t('installMcp')}</button>
+                    )}
+                    {!a.isDsh && !a.detectedOnly && a.installed && a.mcpConfigured === true && (
+                      <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('uninstallConfirm'))) mcpAction(a.name, 'uninstall') }}>{t('uninstallMcp')}</button>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
             <div style={{ fontSize: 11, opacity: 0.55, marginTop: 6 }}>{t('mcpSetupHint')}</div>
             {runSetup && <div style={{ fontSize: 11, marginTop: 6 }}><code style={{ padding: '2px 6px', background: 'var(--dsw-alias-bg-layer-2, #f3f4f6)', borderRadius: 4 }}>{runSetup}</code></div>}
           </div>
         )}
         {/* 可编辑配置表单 */}
         {form ? (
-          <>
+          <div className="mc-cfg">
             {/* 一键推荐配置：三方案填充 */}
-            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px', borderLeft: '3px solid #3b82f6' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-                <b style={{ fontSize: 12 }}>🎯 {t('presetConfig')}</b>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, opacity: 0.6 }}>{t('presetHint')}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <CfgSection icon="🎯" title={t('presetConfig')} sub={t('presetHint')}>
+              <div className="mc-plan-grid">
                 {['A', 'B', 'C'].map((k) => (
-                  <button key={k} type="button" className="mc-btn" onClick={() => applyPlan(k)} disabled={!!busy}>
-                    {k === 'A' ? '🟢 ' : k === 'B' ? '💰 ' : '⭐ '}{PLANS[k].label}
+                  <button
+                    key={k}
+                    type="button"
+                    className={'mc-plan' + (appliedPlan === k ? ' on' : '')}
+                    aria-pressed={appliedPlan === k}
+                    onClick={() => applyPlan(k)}
+                    disabled={!!busy}
+                  >
+                    <b>{appliedPlan === k ? '✅ ' : (k === 'A' ? '🟢 ' : k === 'B' ? '💰 ' : '⭐ ')}{PLANS[k].label}</b>
+                    <span>{t('planDesc' + k)}</span>
                   </button>
                 ))}
               </div>
-            </div>
+              {appliedPlan ? (
+                <div style={{ fontSize: 11, color: '#10b981' }}>✅ {tf('planApplied', { plan: PLANS[appliedPlan].label })}</div>
+              ) : null}
+            </CfgSection>
             {/* DSH 记忆配置 */}
-            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <b style={{ fontSize: 12 }}>🧠 {t('dshMemoryConfig')}</b>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+            <CfgSection icon="🧠" title={t('dshMemoryConfig')} sub={t('cfgSubCore')}>
+              <div className="mc-cfg-grid">
+                <Bool k="enabled" label={t('enabledLabel')} />
                 <Bool k="autoCapture" label={t('autoCapture')} />
                 <Bool k="autoRecall" label={t('autoRecall')} />
-                <F k="captureMinChars" label={t('captureMinChars')} type="number" />
-                <F k="maxCardsPerDay" label={t('maxCardsPerDay')} type="number" />
+                <F k="vaultDir" label={t('vaultDirLabel')} />
+                <F k="captureMinChars" label={t('captureMinChars')} hint={t('unitChars')} type="number" />
+                <F k="maxCardsPerDay" label={t('maxCardsPerDay')} hint={t('unitPerDay')} type="number" />
                 <F k="dedupThreshold" label={t('dedupThreshold')} type="number" step="0.01" min="0" max="1" />
                 <F k="recallLimit" label={t('recallLimit')} type="number" />
-                <F k="recallSummaryLen" label={t('recallSummaryLen')} type="number" />
+                <F k="recallSummaryLen" label={t('recallSummaryLen')} hint={t('unitChars')} type="number" />
                 <Bool k="recallIncludeBody" label={t('recallBody')} />
                 {/* 凭证取用提示：一句自己写的约定，会被注入到每个会话的 systemPrompt（触发 agent 去查目录卡） */}
                 <F k="secretHint" label={t('secretHint')} />
                 <F k="recallEmbedding" label={t('recallEmbedding')} />
               </div>
-            </div>
+            </CfgSection>
             {/* 多库（按项目隔离记忆）—— #10 */}
-            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px', borderLeft: '3px solid #06b6d4' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <b style={{ fontSize: 12 }}>🗂️ {t('vaultMulti')}</b>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, opacity: 0.6 }}>{t('vaultMultiHint')}</span>
-              </div>
+            <CfgSection icon="🗂️" title={t('vaultMulti')} sub={t('cfgSubMulti')}>
               <div style={{ fontSize: 11.5, opacity: 0.85, marginBottom: 8, lineHeight: 1.7 }}>
                 {t('vaultNow')}：<code>{dsh?.vaultDir || '—'}</code>
                 {dsh?.vaultName ? `（${dsh.vaultName}）` : ''}
@@ -2987,22 +3276,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   </select>
                 </label>
               </div>
-            </div>
-            {/* 总开关 + 单库目录（配置覆盖补齐） */}
-            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
-                <Bool k="enabled" label={t('enabledLabel')} />
-                <F k="vaultDir" label={t('vaultDirLabel')} />
-              </div>
-            </div>
+            </CfgSection>
             {/* 成本控制（省钱、控 LLM 消耗） */}
-            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px', borderLeft: '3px solid #f59e0b' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <b style={{ fontSize: 12 }}>💰 {t('costControl')}</b>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, opacity: 0.6 }}>{t('costHint')}</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8, marginTop: 6 }}>
+            <CfgSection icon="💰" title={t('costControl')} sub={t('costHint')}>
+              <div className="mc-cfg-grid">
                 <Bool k="distillEnabled" label={t('distillEnabled')} />
                 <Bool k="dedupByLLM" label={t('dedupByLLM')} />
                 <F k="captureMaxTokens" label={t('captureMaxTokens')} type="number" />
@@ -3017,16 +3294,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 )}
                 {routes && routes.providers && routes.providers.length ? (
                   <>
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
-                      <span style={{ opacity: 0.6 }}>{t('captureProvider')}</span>
-                      <select value={form.captureProvider || ''} onChange={(e) => { set('captureProvider', e.target.value); set('captureModel', '') }} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}>
+                    <label className="mc-field">
+                      <span className="mc-field-label">{t('captureProvider')}</span>
+                      <select value={form.captureProvider || ''} onChange={(e) => { set('captureProvider', e.target.value); set('captureModel', '') }}>
                         <option value="">{t('routeAuto')}</option>
                         {routes.providers.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                       </select>
                     </label>
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
-                      <span style={{ opacity: 0.6 }}>{t('captureModel')}</span>
-                      <select value={form.captureModel || ''} onChange={(e) => set('captureModel', e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}>
+                    <label className="mc-field">
+                      <span className="mc-field-label">{t('captureModel')}</span>
+                      <select value={form.captureModel || ''} onChange={(e) => set('captureModel', e.target.value)}>
                         <option value="">{t('routeAuto')}</option>
                         {((routes.providers.find((p) => p.id === form.captureProvider) || {}).models || []).map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>)}
                       </select>
@@ -3053,18 +3330,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   }}>{busy === 'llmtest' ? t('exporting') : '🔌 ' + t('llmTest')}</button>
                 </div>
               </div>
-            </div>
+            </CfgSection>
             {/* 自动审核配置 */}
-            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px', borderLeft: '3px solid #8b5cf6' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <b style={{ fontSize: 12 }}>🛡️ {t('auditConfig')}</b>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, opacity: 0.6 }}>{t('auditHint')}</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, minWidth: 0 }}>
-                  <span style={{ opacity: 0.6, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{t('auditMode')}</span>
-                  <select value={form.auditMode ?? 'all'} onChange={(e) => set('auditMode', e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}>
+            <CfgSection icon="🛡️" title={t('auditConfig')} sub={t('auditHint')}>
+              <div className="mc-cfg-grid">
+                <label className="mc-field">
+                  <span className="mc-field-label">{t('auditMode')}</span>
+                  <select value={form.auditMode ?? 'all'} onChange={(e) => set('auditMode', e.target.value)}>
                     <option value="all">{t('auditAll')}</option>
                     <option value="none">{t('auditNone')}</option>
                   </select>
@@ -3081,19 +3353,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   options={[{ value: '__all__', label: t('allExempt') }, ...KIND_IDS.filter((k) => k !== 'all').map((k) => ({ value: k, label: t(KIND_LABELS[k]) }))]}
                   onChange={(v) => set('auditExemptKinds', v)}
                 />
-                <F k="recycleRetentionDays" label={t('recycleDays')} type="number" />
+                <F k="recycleRetentionDays" label={t('recycleDays')} hint={t('unitDays')} type="number" />
               </div>
-            </div>
+            </CfgSection>
             {/* 服务自管理配置 */}
-            <div className="mc-card" style={{ marginBottom: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <b style={{ fontSize: 12 }}>🛠 {t('serviceConfig')}</b>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+            <CfgSection icon="🛠" title={t('serviceConfig')} sub={t('cfgSubService')}>
+              <div className="mc-cfg-grid">
                 <Bool k="autoWeb" label={t('autoWeb')} />
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
-                  <span style={{ opacity: 0.6 }}>{t('autoWebMode')}</span>
-                  <select value={form.autoWebMode ?? 'init'} onChange={(e) => set('autoWebMode', e.target.value)} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12 }}>
+                <label className="mc-field">
+                  <span className="mc-field-label">{t('autoWebMode')}</span>
+                  <select value={form.autoWebMode ?? 'init'} onChange={(e) => set('autoWebMode', e.target.value)}>
                     <option value="init">{t('modeInit')}</option>
                     <option value="interval">{t('modeInterval')}</option>
                     <option value="manual">{t('modeManual')}</option>
@@ -3101,14 +3370,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 </label>
                 <F k="webPort" label={t('webPort')} type="number" />
                 <F k="webCheckIntervalMs" label={t('webCheckIntervalMs')} type="number" />
-                <F k="webMaxRestart" label={t('webMaxRestart')} type="number" />
+                <F k="webMaxRestart" label={t('webMaxRestart')} hint={t('unitTimes')} type="number" />
                 <Bool k="watchdogAutoSpawn" label={t('watchdogAutoSpawn')} />
                 <Bool k="autoRestartOnDrift" label={t('autoRestartOnDrift')} />
                 <Bool k="autoMcpSetup" label={t('autoMcpSetup')} />
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
-              {/* 即时状态：紧贴按钮，不必往上滚去找横幅（用户反馈「保存没有任何提示」） */}
+            </CfgSection>
+            <div className="mc-cfg-actions">
+              {dirty ? <span className="mc-cfg-dirty">{t('cfgDirty')}</span> : <span className="mc-cfg-clean">✓ {t('cfgClean')}</span>}
+              <span className="mc-cfg-spacer" />
               {busy === 'save' && <span style={{ fontSize: 11.5, opacity: 0.75 }}>⏳ {t('saving')}</span>}
               {saved && busy !== 'save' && <span style={{ fontSize: 11.5, color: '#10b981' }}>✅ {saved}</span>}
               {err && busy !== 'save' && <span style={{ fontSize: 11.5, color: '#b91c1c' }}>⚠ {err}</span>}
@@ -3124,7 +3394,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 {busy === 'save' ? '⏳ ' + t('saving') : (readonly ? '🔒 ' + t('readonlyBtn') : '💾 ' + t('saveConfig'))}
               </button>
             </div>
-          </>
+          </div>
         ) : <div style={{ fontSize: 12, opacity: 0.6 }}>{t('loading')}</div>}
       </div>
     </div>
@@ -3325,7 +3595,7 @@ function AuditPanel({ t, onReload, version }) {
                     </div>
                   </div>
                   <div className="me-audit-preview-body">
-                    {previewSt.loading && <div className="me-audit-preview-empty">⏳ {t('loading')}</div>}
+                    {previewSt.loading && <div className="me-audit-preview-empty">{t('loading')}</div>}
                     {previewSt.error && <div className="me-audit-preview-empty" style={{ color: '#f87171' }}>⚠ {t('auditBodyFail')}：{previewSt.error}</div>}
                     {previewSt.text != null
                       ? <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(stripRepeatedTitle(splitFrontmatter(previewSt.text).body, previewCard.title)) }} />
@@ -4589,7 +4859,7 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
         <span className="mc-v5-pagecount">{data ? `${data.nodes.length} ${t('nodes')} · ${countEdges(data.edges)} ${t('edges')}` : ''}</span>
       </div>
       {error && <div className="mc-empty">{t('error')}：{error}</div>}
-      {!data && !error && <div className="mc-empty">{t('loading')}</div>}
+      {!data && !error && <LoadingNote text={t('loadingGraph')} />}
       {data && data.nodes.length === 0 && <div className="mc-empty">{t('emptyGraph')}</div>}
       {data && data.nodes.length > 0 && (
         <GraphCanvas
@@ -4621,6 +4891,49 @@ const KG = {
   shapes: { project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
 }
 
+// 图谱绘制异常兜底：渲染循环里的异常原来被空 catch 静默吞掉（表现是画布永远空白、
+// Console 里也没有任何线索）；而 React effect 里的同步重绘一旦抛出又会卸载整棵组件树
+// → 整页白屏。统一走这里：只告警一次（避免每帧刷屏），把线索留在 Console，但绝不往上抛。
+function warnGraphDrawError(err, where) {
+  try {
+    const g = globalThis
+    if (g.__meGraphDrawWarned) return
+    g.__meGraphDrawWarned = true
+    console.warn('[memory-eternal] 知识图谱绘制异常（已兜底，不再整页白屏）' + (where ? ' @ ' + where : ''), err)
+  } catch (e) { /* 连 console 都不可用时彻底静默 */ }
+}
+
+/**
+ * 进度条。value = 0~100 是确定进度（知道还剩多少时用）；不传就是不确定进度（网络阶段）。
+ * role=progressbar + aria-valuenow：读屏和自动化都能读到真实进度。
+ */
+function ProgressBar({ value, small }) {
+  const determinate = typeof value === 'number' && Number.isFinite(value)
+  const pct = determinate ? Math.max(0, Math.min(100, value)) : 0
+  return (
+    <div
+      className={'me-progress' + (small ? ' me-progress-sm' : '') + (determinate ? ' is-determinate' : '')}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={determinate ? Math.round(pct) : undefined}
+      aria-label="加载进度"
+    >
+      <span className="me-progress-fill" style={determinate ? { width: Math.max(3, pct) + '%' } : undefined} />
+    </div>
+  )
+}
+
+/** 统一的「加载中」提示：进度条 + 文案。首屏 / 图谱数据 / 大图布局都用它。 */
+function LoadingNote({ text, value }) {
+  return (
+    <div className="me-loading" role="status" aria-live="polite">
+      <ProgressBar value={value} />
+      <span className="me-loading-text">{text}</span>
+    </div>
+  )
+}
+
 function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, all, onAllChange, fitTrigger }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
@@ -4635,6 +4948,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
   useEffect(() => { onMergeRef.current = onMerge }, [onMerge])
   const [search, setSearch] = useState('')
   const [sel, setSel] = useState(null)
+  // 预热进度：>0 表示「分帧布局」还没跑完（此时显示进度提示，且不启动常规 rAF 循环）
+  // 布局预热进度（0~100）；null = 不在预热。这是**真实百分比**（预热 tick 是有限且可数的）
+  const [warming, setWarming] = useState(null)
   const searchRef = useRef('')
   useEffect(() => { searchRef.current = search.trim().toLowerCase() }, [search])
   // 搜索定位：输入命中节点时，把画布居中到该节点并略微放大。
@@ -4644,7 +4960,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     const q = search.trim().toLowerCase()
     if (!q) return
     const best = s.nodes.find((n) => (n.name || '').toLowerCase().includes(q))
-    if (best) { simRef.current.selectedId = best.id; setSel(best.id); s.panX = s.w / 2 - best.x * s.zoom; s.panY = s.h / 2 - best.y * s.zoom; if (s.render) s.render() }
+    if (best) { simRef.current.selectedId = best.id; setSel(best.id); s.panX = s.w / 2 - best.x * s.zoom; s.panY = s.h / 2 - best.y * s.zoom; try { if (s.render) s.render() } catch (e) { warnGraphDrawError(e, 'search-center') } }
   }, [search])
   const [filterKind, setFilterKind] = useState('all')
   const [filterOpen, setFilterOpen] = useState(false)
@@ -4671,8 +4987,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
   const noMatch = (() => { const q = search.trim().toLowerCase(); return !!q && !nodes.some((n) => (n.title || n.name || '').toLowerCase().includes(q) || String(n.kind || '').toLowerCase().includes(q) || String(KIND_LABELS[n.kind] || '').toLowerCase().includes(q)) })()
   // 搜索变化时唤醒仿真重绘（否则布局停车后搜索不刷新）
   useEffect(() => { const s = simRef.current; if (s && s.wake) s.wake() }, [search])
-  // 图例/标签/时间维 过滤变化时直接重绘（不重启布局）
-  useEffect(() => { const s = simRef.current; if (s && s.render) s.render() }, [filterKind, filterTag, timeMode])
+  // 图例/标签/时间维 过滤变化时直接重绘（不重启布局）。
+  // 必须兜住异常：这是 React effect 里的同步调用，一旦抛出就会把整棵组件树卸载 → 整页白屏。
+  useEffect(() => { const s = simRef.current; if (!s || !s.render) return; try { s.render() } catch (e) { warnGraphDrawError(e, 'filter/timeDim') } }, [filterKind, filterTag, timeMode])
   const tooltipRef = useRef(null)
   const [multi, setMulti] = useState([])
   const [exportData, setExportData] = useState(null)
@@ -4705,7 +5022,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     }
     sim.domain = nodes
     sim.domainById = nodes.reduce((m, n) => (m[n.id] = n, m), {})
-    sim.nodes.forEach((n, i) => { const a = (i / sim.nodes.length) * Math.PI * 2 - Math.PI / 2; n.x = Math.cos(a) * 60; n.y = Math.sin(a) * 60 })
+    // 初始位形：黄金角螺旋（半径 ∝ √i）。原来是「半径 60 的圆等分」——1084 个节点全挤在
+    // 一个小圆上，首帧就是一团墨点；螺旋铺开后首帧是一盘散点，预热过程也更自然。
+    sim.nodes.forEach((n, i) => { const a = i * 2.399963229728653; const r = 12 * Math.sqrt(i); n.x = Math.cos(a) * r; n.y = Math.sin(a) * r })
     const types = [...new Set(sim.nodes.map((n) => n.type))]
     sim.clustered = types.length > 1
     sim.typeCenters = {}
@@ -4851,7 +5170,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         const curve = dense ? 12 : 18
         const ox = -dy / len * curve, oy = dr / len * curve
         const cpx = (s.x + t.x) / 2 + ox, cpy = (s.y + t.y) / 2 + oy
-        const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other']
+        const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other'] || KG.colors.other
         const focused = focusId && (e.sourceNodeId === focusId || e.targetNodeId === focusId)
         const alpha = focusId ? (focused ? 0.6 : 0.08) : (dense ? 0.14 : 0.24)
         const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
@@ -4883,8 +5202,11 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         if (!inRect(n.x, n.y, n.r + 2, viewRect)) return
         const info = sim.domainById[n.id] || {}
         const kind = info.kind || 'other'
-        const color = sim.timeMode ? recencyColor(info.updated) : KG.colors[kind]
-        const shape = KG.shapes[kind]
+        // kind 兜底：未知类型（历史卡/外部导入）以前会让 KG.colors[kind] 变成 undefined，
+        // 随后 gradientFor 里 color.slice() 直接 TypeError —— 现在统一落到 other 的配色/圆点，
+        // 坏数据最多画得朴素一点，不会再抛异常（并在兜底处告警一次）。
+        const color = sim.timeMode ? recencyColor(info.updated) : (KG.colors[kind] || KG.colors.other)
+        const shape = KG.shapes[kind] || 'circle'
         const isSel = sim.selectedId === n.id, isHov = sim.hoverId === n.id
         const searchTerm = sim.searchTerm || ''
         const searchHit = !searchTerm || (n.name || '').toLowerCase().includes(searchTerm) || String(KIND_LABELS[kind] || '').toLowerCase().includes(searchTerm) || String(kind).toLowerCase().includes(searchTerm)
@@ -4953,7 +5275,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       } else if (tooltipRef.current) tooltipRef.current.style.display = 'none'
     }
 
-    const wake = () => { sim.running = true; if (!sim.raf) sim.raf = requestAnimationFrame(step) }
+    // 预热期间不启动常规 rAF 循环（预热自己驱动 rAF），避免同一帧里跑两遍 tick。
+    let warmLeft = 0
+    const wake = () => { if (warmLeft > 0) return; sim.running = true; if (!sim.raf) sim.raf = requestAnimationFrame(step) }
     sim.wake = wake
     sim.render = render
 
@@ -4993,7 +5317,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
 
     const step = () => {
       if (!sim.running) return
-      try { tick(); render() } catch (er) { /* 绘制/物理异常不拖垮窗口 */ }
+      try { tick(); render() } catch (er) { warnGraphDrawError(er, 'step') }
       if (sim.quietTicks > 30) { sim.raf = 0; return }
       sim.raf = requestAnimationFrame(step)
     }
@@ -5012,6 +5336,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         if (hit) { sim.shiftClick = hit.id; return }
         sim.marquee = { sx: e.clientX, sy: e.clientY, ex: e.clientX, ey: e.clientY }; return
       }
+      sim.userTouched = true
       sim.dragStart = { x: e.clientX, y: e.clientY, px: sim.panX, py: sim.panY }
       sim.dragging = false; sim.dragNode = hit || null
       if (hit) sim.dragOffset = { dx: hit.x - w.x, dy: hit.y - w.y }
@@ -5066,6 +5391,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       sim.panX = clamp(sim.panX + wx * (sim.zoom - newZoom), -1e5, 1e5)
       sim.panY = clamp(sim.panY + wy * (sim.zoom - newZoom), -1e5, 1e5)
       sim.zoom = newZoom
+      sim.userTouched = true
       wake()
     }
     canvas.addEventListener('mousemove', onMove)
@@ -5075,22 +5401,59 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     canvas.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('contextmenu', onCtx)
 
-    resetRef.current = () => { sim.selectedId = null; sim.hoverId = null; sim.multi = []; setMulti([]); fit(); wake() }
-    // 稳定初始化：先同步力到接近收敛再显示，避免初始画面漂移/视角切换
-    for (let s = 0; s < 200; s++) tick()
+    resetRef.current = () => { sim.selectedId = null; sim.hoverId = null; sim.multi = []; setMulti([]); sim.userTouched = false; fit(); wake() }
+    // ---- 稳定初始化：分帧预热 ---------------------------------------------------
+    // 旧实现是一次性循环 tick 200 次：1084 个节点时单次 tick 是 O(n²)，实测同步阻塞
+    // 主线程 1–2 秒（4× CPU 降速下 5–7 秒），期间画面完全空白 —— 用户看到的就是「打开知识星图一片空白」。
+    // 现在改成：
+    //   ① 先同步画一帧（不依赖 requestAnimationFrame，窗口未聚焦/被遮挡时也有内容）；
+    //   ② 预热按「每帧 ≤ WARM_FRAME_BUDGET_MS」分帧跑，帧间让出主线程（点击/滚动立刻响应）；
+    //   ③ 预热期间显示「正在布局 N 个节点…」，不再是无声空白；
+    //   ④ 每帧按当前布局重新 fit（用户没手动缩放/拖动过时），节点不会飞出视口。
+    warmLeft = warmTicksFor(sim.nodes.length)
+    const totalWarm = warmLeft
+    // 预热进度直接映射到进度条（tick 数可数 → 真百分比，不是假动画）
+    const warmPct = () => (totalWarm > 0 ? Math.round(((totalWarm - warmLeft) / totalWarm) * 100) : 100)
+    if (warmLeft > 0) setWarming(0)
+    // 预热中途只补 3 帧（75% / 50% / 25%），让布局看起来是「逐渐铺开」而不是卡住再跳变。
+    const renderMarks = totalWarm > 0 ? [0.75, 0.5, 0.25].map((f) => Math.round(totalWarm * f)) : []
+    const warmStep = () => {
+      if (!sim.running) return
+      const t0 = performance.now()
+      while (warmLeft > 0 && performance.now() - t0 < WARM_FRAME_BUDGET_MS) { tick(); warmLeft-- }
+      setWarming(warmLeft > 0 ? Math.min(99, warmPct()) : 100)
+      if (renderMarks.length && warmLeft <= renderMarks[0]) {
+        renderMarks.shift()
+        if (!sim.userTouched) fit()
+        try { render() } catch (e) { warnGraphDrawError(e, 'warm-frame') }
+      }
+      if (warmLeft > 0) {
+        if (!sim.userTouched) fit()
+        sim.warmRaf = requestAnimationFrame(warmStep)
+        return
+      }
+      sim.warmRaf = 0
+      if (!sim.userTouched) fit()
+      try { render() } catch (e) { warnGraphDrawError(e, 'warm-final') }
+      setWarming(null)
+      wake()
+    }
+    sim.warmStep = warmStep
     fit()
-    wake()
+    try { render() } catch (e) { warnGraphDrawError(e, 'first-frame') }
+    if (warmLeft > 0) sim.warmRaf = requestAnimationFrame(warmStep)
+    else { setWarming(0); wake() }
 
     const onDocMouseDown = () => setFilterOpen(false)
     window.addEventListener('mousedown', onDocMouseDown)
 
-    return () => { sim.running = false; if (sim.raf) cancelAnimationFrame(sim.raf); ro.disconnect(); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onUp); canvas.removeEventListener('wheel', onWheel); canvas.removeEventListener('contextmenu', onCtx); window.removeEventListener('mousedown', onDocMouseDown) }
+    return () => { sim.running = false; if (sim.raf) cancelAnimationFrame(sim.raf); if (sim.warmRaf) cancelAnimationFrame(sim.warmRaf); ro.disconnect(); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onUp); canvas.removeEventListener('wheel', onWheel); canvas.removeEventListener('contextmenu', onCtx); window.removeEventListener('mousedown', onDocMouseDown) }
   }, [nodes, edges])
 
   // 切换到图谱视图时重新 fit，让画布居中适配当前容器尺寸
   useEffect(() => {
     if (fitTrigger !== undefined && fitRef.current) {
-      requestAnimationFrame(() => fitRef.current())
+      requestAnimationFrame(() => { try { fitRef.current() } catch (e) { warnGraphDrawError(e, 'fit') } })
     }
   }, [fitTrigger])
 
@@ -5138,6 +5501,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       </div>
       <div className="me-graph-canvas" style={{ position: 'relative', overflow: 'hidden' }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'grab' }} />
+{warming !== null && <div role="status" aria-live="polite" style={{ position: 'absolute', left: '50%', top: 10, transform: 'translateX(-50%)', zIndex: 3, display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px', borderRadius: 999, background: 'rgba(28,28,32,0.86)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#eee', fontSize: 11.5, fontWeight: 600, letterSpacing: '.02em', pointerEvents: 'none', boxShadow: '0 6px 18px rgba(0,0,0,.22)' }}><ProgressBar value={warming} small /><span>{t('graphWarming').replace('{n}', nodes.length)} · {Math.round(warming)}%</span></div>}
         <div className="mc-v5-graph-legend">
           <div className="mc-v5-graph-legend-title">连接簇</div>
           {Object.keys(KG.colors).filter((k) => kindStats[k]).map((k) => (
@@ -5381,8 +5745,8 @@ function MultiDD({ label, value = [], options, onChange, placeholder, z = 20 }) 
   const allOpt = options.find((o) => o.value === '__all__')
   const normalOpts = options.filter((o) => o.value !== '__all__')
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, minWidth: 0 }}>
-      <span style={{ opacity: 0.6, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{label}</span>
+    <label className="mc-field">
+      <span className="mc-field-label">{label}</span>
       <div ref={boxRef} style={{ position: 'relative', minWidth: 0 }}>
         <button type="button" onClick={() => setOpen((o) => !o)} style={{ width: '100%', textAlign: 'left', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text || placeholder || '—'}</span>
