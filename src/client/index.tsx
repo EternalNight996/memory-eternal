@@ -552,6 +552,20 @@ export const ZH = {
   healthCapFail: '最近一次失败',
   healthRunAlign: '运行「版本对齐检查」后显示',
   healthVersion: '版本',
+  ledgerTitle: '记忆账本（近 7 天）',
+  ledgerHint: '召回注入了多少、蒸馏调用了多少次 —— 判断「到底省不省 token」的第一块数据',
+  ledgerRecalls: '召回次数',
+  ledgerInjected: '注入',
+  ledgerChars: '字符',
+  ledgerCaptures: '沉淀次数',
+  ledgerLlmCalls: 'LLM 调用',
+  ledgerEstimate: '估算 token',
+  ledgerEstimateHint: '按约 2 字符 ≈ 1 token 粗估，只看量级',
+  ledgerUseful: '召回有用率',
+  ledgerUsefulHint: '来自「有用 / 没用」反馈；低于 60% 说明注入可能净亏',
+  ledgerFormula: '净收益 ≈ 被避免的上下文开销 −（注入字符 + 蒸馏调用 × 单价）。账本只记「花了多少」，收益侧请结合你实际省下的重读 / 返工来判断。',
+  ledgerNoData: '近 7 天还没有记录：聊几轮或让 agent recall 一次后再看。',
+  ledgerNeedRestart: '宿主仍在跑旧版 API（/ledger 不存在）：完全退出并重开 DSH 后，账本才会开始记录。',
   alignTitle: '版本对齐检查',
   alignRun: '开始检查',
   alignFix: '重写接线',
@@ -1107,6 +1121,20 @@ export const EN = {
   healthCapFail: 'last capture failed',
   healthRunAlign: 'run Version alignment check to show',
   healthVersion: 'Versions',
+  ledgerTitle: 'Memory ledger (last 7 days)',
+  ledgerHint: 'How much recall injected and how many distillation calls ran — the first data point for the "does it save tokens?" question',
+  ledgerRecalls: 'Recalls',
+  ledgerInjected: 'injected',
+  ledgerChars: 'chars',
+  ledgerCaptures: 'Captures',
+  ledgerLlmCalls: 'LLM calls',
+  ledgerEstimate: 'Est. tokens',
+  ledgerEstimateHint: 'rough estimate at ~2 chars per token; order of magnitude only',
+  ledgerUseful: 'Recall usefulness',
+  ledgerUsefulHint: 'from useful / not-useful feedback; below 60% means injection may cost more than it saves',
+  ledgerFormula: 'Net benefit ≈ avoided context cost − (injected chars + distillation calls × price). The ledger only records what we spent; weigh it against the re-reads and rework you actually avoided.',
+  ledgerNoData: 'No entries in the last 7 days: chat a few turns or let the agent recall once, then come back.',
+  ledgerNeedRestart: 'The host is still running the old API (/ledger missing): fully quit and reopen DSH to start recording.',
   alignTitle: 'Version alignment check',
   alignRun: 'Check now',
   alignFix: 'Rewrite wiring',
@@ -3786,6 +3814,8 @@ function LibraryAdmin({ t, tab, onReload, version }) {
   const [captureLog, setCaptureLog] = useState(null)
   // 健康概览（库 / 备份 / 沉淀 / 版本）——「看不见的状态」集中一处（issue 可靠性线）
   const [health, setHealth] = useState(null)
+  // 记忆账本：召回注入 / 蒸馏调用 / 召回有用率（回答「到底省不省 token」）
+  const [ledger, setLedger] = useState(null)
   // 版本对齐检查（回答「插件迭代后旧接口还在」）：宿主/常驻/npm 版本差 + MCP/hooks 旧接线
   const [align, setAlign] = useState(null)
   const runAlign = useCallback(async () => {
@@ -3843,13 +3873,16 @@ function LibraryAdmin({ t, tab, onReload, version }) {
         fetch(`${API}/cards?status=all&limit=30&agent=${DSH_AGENT}`),
         // 健康概览：库状态 / 备份年龄（服务端已算好摘要）
         fetch(`${API}/overview`),
+        // 记忆账本：近 7 天召回注入 / 蒸馏调用 / 召回有用率
+        fetch(`${API}/ledger?days=7`),
       ])
-      const [s, b, c, k, o] = await Promise.all(rs.map((r) => r.json()))
+      const [s, b, c, k, o, l] = await Promise.all(rs.map((r) => r.json()))
       if (s && s.ok) setStats(s)
       if (b && b.ok) setBudget(b)
       if (c && c.ok) setCaptureLog(c)
       if (k && k.ok) setAgentCards(k.cards || [])
       if (o && o.ok) setHealth({ db: o.db, backups: o.backups, total: o.total, version: o.version, degraded: o.degraded === true })
+      setLedger(l && l.ok ? l : { ok: false, error: (l && l.error) || '' })
       setErr(!s || !s.ok ? t('adminLoadFail') : '')
     } catch (e) { setErr(t('adminLoadFail')) }
   }
@@ -4075,6 +4108,40 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                     </div>
                   )
                 })()}
+              </div>
+              {/* 记忆账本：回答「到底省不省 token」—— 记录召回注入与蒸馏调用，收益侧结合有用率判断 */}
+              <div className="mc-card" style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <b style={{ fontSize: 12 }}>🧾 {t('ledgerTitle')}</b>
+                  <span style={{ fontSize: 11, opacity: 0.6 }}>{t('ledgerHint')}</span>
+                  <div style={{ flex: 1 }} />
+                  <button type="button" className="mc-btn" onClick={() => fetchAll()}>↻ {t('refresh')}</button>
+                </div>
+                {!ledger
+                  ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('loading')}</div>
+                  : ledger.ok === false
+                    ? <div style={{ color: '#f59e0b', fontSize: 12, padding: '8px 0', lineHeight: 1.7 }}>⚠ {(/未知接口|404|not found/i.test(String(ledger.error || '')) ? t('ledgerNeedRestart') : (ledger.error || t('adminLoadFail')))}</div>
+                    : (ledger.totals.recalls + ledger.totals.captures === 0
+                      ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('ledgerNoData')}</div>
+                      : (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
+                            {[
+                              { k: t('ledgerRecalls'), v: String(ledger.totals.recalls), s: t('ledgerInjected') + ' ' + Number(ledger.totals.injectedChars || 0).toLocaleString() + ' ' + t('ledgerChars') },
+                              { k: t('ledgerCaptures'), v: String(ledger.totals.captures), s: t('ledgerLlmCalls') + ' ' + ledger.totals.llmCalls + (ledger.totals.captureFail ? ' · ✗ ' + ledger.totals.captureFail : '') },
+                              { k: t('ledgerEstimate'), v: '≈ ' + Number(ledger.totals.estTokens || 0).toLocaleString(), s: t('ledgerEstimateHint') },
+                              { k: t('ledgerUseful'), v: ledger.feedback.rate == null ? '—' : Math.round(ledger.feedback.rate * 100) + '%', s: t('ledgerUsefulHint') },
+                            ].map((x) => (
+                              <div key={x.k} style={{ border: '1px solid rgba(127,127,127,.16)', borderRadius: 10, padding: '8px 10px' }}>
+                                <div style={{ fontSize: 11, opacity: 0.6 }}>{x.k}</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.35 }}>{x.v}</div>
+                                <div style={{ fontSize: 10.5, opacity: 0.55, lineHeight: 1.5 }}>{x.s}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: 11, opacity: 0.55, marginTop: 8, lineHeight: 1.7 }}>{t('ledgerFormula')}</div>
+                        </div>
+                      ))}
               </div>
               {/* 版本对齐检查：插件迭代后「旧接口 / 旧接线」不会自己消失 —— 一眼看清差在哪、怎么对齐 */}
               <div className="mc-card" style={{ marginBottom: 10 }}>
