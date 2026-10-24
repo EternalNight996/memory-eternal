@@ -261,6 +261,7 @@ dsh-memory stop [--port 7799]        # 停止常驻 watchdog（配置改动不�
                                      # 停完会再问一次端口占用者，仍被占着就明确告警
 dsh-memory restart [--port 7799]     # 停止并重起 watchdog（升级后换新版）
                                      # 按端口占用者兜底收掉锁里没登记的旧 web，起完自检端口上服务的版本
+dsh-memory ledger [--days 7] [--json]  # 记忆账本：召回注入 / 蒸馏调用 / 召回有用率
 dsh-memory audit list [--status pending|rejected|approved|deleted|all] [--limit N] [--json]
                                      # 列出卡片；总数不受 --limit 影响，--limit 只限制显示条数（默认全部）
                                      # all = 审核队列（pending + rejected），不含 approved / deleted

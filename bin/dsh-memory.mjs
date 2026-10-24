@@ -18,6 +18,7 @@
 //   dsh-memory refine [--vault DIR] [--json]              矛盾扫描候选（不调模型）；--apply --a A --b B --action keepA|keepB|merge|keepBoth 落裁决
 //   dsh-memory refine --junk [--purge --path P] [--json]   注入垃圾卡（技能目录等注入文本沉淀成的卡）：列清单 / 送回收站
 //   dsh-memory refine --goals [--keep --path A --path B]   同目标不同做法：聚类需模型（面板里跑）；--keep 落"都保留"
+//   dsh-memory ledger [--days N] [--json]                 记忆账本：召回注入 / 蒸馏调用 / 召回有用率
 //
 // 环境变量：
 //   MEMORY_VAULT_DIR       vault 目录（默认 ~/.dsh/memory-vault）
@@ -148,6 +149,32 @@ async function main() {
     case 'mcp': {
       const { startMcpServer } = await import('../lib/mcp.js')
       startMcpServer()
+      return
+    }
+    case 'ledger': {
+      const { ledgerSummary } = await import('../lib/ledger.js')
+      const { defaultVaultDir } = await import('../lib/capture-run.js')
+      const root = path.resolve(argOf('--vault') || defaultVaultDir())
+      const days = Math.min(Math.max(Math.floor(Number(argOf('--days')) || 7), 1), 90)
+      let s
+      try { s = ledgerSummary(root, { days }) } catch (e) {
+        console.error('读取记忆账本失败：' + (e?.message || e))
+        process.exitCode = 1
+        return
+      }
+      if (has('--json')) { console.log(JSON.stringify(s, null, 2)); return }
+      const fmt = (n) => Number(n || 0).toLocaleString('en-US')
+      console.log('记忆账本（最近 ' + s.days + ' 天）\n')
+      console.log('召回   ' + fmt(s.totals.recalls) + ' 次 · 注入 ' + fmt(s.totals.injectedChars) + ' 字符')
+      console.log('沉淀   ' + fmt(s.totals.captures) + ' 次 · LLM ' + fmt(s.totals.llmCalls) + ' 次 · 输入 ' + fmt(s.totals.captureInChars) + ' / 输出 ' + fmt(s.totals.captureOutChars) + ' 字符')
+      console.log('估算   ≈ ' + fmt(s.totals.estTokens) + ' tokens（中英混排按 2 字符 ≈ 1 token，仅看量级）')
+      console.log('')
+      console.log(s.feedback.rate === null
+        ? '召回有用率  暂无反馈（Agent 回传 useful 后才有数据）'
+        : '召回有用率  ' + Math.round(s.feedback.rate * 100) + '%（有用 ' + fmt(s.feedback.useful) + ' / 无用 ' + fmt(s.feedback.useless) + '）')
+      console.log('\n最近 ' + s.days + ' 天：')
+      for (const d of s.byDay) console.log('  ' + d.date + '  召回 ' + fmt(d.recalls) + ' · 注入 ' + fmt(d.injectedChars) + ' 字符 · 沉淀 ' + fmt(d.captures))
+      console.log('\n提示：--json 输出原始数据；Web 面板「运行状态 → 记忆账本」可看趋势。')
       return
     }
     case 'status': {
@@ -603,6 +630,7 @@ MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显�
   dsh-memory status [--port N] [--json]      查看常驻看门狗（pid/端口/版本/存活）
   dsh-memory stop [--port N] [--json]        停止常驻看门狗（显式命令，配置变更不会自动停）
   dsh-memory restart [--port N] [--vault DIR] 停止并重新拉起看门狗（应用新版本）
+  dsh-memory ledger [--days N] [--json]      记忆账本：召回注入 / 蒸馏调用 / 有用率
   dsh-memory audit list [--status pending] [--kind K] [--json]  列出待审/驳回卡片
   dsh-memory audit approve <path...> | reject <path...> [--reason "原因"]  人工批量审批
 
