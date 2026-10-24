@@ -4,6 +4,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { recordLedger, ledgerSummary } from '../lib/ledger.js'
 import { addFeedback } from '../lib/vault.js'
 
@@ -44,4 +46,21 @@ test('召回有用率来自 feedback；没有反馈时 rate=null（不要假装 
 
 test('账本写入失败不影响调用方（非法 root 也不抛）', () => {
   assert.doesNotThrow(() => recordLedger('\u0000bad-root', { kind: 'recall' }))
+})
+
+test('CLI dsh-memory ledger 输出 JSON 与人类可读摘要', () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const v = fs.mkdtempSync(path.join(os.tmpdir(), 'me-ledger-cli-'))
+  recordLedger(v, { kind: 'recall', results: 2, chars: 400 })
+  recordLedger(v, { kind: 'capture', charsIn: 1000, chars: 300, llmCalls: 1 })
+  const bin = path.join(repoRoot, 'bin', 'dsh-memory.mjs')
+  const json = execFileSync(process.execPath, [bin, 'ledger', '--vault', v, '--days', '7', '--json'], { encoding: 'utf8' })
+  const j = JSON.parse(json)
+  assert.equal(j.totals.recalls, 1)
+  assert.equal(j.totals.injectedChars, 400)
+  assert.equal(j.totals.estTokens, Math.round((400 + 1000 + 300) / 2))
+  const text = execFileSync(process.execPath, [bin, 'ledger', '--vault', v, '--days', '7'], { encoding: 'utf8' })
+  assert.match(text, /记忆账本/)
+  assert.match(text, /召回/)
+  assert.match(text, /--json/)
 })
