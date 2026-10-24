@@ -2,7 +2,7 @@
   "$schema": "urn:dsh-std:community-draft:dsh-plugin:0.15",
   "id": "memory-eternal-tui",
   "name": "memory-eternal-tui",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "manifestVersion": "0.15",
   "description": "Open Memory Atlas from dsh-TUI: native /audit scene plus browser launcher.",
   "facets": {
