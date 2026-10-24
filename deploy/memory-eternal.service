@@ -1,0 +1,23 @@
+# 裸机部署（Linux systemd）
+# 1) 代码放 /opt/memory-eternal，数据放 /var/lib/memory-eternal
+# 2) sudo cp deploy/memory-eternal.service /etc/systemd/system/
+# 3) sudo useradd -r -s /usr/sbin/nologin memory && sudo chown -R memory /var/lib/memory-eternal
+# 4) sudo systemctl daemon-reload && sudo systemctl enable --now memory-eternal
+
+[Unit]
+Description=memory-eternal (local-first memory web server)
+After=network.target
+
+[Service]
+Type=simple
+User=memory
+WorkingDirectory=/opt/memory-eternal
+ExecStart=/usr/bin/node bin/dsh-memory.mjs serve --port 7999 --host 127.0.0.1 --vault /var/lib/memory-eternal
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -34,6 +34,7 @@ import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
+import { recordLedger } from './lib/ledger.js'
 import { missingWebAssets, missingAssetsReason } from './lib/web-assets.js'
 import { writeHostMarker, clearHostMarker } from './lib/host-heartbeat.js'
 import { nodeBinary, childEnv } from './lib/node-bin.js'
@@ -737,6 +738,8 @@ export function apply(ctx, config) {
       let failure = null          // 主失败 = **第一个**候选的失败（通常是显式配置的那个，信息量最大）
       const failures = []         // 全部候选的失败，用于汇总上报（#18 根因 2）
       const maxTokens = Number(cfg.captureMaxTokens) || DEFAULT_CAPTURE_MAX_TOKENS
+      const captureT0 = Date.now()
+      let llmCalls = 0
       for (let i = 0; i < routes.length; i++) {
         route = routes[i]
         // issue #48：超时不再硬编码 45s（本地 30B 冷启动 40–60s 必超时），且超时后**同候选**用更长超时重试一次。
@@ -744,7 +747,7 @@ export function apply(ctx, config) {
         const isTimeoutFailure = (x) => /ABORTED|TIMEOUT|ETIMEDOUT|aborted/i.test(String((x && (x.code + ' ' + x.message)) || ''))
         // issue #51：把真实会话 id 透传给 LLM（opencode-go 网关靠它注入 x-opencode-session，
         // 缺了首跳固定 400 MissingSessionID）。同一会话的蒸馏请求也因此能被网关按会话归并。
-        const attempt = (budget, ms) => summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(ms), existing: neighbors, maxTokens: budget, sessionId })
+        const attempt = (budget, ms) => { llmCalls++; return summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(ms), existing: neighbors, maxTokens: budget, sessionId }) }
         let detailed = await attempt(maxTokens, baseTimeout)
         if (detailed.failure && isTimeoutFailure(detailed.failure)) {
           const longer = Math.min(Math.max(Math.round(baseTimeout * 2.5), baseTimeout + 30000), 180000)
@@ -781,6 +784,21 @@ export function apply(ctx, config) {
         }
         break // skip（太短 / 不值得保存）或没有更多候选
       }
+      // 账本：记下这次沉淀的真实开销（输入字符 / LLM 调用次数 / 输出字符），失败也记（便于看失败率与白烧次数）
+      try {
+        recordLedger(root, {
+          kind: 'capture',
+          session: sessionId,
+          charsIn: String(text || '').length,
+          chars: result ? JSON.stringify(result).length : 0,
+          llmCalls,
+          provider: route.provider,
+          model: route.model,
+          ms: Date.now() - captureT0,
+          ok: !!result,
+          note: failure ? failure.code : '',
+        })
+      } catch { /* 账本失败不影响沉淀主流程 */ }
       // 真失败要亮红并进提示段：此前只有笼统的「蒸馏无输出」，真实原因（如缺凭证）完全不可见。
       if (failure) { health.fail(`蒸馏失败（${failure.provider}）：${failure.code} ${failure.message}`); touchPrompt() }
       // 主因 + 兜底候选失败汇总：卡片 reason 与 created 日志都用这个，避免把排查者引向错误方向。
@@ -1010,7 +1028,10 @@ export function apply(ctx, config) {
           } catch { /* 单个库失败不影响其它库 */ }
         }
         if (multi) hits = hits.slice(0, limit)
-        if (hits.length === 0) return `记忆库中没有与「${query}」相关的内容。`
+        if (hits.length === 0) {
+          recordLedger((targets[0] && targets[0].root) || vaultDir(workspace), { kind: 'recall', results: 0, chars: 0, note: query.slice(0, 120) })
+          return `记忆库中没有与「${query}」相关的内容。`
+        }
         const lines = hits.map((h, i) => {
           const tags = h.tags.length ? ` [${h.tags.join(', ')}]` : ''
           const snippet = String(h.summary || '').replace(/\s+/g, ' ').trim().slice(0, defLen)
@@ -1019,7 +1040,9 @@ export function apply(ctx, config) {
           return `### ${i + 1}. ${h.title}${tags}${from}\n路径：${h.path}\n${snippet}${body}`
         })
         const where = multi ? `（作用域 ${scope || 'all'}，共 ${targets.length} 个库）` : ''
-        return `从记忆核心检索到 ${hits.length} 条相关卡片${where}：\n\n${lines.join('\n\n')}`
+        const out = `从记忆核心检索到 ${hits.length} 条相关卡片${where}：\n\n${lines.join('\n\n')}`
+        recordLedger((targets[0] && targets[0].root) || vaultDir(workspace), { kind: 'recall', results: hits.length, chars: out.length, note: query.slice(0, 120) })
+        return out
       },
     }))
   }

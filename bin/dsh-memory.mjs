@@ -4,7 +4,7 @@
 // 用法：
 //   dsh-memory recall <query> [--limit N] [--vault DIR]   检索知识卡
 //   dsh-memory capture <text | - > [--source TAG]         手动沉淀（- 读 stdin）
-//   dsh-memory serve [--port N] [--vault DIR]             启动 Web UI（前台常驻）
+//   dsh-memory serve [--port N] [--host H] [--vault DIR]  启动 Web UI（前台常驻；--host 0.0.0.0 用于容器/内网，需自行加认证）
 //   dsh-memory open [--port N]                            确保 Web 存活并用浏览器打开
 //   dsh-memory tui [--live] [--write]                     打开完整终端客户端（无需绝对路径）
 //   dsh-memory mcp                                        MCP stdio server（各 agent 挂载）
@@ -105,8 +105,10 @@ async function main() {
       const { startWebServer, DEFAULT_WEB_PORT } = await import('../lib/web.js')
       const { defaultVaultDir } = await import('../lib/capture-run.js')
       const port = Number(argOf('--port')) || DEFAULT_WEB_PORT
+      // 默认只监听本机：私有化/容器部署时显式 --host 0.0.0.0，并在前面加 TLS + 认证的反向代理
+      const host = argOf('--host') || process.env.MEMORY_WEB_HOST || '127.0.0.1'
       const vault = path.resolve(argOf('--vault') || defaultVaultDir())
-      await startWebServer({ port, vaultRoot: vault })
+      await startWebServer({ port, vaultRoot: vault, host })
       process.on('SIGINT', () => process.exit(0))
       process.on('SIGTERM', () => process.exit(0))
       return
@@ -590,7 +592,7 @@ MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显�
 用法：
   dsh-memory recall <query> [--limit N]       检索知识卡
   dsh-memory capture <text | -> [--source T]  手动沉淀（- 读 stdin）
-  dsh-memory serve [--port N]                 Web UI（前台）
+  dsh-memory serve [--port N] [--host H]      Web UI（前台；私有化部署见 docs/DEPLOY.md）
   dsh-memory open                             确保 Web 存活并打开浏览器
   dsh-memory mcp                              MCP stdio server
   dsh-memory setup [--dry-run] ...            自动挂载 MCP 到已装 agent
