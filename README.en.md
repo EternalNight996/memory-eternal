@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E5%8D%A1.png" width="920" alt="Memory library: knowledge cards, daily resurface, type filters and auto-capture badges" /></a>
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library.png" width="920" alt="Memory library: knowledge cards, daily resurface, type filters and auto-capture badges" /></a>
 </p>
 <p align="center"><sub>▲ Knowledge cards · daily resurface · type filters — <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo (sample data, no install)</a></sub></p>
 
@@ -39,9 +39,9 @@
 <p align="center"><a href="https://eternalnight996.github.io/memory-eternal/"><b>🌐 Live site</b></a> · <a href="https://eternalnight996.github.io/memory-eternal/demo/"><b>Open the memory library demo</b></a> <sub>(sample data, no install)</sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E6%98%9F%E5%9B%BE.png" width="32%" alt="Knowledge graph: kind-coloured clusters, tag edges and cross-vault aggregation" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="Knowledge graph: kind-coloured clusters, tag edges and cross-vault aggregation" />
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="Review inbox: type bar, queue and verdict pane with select-all batch approve / reject" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E7%8A%B6%E6%80%81.png" width="32%" alt="System status: vault, backup, auto-capture and version health at a glance" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status.png" width="32%" alt="System status: vault, backup, auto-capture and version health at a glance" />
 </p>
 <p align="center"><sub>▲ Knowledge graph · review first (readable verdicts) · system status (vault / backup / capture / version)</sub></p>
 

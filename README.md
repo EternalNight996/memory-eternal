@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E5%8D%A1.png" width="920" alt="记忆库：知识卡列表、今日回看、类型筛选与 AI 自动沉淀徽标" /></a>
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library.png" width="920" alt="记忆库：知识卡列表、今日回看、类型筛选与 AI 自动沉淀徽标" /></a>
 </p>
 <p align="center"><sub>▲ 知识卡 · 今日回看 · 类型筛选 —— <a href="https://eternalnight996.github.io/memory-eternal/demo/">在线 Demo（示例数据，免安装）</a></sub></p>
 
@@ -39,9 +39,9 @@
 <p align="center"><a href="https://eternalnight996.github.io/memory-eternal/"><b>🌐 在线体验</b></a> · <a href="https://eternalnight996.github.io/memory-eternal/demo/"><b>打开记忆库 Demo</b></a> <sub>（示例数据，不用安装）</sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E6%98%9F%E5%9B%BE.png" width="32%" alt="知识星图：按类型着色的连接簇、标签连边与跨库聚合" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="知识星图：按类型着色的连接簇、标签连边与跨库聚合" />
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="待审：顶部类型条、队列与右侧判词，可全选批量批准 / 驳回" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E7%8A%B6%E6%80%81.png" width="32%" alt="运行状态：知识库、备份、自动沉淀与版本健康概览" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status.png" width="32%" alt="运行状态：知识库、备份、自动沉淀与版本健康概览" />
 </p>
 <p align="center"><sub>▲ 知识星图 · 先审后入（判词看得懂）· 运行状态（库 / 备份 / 沉淀 / 版本一屏体检）</sub></p>
 
