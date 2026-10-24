@@ -1,0 +1,254 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>memory-eternal · A second brain your AI can audit</title>
+<meta name="description" content="Every conversation becomes a Markdown card you can review, diff and recall. Local-first, zero dependencies, shared by DSH, Claude Code, Codex and Cursor." />
+<meta property="og:title" content="memory-eternal · A second brain your AI can audit" />
+<meta property="og:description" content="Local-first AI memory: auto-capture, review before it lands, Markdown you can read, SQLite you can back up." />
+<meta property="og:image" content="https://eternalnight996.github.io/memory-eternal/assets/og.png" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<header class="nav">
+  <div class="wrap" style="display:flex;align-items:center;gap:28px;width:min(var(--max),calc(100% - 48px));margin:0 auto;height:100%;">
+    <a class="brand" href="en.html">
+      <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <ellipse cx="16" cy="16" rx="13.4" ry="5.2" transform="rotate(-27 16 16)" stroke="currentColor" stroke-opacity=".58" stroke-width="1.15"/>
+        <ellipse cx="16" cy="16" rx="13.4" ry="5.2" transform="rotate(31 16 16)" stroke="currentColor" stroke-opacity=".26" stroke-width="1.15"/>
+        <circle cx="16" cy="16" r="4.1" fill="currentColor"/>
+        <circle cx="27.6" cy="8.6" r="1.25" fill="currentColor" opacity=".85"/>
+      </svg>
+      <span>memory-eternal<small>Local-first AI memory</small></span>
+    </a>
+    <nav class="links">
+      <a href="demo/">Live demo</a>
+      <a href="#why">Why</a>
+      <a href="#how">How</a>
+      <a href="#install">Install</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="actions">
+      <a class="btn" href="index.html">中文</a>
+      <a class="btn primary" href="https://github.com/EternalNight996/memory-eternal" target="_blank" rel="noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
+        GitHub Star
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div>
+      <div class="eyebrow">Local-first · Zero dependency</div>
+      <h1>Your AI forgets.<br>Give it a <em>second brain</em>.</h1>
+      <p class="lead">Every conversation becomes a Markdown card you can search, <b>review</b> and <b>git diff</b>. Recall only the relevant chunks: fewer tokens, less noise.</p>
+      <div class="cta">
+        <a class="btn primary lg" href="demo/">Open the live demo
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn lg" href="https://github.com/EternalNight996/memory-eternal" target="_blank" rel="noreferrer">Star on GitHub</a>
+      </div>
+      <div class="micro">
+        <span><i></i>Local SQLite + Markdown</span>
+        <span><i></i>No GPU, no cloud key</span>
+        <span><i></i>DSH / Claude Code / Codex / Cursor</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="frame">
+        <div class="frame-bar"><i></i><i></i><i></i><span>memory-eternal / library</span></div>
+        <img src="assets/hero-crop.png" alt="memory-eternal library: knowledge cards, daily resurface and connection graph" />
+      </div>
+      <div class="chip-float a"><i></i><span><b>Resurface</b> · a month ago</span></div>
+      <div class="chip-float b"><i></i><span><b>Review first</b> · reversible</span></div>
+    </div>
+  </section>
+
+  <div class="proof wrap">
+    <span><b>Demo data</b> · 24 sample cards</span><span class="dot"></span>
+    <span><b>5</b> pending</span><span class="dot"></span>
+    <span><b>0</b> external deps</span><span class="dot"></span>
+    <span>Markdown readable · SQLite backup · all local</span>
+  </div>
+
+  <section class="section wrap" id="why">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Why another memory</div>
+        <h2>Not another vector store.<br>Memory you can open, review and roll back.</h2>
+      </div>
+      <p>Similarity answers “does it look alike”. It does not answer “is it true”. memory-eternal turns memory into inspectable Markdown cards, then asks whether they should land.</p>
+    </div>
+    <div class="contrast">
+      <p class="quote">Embeddings give you <span>similarity</span>.<br>Markdown gives you readability.<br>Review gives you control.
+        <small>Not a rejection of vector search. A different trade-off: local, explainable, auditable. Make memory trustworthy first, then make it smart.</small>
+      </p>
+      <div class="compare">
+        <div class="compare-row header"><span>Dimension</span><span>Typical memory plugin</span><span>memory-eternal</span></div>
+        <div class="compare-row"><span class="k">Storage</span><span class="a">Opaque vectors / cloud DB</span><span class="b">Markdown + <b>SQLite</b>, open it</span></div>
+        <div class="compare-row"><span class="k">Ingest</span><span class="a">Auto-write, no review</span><span class="b"><b>Review first</b>: approve, reject, recycle</span></div>
+        <div class="compare-row"><span class="k">Undo</span><span class="a">Delete is final</span><span class="b">Recycle bin + backup + <b>restore</b></span></div>
+        <div class="compare-row"><span class="k">Deps</span><span class="a">Cloud service + API key</span><span class="b">Runs locally, <b>zero external deps</b></span></div>
+        <div class="compare-row"><span class="k">Recall</span><span class="a">Similarity only</span><span class="b">Tags + CJK snippets + <b>semantic mix</b></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="how">
+    <div class="section-head">
+      <div>
+        <div class="kicker">The loop</div>
+        <h2>One conversation, four steps to memory.</h2>
+      </div>
+      <p>No extra workflow. It happens when the session ends. You only make one decision in the review center: keep or drop.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">01 / CAPTURE</div><h3>Capture</h3><p>Listen to session events, filter small talk and noise, keep the parts with signal.</p></div>
+      <div class="step"><div class="n">02 / DISTILL</div><h3>Distill</h3><p>Turn the signal into a card: decision, evidence, boundary. Written as local Markdown.</p></div>
+      <div class="step"><div class="n">03 / REVIEW</div><h3>Review</h3><p>New cards wait in quarantine. Approve to land, reject to recycle. Everything is reversible.</p></div>
+      <div class="step"><div class="n">04 / RECALL</div><h3>Recall</h3><p>When the agent needs history, fetch only the relevant chunks. Do not paste the whole session.</p></div>
+    </div>
+  </section>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Inside the vault</div>
+        <h2>Three screens you will use every day.</h2>
+      </div>
+      <p>The library finds, the review center decides, the graph reveals relationships. All of them are real and interactive.</p>
+    </div>
+    <div class="showcase">
+      <div class="shot large">
+        <div class="cap"><b>Library</b><span>Resurface · connection graph · semantic lead</span></div>
+        <img src="assets/library-showcase.png" alt="Library: card grid and daily resurface" />
+      </div>
+      <div class="shot small">
+        <div class="cap"><b>Review</b><span>Types · batch decisions · verdict</span></div>
+        <img src="assets/audit-crop.png" alt="Review center: type rail, queue and preview" />
+      </div>
+      <div class="shot half">
+        <div class="cap"><b>Graph</b><span>Smaller default · zoom · pan</span></div>
+        <img src="assets/graph-crop.png" alt="Knowledge graph: zoomable theme clusters" />
+      </div>
+      <div class="shot half">
+        <div class="cap"><b>Reader</b><span>👍 useful / 👎 not useful · TOC · related</span></div>
+        <img src="assets/reader-crop.png" alt="Reader: verdict and table of contents" />
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Works with your agents</div>
+        <h2>One vault, four agents.</h2>
+      </div>
+      <p>DSH, Claude Code, Codex and Cursor write into the same local vault. `submittedBy` records the author; the review center manages them all.</p>
+    </div>
+    <div class="agents">
+      <span class="agent" style="--c:#7aa2ff"><i></i>DeepSeek Harness</span>
+      <span class="agent" style="--c:#b79cff"><i></i>Claude Code</span>
+      <span class="agent" style="--c:#67e8f9"><i></i>Codex CLI</span>
+      <span class="agent" style="--c:#fbbf24"><i></i>Cursor</span>
+      <span class="agent" style="--c:#fb7185"><i></i>MCP</span>
+    </div>
+  </section>
+
+  <section class="section wrap" id="install">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Install</div>
+        <h2>Two commands. Start accumulating.</h2>
+      </div>
+      <p>DSH users install from the marketplace. Other agents install the CLI and run `connect` once; MCP and hooks are wired for you.</p>
+    </div>
+    <div class="install">
+      <div class="install-panel">
+        <div class="ph"><b>DeepSeek Harness</b><span>recommended</span></div>
+        <pre class="code"><span class="c"># Desktop: Settings → Plugins → search memory-eternal</span>
+dsh plugin --profile desktop add memory-eternal
+
+<span class="c"># Browser</span>
+dsh plugin --profile web add memory-eternal
+
+<span class="c"># Verify, then restart the host</span>
+node -e "console.log(require('memory-eternal/package.json').version)"</pre>
+      </div>
+      <div class="install-panel">
+        <div class="ph"><b>Claude Code / Codex / Cursor</b><span>MCP + hooks</span></div>
+        <pre class="code">npm i -g memory-eternal
+
+dsh-memory connect claude   <span class="c"># Claude Code</span>
+dsh-memory connect codex    <span class="c"># Codex / Codex Desktop</span>
+dsh-memory connect cursor   <span class="c"># Cursor</span>
+
+<span class="c"># Or just run the web UI</span>
+dsh-memory open</pre>
+      </div>
+    </div>
+    <div class="install-note">Everything lands in <b>~/.dsh/memory-vault</b>. No GPU, no cloud API key, no third-party memory service.</div>
+  </section>
+
+  <section class="section wrap" id="faq">
+    <div class="section-head">
+      <div>
+        <div class="kicker">FAQ</div>
+        <h2>A few things you will ask.</h2>
+      </div>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>Does memory leave my machine?</summary>
+        <p>No by default. Markdown lives in a local vault, the index is SQLite, and the plugin has no external network dependency. If you configure a distillation model, only the session chunk being distilled is sent to that provider.</p>
+      </details>
+      <details>
+        <summary>Does it conflict with Claude Code's memory?</summary>
+        <p>No. It writes only its own MCP key and hooks. Four agents share one vault, each card records its author, and one review center manages them.</p>
+      </details>
+      <details>
+        <summary>Why not use a vector database?</summary>
+        <p>It is a trade-off, not a rejection. Tags, CJK snippets and structured fields already cover many “find the last decision” cases and stay explainable. Add semantic retrieval when it earns its place.</p>
+      </details>
+      <details>
+        <summary>Will it burn tokens all day?</summary>
+        <p>Distillation runs when a session ends; recall fetches a bounded set of relevant chunks. There is a cost-control profile for cooldowns, candidate limits and model rotation.</p>
+      </details>
+      <details>
+        <summary>Can I export, back up and delete?</summary>
+        <p>Yes. The vault is Markdown + SQLite, exportable as MD or JSON, git-manageable, backed up daily with 7-day retention. Deletes land in a recycle bin first.</p>
+      </details>
+    </div>
+  </section>
+
+  <footer class="footer wrap">
+    <div class="star-cta">
+      <div>
+        <h3>If it saved you from explaining<br>the same context again, a star helps.</h3>
+        <p>A small project, trying to make memory something you can trust.</p>
+      </div>
+      <a class="btn primary lg" href="https://github.com/EternalNight996/memory-eternal" target="_blank" rel="noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+    <div class="foot-meta">
+      <span>MIT License</span>
+      <a href="https://www.npmjs.com/package/memory-eternal" target="_blank" rel="noreferrer">npm</a>
+      <a href="https://gitee.com/EternalNight996/memory-eternal" target="_blank" rel="noreferrer">Gitee</a>
+      <a href="https://github.com/EternalNight996/memory-eternal/blob/main/README.md" target="_blank" rel="noreferrer">README</a>
+      <a href="demo/">Live demo</a>
+      <span class="spacer"></span>
+      <span>Local-first · Zero deps · Auditable</span>
+    </div>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,254 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>memory-eternal · 给 AI 装一个可审核的第二大脑</title>
+<meta name="description" content="对话结束自动沉淀成可审核、可 git 管理的知识卡。本地优先，零外部依赖，召回只取相关小块。" />
+<meta property="og:title" content="memory-eternal · 给 AI 装一个可审核的第二大脑" />
+<meta property="og:description" content="本地优先的 AI 记忆插件：自动沉淀、先审后入、Markdown 可读、SQLite 持久。" />
+<meta property="og:image" content="https://eternalnight996.github.io/memory-eternal/assets/og.png" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<header class="nav">
+  <div class="wrap" style="display:flex;align-items:center;gap:28px;width:min(var(--max),calc(100% - 48px));margin:0 auto;height:100%;">
+    <a class="brand" href="./">
+      <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <ellipse cx="16" cy="16" rx="13.4" ry="5.2" transform="rotate(-27 16 16)" stroke="currentColor" stroke-opacity=".58" stroke-width="1.15"/>
+        <ellipse cx="16" cy="16" rx="13.4" ry="5.2" transform="rotate(31 16 16)" stroke="currentColor" stroke-opacity=".26" stroke-width="1.15"/>
+        <circle cx="16" cy="16" r="4.1" fill="currentColor"/>
+        <circle cx="27.6" cy="8.6" r="1.25" fill="currentColor" opacity=".85"/>
+      </svg>
+      <span>memory-eternal<small>Local-first AI memory</small></span>
+    </a>
+    <nav class="links">
+      <a href="demo/">在线 Demo</a>
+      <a href="#why">为什么</a>
+      <a href="#how">怎么工作</a>
+      <a href="#install">安装</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="actions">
+      <a class="btn" href="en.html">English</a>
+      <a class="btn primary" href="https://github.com/EternalNight996/memory-eternal" target="_blank" rel="noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
+        GitHub Star
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div>
+      <div class="eyebrow">Local-first · Zero dependency</div>
+      <h1>让 AI <em>记住</em><br>你们一起做过的决定。</h1>
+      <p class="lead">每轮对话结束，它把值得留下的决策、根因和教训沉淀成知识卡。可检索、可审核、可 git diff；召回只取相关的一小块，<b>省 token，也少噪音</b>。</p>
+      <div class="cta">
+        <a class="btn primary lg" href="demo/">打开在线 Demo
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn lg" href="https://github.com/EternalNight996/memory-eternal" target="_blank" rel="noreferrer">GitHub 点个 Star</a>
+      </div>
+      <div class="micro">
+        <span><i></i>本地 SQLite + Markdown</span>
+        <span><i></i>不需要 GPU</span>
+        <span><i></i>支持 DSH / Claude Code / Codex / Cursor</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="frame">
+        <div class="frame-bar"><i></i><i></i><i></i><span>memory-eternal / 记忆库</span></div>
+        <img src="assets/hero-crop.png" alt="memory-eternal 记忆库界面：知识卡、今日回看、连接星图" />
+      </div>
+      <div class="chip-float a"><i></i><span><b>今日回看</b> · 1 个月前</span></div>
+      <div class="chip-float b"><i></i><span><b>先审后入</b> · 可回滚</span></div>
+    </div>
+  </section>
+
+  <div class="proof wrap">
+    <span><b>Demo 数据</b> · 24 张示例卡</span><span class="dot"></span>
+    <span><b>5</b> 张待审</span><span class="dot"></span>
+    <span><b>0</b> 外部依赖</span><span class="dot"></span>
+    <span>Markdown 可读 · SQLite 可备份 · 全部在本机</span>
+  </div>
+
+  <section class="section wrap" id="why">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Why another memory</div>
+        <h2>不是又一个向量库。<br>是你能打开、能审、能回滚的记忆。</h2>
+      </div>
+      <p>相似度解决“像不像”，不解决“对不对”。memory-eternal 把记忆做成可检查的 Markdown 卡，再决定它是否进入主库。</p>
+    </div>
+    <div class="contrast">
+      <p class="quote">Embedding 给你相似，<span>Markdown 给你可读。</span>审核给你可控。
+        <small>不是否定向量检索，而是换一种取舍：本地、可解释、可审计。先让记忆能被信任，再让它变聪明。</small>
+      </p>
+      <div class="compare">
+        <div class="compare-row header"><span>维度</span><span>常见记忆插件</span><span>memory-eternal</span></div>
+        <div class="compare-row"><span class="k">存储</span><span class="a">不透明向量 / 云数据库</span><span class="b">Markdown + <b>SQLite</b>，可直接打开</span></div>
+        <div class="compare-row"><span class="k">入库</span><span class="a">自动写入，无法回看</span><span class="b"><b>先审后入</b>，可批准 / 驳回 / 回收</span></div>
+        <div class="compare-row"><span class="k">回溯</span><span class="a">删除即消失</span><span class="b">回收站 + 备份 + <b>一键恢复</b></span></div>
+        <div class="compare-row"><span class="k">依赖</span><span class="a">云服务 + API key</span><span class="b">本机运行，<b>零外部依赖</b></span></div>
+        <div class="compare-row"><span class="k">召回</span><span class="a">纯相似度</span><span class="b">标签 + 中文片段 + <b>语义组合</b></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="how">
+    <div class="section-head">
+      <div>
+        <div class="kicker">The loop</div>
+        <h2>一次对话，四步变成记忆。</h2>
+      </div>
+      <p>没有额外操作。会话结束自动发生，你只需要在审核中心做“保留还是丢掉”的决定。</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">01 / CAPTURE</div><h3>捕获</h3><p>监听会话事件，过滤掉寒暄和噪音，留下有信息量的片段。</p></div>
+      <div class="step"><div class="n">02 / DISTILL</div><h3>蒸馏</h3><p>模型把片段压成一张卡：结论、依据、边界，写进本地 Markdown。</p></div>
+      <div class="step"><div class="n">03 / REVIEW</div><h3>审核</h3><p>新卡先进入隔离区。批准才进主库，驳回进回收站，全部可撤回。</p></div>
+      <div class="step"><div class="n">04 / RECALL</div><h3>召回</h3><p>Agent 需要历史时只取相关小块，不把整段对话塞回 prompt。</p></div>
+    </div>
+  </section>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Inside the vault</div>
+        <h2>每天都会用到的三个界面。</h2>
+      </div>
+      <p>记忆库负责找，审核中心负责判断，知识星图负责发现关系。所有界面都是真实可操作的。</p>
+    </div>
+    <div class="showcase">
+      <div class="shot large">
+        <div class="cap"><b>记忆库</b><span>今日回看 · 连接星图 · 语义结论</span></div>
+        <img src="assets/library-showcase.png" alt="记忆库：卡片列表与今日回看" />
+      </div>
+      <div class="shot small">
+        <div class="cap"><b>审核中心</b><span>类型筛选 · 批量审批 · 判词</span></div>
+        <img src="assets/audit-crop.png" alt="审核中心：类型栏、队列与预览" />
+      </div>
+      <div class="shot half">
+        <div class="cap"><b>知识星图</b><span>默认缩小 · 缩放 · 平移</span></div>
+        <img src="assets/graph-crop.png" alt="知识星图：可缩放的主题星团" />
+      </div>
+      <div class="shot half">
+        <div class="cap"><b>读卡器</b><span>👍 有用 / 👎 没用 · 目录 · 相关记忆</span></div>
+        <img src="assets/reader-crop.png" alt="读卡器：结论与目录" />
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Works with your agents</div>
+        <h2>一个记忆库，四种 Agent 共用。</h2>
+      </div>
+      <p>DSH、Claude Code、Codex、Cursor 都写入同一个本地 vault，用 `submittedBy` 区分作者。审核中心统一管理。</p>
+    </div>
+    <div class="agents">
+      <span class="agent" style="--c:#7aa2ff"><i></i>DeepSeek Harness</span>
+      <span class="agent" style="--c:#b79cff"><i></i>Claude Code</span>
+      <span class="agent" style="--c:#67e8f9"><i></i>Codex CLI</span>
+      <span class="agent" style="--c:#fbbf24"><i></i>Cursor</span>
+      <span class="agent" style="--c:#fb7185"><i></i>MCP</span>
+    </div>
+  </section>
+
+  <section class="section wrap" id="install">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Install</div>
+        <h2>两条命令，开始积累。</h2>
+      </div>
+      <p>DSH 用户走插件市场；其它 Agent 装 CLI 后 `connect` 一次，MCP 与 hooks 自动接线。</p>
+    </div>
+    <div class="install">
+      <div class="install-panel">
+        <div class="ph"><b>DeepSeek Harness</b><span>推荐</span></div>
+        <pre class="code"><span class="c"># 桌面版：设置 → 插件 → 搜 memory-eternal</span>
+dsh plugin --profile desktop add memory-eternal
+
+<span class="c"># 浏览器版</span>
+dsh plugin --profile web add memory-eternal
+
+<span class="c"># 验证后重启宿主</span>
+node -e "console.log(require('memory-eternal/package.json').version)"</pre>
+      </div>
+      <div class="install-panel">
+        <div class="ph"><b>Claude Code / Codex / Cursor</b><span>MCP + hooks</span></div>
+        <pre class="code">npm i -g memory-eternal
+
+dsh-memory connect claude   <span class="c"># Claude Code</span>
+dsh-memory connect codex    <span class="c"># Codex / Codex Desktop</span>
+dsh-memory connect cursor   <span class="c"># Cursor</span>
+
+<span class="c"># 不装 Agent，也能单独打开 Web UI</span>
+dsh-memory open</pre>
+      </div>
+    </div>
+    <div class="install-note">全部写入 <b>~/.dsh/memory-vault</b>。不需要 GPU，不需要云 API key，不把记忆发到第三方。</div>
+  </section>
+
+  <section class="section wrap" id="faq">
+    <div class="section-head">
+      <div>
+        <div class="kicker">FAQ</div>
+        <h2>你大概会问的几件事。</h2>
+      </div>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>记忆会上传到云端吗？</summary>
+        <p>不会。默认全部在本机：Markdown 存在本地 vault，索引在 SQLite，插件不依赖外部网络。只有配置了蒸馏用的模型接口时，才会把“待蒸馏的会话片段”发给你指定的模型服务。</p>
+      </details>
+      <details>
+        <summary>和 Claude Code 自带的记忆冲突吗？</summary>
+        <p>不冲突。它只写自己的 MCP 键和 hooks，不读也不改其它记忆插件的数据。四个 Agent 共用同一个 vault，但每张卡记录作者，审核中心统一管理。</p>
+      </details>
+      <details>
+        <summary>为什么不用向量数据库？</summary>
+        <p>不是不用，是先不把它作为唯一入口。标签、中文片段、结构化字段已经能覆盖大量“找回上次结论”的场景，而且结果可解释。需要语义检索时再加，不是一开始就把记忆变成黑盒。</p>
+      </details>
+      <details>
+        <summary>会一直烧 token 吗？</summary>
+        <p>沉淀只在会话结束触发，召回只取相关小块，并有上限。还有“省钱包”配置：冷却时间、候选数量、模型轮换。具体消耗取决于你的对话量和模型。</p>
+      </details>
+      <details>
+        <summary>能导出、能备份、能删吗？</summary>
+        <p>能。知识库是 Markdown + SQLite，可以 git 管理、导出 MD/JSON；删除先进回收站，30 天后清理；每天自动备份，保留 7 天，支持一键恢复。</p>
+      </details>
+    </div>
+  </section>
+
+  <footer class="footer wrap">
+    <div class="star-cta">
+      <div>
+        <h3>如果它帮你少解释了一遍上下文，<br>点个 Star 就是最大的支持。</h3>
+        <p>一个小项目，也在认真把记忆做成可以被信任的东西。</p>
+      </div>
+      <a class="btn primary lg" href="https://github.com/EternalNight996/memory-eternal" target="_blank" rel="noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+    <div class="foot-meta">
+      <span>MIT License</span>
+      <a href="https://www.npmjs.com/package/memory-eternal" target="_blank" rel="noreferrer">npm</a>
+      <a href="https://gitee.com/EternalNight996/memory-eternal" target="_blank" rel="noreferrer">Gitee</a>
+      <a href="https://github.com/EternalNight996/memory-eternal/blob/main/README.zh-CN.md" target="_blank" rel="noreferrer">English README</a>
+      <a href="demo/">在线 Demo</a>
+      <span class="spacer"></span>
+      <span>本地优先 · 零依赖 · 可审计</span>
+    </div>
+  </footer>
+</main>
+</body>
+</html>
