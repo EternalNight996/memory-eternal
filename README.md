@@ -8,9 +8,9 @@
 **English (default)** · [简体中文](README.zh-CN.md)
 
 <p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library-en.png" width="900" alt="Memory Atlas: knowledge cards, daily resurface, type filters" /></a>
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/demo.gif" width="900" alt="memory-eternal 14-second tour: review queue, token ledger, knowledge graph" /></a>
 </p>
-<p align="center"><sub>▲ Memory Atlas — knowledge cards, daily resurface, filters · <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo</a></sub></p>
+<p align="center"><sub>▲ 14-second tour — review queue · token ledger · knowledge graph · <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo</a></sub></p>
 
 > **Your AI forgets every session. Give it a memory it can trust.**
 >
