@@ -125,7 +125,13 @@ A memory system that silently ingests everything will eventually recall a wrong 
 |:---:|:---:|
 | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ group QR" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.png" width="240" alt="WeChat group QR" /> |
 
-> Sponsorship is optional; the plugin stays MIT and free. [SPONSOR.md](SPONSOR.md)
+**Buy the author a coffee (optional):**
+
+| WeChat Pay | WeChat Reward |
+|:---:|:---:|
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg" width="200" alt="WeChat Pay QR" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="200" alt="WeChat Reward QR" /> |
+
+> Sponsorship is optional; the plugin stays MIT and free. See [SPONSOR.md](SPONSOR.md).
 
 ## 📄 License
 
