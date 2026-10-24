@@ -1,0 +1,12 @@
+# 反向代理 + HTTPS + Basic Auth（应用本身无账号体系，这层就是访问控制）
+# 生成密码哈希：
+#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your-password'
+# 然后把 bcrypt 串写进 deploy/.env 的 AUTH_HASH（注意用单引号包住 $）
+
+{$DOMAIN:localhost} {
+    encode gzip
+    basic_auth {
+        {$AUTH_USER:admin} {$AUTH_HASH}
+    }
+    reverse_proxy memory:7999
+}

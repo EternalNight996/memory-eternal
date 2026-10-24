@@ -132,15 +132,16 @@ let notes = ''
 if (notesFile) {
   notes = fs.readFileSync(path.resolve(ROOT, notesFile), 'utf8')
 } else {
-  // 从 README 更新日志表里取该版本那一行（| **v0.10.0** | 日期 | 说明 |）
-  const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8')
-  const row = readme.split(/\r?\n/).find((l) => l.startsWith(`| **${tag}**`))
+  // 从 docs/CHANGELOG.md 取该版本那一行（| **v0.10.0** | 日期 | 说明 |）；README 精简为落地页后兼容旧位置
+  const logFile = ['docs/CHANGELOG.md', 'README.md'].map((f) => path.join(ROOT, f)).find((f) => fs.existsSync(f))
+  const logText = logFile ? fs.readFileSync(logFile, 'utf8') : ''
+  const row = logText.split(/\r?\n/).find((l) => l.startsWith(`| **${tag}**`))
   notes = [
     `## ${tag}`,
     '',
     `npm: https://www.npmjs.com/package/memory-eternal/v/${pkg.version}`,
     '',
-    row ? row.replace(/^\|\s*/, '').replace(/\s*\|\s*$/, '').split(/\s*\|\s*/).slice(1).join(' — ') : '（README 更新日志里没有这一版，请用 --notes-file 指定）',
+    row ? row.replace(/^\|\s*/, '').replace(/\s*\|\s*$/, '').split(/\s*\|\s*/).slice(1).join(' — ') : '（CHANGELOG 里没有这一版，请用 --notes-file 指定）',
   ].join('\n')
 }
 say(notes.split('\n').slice(0, 6).join('\n') + (notes.split('\n').length > 6 ? '\n…' : ''))

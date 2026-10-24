@@ -1,0 +1,54 @@
+# memory-eternal · 私有化部署（Docker Compose）
+#
+# 快速开始：
+#   cp deploy/.env.example deploy/.env     # 按需修改
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#   curl http://127.0.0.1:7999/memory-eternal/api/overview
+#
+# 默认只把端口绑在 127.0.0.1（本机），对局域网/公网请启用 proxy profile：
+#   DOMAIN=mem.example.com AUTH_USER=admin AUTH_HASH='<bcrypt>' \
+#     docker compose -f deploy/docker-compose.yml --profile proxy up -d --build
+# 注意：应用本身没有账号体系，反向代理认证是唯一访问控制，务必不要裸奔 7999。
+
+services:
+  memory:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: memory-eternal:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7999:7999"
+    volumes:
+      - memory-data:/data
+    environment:
+      - MEMORY_WEB_PORT=7999
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:7999/memory-eternal/api/overview').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 4s
+      retries: 3
+
+  # 可选：Caddy 反向代理（自动 HTTPS + Basic Auth）
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["proxy"]
+    restart: unless-stopped
+    depends_on:
+      - memory
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_HASH=${AUTH_HASH}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  memory-data:
+  caddy-data:
+  caddy-config:
