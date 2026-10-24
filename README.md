@@ -57,14 +57,16 @@
 
 | 平台 / 宿主 | Memory Atlas UI | 待审 / 批驳 | 知识星图 | 入口与状态 |
 |---|---|---|---|---|
-| **DSH 桌面版 / Web** | 完整内嵌 | ✅ | ✅ | 左栏「记忆」，已支持 |
-| **任意终端（TUI）** | 终端原生 | ✅ 全选 / 批量批驳 | 连接簇 / 邻接表 | [`dsh-memory tui`](#-终端版tui)，免绝对路径 |
-| **Orca** | 侧栏启动器 | Web 内完成 | Web 内完成 | 右栏「记忆」，[本版新增](orca-plugin/README.md) |
-| **dsh-tui** | 原生 `/audit` + 完整 TUI | 原生场景 | 原生场景 | [本版新增](dsh-tui-plugin/README.md) |
-| **Codex** | 浏览器打开 | Web 内完成 | Web 内完成 | [`memory-open` skill](skills/memory-open/SKILL.md)，本版新增 |
-| **Claude Code** | 浏览器打开 / Pane | Web 内完成 | Web 内完成 | `/memory-eternal:memory-open`，本版新增 |
-| **Cursor** | Webview 内嵌 | ✅ | ✅ | [扩展 Webview](cursor-extension/README.md)，本版新增 |
-| **纯 Web** | 主实现 | ✅ | ✅ | `http://127.0.0.1:7999/` |
+| **DSH 桌面版 / Web** | ✅ 完整内嵌 | ✅ 原生审核中心 | ✅ 原生星图 | ✅ 左栏「记忆」，已支持 |
+| **任意终端（TUI）** | ✅ 终端原生 | ✅ 全选 / 批量批驳 | ✅ 连接簇 / 邻接表 | ✅ [`dsh-memory tui`](#-终端版tui)，免绝对路径 |
+| **Orca** | ✅ 侧栏启动器 | ⏳ Web 内完成 | ⏳ Web 内完成 | ✅ 右栏「记忆」，[本版新增](orca-plugin/README.md) |
+| **dsh-tui** | ✅ 原生 `/audit` + 完整 TUI | ✅ 原生场景 | ✅ 原生场景 | ✅ [本版新增](dsh-tui-plugin/README.md) |
+| **Codex** | ✅ 浏览器打开 | ⏳ Web 内完成 | ⏳ Web 内完成 | ✅ [`memory-open` skill](skills/memory-open/SKILL.md)，本版新增 |
+| **Claude Code** | ✅ 浏览器打开 / Pane | ⏳ Web 内完成 | ⏳ Web 内完成 | ✅ `/memory-eternal:memory-open`，本版新增 |
+| **Cursor** | ✅ Webview 内嵌 | ✅ Webview 内完成 | ✅ Webview 内完成 | ✅ [扩展 Webview](cursor-extension/README.md)，本版新增 |
+| **纯 Web** | ✅ 主实现 | ✅ 原生 | ✅ 原生 | ✅ `http://127.0.0.1:7999/` |
+
+> ✅ = 宿主内原生可用；⏳ = 宿主内尚未原生，走 Web UI 完成（功能可用，只是不内嵌）。
 
 > 原则：**一套 Web UI 作为唯一真源**；能内嵌的宿主用 Webview，不能内嵌的宿主只做轻量启动器，不复制第二套 UI。所有入口打开同一版本，避免 DSH / Web 版本漂移。
 
