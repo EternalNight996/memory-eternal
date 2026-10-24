@@ -290,13 +290,27 @@ Three concepts, don't mix them:
 
 ## ⚙️ Memory Config (plain words)
 
-> All settings live in the **vault left rail "Memory Config"** (or DSH Settings → Memory) — edit and hit "Save". Here's the full page (multi-vault / cost control / auto-audit / service self-management):
+> Open: **vault left rail "Memory Config"** or **DSH Settings → Memory**; edit and hit "Save" at the bottom right. **Most settings apply immediately** — only `autoWebMode` / `watchdogAutoSpawn` need a DSH restart (see "Self-hosting").
+>
+> The screenshot below shows the full page (multi-vault / cost control / auto-audit / service self-management). **First time? Start with the presets below.**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config.png" width="880" alt="Memory config page: multi-vault (per project), cost control, auto-audit and service self-management" />
 </p>
 
-### 1. Most used
+### 🎯 Start here · One-click presets (most people stop here)
+
+At the top of the config page there are three buttons — **🟢 A Light / 💰 B Budget / ⭐ C Premium**. Click one to fill the form, then Save:
+
+| Plan | Scenario | Keep-alive | Watchdog | Distill | Distill cap | Recall min | Memory | LLM cost |
+|---|---|---|---|---|---|---|---|---|
+| 🟢 **A Light** | Personal dev (recommended) | init | off | on | 4000 | 2 | ~47 MB | normal |
+| 💰 **B Budget** | Tight budget / many Agents | init | off | **off** | 500 | 3 | ~47 MB | **~0** |
+| ⭐ **C Premium** | Long projects / teams | interval | **on** | on | 1200 | 1 | ~94 MB | high |
+
+> Not sure? Pick **A** (= the defaults). You're done — the tables below are only for fine-tuning.
+
+### ① Most used (three things)
 
 | Setting | Default | In plain words |
 |---|---|---|
@@ -321,18 +335,18 @@ Resolution order: `MEMORY_VAULT_DIR` env → the `path` of the `vaultProfiles` e
 
 > Note: `vaultProfiles` / `activeVault` can be maintained in the "Multi-vault (per project)" panel (add / activate / default vault); per-workspace auto-selection is not implemented yet.
 
-### 2. Save money (important)
+### ② Save money (important, optional)
 
 | Setting | Default | In plain words |
 |---|---|---|
 | **Distill cards** | on | **compress** a conversation into a sharp card (calls AI, costs money). **Off = store raw text, zero cost** |
 | **Dedup feeds AI** | on | judge if new content is a duplicate (calls AI). **Off = simple dedup**, saves one AI call |
-| Distill output cap | 900 | max chars per compress, bigger = sharper but pricier |
+| Distill output cap | 4000 (hard cap) | max chars per compress, bigger = sharper but pricier; lower = cheaper |
 | Recall min score | 2 | how "close" a match must be to return; bigger = sharper but leaks more (cheaper) |
 | Min capture chars | 200 | too-short chats aren't stored (avoids small-talk waste) |
 | Daily quota | 60 | max cards per day, prevents AI burning money |
 
-### 3. How the service runs
+### ③ How the service runs (usually untouched)
 
 | Setting | Default | In plain words |
 |---|---|---|
@@ -350,18 +364,6 @@ Resolution order: `MEMORY_VAULT_DIR` env → the `path` of the `vaultProfiles` e
 > in the vault would travel into the model context on every recall, plus into `/export`, backups and
 > multi-machine sync. `dsh-memory setup` registers a `PreToolUse` guard in Claude Code that **denies**
 > direct reads of `.credentials.yaml` / `.env` / `*-token` and points at the directory card instead.
-
-> 💰 **To save money**: turn `Distill cards` off, lower `Distill output cap`, raise `Recall min score`.
-
-### 🎯 One-click presets
-
-Top of the config page: **🟢 A Light / 💰 B Budget / ⭐ C Premium** — click to fill, then Save:
-
-| Plan | Scenario | Keep-alive | Watchdog | Distill | Distill cap | Recall min | Memory | LLM cost |
-|---|---|---|---|---|---|---|---|---|
-| 🟢 **A Light** | Personal dev (recommended) | init | off | on | 2000 | 2 | ~47 MB | normal |
-| 💰 **B Budget** | Tight budget / many Agents | init | off | **off** | 500 | 3 | ~47 MB | **~0** |
-| ⭐ **C Premium** | Long projects / teams | interval | **on** | on | 1200 | 1 | ~94 MB | high |
 
 ---
 
