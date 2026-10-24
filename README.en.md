@@ -57,14 +57,16 @@
 
 | Platform / host | Memory Atlas UI | Review / approve | Knowledge graph | Entry and status |
 |---|---|---|---|---|
-| **DSH desktop / Web** | Fully embedded | ✅ | ✅ | Sidebar “Memory”, supported |
-| **Any terminal (TUI)** | Native terminal UI | ✅ select-all / batch | Clusters / adjacency | [`dsh-memory tui`](#-terminal-tui), no absolute path |
-| **Orca** | Sidebar launcher | In Web UI | In Web UI | Right sidebar “Memory”, [new in this release](orca-plugin/README.md) |
-| **dsh-tui** | Native `/audit` + full TUI | Native scene | Native scene | [new in this release](dsh-tui-plugin/README.md) |
-| **Codex** | Opens browser | In Web UI | In Web UI | [`memory-open` skill](skills/memory-open/SKILL.md), new in this release |
-| **Claude Code** | Browser / Pane | In Web UI | In Web UI | `/memory-eternal:memory-open`, new in this release |
-| **Cursor** | Embedded Webview | ✅ | ✅ | [Extension Webview](cursor-extension/README.md), new in this release |
-| **Pure Web** | Canonical implementation | ✅ | ✅ | `http://127.0.0.1:7999/` |
+| **DSH desktop / Web** | ✅ Fully embedded | ✅ Native review center | ✅ Native graph | ✅ Sidebar “Memory”, supported |
+| **Any terminal (TUI)** | ✅ Native terminal UI | ✅ select-all / batch | ✅ Clusters / adjacency | ✅ [`dsh-memory tui`](#-terminal-tui), no absolute path |
+| **Orca** | ✅ Sidebar launcher | ⏳ Done in Web UI | ⏳ Done in Web UI | ✅ Right sidebar “Memory”, [new in this release](orca-plugin/README.md) |
+| **dsh-tui** | ✅ Native `/audit` + full TUI | ✅ Native scene | ✅ Native scene | ✅ [new in this release](dsh-tui-plugin/README.md) |
+| **Codex** | ✅ Opens browser | ⏳ Done in Web UI | ⏳ Done in Web UI | ✅ [`memory-open` skill](skills/memory-open/SKILL.md), new in this release |
+| **Claude Code** | ✅ Browser / Pane | ⏳ Done in Web UI | ⏳ Done in Web UI | ✅ `/memory-eternal:memory-open`, new in this release |
+| **Cursor** | ✅ Embedded Webview | ✅ Done in Webview | ✅ Done in Webview | ✅ [Extension Webview](cursor-extension/README.md), new in this release |
+| **Pure Web** | ✅ Canonical implementation | ✅ Native | ✅ Native | ✅ `http://127.0.0.1:7999/` |
+
+> ✅ = available natively inside the host; ⏳ = not native in that host yet — done in the Web UI (it works, it's just not embedded).
 
 > Principle: **one Web UI is the single source of truth**. Hosts that can embed use a Webview; hosts that cannot get a thin launcher only. Every entry opens the same version, so DSH and Web never drift.
 
