@@ -57,3 +57,14 @@ test('CHANGELOG 含当前版本行（发版脚本从这里取发布说明）', (
   const log = read('docs/CHANGELOG.md')
   assert.ok(log.includes('| **v' + pkg.version + '**'), 'docs/CHANGELOG.md 缺少 v' + pkg.version + ' 行')
 })
+
+test('README 引用的仓库内截图都真实存在（避免英文版截图漏提交）', () => {
+  const files = new Set()
+  for (const text of [en, zh]) {
+    for (const m of text.matchAll(/assets\/screen\/([A-Za-z0-9._-]+\.png)/g)) files.add(m[1])
+  }
+  assert.ok(files.size >= 4, 'README 里应当引用截图')
+  for (const f of files) {
+    assert.ok(existsSync(path.join(root, 'assets/screen', f)), '截图不存在：assets/screen/' + f)
+  }
+})

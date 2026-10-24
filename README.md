@@ -8,7 +8,7 @@
 **English (default)** · [简体中文](README.zh-CN.md)
 
 <p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library.png" width="900" alt="Memory Atlas: knowledge cards, daily resurface, type filters" /></a>
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library-en.png" width="900" alt="Memory Atlas: knowledge cards, daily resurface, type filters" /></a>
 </p>
 <p align="center"><sub>▲ Memory Atlas — knowledge cards, daily resurface, filters · <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo</a></sub></p>
 
@@ -97,9 +97,9 @@ A memory system that silently ingests everything will eventually recall a wrong 
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="Knowledge graph: clusters by kind, tag edges" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="Review inbox: type bar, queue and verdict pane" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status.png" width="32%" alt="Runtime status: database, backups, capture, version" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph-en.png" width="32%" alt="Knowledge graph: clusters by kind, tag edges" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-en.png" width="32%" alt="Review inbox: type bar, queue and verdict pane" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status-en.png" width="32%" alt="Runtime status: database, backups, capture, version" />
 </p>
 <p align="center"><sub>▲ Knowledge graph · review inbox · runtime status</sub></p>
 

@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library.png" width="920" alt="Memory library: knowledge cards, daily resurface, type filters and auto-capture badges" /></a>
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library-en.png" width="920" alt="Memory library: knowledge cards, daily resurface, type filters and auto-capture badges" /></a>
 </p>
 <p align="center"><sub>▲ Knowledge cards · daily resurface · type filters — <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo (sample data, no install)</a></sub></p>
 
@@ -39,9 +39,9 @@
 <p align="center"><a href="https://eternalnight996.github.io/memory-eternal/"><b>🌐 Live site</b></a> · <a href="https://eternalnight996.github.io/memory-eternal/demo/"><b>Open the memory library demo</b></a> <sub>(sample data, no install)</sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="Knowledge graph: kind-coloured clusters, tag edges and cross-vault aggregation" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="Review inbox: type bar, queue and verdict pane with select-all batch approve / reject" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status.png" width="32%" alt="System status: vault, backup, auto-capture and version health at a glance" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph-en.png" width="32%" alt="Knowledge graph: kind-coloured clusters, tag edges and cross-vault aggregation" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-en.png" width="32%" alt="Review inbox: type bar, queue and verdict pane with select-all batch approve / reject" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status-en.png" width="32%" alt="System status: vault, backup, auto-capture and version health at a glance" />
 </p>
 <p align="center"><sub>▲ Knowledge graph · review first (readable verdicts) · system status (vault / backup / capture / version)</sub></p>
 
@@ -297,7 +297,7 @@ Three concepts, don't mix them:
 > The screenshot below shows the full page (multi-vault / cost control / auto-audit / service self-management). **First time? Start with the presets below.**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config.png" width="880" alt="Memory config page: multi-vault (per project), cost control, auto-audit and service self-management" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config-en.png" width="880" alt="Memory config page: multi-vault (per project), cost control, auto-audit and service self-management" />
 </p>
 
 ### 🎯 Start here · One-click presets (most people stop here)
@@ -387,7 +387,7 @@ Auto-capture is a silent background pipeline: when it broke, the only symptom us
 New cards go to the **Audit Center** (`pending`) by default and enter the main vault only after you approve them; rejected ones move to "Rejected", where you can restore or delete to the recycle bin. Cards matching an exemption (audit mode = skip all / exempt agents / exempt kinds) go straight in; recycle-bin cards are recoverable within 30 days, then auto-purged.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="880" alt="Audit Center: pending queue plus verdict pane (symptom / root cause / fix)" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-en.png" width="880" alt="Audit Center: pending queue plus verdict pane (symptom / root cause / fix)" />
 </p>
 
 - **Pending / Rejected** tabs, filtered by type / date / agent; select all and approve / reject / delete-to-recycle in one click.
