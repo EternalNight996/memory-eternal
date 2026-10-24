@@ -27,9 +27,9 @@
 </p>
 
 <p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library.png" width="920" alt="Memory Atlas：记忆库、今日回看、知识卡与连接星图" /></a>
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E5%8D%A1.png" width="920" alt="记忆库：知识卡列表、今日回看、类型筛选与 AI 自动沉淀徽标" /></a>
 </p>
-<p align="center"><sub>▲ Memory Atlas · 在线 Demo（示例数据）· <a href="https://eternalnight996.github.io/memory-eternal/demo/">点此打开</a></sub></p>
+<p align="center"><sub>▲ 知识卡 · 今日回看 · 类型筛选 —— <a href="https://eternalnight996.github.io/memory-eternal/demo/">在线 Demo（示例数据，免安装）</a></sub></p>
 
 > **对话结束自动沉淀成知识卡，跨会话不失忆；召回只取相关小块，省 token 少噪音。**
 > 全自研、零第三方记忆框架、不改 DSH 源码；一个记忆库所有 Agent 共享，SQLite 持久存储，零外部依赖。
@@ -39,21 +39,17 @@
 <p align="center"><a href="https://eternalnight996.github.io/memory-eternal/"><b>🌐 在线体验</b></a> · <a href="https://eternalnight996.github.io/memory-eternal/demo/"><b>打开记忆库 Demo</b></a> <sub>（示例数据，不用安装）</sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="待审：顶部类型条 + 队列 + 右侧判词栏" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="知识星图：按类型着色、连接簇图例、跨库聚合" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/reader.png" width="32%" alt="读卡器：正文 + 右侧目录、标签与相关记忆" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E6%98%9F%E5%9B%BE.png" width="32%" alt="知识星图：按类型着色的连接簇、标签连边与跨库聚合" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="待审：顶部类型条、队列与右侧判词，可全选批量批准 / 驳回" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E7%8A%B6%E6%80%81.png" width="32%" alt="运行状态：知识库、备份、自动沉淀与版本健康概览" />
 </p>
-
-<p align="center"><sub>▲ 真实运行截图：待审判词 · 知识星图 · 读卡器</sub></p>
+<p align="center"><sub>▲ 知识星图 · 先审后入（判词看得懂）· 运行状态（库 / 备份 / 沉淀 / 版本一屏体检）</sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/terminal.png" width="49%" alt="Web 内「终端版」：复制命令，进入完整 TUI 或 dsh-tui 原生 /audit" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-audit.png" width="49%" alt="终端原生待审：全选、批量批准/驳回、判词双栏" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-audit.png" width="49%" alt="终端原生待审：全选、批量批准/驳回、右侧判词" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-reader.png" width="49%" alt="终端原生长文读卡器：正文、目录与相关记忆" />
 </p>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-reader.png" width="72%" alt="终端原生长文读卡器：目录、正文、相关记忆与滚动" />
-</p>
-<p align="center"><sub>▲ v0.14 新增：Web 内终端引导 · 终端原生审核（全选/批驳）· 长文读卡器</sub></p>
+<p align="center"><sub>▲ 终端原生：<code>dsh-memory tui</code> 批量审核 · 长文读卡（默认只读，<code>--write</code> 才真实批驳）</sub></p>
 
 ---
 
@@ -313,10 +309,10 @@ dsh-memory audit reject <卡片路径...> --reason "..." # 人工批量驳回
 
 ## ⚙️ 记忆配置（大白话）
 
-> 所有配置都在 **记忆库左栏「记忆配置」**（或 DSH 设置 → 记忆）里改，点「保存配置」生效。下图就是配置页全貌（含插件信息 / Agent MCP 挂载状态 / 自动审核配置）：
+> 所有配置都在 **记忆库左栏「记忆配置」**（或 DSH 设置 → 记忆）里改，点「保存配置」生效。下图是配置页全貌（多库隔离 / 成本控制 / 自动审核 / 服务自管理）：
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config.png" width="880" alt="记忆配置页：蒸馏 provider / model 下拉、跟随会话、仅试首选、超时与输出上限" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config.png" width="880" alt="记忆配置页：多库（按项目隔离）、成本控制、自动审核配置与服务自管理" />
 </p>
 
 ### 一、最常用
@@ -342,7 +338,7 @@ dsh-memory audit reject <卡片路径...> --reason "..." # 人工批量驳回
 
 **v0.9.8 起，CLI / MCP / hooks / 独立 web / sweep 与 DSH 宿主共用同一套顺序**：以前只有宿主认 `activeVault`，切库后终端与 hooks 仍往默认库写，记忆会被劈成两份。
 
-> 说明：配置页目前还没有 `vaultProfiles` / `activeVault` 的可视化表单（要手工写配置文件），按 workspace 自动选库也还没做。
+> 说明：`vaultProfiles` / `activeVault` 可在配置页「多库（按项目隔离）」里可视化维护（添加库 / 激活库 / 默认库）；按 workspace 自动选库仍待做。
 
 ### 二、省钱包（重要）
 
@@ -412,7 +408,7 @@ dsh-memory audit reject <卡片路径...> --reason "..." # 人工批量驳回
 > 若回滚到旧版本，审核队列会显示为空（旧代码看不到隔离区表），升级回来即恢复。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-center.png" width="880" alt="审核中心" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="880" alt="审核中心：待审队列 + 右侧判词（现象 / 根因 / 解决方案）" />
 </p>
 
 - **待审核 / 已驳回** 双页签，按类型 / 日期 / 智能体筛选，全选后一键「批准 / 驳回 / 删除进回收站」。
@@ -631,6 +627,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 **遇到问题、想提需求、或者想聊聊 DSH 插件开发 —— 欢迎进群：**
 
 <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="260" alt="DeepSeek Harness 交流群二维码" />
+<img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.png" width="260" alt="DeepSeek Harness 交流V群二维码" />
 
 **如果这个插件帮你省了时间，可以请作者喝杯咖啡（两个码任选其一）：**
 

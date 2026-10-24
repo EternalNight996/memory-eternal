@@ -27,9 +27,9 @@
 </p>
 
 <p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library.png" width="920" alt="Memory Atlas: library, daily resurface, cards and connection graph" /></a>
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E5%8D%A1.png" width="920" alt="Memory library: knowledge cards, daily resurface, type filters and auto-capture badges" /></a>
 </p>
-<p align="center"><sub>▲ Memory Atlas · live demo (sample data) · <a href="https://eternalnight996.github.io/memory-eternal/demo/">open it</a></sub></p>
+<p align="center"><sub>▲ Knowledge cards · daily resurface · type filters — <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo (sample data, no install)</a></sub></p>
 
 > **Every conversation is distilled into knowledge cards; nothing is forgotten across sessions, and recall fetches only the relevant chunks — fewer tokens, less noise.**
 > Fully self-built, zero third-party memory framework, no DSH source changes; one vault shared by every Agent, SQLite persistent storage, zero external dependencies.
@@ -39,21 +39,17 @@
 <p align="center"><a href="https://eternalnight996.github.io/memory-eternal/"><b>🌐 Live site</b></a> · <a href="https://eternalnight996.github.io/memory-eternal/demo/"><b>Open the memory library demo</b></a> <sub>(sample data, no install)</sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="Review: type bar, queue and verdict sidebar" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="Knowledge graph: kind colours, cluster legend, cross-vault aggregation" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/reader.png" width="32%" alt="Reader: content plus TOC, tags and related memories" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E6%98%9F%E5%9B%BE.png" width="32%" alt="Knowledge graph: kind-coloured clusters, tag edges and cross-vault aggregation" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="Review inbox: type bar, queue and verdict pane with select-all batch approve / reject" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/%E7%9F%A5%E8%AF%86%E7%8A%B6%E6%80%81.png" width="32%" alt="System status: vault, backup, auto-capture and version health at a glance" />
 </p>
-
-<p align="center"><sub>▲ Real screenshots: review verdict · knowledge graph · reader</sub></p>
+<p align="center"><sub>▲ Knowledge graph · review first (readable verdicts) · system status (vault / backup / capture / version)</sub></p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/terminal.png" width="49%" alt="Web Terminal page: copy commands for the full TUI or the native dsh-tui /audit" />
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-audit.png" width="49%" alt="Native terminal audit: select-all, batch approve/reject, verdict pane" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-reader.png" width="49%" alt="Native terminal long-form reader: body, TOC and related memories" />
 </p>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-reader.png" width="72%" alt="Native terminal long-form reader: TOC, body, related memories and scrolling" />
-</p>
-<p align="center"><sub>▲ New in v0.14: in-Web terminal guide · native terminal audit (select-all/batch) · long-form reader</sub></p>
+<p align="center"><sub>▲ Terminal-native: <code>dsh-memory tui</code> batch review · long-form reader (read-only by default, <code>--write</code> to really approve/reject)</sub></p>
 
 ---
 
@@ -292,10 +288,10 @@ Three concepts, don't mix them:
 
 ## ⚙️ Memory Config (plain words)
 
-> All settings live in the **vault left rail "Memory Config"** (or DSH Settings → Memory) — edit and hit "Save". Here's the full page (plugin info / Agent MCP mount status / auto-audit config):
+> All settings live in the **vault left rail "Memory Config"** (or DSH Settings → Memory) — edit and hit "Save". Here's the full page (multi-vault / cost control / auto-audit / service self-management):
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config.png" width="880" alt="Memory config page" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/config.png" width="880" alt="Memory config page: multi-vault (per project), cost control, auto-audit and service self-management" />
 </p>
 
 ### 1. Most used
@@ -321,7 +317,7 @@ Resolution order: `MEMORY_VAULT_DIR` env → the `path` of the `vaultProfiles` e
 
 **Since v0.9.8 the CLI / MCP / hooks / standalone web / sweep share the host's exact order** — previously only the host honoured `activeVault`, so switching vaults left the terminal and hooks writing to the default vault and split your memory in two.
 
-> Note: the settings page still has no form for `vaultProfiles` / `activeVault` (edit the config file by hand), and per-workspace auto-selection is not implemented yet.
+> Note: `vaultProfiles` / `activeVault` can be maintained in the "Multi-vault (per project)" panel (add / activate / default vault); per-workspace auto-selection is not implemented yet.
 
 ### 2. Save money (important)
 
@@ -385,7 +381,7 @@ Auto-capture is a silent background pipeline: when it broke, the only symptom us
 New cards go to the **Audit Center** (`pending`) by default and enter the main vault only after you approve them; rejected ones move to "Rejected", where you can restore or delete to the recycle bin. Cards matching an exemption (audit mode = skip all / exempt agents / exempt kinds) go straight in; recycle-bin cards are recoverable within 30 days, then auto-purged.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-center.png" width="880" alt="Audit Center" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="880" alt="Audit Center: pending queue plus verdict pane (symptom / root cause / fix)" />
 </p>
 
 - **Pending / Rejected** tabs, filtered by type / date / agent; select all and approve / reject / delete-to-recycle in one click.
@@ -598,6 +594,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # is the standalone we
 **Questions, feature requests, or just want to talk about DSH plugin development — join the group chat:**
 
 <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="260" alt="DeepSeek Harness community group QR code" />
+<img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.png" width="260" alt="DeepSeek Harness community group V QR code" />
 
 **If this plugin saved you some time, you can buy the author a coffee (either code works):**
 
