@@ -18,7 +18,6 @@ import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedb
 // 图谱 LOD：视口剔除 + 标签预算（放大后卡顿的根治手段）
 import { visibleWorldRect, inRect, pickLabelIds, labelBudget } from './graph-lod.js'
 // 图谱预热策略：分帧 + 时间预算（替代原来「200 次同步 tick」造成的 1s+ 主线程冻结/空白）
-import { WARM_FRAME_BUDGET_MS, warmTicksFor } from './graph-warmup.js'
 // 保存后不闪烁：宿主 volatile 回流滞后期间，用本地叠加层顶住输入框的值
 import { mergeLocalOverlay } from './config-merge.js'
 
@@ -4859,6 +4858,33 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
 }
 // -- Enhanced knowledge graph ------------------------------------------------
 
+function ProgressBar({ value, small }) {
+  const determinate = typeof value === 'number' && Number.isFinite(value)
+  const pct = determinate ? Math.max(0, Math.min(100, value)) : 0
+  return (
+    <div
+      className={'me-progress' + (small ? ' me-progress-sm' : '') + (determinate ? ' is-determinate' : '')}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={determinate ? Math.round(pct) : undefined}
+      aria-label="加载进度"
+    >
+      <span className="me-progress-fill" style={determinate ? { width: Math.max(3, pct) + '%' } : undefined} />
+    </div>
+  )
+}
+
+/** 统一的「加载中」提示：进度条 + 文案。首屏 / 图谱数据 / 大图布局都用它。 */
+function LoadingNote({ text, value }) {
+  return (
+    <div className="me-loading" role="status" aria-live="polite">
+      <ProgressBar value={value} />
+      <span className="me-loading-text">{text}</span>
+    </div>
+  )
+}
+
 function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -4926,7 +4952,7 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
         <span className="mc-v5-pagecount">{data ? `${data.nodes.length} ${t('nodes')} · ${countEdges(data.edges)} ${t('edges')}` : ''}</span>
       </div>
       {error && <div className="mc-empty">{t('error')}：{error}</div>}
-      {!data && !error && <LoadingNote text={t('loadingGraph')} />}
+      {!data && !error && <div className="mc-empty">{t('loading')}</div>}
       {data && data.nodes.length === 0 && <div className="mc-empty">{t('emptyGraph')}</div>}
       {data && data.nodes.length > 0 && (
         <GraphCanvas
@@ -4958,49 +4984,6 @@ const KG = {
   shapes: { project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
 }
 
-// 图谱绘制异常兜底：渲染循环里的异常原来被空 catch 静默吞掉（表现是画布永远空白、
-// Console 里也没有任何线索）；而 React effect 里的同步重绘一旦抛出又会卸载整棵组件树
-// → 整页白屏。统一走这里：只告警一次（避免每帧刷屏），把线索留在 Console，但绝不往上抛。
-function warnGraphDrawError(err, where) {
-  try {
-    const g = globalThis
-    if (g.__meGraphDrawWarned) return
-    g.__meGraphDrawWarned = true
-    console.warn('[memory-eternal] 知识图谱绘制异常（已兜底，不再整页白屏）' + (where ? ' @ ' + where : ''), err)
-  } catch (e) { /* 连 console 都不可用时彻底静默 */ }
-}
-
-/**
- * 进度条。value = 0~100 是确定进度（知道还剩多少时用）；不传就是不确定进度（网络阶段）。
- * role=progressbar + aria-valuenow：读屏和自动化都能读到真实进度。
- */
-function ProgressBar({ value, small }) {
-  const determinate = typeof value === 'number' && Number.isFinite(value)
-  const pct = determinate ? Math.max(0, Math.min(100, value)) : 0
-  return (
-    <div
-      className={'me-progress' + (small ? ' me-progress-sm' : '') + (determinate ? ' is-determinate' : '')}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={determinate ? Math.round(pct) : undefined}
-      aria-label="加载进度"
-    >
-      <span className="me-progress-fill" style={determinate ? { width: Math.max(3, pct) + '%' } : undefined} />
-    </div>
-  )
-}
-
-/** 统一的「加载中」提示：进度条 + 文案。首屏 / 图谱数据 / 大图布局都用它。 */
-function LoadingNote({ text, value }) {
-  return (
-    <div className="me-loading" role="status" aria-live="polite">
-      <ProgressBar value={value} />
-      <span className="me-loading-text">{text}</span>
-    </div>
-  )
-}
-
 function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, all, onAllChange, fitTrigger }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
@@ -5015,9 +4998,6 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
   useEffect(() => { onMergeRef.current = onMerge }, [onMerge])
   const [search, setSearch] = useState('')
   const [sel, setSel] = useState(null)
-  // 预热进度：>0 表示「分帧布局」还没跑完（此时显示进度提示，且不启动常规 rAF 循环）
-  // 布局预热进度（0~100）；null = 不在预热。这是**真实百分比**（预热 tick 是有限且可数的）
-  const [warming, setWarming] = useState(null)
   const searchRef = useRef('')
   useEffect(() => { searchRef.current = search.trim().toLowerCase() }, [search])
   // 搜索定位：输入命中节点时，把画布居中到该节点并略微放大。
@@ -5027,7 +5007,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     const q = search.trim().toLowerCase()
     if (!q) return
     const best = s.nodes.find((n) => (n.name || '').toLowerCase().includes(q))
-    if (best) { simRef.current.selectedId = best.id; setSel(best.id); s.panX = s.w / 2 - best.x * s.zoom; s.panY = s.h / 2 - best.y * s.zoom; try { if (s.render) s.render() } catch (e) { warnGraphDrawError(e, 'search-center') } }
+    if (best) { simRef.current.selectedId = best.id; setSel(best.id); s.panX = s.w / 2 - best.x * s.zoom; s.panY = s.h / 2 - best.y * s.zoom; if (s.render) s.render() }
   }, [search])
   const [filterKind, setFilterKind] = useState('all')
   const [filterOpen, setFilterOpen] = useState(false)
@@ -5054,9 +5034,8 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
   const noMatch = (() => { const q = search.trim().toLowerCase(); return !!q && !nodes.some((n) => (n.title || n.name || '').toLowerCase().includes(q) || String(n.kind || '').toLowerCase().includes(q) || String(KIND_LABELS[n.kind] || '').toLowerCase().includes(q)) })()
   // 搜索变化时唤醒仿真重绘（否则布局停车后搜索不刷新）
   useEffect(() => { const s = simRef.current; if (s && s.wake) s.wake() }, [search])
-  // 图例/标签/时间维 过滤变化时直接重绘（不重启布局）。
-  // 必须兜住异常：这是 React effect 里的同步调用，一旦抛出就会把整棵组件树卸载 → 整页白屏。
-  useEffect(() => { const s = simRef.current; if (!s || !s.render) return; try { s.render() } catch (e) { warnGraphDrawError(e, 'filter/timeDim') } }, [filterKind, filterTag, timeMode])
+  // 图例/标签/时间维 过滤变化时直接重绘（不重启布局）
+  useEffect(() => { const s = simRef.current; if (s && s.render) s.render() }, [filterKind, filterTag, timeMode])
   const tooltipRef = useRef(null)
   const [multi, setMulti] = useState([])
   const [exportData, setExportData] = useState(null)
@@ -5089,9 +5068,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     }
     sim.domain = nodes
     sim.domainById = nodes.reduce((m, n) => (m[n.id] = n, m), {})
-    // 初始位形：黄金角螺旋（半径 ∝ √i）。原来是「半径 60 的圆等分」——1084 个节点全挤在
-    // 一个小圆上，首帧就是一团墨点；螺旋铺开后首帧是一盘散点，预热过程也更自然。
-    sim.nodes.forEach((n, i) => { const a = i * 2.399963229728653; const r = 12 * Math.sqrt(i); n.x = Math.cos(a) * r; n.y = Math.sin(a) * r })
+    sim.nodes.forEach((n, i) => { const a = (i / sim.nodes.length) * Math.PI * 2 - Math.PI / 2; n.x = Math.cos(a) * 60; n.y = Math.sin(a) * 60 })
     const types = [...new Set(sim.nodes.map((n) => n.type))]
     sim.clustered = types.length > 1
     sim.typeCenters = {}
@@ -5237,7 +5214,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         const curve = dense ? 12 : 18
         const ox = -dy / len * curve, oy = dr / len * curve
         const cpx = (s.x + t.x) / 2 + ox, cpy = (s.y + t.y) / 2 + oy
-        const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other'] || KG.colors.other
+        const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other']
         const focused = focusId && (e.sourceNodeId === focusId || e.targetNodeId === focusId)
         const alpha = focusId ? (focused ? 0.6 : 0.08) : (dense ? 0.14 : 0.24)
         const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
@@ -5269,11 +5246,8 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         if (!inRect(n.x, n.y, n.r + 2, viewRect)) return
         const info = sim.domainById[n.id] || {}
         const kind = info.kind || 'other'
-        // kind 兜底：未知类型（历史卡/外部导入）以前会让 KG.colors[kind] 变成 undefined，
-        // 随后 gradientFor 里 color.slice() 直接 TypeError —— 现在统一落到 other 的配色/圆点，
-        // 坏数据最多画得朴素一点，不会再抛异常（并在兜底处告警一次）。
-        const color = sim.timeMode ? recencyColor(info.updated) : (KG.colors[kind] || KG.colors.other)
-        const shape = KG.shapes[kind] || 'circle'
+        const color = sim.timeMode ? recencyColor(info.updated) : KG.colors[kind]
+        const shape = KG.shapes[kind]
         const isSel = sim.selectedId === n.id, isHov = sim.hoverId === n.id
         const searchTerm = sim.searchTerm || ''
         const searchHit = !searchTerm || (n.name || '').toLowerCase().includes(searchTerm) || String(KIND_LABELS[kind] || '').toLowerCase().includes(searchTerm) || String(kind).toLowerCase().includes(searchTerm)
@@ -5342,9 +5316,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       } else if (tooltipRef.current) tooltipRef.current.style.display = 'none'
     }
 
-    // 预热期间不启动常规 rAF 循环（预热自己驱动 rAF），避免同一帧里跑两遍 tick。
-    let warmLeft = 0
-    const wake = () => { if (warmLeft > 0) return; sim.running = true; if (!sim.raf) sim.raf = requestAnimationFrame(step) }
+    const wake = () => { sim.running = true; if (!sim.raf) sim.raf = requestAnimationFrame(step) }
     sim.wake = wake
     sim.render = render
 
@@ -5384,7 +5356,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
 
     const step = () => {
       if (!sim.running) return
-      try { tick(); render() } catch (er) { warnGraphDrawError(er, 'step') }
+      try { tick(); render() } catch (er) { /* 绘制/物理异常不拖垮窗口 */ }
       if (sim.quietTicks > 30) { sim.raf = 0; return }
       sim.raf = requestAnimationFrame(step)
     }
@@ -5403,7 +5375,6 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         if (hit) { sim.shiftClick = hit.id; return }
         sim.marquee = { sx: e.clientX, sy: e.clientY, ex: e.clientX, ey: e.clientY }; return
       }
-      sim.userTouched = true
       sim.dragStart = { x: e.clientX, y: e.clientY, px: sim.panX, py: sim.panY }
       sim.dragging = false; sim.dragNode = hit || null
       if (hit) sim.dragOffset = { dx: hit.x - w.x, dy: hit.y - w.y }
@@ -5458,7 +5429,6 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       sim.panX = clamp(sim.panX + wx * (sim.zoom - newZoom), -1e5, 1e5)
       sim.panY = clamp(sim.panY + wy * (sim.zoom - newZoom), -1e5, 1e5)
       sim.zoom = newZoom
-      sim.userTouched = true
       wake()
     }
     canvas.addEventListener('mousemove', onMove)
@@ -5468,59 +5438,22 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     canvas.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('contextmenu', onCtx)
 
-    resetRef.current = () => { sim.selectedId = null; sim.hoverId = null; sim.multi = []; setMulti([]); sim.userTouched = false; fit(); wake() }
-    // ---- 稳定初始化：分帧预热 ---------------------------------------------------
-    // 旧实现是一次性循环 tick 200 次：1084 个节点时单次 tick 是 O(n²)，实测同步阻塞
-    // 主线程 1–2 秒（4× CPU 降速下 5–7 秒），期间画面完全空白 —— 用户看到的就是「打开知识星图一片空白」。
-    // 现在改成：
-    //   ① 先同步画一帧（不依赖 requestAnimationFrame，窗口未聚焦/被遮挡时也有内容）；
-    //   ② 预热按「每帧 ≤ WARM_FRAME_BUDGET_MS」分帧跑，帧间让出主线程（点击/滚动立刻响应）；
-    //   ③ 预热期间显示「正在布局 N 个节点…」，不再是无声空白；
-    //   ④ 每帧按当前布局重新 fit（用户没手动缩放/拖动过时），节点不会飞出视口。
-    warmLeft = warmTicksFor(sim.nodes.length)
-    const totalWarm = warmLeft
-    // 预热进度直接映射到进度条（tick 数可数 → 真百分比，不是假动画）
-    const warmPct = () => (totalWarm > 0 ? Math.round(((totalWarm - warmLeft) / totalWarm) * 100) : 100)
-    if (warmLeft > 0) setWarming(0)
-    // 预热中途只补 3 帧（75% / 50% / 25%），让布局看起来是「逐渐铺开」而不是卡住再跳变。
-    const renderMarks = totalWarm > 0 ? [0.75, 0.5, 0.25].map((f) => Math.round(totalWarm * f)) : []
-    const warmStep = () => {
-      if (!sim.running) return
-      const t0 = performance.now()
-      while (warmLeft > 0 && performance.now() - t0 < WARM_FRAME_BUDGET_MS) { tick(); warmLeft-- }
-      setWarming(warmLeft > 0 ? Math.min(99, warmPct()) : 100)
-      if (renderMarks.length && warmLeft <= renderMarks[0]) {
-        renderMarks.shift()
-        if (!sim.userTouched) fit()
-        try { render() } catch (e) { warnGraphDrawError(e, 'warm-frame') }
-      }
-      if (warmLeft > 0) {
-        if (!sim.userTouched) fit()
-        sim.warmRaf = requestAnimationFrame(warmStep)
-        return
-      }
-      sim.warmRaf = 0
-      if (!sim.userTouched) fit()
-      try { render() } catch (e) { warnGraphDrawError(e, 'warm-final') }
-      setWarming(null)
-      wake()
-    }
-    sim.warmStep = warmStep
+    resetRef.current = () => { sim.selectedId = null; sim.hoverId = null; sim.multi = []; setMulti([]); fit(); wake() }
+    // 稳定初始化：先同步力到接近收敛再显示，避免初始画面漂移/视角切换
+    for (let s = 0; s < 200; s++) tick()
     fit()
-    try { render() } catch (e) { warnGraphDrawError(e, 'first-frame') }
-    if (warmLeft > 0) sim.warmRaf = requestAnimationFrame(warmStep)
-    else { setWarming(0); wake() }
+    wake()
 
     const onDocMouseDown = () => setFilterOpen(false)
     window.addEventListener('mousedown', onDocMouseDown)
 
-    return () => { sim.running = false; if (sim.raf) cancelAnimationFrame(sim.raf); if (sim.warmRaf) cancelAnimationFrame(sim.warmRaf); ro.disconnect(); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onUp); canvas.removeEventListener('wheel', onWheel); canvas.removeEventListener('contextmenu', onCtx); window.removeEventListener('mousedown', onDocMouseDown) }
+    return () => { sim.running = false; if (sim.raf) cancelAnimationFrame(sim.raf); ro.disconnect(); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onUp); canvas.removeEventListener('wheel', onWheel); canvas.removeEventListener('contextmenu', onCtx); window.removeEventListener('mousedown', onDocMouseDown) }
   }, [nodes, edges])
 
   // 切换到图谱视图时重新 fit，让画布居中适配当前容器尺寸
   useEffect(() => {
     if (fitTrigger !== undefined && fitRef.current) {
-      requestAnimationFrame(() => { try { fitRef.current() } catch (e) { warnGraphDrawError(e, 'fit') } })
+      requestAnimationFrame(() => fitRef.current())
     }
   }, [fitTrigger])
 
@@ -5568,7 +5501,6 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       </div>
       <div className="me-graph-canvas" style={{ position: 'relative', overflow: 'hidden' }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'grab' }} />
-{warming !== null && <div role="status" aria-live="polite" style={{ position: 'absolute', left: '50%', top: 10, transform: 'translateX(-50%)', zIndex: 3, display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px', borderRadius: 999, background: 'rgba(28,28,32,0.86)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#eee', fontSize: 11.5, fontWeight: 600, letterSpacing: '.02em', pointerEvents: 'none', boxShadow: '0 6px 18px rgba(0,0,0,.22)' }}><ProgressBar value={warming} small /><span>{t('graphWarming').replace('{n}', nodes.length)} · {Math.round(warming)}%</span></div>}
         <div className="mc-v5-graph-legend">
           <div className="mc-v5-graph-legend-title">连接簇</div>
           {Object.keys(KG.colors).filter((k) => kindStats[k]).map((k) => (
@@ -5812,8 +5744,8 @@ function MultiDD({ label, value = [], options, onChange, placeholder, z = 20 }) 
   const allOpt = options.find((o) => o.value === '__all__')
   const normalOpts = options.filter((o) => o.value !== '__all__')
   return (
-    <label className="mc-field">
-      <span className="mc-field-label">{label}</span>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, minWidth: 0 }}>
+      <span style={{ opacity: 0.6, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{label}</span>
       <div ref={boxRef} style={{ position: 'relative', minWidth: 0 }}>
         <button type="button" onClick={() => setOpen((o) => !o)} style={{ width: '100%', textAlign: 'left', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text || placeholder || '—'}</span>
