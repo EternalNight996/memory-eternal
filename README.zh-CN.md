@@ -8,9 +8,9 @@
 [English (default)](README.md) · **简体中文（镜像）**
 
 <p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/library.png" width="900" alt="Memory Atlas：知识卡、今日回看、类型筛选" /></a>
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/demo.gif" width="900" alt="memory-eternal 14 秒演示：审核队列、记忆账本、知识星图" /></a>
 </p>
-<p align="center"><sub>▲ Memory Atlas —— 知识卡 · 今日回看 · 类型筛选 · <a href="https://eternalnight996.github.io/memory-eternal/demo/">在线 Demo</a></sub></p>
+<p align="center"><sub>▲ 14 秒演示 —— 审核队列 · 记忆账本 · 知识星图 · <a href="https://eternalnight996.github.io/memory-eternal/demo/">在线 Demo</a></sub></p>
 
 > **你的 AI 每次会话都失忆。给它一个可信的记忆库。**
 >
