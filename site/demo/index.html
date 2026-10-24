@@ -773,7 +773,7 @@
         <div class="rh-top"><span class="pulse"></span>自动沉淀正常</div>
         <div class="rh-note" id="railLast">最近写卡 21:05 · deepseek-flash</div>
       </div>
-      <div class="rail-version"><span class="mono">v0.15.0</span><span>· 本地运行</span></div>
+      <div class="rail-version"><span class="mono">v0.16.0</span><span>· 本地运行</span></div>
     </div>
   </aside>
 
@@ -2406,6 +2406,28 @@
     var h = D.health || {};
     var lastOk = h.lastOkAt ? fmtTime(h.lastOkAt) : '刚刚';
     var latestCard = D.approved[0];
+    var lg = D.ledger || null;
+    var nfmt = function (n) { return String(Number(n) || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+    var lstat = function (label, value, note) {
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface-2)">' +
+        '<div style="font-size:10px;color:var(--text-3)">' + label + '</div>' +
+        '<div style="font-size:19px;margin-top:6px;color:var(--text)">' + value + '</div>' +
+        '<div style="font-size:10px;color:var(--text-3);margin-top:2px">' + note + '</div></div>';
+    };
+    var ledgerHtml = '';
+    if (lg) {
+      var rate = lg.feedback && typeof lg.feedback.rate === 'number' ? Math.round(lg.feedback.rate * 100) + '%' : '暂无';
+      ledgerHtml =
+        '<div class="panel" style="margin-bottom:12px">' +
+          '<div class="panel-head"><h3>记忆账本（近 ' + lg.days + ' 天）</h3><span class="meta">召回注入 · 蒸馏调用 · 有用率</span></div>' +
+          '<div class="panel-body" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">' +
+            lstat('召回', nfmt(lg.recalls) + ' 次', '注入 ' + nfmt(lg.recallChars) + ' 字符') +
+            lstat('沉淀', nfmt(lg.captures) + ' 次', 'LLM ' + nfmt(lg.captures) + ' 次') +
+            lstat('估算 token', '≈ ' + nfmt(lg.estTokens), '2 字符 ≈ 1 token') +
+            lstat('召回有用率', rate, '有用 ' + nfmt(lg.feedback.useful) + ' / 无用 ' + nfmt(lg.feedback.useless)) +
+          '</div>' +
+        '</div>';
+    }
     el.innerHTML =
       '<div class="page-head">' +
         '<div><div class="eyebrow">System Status</div><h1>运行状态</h1>' +
@@ -2416,8 +2438,9 @@
         '<div class="status-card"><div class="sc-head">' + icon('db') + '知识库<span class="ok"></span></div><div class="sc-value">可写 · WAL</div><div class="sc-note">897 张卡 · 1,987 个标签 · 10:19 检查</div></div>' +
         '<div class="status-card"><div class="sc-head">' + icon('backup') + '备份<span class="ok"></span></div><div class="sc-value">7 份</div><div class="sc-note">最新 10-20 03:07 · 保留 7 天</div></div>' +
         '<div class="status-card"><div class="sc-head">' + icon('zap') + '自动沉淀<span class="ok"></span></div><div class="sc-value">正常</div><div class="sc-note">最近成功 ' + esc(lastOk) + ' · deepseek-flash</div></div>' +
-        '<div class="status-card"><div class="sc-head">' + icon('shield') + '版本<span class="ok"></span></div><div class="sc-value">v' + esc(D.version || '0.15.0') + '</div><div class="sc-note">宿主 / 常驻 / npm 一致</div></div>' +
+        '<div class="status-card"><div class="sc-head">' + icon('shield') + '版本<span class="ok"></span></div><div class="sc-value">v' + esc(D.version || '0.16.0') + '</div><div class="sc-note">宿主 / 常驻 / npm 一致</div></div>' +
       '</div>' +
+      ledgerHtml +
       '<div class="status-cols">' +
         '<div class="panel">' +
           '<div class="panel-head"><h3>沉淀日志</h3><span class="meta">最近 40 条</span><div class="seg" id="actSeg"><button data-act="all" class="active">全部</button><button data-act="created">写卡</button><button data-act="skip">跳过</button></div></div>' +

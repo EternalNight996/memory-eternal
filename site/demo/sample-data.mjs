@@ -275,7 +275,7 @@ activity.push({ ts: now - 20 * 3600000, action: 'skip', text: '冷却中：距�
 
 const data = {
   generatedAt: new Date(now).toISOString(),
-  version: '0.11.0-rc.1',
+  version: '0.16.0',
   total: 897,
   recent: 183,
   tags: 1987,
@@ -289,6 +289,17 @@ const data = {
   bodies,
   activity,
   health: { ok: true, reason: '', since: 0, lastOkAt: now - 2 * 60000, lastFailAt: 0 },
+  // 记忆账本示例数据：让 demo 与 0.16 的真实 UI 对齐（召回注入 / 蒸馏调用 / 有用率）
+  ledger: {
+    days: 7,
+    recalls: 46,
+    recallChars: 28400,
+    captures: 14,
+    captureInChars: 41200,
+    captureOutChars: 9800,
+    estTokens: 39700,
+    feedback: { useful: 19, useless: 5, rate: 19 / 24 },
+  },
 }
 
 fs.mkdirSync('site/demo', { recursive: true })
