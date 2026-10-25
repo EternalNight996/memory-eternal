@@ -26,7 +26,7 @@ const PACKAGE_ROOT = path.resolve(path.dirname(__filename))
 const versionRef = (() => { try { const p = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')); return p.version } catch { return '' } })()
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { ensureVault, search } from './lib/vault.js'
+import { ensureVault, search, recordRecallHits, createCorrection } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
@@ -87,6 +87,10 @@ export const Config = z.object({
   recallLimit: z.number().min(1).max(20).default(5),
   recallSummaryLen: z.number().min(40).max(400).default(130),
   recallIncludeBody: z.boolean().default(false),
+  // 召回命中追踪 / 会话纠错（Phase 1）：只记录「返回过哪些卡」，不判断是否被引用
+  traceRecallHits: z.boolean().default(true),
+  correctionEnabled: z.boolean().default(true),
+  traceRetentionDays: z.number().min(1).max(3650).default(90),
   // 凭证取用提示（默认空 = 不注入）：写进来的一整句会被追加到每个会话的 systemPrompt 段，
   // 用来让 agent「需要 API key / token 时先想到去查记忆里的目录卡」。
   // 为什么做成配置而不是写死：默认值必须对**所有**用户安全 —— 插件本身不假定任何本机
@@ -936,6 +940,9 @@ export function apply(ctx, config) {
         ...((cfg.auditMode ?? 'all') === 'none' ? [] : [
           '6. **审核红线（强制）**：写卡一律停在 pending，由用户在「审核中心」审批。**禁止**调用 /memory-eternal/api/audit/approve 或 /audit/reject 代替用户审批，也不得用任何等价方式绕过审核；用户说「记录一下 / 增加记忆」不等于允许免审入库。需要立刻可用时，写卡后明确告知用户「已进审核中心，待批准」。',
         ]),
+        ...((cfg.correctionEnabled === false) ? [] : [
+          '7. 已批准的卡在真实任务中用错时，调用 memory_correct 提交待审修订；修订不会自动生效，不要直接改卡。',
+        ]),
         // 凭证取用提示（用户自己填的整句，见 Config.secretHint）：只在填了非空值时注入。
         // 为什么走 systemPrompt 而不是「往卡里写值」：密钥的**值**入库会被每次召回带进模型
         // 上下文（card.summary = 正文前 200 字，召回默认取前 130 字），而 agent 真正需要的
@@ -1020,10 +1027,15 @@ export function apply(ctx, config) {
           }
         }
         const multi = scoped
+        const session = String((exec && (exec.sessionId || (exec.agent && exec.agent.sessionId))) || '')
         let hits = []
         for (const target of targets) {
           try {
             const part = await search(target.root, query, { limit, minScore: 2 })
+            if (cfg2.traceRecallHits !== false) {
+              // 只记「返回过」，不判断是否被引用；失败不影响召回
+              recordRecallHits(target.root, { session, query, hits: part })
+            }
             for (const h of part) hits.push(multi ? { ...h, vault: target.name || target.root } : h)
           } catch { /* 单个库失败不影响其它库 */ }
         }
@@ -1045,6 +1057,57 @@ export function apply(ctx, config) {
         return out
       },
     }))
+
+    tools.register(defineTool({
+      name: 'memory_correct',
+      description:
+        '当一张已批准的知识卡在真实任务中被证明是错的、过时的或缺失关键信息时，提交一条待审核修订。' +
+        '修订会先进入审核中心，不会自动生效；批准后旧卡进回收站保留 30 天。' +
+        '如果卡本身没错、只是调用时机/场景不对（misused），不要改卡，应改流程或补触发条件。',
+      parameters: {
+        path: { type: 'string', required: true, description: '出错卡片的 path（memory_recall 返回的「路径」）' },
+        body: { type: 'string', required: true, description: '修订后的完整正文；旧内容会由插件自动带入修订说明，不需要重复粘贴旧文' },
+        cause: { type: 'string', description: 'wrong=事实错，outdated=过时，missing=缺关键信息，misused=卡没错但用错场景，other=其他' },
+        evidence: { type: 'string', description: '证据：用户纠正原话、命令输出、来源 URL 等；可选但建议填' },
+        query: { type: 'string', description: '当时召回/出错的查询，用于批准后做回归验证；可选' },
+        reason: { type: 'string', description: '一句话说明为什么要改；可选' },
+      },
+      output: {
+        schema: { type: 'string' },
+        render(_a, v) { return [{ type: 'text', text: v }] },
+      },
+      timeoutMs: 20000,
+      async execute(args, exec) {
+        const cfg = settings.get() ?? {}
+        if (!cfg.enabled) return '（记忆核心已禁用）'
+        if (cfg.correctionEnabled === false) return '（纠错功能已关闭）'
+        const cardPath = String(args.path || '').trim()
+        const body = String(args.body || '').trim()
+        if (!cardPath) return '（缺少 path）'
+        if (!body) return '（缺少 body）'
+        const workspace = sessionWorkspace(exec && exec.agent)
+        const root = vaultDir(workspace)
+        const session = String((exec && (exec.sessionId || (exec.agent && exec.agent.sessionId))) || '')
+        const result = await createCorrection(root, {
+          path: cardPath,
+          body,
+          cause: args.cause,
+          evidence: args.evidence,
+          query: args.query,
+          reason: args.reason,
+          session,
+        })
+        if (!result.ok) {
+          if (result.code === 'CARD_NOT_WRONG') return `（未建修订：${result.error}）`
+          return `（未建修订：${result.error || result.code || '未知错误'}）`
+        }
+        recordLedger(root, { kind: 'correct', results: 1, chars: body.length, note: cardPath.slice(0, 120) })
+        if (result.existing) {
+          return `这张卡已有待审修订，未重复创建：\n路径：${result.pending_path}\n请在「审核中心」批准或驳回。`
+        }
+        return `已提交待审修订（不会自动生效）：\n原卡：${result.old_path}\n修订卡：${result.pending_path}\n请在「审核中心」比较后批准；批准后旧卡进回收站，30 天内可恢复。`
+      },
+    }))
   }
 
   // 沉淀停滞探测：只有「有轮次在跑」且「管线 15 分钟一个活口都没有」才报（真死才报）。
@@ -1062,11 +1125,15 @@ export function apply(ctx, config) {
   }, 5 * 60 * 1000)
   ctx.effect(() => () => clearInterval(stallTimer), 'memory-eternal: capture stall watch')
 
-  // 回收站清理：每 30 分钟永久删除超过保留期（默认 30 天）的软删卡。
+  // 回收站清理：每 30 分钟永久删除超过保留期（默认 30 天）的软删卡；同时清过期召回命中。
   const purgeTimer = setInterval(() => {
     const cfg = settings.get() ?? {}
     const days = Number(cfg.recycleRetentionDays) || 30
-    import('./lib/vault.js').then((v) => v.purgeExpired(vaultDir(), days)).catch(() => {})
+    const traceDays = Number(cfg.traceRetentionDays) || 90
+    import('./lib/vault.js').then((v) => {
+      Promise.resolve(v.purgeExpired(vaultDir(), days)).catch(() => {})
+      v.purgeRecallHits(vaultDir(), traceDays)
+    }).catch(() => {})
   }, 30 * 60 * 1000)
   ctx.effect(() => () => clearInterval(purgeTimer), 'memory-eternal: recycle purge timer')
 
