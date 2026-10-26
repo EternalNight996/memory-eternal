@@ -2,7 +2,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
 [![npm](https://img.shields.io/npm/v/memory-eternal)](https://www.npmjs.com/package/memory-eternal)
-[![release](https://img.shields.io/badge/release-v0.18.1-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
+[![release](https://img.shields.io/badge/release-v0.18.2-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [English (default)](README.md) · **简体中文（镜像）**
@@ -19,6 +19,8 @@
 - 🔍 **先审核，再入库** —— 新卡先进待审队列，Web 或终端里批准/驳回；每次状态变更写入不可篡改的审计日志。
 - 🧾 **记忆账本** —— 召回注入了多少、蒸馏调了几次、召回到底有没有用，全部可查。
 - 🏠 **本地优先，零云端** —— SQLite + Markdown 存在你自己的磁盘上。没有第三方记忆框架、不需要账号、不外发请求。
+- ⭐ **核心记忆** —— 已批准的卡可提升为「每次会话强制注入」的核心记忆；自动沉淀可以建议，但最终仍由审核中心决定。
+- 🧭 **阅读与布局** —— 卡片目录可点击跳转；记忆界面支持紧凑 / 标准 / 大三种布局大小。
 
 <p align="center"><strong>⭐ 如果它帮你少解释了一遍上下文，点个 Star 就是最大的支持</strong><br/><sub>DSH 一条命令：<code>dsh plugin --profile desktop add memory-eternal</code></sub></p>
 
@@ -83,6 +85,22 @@ npx -y -p memory-eternal dsh-memory tui   # 终端里的实时待审队列
 - 每次状态变更追加到**不可篡改的审计日志**（谁 / 什么 / 何时 / 为什么）—— 由 SQLite 层强制，而不是靠约定；
 - Agent 可以读取和提议，但**不能批准自己写的卡**；
 - 删除的卡进回收站（默认保留 30 天）。
+
+## ⭐ 核心记忆
+
+不是所有内容都该每次注入上下文。核心记忆是一组**必须每次遵守**的偏好与硬约束：
+
+- 任意已批准卡片都可以在阅读器或卡片列表里提升为核心记忆；
+- 自动沉淀只会在用户明确要求长期偏好 / 硬约束时**建议**核心，且 core 候选**一律待审**；
+- 已批准的核心卡每次会话直接注入 systemPrompt，不依赖 `memory_recall` 调用；
+- 在「设置 → 记忆 → 核心记忆」里可配置条数上限和字符预算；
+- 知识星图里核心节点显示为橙色菱形 + ★；
+- **不要把密钥/Token 的值写进核心卡**，只保存凭证目录的引用。
+
+## 🎛 阅读与布局
+
+- 卡片阅读器右侧目录可点击，平滑跳转到对应章节；
+- 「设置 → 记忆 → 布局大小」支持 **紧凑 / 标准 / 大**，只影响界面显示。
 
 ## 🧩 一个库，所有 Agent
 
