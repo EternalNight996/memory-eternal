@@ -280,6 +280,7 @@ export const ZH = {
   approveCore: '批准为核心记忆',
   approveAsNormal: '批准为普通卡',
   coreSuggested: '核心记忆（待审核）',
+  reclassify: '重新识别类型',
   reject: '驳回',
   allAgents: '全部智能体',
   noAuditItems: '暂无审核项目',
@@ -867,6 +868,7 @@ export const EN = {
   approveCore: 'Approve as core memory',
   approveAsNormal: 'Approve as normal card',
   coreSuggested: 'Core memory (pending review)',
+  reclassify: 'Reclassify types',
   reject: 'Reject',
   allAgents: 'All agents',
   noAuditItems: 'No items to review',
@@ -3596,6 +3598,16 @@ function AuditPanel({ t, onReload, version }) {
     }).catch((e) => { if (alive) setBodies((b) => ({ ...b, [p]: { error: String((e && e.message) || e) } })) })
     return () => { alive = false }
   }, [previewCard && previewCard.path, tab])
+  const reclassify = async () => {
+    if (!window.confirm(t('reclassify') + '？只处理自动沉淀的待审原文卡，不改人工卡。')) return
+    setBusy('reclassify')
+    try {
+      const r = await fetch(API + '/reclassify').then((x) => x.json())
+      if (r && r.ok) notify(t('reclassify') + '：' + r.changed + ' / ' + r.scanned)
+      else notify(t('toastFailed') + ': ' + ((r && r.error) || 'HTTP'), false)
+      await load(); if (onReload) onReload()
+    } catch (e) { notify(t('toastFailed') + ': ' + String((e && e.message) || e), false) } finally { setBusy('') }
+  }
   const clearSel = () => setSel(new Set())
   const switchTab = (next) => { setTab(next); clearSel() }
   const kindList = ['all', ...KIND_IDS.filter((k) => k !== 'all')]
@@ -3646,6 +3658,7 @@ function AuditPanel({ t, onReload, version }) {
               <div style={{ flex: 1 }} />
               <label style={{ fontSize: 12 }}><input type="checkbox" checked={items.length > 0 && toggled.length === items.length} onChange={(e) => { if (e.target.checked) { setSel(new Set(items.map((c) => c.path))) } else { setSel(new Set()) } }} /> {t('selectAll')}（{items.length}）</label>
               <span style={{ fontSize: 11, opacity: 0.65 }}>{t('auditSelected')} {toggled.length}</span>
+              {tab === 'pending' && <button type="button" className="mc-btn" disabled={!!busy} onClick={reclassify}>🔧 {t('reclassify')}</button>}
               <button type="button" className="mc-btn me-on" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</button>
               {tab === 'pending'
                 ? <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</button>
