@@ -5211,8 +5211,8 @@ function countEdges(edges) {
 
 // agentmemory 式图谱：canvas 力导向 + 按 kind 聚合 + 分型节点 + 渐变/发光 + 药丸标签 + 网格。
 const KG = {
-  colors: { project:'#3B82F6', knowledge:'#10B981', content:'#F59E0B', prompt:'#A855F7', business:'#EC4899', tool:'#06B6D4', mistake:'#EF4444', other:'#6B7280' },
-  shapes: { project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
+  colors: { core:'#FF7A45', project:'#3B82F6', knowledge:'#10B981', content:'#F59E0B', prompt:'#A855F7', business:'#EC4899', tool:'#06B6D4', mistake:'#EF4444', other:'#6B7280' },
+  shapes: { core:'diamond', project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
 }
 
 // 图谱绘制异常兜底：渲染循环里的异常原来被空 catch 静默吞掉（表现是画布永远空白、
@@ -5340,7 +5340,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     const maxDeg = Math.max(1, ...Object.values(deg))
 
     const sim = {
-      nodes: nodes.map((n) => ({ id: n.id, name: n.title || '', type: n.kind || 'other', r: 9 + Math.min(10, ((deg[n.id] || 0) / maxDeg) * 8), x: 0, y: 0, vx: 0, vy: 0 })),
+      nodes: nodes.map((n) => ({ id: n.id, name: n.title || '', type: n.kind || 'other', r: 9 + Math.min(10, ((deg[n.id] || 0) / maxDeg) * 8) + (n.kind === 'core' ? 3 : 0), x: 0, y: 0, vx: 0, vy: 0 })),
       edges: edges.map((e) => ({ sourceNodeId: e.source, targetNodeId: e.target, weight: 1 })),
       panX: 0, panY: 0, zoom: 1, running: true, raf: 0, tickCount: 0, quietTicks: 0, dragNode: null, selectedId: null, mouseX: 0, mouseY: 0, w: 0, h: 0, dpr, ctx, multi: [], marquee: null,
     }
@@ -5542,7 +5542,15 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         if ((isSel || isHov) && paintShadows) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 20 : 14 }
         ctx.translate(n.x, n.y) // 局部坐标 → 渐变可跨节点复用
         drawShape(0, 0, n.r, shape)
-        ctx.fillStyle = gradientFor(color, n.r); ctx.fill(); ctx.restore()
+        ctx.fillStyle = gradientFor(color, n.r); ctx.fill()
+        if (kind === 'core') {
+          ctx.fillStyle = '#1b120e'
+          ctx.font = '700 ' + Math.max(10, Math.round(n.r * 0.95)) + 'px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('★', 0, 0)
+        }
+        ctx.restore()
         if (isSel) { ctx.save(); drawShape(n.x, n.y, n.r+3, shape); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.stroke(); ctx.restore() }
         else if (isHov) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
         else if (searchTerm && searchHit) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
