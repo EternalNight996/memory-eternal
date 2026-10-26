@@ -318,6 +318,11 @@ export const ZH = {
   coreSetOk: '已设为核心记忆',
   coreUnsetOk: '已取消核心记忆',
   coreSetFail: '设置失败',
+  coreActiveHint: '这张卡每次会话都会强制注入；与普通记忆冲突时以它为准。',
+  coreInactiveHint: '普通知识卡可以提升为核心记忆；提升后每次会话自动生效。',
+  coreNeedApproval: '先批准这张卡，才能设为核心记忆。',
+  coreShort: '核心',
+  setCoreShort: '设核心',
   autoCapture: '自动沉淀',
   autoRecall: '自动召回',
   captureMinChars: '捕获最小长度',
@@ -896,6 +901,11 @@ export const EN = {
   coreSetOk: 'Set as core memory',
   coreUnsetOk: 'Removed from core memory',
   coreSetFail: 'Failed to update',
+  coreActiveHint: 'This card is injected into every session; it wins conflicts with normal memory.',
+  coreInactiveHint: 'Any approved knowledge card can be promoted to core memory and applies to every session.',
+  coreNeedApproval: 'Approve this card before making it core memory.',
+  coreShort: 'Core',
+  setCoreShort: 'Set core',
   autoCapture: 'Auto capture',
   autoRecall: 'Auto recall',
   captureMinChars: 'Min capture chars',
@@ -1833,6 +1843,14 @@ const CSS = `
 .me-v5 .mc-v5-card-tile { width: 23px; height: 23px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid; border-radius: 7px; font-size: 12px; flex: none; }
 .me-v5 .mc-v5-card-kind-name { font-size: 9.5px; color: #b0b7c1; white-space: nowrap; }
 .me-v5 .mc-v5-pin { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; font-size: 9px; opacity: .35; flex: none; }
+.me-v5 .mc-v5-core { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border: 1px solid rgba(255,122,69,.35); border-radius: 5px; background: rgba(255,122,69,.08); color: #ff9a72; font-size: 9.5px; font-weight: 650; cursor: pointer; flex: none; }
+.me-v5 .mc-v5-core:hover { border-color: rgba(255,122,69,.65); background: rgba(255,122,69,.16); }
+.me-v5 .mc-v5-core.on { border-color: rgba(255,122,69,.7); background: rgba(255,122,69,.2); color: #ffb08a; }
+.me-core-banner { display: flex; align-items: center; gap: 10px; margin: 10px 18px 0; padding: 10px 12px; border: 1px solid rgba(255,122,69,.35); border-radius: 10px; background: rgba(255,122,69,.08); }
+.me-core-banner.on { border-color: rgba(255,122,69,.65); background: rgba(255,122,69,.14); }
+.me-core-banner-k { color: #ff9a72; font-weight: 700; white-space: nowrap; font-size: 12px; }
+.me-core-banner-desc { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.6; opacity: .78; }
+.me-core-btn { background: #ff7a45 !important; border-color: #ff7a45 !important; color: #1b120e !important; font-weight: 700; white-space: nowrap; }
 .me-v5 .mc-v5-pin:hover, .me-v5 .mc-v5-pin.on { opacity: 1; background: rgba(255,122,69,.12); }
 .me-v5 .mc-v5-card.pinned { border-color: rgba(255,122,69,.32); }
 .me-v5 .mc-v5-card-insight { display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
@@ -2447,7 +2465,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       const qs = st && st !== 'approved' ? `&status=${encodeURIComponent(st)}` : ''
       const res = await fetch(`${API}/card?path=${encodeURIComponent(card.path || card.id)}${qs}`)
       const data = await res.json()
-      if (data.ok) setReader({ path: data.path, title: card.title, text: data.text, kind: card.kind || 'knowledge' })
+      if (data.ok) setReader({ path: data.path, title: card.title, text: data.text, kind: card.kind || 'knowledge', status: st || 'approved' })
       else setError(data.error || `HTTP ${res.status}`)
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
@@ -2757,7 +2775,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     <span className="mc-v5-feature-open">{t('openArrow')}</span>
                   </div>
                 </div>
-              )}<div className="mc-grid">{sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} pinned={pinned.has(card.path)} onPin={togglePin} links={connMap[card.path] || 0} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
+              )}<div className="mc-grid">{sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} pinned={pinned.has(card.path)} onPin={togglePin} onCore={changeCardKind} links={connMap[card.path] || 0} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
           }
         </div>
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
@@ -3819,7 +3837,7 @@ const MiniGraph = ({ n = 0, color = '#ff9a72', size = 30 }) => {
     </svg>
   )
 }
-const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, links }) => {
+const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, onCore, links }) => {
   const color = KIND_COLORS[card.kind] || KIND_COLORS.other
   const linkCount = Number(links ?? card.links ?? card.weight ?? 0)
   const tags = tagsOf(card)
@@ -3833,6 +3851,11 @@ const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, 
         {isNewCard(card.updated) && <span className="mc-new">{t('newBadge')}</span>}
         <span className="spacer" style={{ flex: 1 }} />
         <span className="mc-v5-card-time">{fmtDate(card.updated)}</span>
+        {onCore && card.status !== 'pending' && card.status !== 'rejected' && (
+          <button type="button" className={`mc-v5-core${card.kind === 'core' ? ' on' : ''}`} title={t(card.kind === 'core' ? 'unsetCore' : 'setCore')} onClick={(e) => { e.stopPropagation(); onCore(card.path, card.kind === 'core' ? 'knowledge' : 'core') }}>
+            {card.kind === 'core' ? '⭐ ' + t('coreShort') : '☆ ' + t('setCoreShort')}
+          </button>
+        )}
         {onPin && <button type="button" className={`mc-v5-pin${pinned ? ' on' : ''}`} title={t(pinned ? 'unpinCard' : 'pinCard')} aria-label={t(pinned ? 'unpinCard' : 'pinCard')} onClick={(e) => { e.stopPropagation(); onPin(card.path) }}>📌</button>}
       </div>
       <h4 className="mc-v5-card-title">{query ? highlightMatches(card.title, query) : card.title}</h4>
@@ -4808,7 +4831,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
   const metaOf = (key) => { const hit = meta.find(([k]) => String(k).toLowerCase() === key); return hit ? hit[1] : '' }
   const tags = parseTags(metaOf('tags'))
   const kind = card.kind || metaOf('kind') || 'knowledge'
-  const status = (metaOf('status') || 'approved').toLowerCase()
+  const status = String(card.status || metaOf('status') || 'approved').toLowerCase()
   const kindColor = KIND_COLORS[kind] || '#6B7280'
   const long = (body || '').length > 460
   const cleanBody = useMemo(() => stripRepeatedTitle(body, card.title), [body, card.title])
@@ -4847,6 +4870,17 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
             <button type="button" className="mc-btn" onClick={onClose}>{t('close')}</button>
           </div>
         </div>
+        {onKindChange && (
+          <div className={'me-core-banner' + (kind === 'core' ? ' on' : '')}>
+            <div className="me-core-banner-k">⭐ {t('kindCore')}</div>
+            <div className="me-core-banner-desc">{kind === 'core' ? t('coreActiveHint') : t('coreInactiveHint')}</div>
+            {status === 'approved'
+              ? <button type="button" className="mc-btn me-core-btn" onClick={() => onKindChange(card.path, kind === 'core' ? 'knowledge' : 'core')}>
+                  {kind === 'core' ? t('unsetCore') : '⭐ ' + t('setCore')}
+                </button>
+              : <span className="me-core-banner-desc" style={{ flex: 'none', opacity: .6 }}>{t('coreNeedApproval')}</span>}
+          </div>
+        )}
         <div className="md-meta">
           <span className="md-chip md-chip-kind" style={{ color: kindColor, borderColor: kindColor + '59', background: kindColor + '1a' }}>{KIND_EMOJI[kind] || '📎'} {t(KIND_LABELS[kind] || 'kindKnowledge')}</span>
           <span className={'md-chip ' + (status === 'approved' ? 'md-chip-st-ok' : status === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad')}>{status === 'approved' ? '✅' : status === 'pending' ? '⏳' : '⛔'} {t(status === 'approved' ? 'statusApproved' : status === 'pending' ? 'statusPending' : 'statusRejected')}</span>
