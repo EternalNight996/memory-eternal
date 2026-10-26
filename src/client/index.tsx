@@ -8,7 +8,7 @@
 //
 // 数据全部来自 host 的 /memory-eternal/api/* JSON 路由（同源 fetch），不引入额外依赖。
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import brandIcon from '../../assets/icon.png'
@@ -2838,6 +2838,57 @@ const StatCell = ({ label, value }) => (
 )
 
 /** DSH 设置→记忆 左栏配置面板：插件信息 + Agent MCP 挂载状态 + 全部配置项（一键推荐 / DSH 记忆配置 / 成本控制 / 自动审核配置 / 服务自管理配置 / 保存）。 */
+const CfgFormContext = createContext({ form: null, set: () => {} })
+const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift'])
+
+/** 配置字段：必须在模块顶层定义。放在 ConfigPanel 里会在每次输入重渲染时换组件类型，
+ *  React 于是整棵表单卸载重建 —— 输入框失焦、滚动条回跳（用户反馈根因）。 */
+function F({ k, label, hint, type = 'text', step, min, max }) {
+  const { form, set } = useContext(CfgFormContext)
+  return (
+    <label className="mc-field">
+      <span className="mc-field-label">{label || k}</span>
+      <input
+        type={type}
+        step={step} min={min} max={max}
+        value={form ? (form[k] ?? '') : ''}
+        onChange={(e) => {
+          const raw = e.target.value
+          set(k, type === 'number' ? (raw === '' ? '' : Number(raw)) : raw)
+        }}
+      />
+      {hint ? <span className="mc-field-hint">{hint}</span> : null}
+    </label>
+  )
+}
+
+function Bool({ k, label }) {
+  const { form, set } = useContext(CfgFormContext)
+  const raw = form ? form[k] : undefined
+  const on = raw === undefined ? BOOL_DEFAULT_ON.has(k) : !!raw
+  return (
+    <label className="mc-switch">
+      <input type="checkbox" checked={on} onChange={(e) => set(k, e.target.checked)} />
+      <span>{label || k}</span>
+    </label>
+  )
+}
+
+function CfgSection({ icon, title, sub, children }) {
+  return (
+    <div className="mc-card mc-cfg-sec">
+      <div className="mc-cfg-sec-head">
+        <div className="mc-cfg-sec-ico">{icon}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="mc-cfg-sec-title">{title}</div>
+          {sub ? <div className="mc-cfg-sec-sub">{sub}</div> : null}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>{children}</div>
+    </div>
+  )
+}
+
 function ConfigPanel({ t, onReload, version, compact }) {
   const [cfg, setCfg] = useState(null)
   const [revision, setRevision] = useState(0)
@@ -3138,56 +3189,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
     } catch { notify(t('mergeFail'), false) }
     finally { setBusy('') }
   }
-  const F = ({ k, label, hint, type = 'text', step, min, max }) => (
-    <label className="mc-field">
-      <span className="mc-field-label">{label || k}</span>
-      <input
-        type={type}
-        step={step} min={min} max={max}
-        value={form ? (form[k] ?? '') : ''}
-        onChange={(e) => {
-          const raw = e.target.value
-          // 清空时保留空串（Number('') === 0 会静默变成 0，再被 schema 以 min 拒绝 → 用户只看到「保存失败」）
-          set(k, type === 'number' ? (raw === '' ? '' : Number(raw)) : raw)
-        }}
-      />
-      {hint ? <span className="mc-field-hint">{hint}</span> : null}
-    </label>
-  )
-  // schema 里 default(true) 的开关：宿主快照里**还没有这个键**时（旧宿主没升级、或共享配置还没写过它），
-  // 界面必须按「默认开」渲染。否则用户看到的是「版本漂移自动重启」没勾上，而实际生效值（宿主里
-  // `cfg.autoRestartOnDrift !== false`）是开 —— 面板与真实行为不一致，最容易误判（2026-10-08 实测：
-  // 0.10.6 宿主 + 0.10.7 面板 → 复选框空着）。勾选后再改一次才写进配置，未升级的宿主不受影响。
-  const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift'])
-  const Bool = ({ k, label }) => {
-    const raw = form ? form[k] : undefined
-    const on = raw === undefined ? BOOL_DEFAULT_ON.has(k) : !!raw
-    return (
-      <label className="mc-switch">
-        <input type="checkbox" checked={on} onChange={(e) => set(k, e.target.checked)} />
-        <span>{label || k}</span>
-      </label>
-    )
-  }
-  // 统一分区：图标 + 标题 + 一句说明 + 内容（配置页所有区块共用，视觉一致）
-  const CfgSection = ({ icon, title, sub, children }) => (
-    <div className="mc-card mc-cfg-sec">
-      <div className="mc-cfg-sec-head">
-        <div className="mc-cfg-sec-ico">{icon}</div>
-        <div style={{ minWidth: 0 }}>
-          <div className="mc-cfg-sec-title">{title}</div>
-          {sub ? <div className="mc-cfg-sec-sub">{sub}</div> : null}
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>{children}</div>
-    </div>
-  )
+
   const mcpList = (setupStatus && Array.isArray(setupStatus.agents)) ? setupStatus.agents : []
   const mcpInstalled = mcpList.filter((a) => a.installed)
   const mcpServersAll = [...new Set(mcpInstalled.flatMap((a) => (Array.isArray(a.servers) ? a.servers : [])))]
   const mcpMounted = mcpList.filter((a) => a.mcpConfigured && !a.isDsh).length
   const mcpHasServerData = mcpList.some((a) => Array.isArray(a.servers))
   return (
+    <CfgFormContext.Provider value={{ form, set }}>
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
       <style>{CSS}</style>
       {toast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (toast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: toast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{toast.ok ? '✓' : '✕'}</span><span style={{ wordBreak: 'break-all' }}>{toast.msg}</span></div>}
@@ -3522,6 +3531,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
         ) : <div style={{ fontSize: 12, opacity: 0.6 }}>{t('loading')}</div>}
       </div>
     </div>
+    </CfgFormContext.Provider>
   )
 }
 
