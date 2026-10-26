@@ -78,7 +78,8 @@ test('② 浏览器 / Windows 行为不变：让位只发生在 darwin 桌面版
   const overlay = rule('.me-overlay-top')
   assert.ok(overlay, '缺 .me-overlay-top 基础规则')
   assert.match(overlay, /position:\s*fixed;\s*inset:\s*0/, '遮罩必须继续铺满全屏（只让内容避让，不让遮罩缩水）')
-  assert.match(overlay, /z-index:\s*1001/)
+  assert.match(overlay, /z-index:\s*2147483000/)
+  assert.match(src, /createPortal\(overlay, document\.body\)/, '记忆窗口必须 portal 到 body，脱离第三方插件的 stacking context')
 
   // 弹窗默认高度还是 98vh：浏览器与 Windows 上的观感不受 issue #46 的改动影响。
   const modal = rule('.me-modal')
