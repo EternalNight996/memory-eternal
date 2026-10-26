@@ -330,6 +330,11 @@ export const ZH = {
   coreNeedApproval: '先批准这张卡，才能设为核心记忆。',
   coreShort: '核心',
   setCoreShort: '设核心',
+  uiLayout: '布局大小',
+  uiLayoutHint: '调整记忆界面整体大小（只影响显示，不影响记忆数据）',
+  uiCompact: '紧凑',
+  uiNormal: '标准',
+  uiLarge: '大',
   autoCapture: '自动沉淀',
   autoRecall: '自动召回',
   captureMinChars: '捕获最小长度',
@@ -920,6 +925,11 @@ export const EN = {
   coreNeedApproval: 'Approve this card before making it core memory.',
   coreShort: 'Core',
   setCoreShort: 'Set core',
+  uiLayout: 'Layout size',
+  uiLayoutHint: 'Scale the memory UI only; memory data is unchanged',
+  uiCompact: 'Compact',
+  uiNormal: 'Normal',
+  uiLarge: 'Large',
   autoCapture: 'Auto capture',
   autoRecall: 'Auto recall',
   captureMinChars: 'Min capture chars',
@@ -1593,6 +1603,7 @@ const CSS = `
 .me-reader-toc { display: flex; flex-direction: column; gap: 2px; }
 .me-reader-toc button { display: flex; gap: 7px; text-align: left; padding: 4px 5px; border: 0; background: transparent; border-radius: 5px; font-size: 10.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary, #9aa3af); }
 .me-reader-toc button:hover { background: rgba(127,127,127,.09); color: var(--dsw-alias-label-primary, #e9ecf1); }
+.me-reader-toc button.active { background: rgba(255,122,69,.14); color: #ff9a72; font-weight: 650; }
 .me-reader-toc button.lv2 { padding-left: 13px; }
 .me-reader-toc button.lv3 { padding-left: 22px; }
 .me-reader-toc button span { flex: none; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 8.5px; opacity: .45; padding-top: 1px; }
@@ -2233,6 +2244,13 @@ export function MemoryLibrary(props) {
 function MemoryLibraryInner({ t, inModal, onClose }) {
   const inHost = typeof window !== 'undefined' && (!!window.__DSH_BOOT__ || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
   const [overview, setOverview] = useState(null)
+  // 布局大小：宿主配置 uiScale + 本地即时事件；默认 standard
+  const [uiScale, setUiScale] = useState(() => {
+    try {
+      const v = localStorage.getItem('me-ui-scale')
+      return ['compact', 'normal', 'large'].includes(v) ? v : 'normal'
+    } catch { return 'normal' }
+  })
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
   const [capHealth, setCapHealth] = useState(null)
@@ -2282,6 +2300,16 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [supportOpen, setSupportOpen] = useState(false)
   const [supportTab, setSupportTab] = useState('group')
   const [onboardOpen, setOnboardOpen] = useState(false)
+  useEffect(() => {
+    const onScale = (e) => {
+      const v = e && e.detail
+      if (!['compact', 'normal', 'large'].includes(v)) return
+      setUiScale(v)
+      try { localStorage.setItem('me-ui-scale', v) } catch { /* ignore */ }
+    }
+    window.addEventListener('me-ui-scale', onScale)
+    return () => window.removeEventListener('me-ui-scale', onScale)
+  }, [])
   const finishOnboard = useCallback(() => {
     setOnboardOpen(false)
     try { localStorage.setItem('me-onboard-v2', '1') } catch { /* 隐私模式忽略 */ }
@@ -2371,11 +2399,17 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     try {
       // 只拉轻量数据（<1KB）：概览 + 沉淀健康状态。
       // 卡片列表（250KB）/ 图谱（890KB）改由各自视图按需拉取——设置页不该付这份代价。
-      const [ov, capRes] = await Promise.all([
+      const [ov, capRes, cfgRes] = await Promise.all([
         fetch(`${API}/overview`).then((r) => r.json()),
         fetch(`${API}/capture-log`).then((r) => r.json()).catch(() => null),
+        fetch(`${API}/config`).then((r) => r.json()).catch(() => null),
       ])
       if (ov.ok) setOverview(ov)
+      const nextScale = cfgRes && cfgRes.ok && cfgRes.config && cfgRes.config.uiScale
+      if (['compact', 'normal', 'large'].includes(nextScale)) {
+        setUiScale(nextScale)
+        try { localStorage.setItem('me-ui-scale', nextScale) } catch { /* ignore */ }
+      }
       setCapHealth(capRes && capRes.ok && capRes.available ? (capRes.health || null) : null)
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
@@ -2588,8 +2622,19 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   }
   const showFeature = !query && kind === 'all' && !tagPick && statusFilter === 'all' && !!featuredCard
 
+  const uiZoom = uiScale === 'large' ? 1.15 : uiScale === 'compact' ? 0.92 : 1.06
   return (
-    <div className="memory-eternal-root me-v5" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div
+      className="memory-eternal-root me-v5"
+      data-ui-scale={uiScale}
+      style={{
+        height: `calc(100% / ${uiZoom})`,
+        width: `calc(100% / ${uiZoom})`,
+        zoom: uiZoom,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <style>{CSS}</style>
       {!inModal && (
         <div className={`mc-v5-top${inHost ? ' in-host' : ''}`}>
@@ -3389,6 +3434,26 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <Bool k="coreMemoryEnabled" label={t('coreMemoryEnabled')} />
                 <F k="coreMemoryLimit" label={t('coreMemoryLimit')} type="number" />
                 <F k="coreMemoryMaxChars" label={t('coreMemoryMaxChars')} type="number" />
+              </div>
+            </CfgSection>
+            {/* 布局大小：只影响界面显示 */}
+            <CfgSection icon="🔠" title={t('uiLayout')} sub={t('uiLayoutHint')}>
+              <div className="mc-cfg-grid">
+                <label className="mc-field">
+                  <span className="mc-field-label">{t('uiLayout')}</span>
+                  <select
+                    value={(form && form.uiScale) || 'normal'}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      set('uiScale', v)
+                      try { window.dispatchEvent(new CustomEvent('me-ui-scale', { detail: v })) } catch { /* ignore */ }
+                    }}
+                  >
+                    <option value="compact">{t('uiCompact')}</option>
+                    <option value="normal">{t('uiNormal')}</option>
+                    <option value="large">{t('uiLarge')}</option>
+                  </select>
+                </label>
               </div>
             </CfgSection>
             {/* 多库（按项目隔离记忆）—— #10 */}
@@ -4912,6 +4977,37 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
   }, [allCards, card.path, tags.join('|')])
   // 默认「全部展开」，可收起（用户要求：打开卡片即读全文，需要时再折起来）。
   const [expanded, setExpanded] = useState(true)
+  const readerMainRef = useRef(null)
+  const [activeHeading, setActiveHeading] = useState('')
+  const scrollToHeading = (id) => {
+    const container = readerMainRef.current
+    if (!container) return
+    const el = document.getElementById(id)
+    if (!el || !container.contains(el)) return
+    const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 12
+    container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+  }
+  const jumpToHeading = (id) => {
+    if (!expanded) {
+      setExpanded(true)
+      setTimeout(() => scrollToHeading(id), 80)
+      return
+    }
+    scrollToHeading(id)
+  }
+  const onReaderScroll = (e) => {
+    const el = e.currentTarget
+    const max = el.scrollHeight - el.clientHeight
+    setProgress(max <= 0 ? 100 : Math.min(100, Math.max(0, (el.scrollTop / max) * 100)))
+    const heads = el.querySelectorAll('.md-doc .md-h')
+    let active = ''
+    const base = el.getBoundingClientRect().top + 28
+    for (const h of heads) {
+      if (h.getBoundingClientRect().top <= base) active = h.id
+      else break
+    }
+    setActiveHeading(active)
+  }
   return (
     <div className="me-overlay" onClick={onClose}>
       <style>{CSS}</style>
@@ -4955,7 +5051,8 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
         <div className="me-reader-body">
           <div className="me-dialog-body me-reader-main"
             style={{ maxWidth: WIDTH_PX[widthMode], margin: '0 auto', width: '100%', boxSizing: 'border-box', ...(expanded ? {} : { maxHeight: 300, overflow: 'hidden' }) }}
-            onScroll={(e) => { const el = e.currentTarget; const max = el.scrollHeight - el.clientHeight; setProgress(max <= 0 ? 100 : Math.min(100, Math.max(0, (el.scrollTop / max) * 100))) }}
+            ref={readerMainRef}
+            onScroll={onReaderScroll}
             onClick={expanded ? undefined : (e) => { e.stopPropagation(); setExpanded(true) }}>
             {!!readerLead && (
               <div className="me-reader-callout">
@@ -4971,7 +5068,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
                 <div className="side-label">{t('contents')}</div>
                 <div className="me-reader-toc">
                   {toc.map((h, i) => (
-                    <button key={h.id} type="button" className={`lv${h.level}`} onClick={() => { const el = document.getElementById(h.id); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }) }}>
+                    <button key={h.id} type="button" className={`lv${h.level}${activeHeading === h.id ? ' active' : ''}`} onClick={() => jumpToHeading(h.id)}>
                       <span>{String(i + 1).padStart(2, '0')}</span>{h.text}
                     </button>
                   ))}
