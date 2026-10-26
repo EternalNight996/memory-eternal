@@ -629,7 +629,12 @@ Option A, because:
 .me-v5 .mc-v5-top .spacer { flex: 1 1 auto; }
 /* \u53F3\u4E0A\u89D2 108px \u5B89\u5168\u533A\uFF1A\u7ED9 WebModal\uFF08\u5DE6\u680F\u300C\u8BB0\u5FC6\u300D/\u300C\u914D\u7F6E\u300D\u6253\u5F00\u7684\u5168\u5C4F\u5F39\u7A97\uFF09\u7684\u7A97\u53E3\u63A7\u5236\u6761\u8BA9\u4F4D\u3002
    \u63A7\u5236\u6761\u662F\u4E24\u9897 46px \u6309\u94AE\uFF08\u7A84\u5C4F 2\xD744=88px\uFF09\uFF0C\u6240\u4EE5\u7A84\u5C4F\u9884\u7559 96px\u3001\u5BBD\u5C4F 108px\u3002 */
-.me-v5 .mc-v5-top.in-host { padding-right: 108px; }
+.me-v5 .mc-v5-top.in-host { padding-right: 108px; position: relative; }
+/* \u53F3\u4FA7\u5B89\u5168\u533A\u505A\u6210\u660E\u786E\u7684\u300C\u7A97\u53E3\u63A7\u5236\u533A\u300D\uFF1A\u4E00\u6761\u7EC6\u5206\u9694 + \u6781\u6DE1\u7684\u5E95\uFF0C\u907F\u514D Star/? \u4E0E\u5173\u95ED\u952E\u4E4B\u95F4\u50CF\u4E00\u5757\u7A7A\u6D1E\u3002 */
+.me-v5 .mc-v5-top.in-host::before { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 108px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.028)); pointer-events: none; }
+.me-v5 .mc-v5-top.in-host::after { content: ''; position: absolute; right: 108px; top: 13px; bottom: 13px; width: 1px; background: rgba(255,255,255,.07); pointer-events: none; }
+.me-v5 .mc-v5-top.in-host .mc-v5-top-actions { position: relative; z-index: 1; gap: 6px; }
+@media (max-width: 900px) { .me-v5 .mc-v5-top.in-host { padding-right: 92px; } .me-v5 .mc-v5-top.in-host::before { width: 92px; } .me-v5 .mc-v5-top.in-host::after { right: 92px; } }
 .me-v5 .mc-v5-logo { width: 22px; height: 22px; border-radius: 7px; object-fit: cover; flex: none; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
 .me-v5 .mc-v5-crumb { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #b0b7c1; white-space: nowrap; }
 .me-v5 .mc-v5-crumb b { color: #f3f5f8; font-weight: 600; }
