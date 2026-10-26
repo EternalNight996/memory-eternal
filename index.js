@@ -1423,6 +1423,14 @@ export function apply(ctx, config) {
     const cfg0 = settings.get() ?? {}
     if (cfg0.enabled === false) return () => {}
 
+    // (0) issue #53 自动迁移：只修我们自己写过、且指向 Electron 宿主 exe 的旧条目。
+    // 必须在 Electron 宿主里才有旧配置；普通 node 进程/测试不碰真实 home。
+    if (process.versions.electron && process.env.MEMORY_ETERNAL_SKIP_AUTO !== '1') {
+      import('./lib/setup.js')
+        .then((m) => m.repairLegacySetup({ log: (msg) => console.log('[memory-eternal] ' + msg) }))
+        .catch(() => {})
+    }
+
     // (1) MCP 自动挂载：默认关闭；只有用户显式开启才动外部配置。
     if (cfg0.autoMcpSetup === true && process.env.MEMORY_ETERNAL_SKIP_AUTO !== '1') {
       import('./lib/setup.js')

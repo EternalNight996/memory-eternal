@@ -3,7 +3,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { mcpCommand, hookCommand, isLegacyElectronCommand, alignCodexMemorySection, codexEnvLine } from '../lib/setup.js'
+import fsSync from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { mcpCommand, hookCommand, isLegacyElectronCommand, alignCodexMemorySection, codexEnvLine, repairLegacySetup } from '../lib/setup.js'
 
 test('普通 node 路径写外部配置时不加 env，且不硬编码 process.execPath', () => {
   const want = mcpCommand('/opt/node/bin/node')
@@ -33,4 +36,41 @@ test('Codex env 写入：出现 ELECTRON_RUN_AS_NODE 且幂等', () => {
   assert.equal(r.changed, true)
   assert.ok(r.text.includes(codexEnvLine(want.env)))
   assert.equal(alignCodexMemorySection(r.text, want).changed, false)
+})
+
+test('自动迁移只改旧 Electron 条目，并写入真实 node', async () => {
+  const home = fsSync.mkdtempSync(path.join(os.tmpdir(), 'me-repair-'))
+  fsSync.mkdirSync(path.join(home, '.claude'), { recursive: true })
+  fsSync.mkdirSync(path.join(home, '.codex'), { recursive: true })
+  fsSync.mkdirSync(path.join(home, '.cursor'), { recursive: true })
+  const old = 'C:\\Program Files\\DeepSeek Harness\\DeepSeek Harness.exe'
+  fsSync.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({
+    mcpServers: { memory: { type: 'stdio', command: old, args: ['x.mjs', 'mcp'] } },
+  }), 'utf8')
+  fsSync.writeFileSync(path.join(home, '.claude', 'settings.json'), JSON.stringify({
+    hooks: {
+      SessionEnd: [{ hooks: [{ type: 'command', command: `"${old}" "x/capture.mjs" claude` }] }],
+      PreToolUse: [{ hooks: [{ type: 'command', command: `"${old}" "x/secret-guard.mjs"` }] }],
+    },
+  }), 'utf8')
+  fsSync.writeFileSync(path.join(home, '.codex', 'config.toml'), [
+    '[mcp_servers.memory]',
+    'command = ' + JSON.stringify(old),
+    'args = ["x.mjs", "mcp"]',
+    '',
+  ].join('\n'), 'utf8')
+  fsSync.writeFileSync(path.join(home, '.cursor', 'mcp.json'), JSON.stringify({
+    mcpServers: { memory: { command: old, args: ['x.mjs', 'mcp'] } },
+  }), 'utf8')
+  const legacyCheck = (cmd) => String(cmd || '').includes('DeepSeek Harness.exe')
+  const r = await repairLegacySetup({ homeDir: home, legacyCheck })
+  assert.equal(r.changed > 0, true, '应检测到并迁移旧配置')
+  const claude = JSON.parse(fsSync.readFileSync(path.join(home, '.claude.json'), 'utf8'))
+  assert.doesNotMatch(claude.mcpServers.memory.command, /DeepSeek Harness\.exe/i)
+  const settings = fsSync.readFileSync(path.join(home, '.claude', 'settings.json'), 'utf8')
+  assert.doesNotMatch(settings, /DeepSeek Harness\.exe/i)
+  assert.match(settings, /capture\.mjs/)
+  assert.match(settings, /secret-guard\.mjs/)
+  const cursor = JSON.parse(fsSync.readFileSync(path.join(home, '.cursor', 'mcp.json'), 'utf8'))
+  assert.doesNotMatch(cursor.mcpServers.memory.command, /DeepSeek Harness\.exe/i)
 })
