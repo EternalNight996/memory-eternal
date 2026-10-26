@@ -276,6 +276,10 @@ export const ZH = {
   rejected: '已驳回',
   selectAll: '全选',
   approve: '批准',
+  approveAndCore: '批准并设为核心',
+  approveCore: '批准为核心记忆',
+  approveAsNormal: '批准为普通卡',
+  coreSuggested: '核心记忆（待审核）',
   reject: '驳回',
   allAgents: '全部智能体',
   noAuditItems: '暂无审核项目',
@@ -859,6 +863,10 @@ export const EN = {
   rejected: 'Rejected',
   selectAll: 'Select all',
   approve: 'Approve',
+  approveAndCore: 'Approve as core',
+  approveCore: 'Approve as core memory',
+  approveAsNormal: 'Approve as normal card',
+  coreSuggested: 'Core memory (pending review)',
   reject: 'Reject',
   allAgents: 'All agents',
   noAuditItems: 'No items to review',
@@ -1387,6 +1395,7 @@ const CSS = `
 .me-audit-preview-actions { flex: none; display: flex; gap: 7px; padding: 10px 14px; border-top: 1px solid rgba(127,127,127,.12); }
 .me-audit-row-actions { display: flex; align-items: center; gap: 4px; flex: none; margin-left: auto; }
 .me-audit-row { border-bottom: 1px solid rgba(127,127,127,.12); }
+.me-audit-row.core { background: rgba(255,122,69,.08); border-left: 3px solid #ff7a45; }
 .me-audit-row:last-child { border-bottom: 0; }
 .me-audit-row:hover { background: rgba(127,127,127,.035); }\n.me-audit-row.active { background: rgba(255,122,69,.055); box-shadow: inset 2px 0 0 #ff7a45; }\n.me-audit-row-main { cursor: pointer; }
 .me-audit-row-main { display: flex; align-items: flex-start; gap: 9px; padding: 10px 8px; min-width: 0; }
@@ -1396,6 +1405,7 @@ const CSS = `
 .me-audit-row-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .me-audit-row-top { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .me-audit-row-kind { font-size: 10px; color: #b0b7c1; }
+.me-audit-row-kind.core { color: #ff9a72; font-weight: 700; }
 .me-audit-row-state { padding: 0 5px; border-radius: 4px; font-size: 9px; line-height: 15px; background: rgba(245,158,11,.1); color: #fbbf24; }
 .me-audit-row-state.rejected { background: rgba(248,113,113,.1); color: #f87171; }
 .me-audit-row-time { margin-left: auto; font-size: 9.5px; color: #99a1ac; white-space: nowrap; }
@@ -1842,6 +1852,7 @@ const CSS = `
 .me-v5 .mc-v5-card-kind { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid; border-radius: 999px; font-size: 9.5px; line-height: 17px; white-space: nowrap; }
 .me-v5 .mc-v5-card-tile { width: 23px; height: 23px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid; border-radius: 7px; font-size: 12px; flex: none; }
 .me-v5 .mc-v5-card-kind-name { font-size: 9.5px; color: #b0b7c1; white-space: nowrap; }
+.me-v5 .mc-v5-core-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border: 1px solid rgba(255,122,69,.55); border-radius: 999px; background: rgba(255,122,69,.16); color: #ff9a72; font-size: 9px; font-weight: 700; white-space: nowrap; }
 .me-v5 .mc-v5-pin { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; font-size: 9px; opacity: .35; flex: none; }
 .me-v5 .mc-v5-core { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border: 1px solid rgba(255,122,69,.35); border-radius: 5px; background: rgba(255,122,69,.08); color: #ff9a72; font-size: 9.5px; font-weight: 650; cursor: pointer; flex: none; }
 .me-v5 .mc-v5-core:hover { border-color: rgba(255,122,69,.65); background: rgba(255,122,69,.16); }
@@ -1853,6 +1864,7 @@ const CSS = `
 .me-core-btn { background: #ff7a45 !important; border-color: #ff7a45 !important; color: #1b120e !important; font-weight: 700; white-space: nowrap; }
 .me-v5 .mc-v5-pin:hover, .me-v5 .mc-v5-pin.on { opacity: 1; background: rgba(255,122,69,.12); }
 .me-v5 .mc-v5-card.pinned { border-color: rgba(255,122,69,.32); }
+.me-v5 .mc-v5-card.core { border-color: rgba(255,122,69,.52); box-shadow: inset 0 0 0 1px rgba(255,122,69,.16); }
 .me-v5 .mc-v5-card-insight { display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
 .me-v5 .mc-v5-insight-k { flex: none; margin-top: 1px; padding: 1px 4px; border-radius: 4px; background: rgba(255,122,69,.09); color: #ff9a72; font-size: 8.5px; line-height: 14px; white-space: nowrap; }
 .me-v5 .mc-v5-card-lead { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -3539,22 +3551,26 @@ function AuditPanel({ t, onReload, version }) {
     return m
   }, [pending, rejected, tab, agentF, dateF])
   const toggle = (p) => setSel((s) => { const n = new Set(s); if (n.has(p)) { n.delete(p) } else { n.add(p) }; return n })
-  const applyStatus = async (status, paths) => {
+  const applyStatus = async (status, paths, opts = {}) => {
     const list = paths || [...sel]
     if (!list.length) { notify(t('noSelection'), false); return }
     setBusy('apply')
-    const verb = status === 'approved' ? t('toastApproved') : status === 'rejected' ? t('toastRejected') : t('toastCardDeleted')
+    const verb = status === 'approved' ? (opts.kind === 'core' ? t('approveCore') : t('toastApproved')) : status === 'rejected' ? t('toastRejected') : t('toastCardDeleted')
     try {
       let failed = 0
       for (const p of list) {
         const ep = status === 'approved' ? 'audit/approve' : status === 'rejected' ? 'audit/reject' : 'delete'
         try {
-          const r = await fetch(API + '/' + ep + '?path=' + encodeURIComponent(p) + (status === 'delete' ? '&permanent=0' : ''))
+          const body = status === 'approved' && opts.kind ? { path: p, kind: opts.kind } : null
+          const r = await fetch(API + '/' + ep + (body ? '' : '?path=' + encodeURIComponent(p) + (status === 'delete' ? '&permanent=0' : '')), body ? {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          } : undefined)
           if (!r.ok) failed++
         } catch { failed++ }
       }
       await load(); if (onReload) onReload()
-      // 必须给反馈：以前这里 catch{} 吞掉一切，用户点了没反应（用户反馈）
       if (failed) notify(t('toastFailed') + '（' + failed + '/' + list.length + '）', false)
       else notify(verb + ' ' + list.length + ' 张')
     } catch (e) { notify(t('toastFailed') + ': ' + String((e && e.message) || e), false) } finally { setBusy('') }
@@ -3641,13 +3657,13 @@ function AuditPanel({ t, onReload, version }) {
                 {items.map((c) => {
                   const color = KIND_COLORS[c.kind] || '#6B7280'
                   return (
-                    <div key={c.path} className={`me-audit-row${previewCard && previewCard.path === c.path ? " active" : ""}`}>
+                    <div key={c.path} className={`me-audit-row${c.kind === 'core' ? ' core' : ''}${previewCard && previewCard.path === c.path ? " active" : ""}`}>
                       <div className="me-audit-row-main" onClick={() => setPreviewPath(c.path)}>
                         <input type="checkbox" checked={sel.has(c.path)} onClick={(e) => e.stopPropagation()} onChange={() => toggle(c.path)} />
                         <span className="me-audit-row-tile" style={{ color, borderColor: color + '38', background: color + '18' }}>{KIND_EMOJI[c.kind] || '📎'}</span>
                         <div className="me-audit-row-copy">
                           <div className="me-audit-row-top">
-                            <span className="me-audit-row-kind">{t(KIND_LABELS[c.kind] || 'kindKnowledge')}</span>
+                            <span className={`me-audit-row-kind${c.kind === 'core' ? ' core' : ''}`}>{c.kind === 'core' ? '⭐ ' + t('kindCore') : t(KIND_LABELS[c.kind] || 'kindKnowledge')}</span>
                             <span className={`me-audit-row-state ${tab === 'pending' ? 'pending' : 'rejected'}`}>{tab === 'pending' ? '⏳ ' + t('statusPending') : '⛔ ' + t('statusRejected')}</span>
                             <span className="me-audit-row-time">{c.created ? c.created.slice(0, 16).replace('T', ' ') : '-'}</span>
                           </div>
@@ -3684,7 +3700,7 @@ function AuditPanel({ t, onReload, version }) {
                   <div className="me-audit-preview-head">
                     <div className="me-audit-preview-top">
                       <span className="me-audit-kind-badge" style={{ color: KIND_COLORS[previewCard.kind] || '#6B7280', borderColor: (KIND_COLORS[previewCard.kind] || '#6B7280') + '59', background: (KIND_COLORS[previewCard.kind] || '#6B7280') + '1a' }}>{KIND_EMOJI[previewCard.kind] || '📎'} {t(KIND_LABELS[previewCard.kind] || 'kindKnowledge')}</span>
-                      <span className={`md-chip ${tab === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad'}`}>{tab === 'pending' ? '⏳ ' + t('statusPending') : '⛔ ' + t('statusRejected')}</span>
+                      <span className={`md-chip ${tab === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad'}`}>{tab === 'pending' ? (previewCard.kind === 'core' ? '⭐ ' + t('coreSuggested') : '⏳ ' + t('statusPending')) : '⛔ ' + t('statusRejected')}</span>
                       <span className="spacer" style={{ flex: 1 }} />
                       <span style={{ fontSize: 10, opacity: 0.55 }}>{previewCard.created ? previewCard.created.slice(0, 16).replace('T', ' ') : ''}</span>
                     </div>
@@ -3703,7 +3719,13 @@ function AuditPanel({ t, onReload, version }) {
                       : (!previewSt.loading && <p className="me-audit-preview-summary">{previewCard.summary || ''}</p>)}
                   </div>
                   <div className="me-audit-preview-actions">
-                    <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path])}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</button>
+                    <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path])}>✓ {tab === 'rejected' ? t('restore') : previewCard.kind === 'core' ? t('approveCore') : t('approve')}</button>
+                    {tab === 'pending' && previewCard.kind !== 'core' && (
+                      <button type="button" className="mc-btn me-core-btn" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'core' })}>⭐ {t('approveAndCore')}</button>
+                    )}
+                    {tab === 'pending' && previewCard.kind === 'core' && (
+                      <button type="button" className="mc-btn" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'knowledge' })}>{t('approveAsNormal')}</button>
+                    )}
                     {tab === 'pending'
                       ? <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => applyStatus('rejected', [previewCard.path])}>✕ {t('reject')}</button>
                       : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>🗑 {t('restoreDelete')}</button>}
@@ -3842,10 +3864,11 @@ const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, 
   const linkCount = Number(links ?? card.links ?? card.weight ?? 0)
   const tags = tagsOf(card)
   return (
-    <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}`} onClick={() => onOpen(card)}>
+    <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}${card.kind === 'core' ? ' core' : ''}`} onClick={() => onOpen(card)}>
       <div className="mc-v5-card-top">
         <span className="mc-v5-card-tile" style={{ color, background: color + '18', borderColor: color + '38' }}>{KIND_EMOJI[card.kind] || '📎'}</span>
-        <span className="mc-v5-card-kind-name">{t(KIND_LABELS[card.kind] || 'kindKnowledge')}</span>
+        <span className="mc-v5-card-kind-name">{card.kind === 'core' ? '⭐ ' + t('kindCore') : t(KIND_LABELS[card.kind] || 'kindKnowledge')}</span>
+        {card.kind === 'core' && <span className="mc-v5-core-badge">⭐ {t('kindCore')}</span>}
         {card.status === 'pending' && <span className="mc-v5-card-status pending">⏳ {t('statusPending')}</span>}
         {card.status === 'rejected' && <span className="mc-v5-card-status rejected">⛔ {t('statusRejected')}</span>}
         {isNewCard(card.updated) && <span className="mc-new">{t('newBadge')}</span>}

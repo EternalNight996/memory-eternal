@@ -638,6 +638,8 @@ export function apply(ctx, config) {
 
   // 自动审核：根据配置决定新卡 status（免审→approved，否则 pending）
   const resolveAuditStatus = (cfg, kind, submittedBy) => {
+    // 核心记忆必须人工审核：自动沉淀/手动写入都先待审，避免一次误判污染每个会话。
+    if (kind === 'core') return 'pending'
     if (cfg.auditMode === 'none') return 'approved'
     const agents = Array.isArray(cfg.auditExemptAgents) ? cfg.auditExemptAgents : []
     const kinds = Array.isArray(cfg.auditExemptKinds) ? cfg.auditExemptKinds : []
