@@ -1794,7 +1794,12 @@ const CSS = `
 .me-v5 .mc-v5-top .spacer { flex: 1 1 auto; }
 /* 右上角 108px 安全区：给 WebModal（左栏「记忆」/「配置」打开的全屏弹窗）的窗口控制条让位。
    控制条是两颗 46px 按钮（窄屏 2×44=88px），所以窄屏预留 96px、宽屏 108px。 */
-.me-v5 .mc-v5-top.in-host { padding-right: 108px; }
+.me-v5 .mc-v5-top.in-host { padding-right: 108px; position: relative; }
+/* 右侧安全区做成明确的「窗口控制区」：一条细分隔 + 极淡的底，避免 Star/? 与关闭键之间像一块空洞。 */
+.me-v5 .mc-v5-top.in-host::before { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 108px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.028)); pointer-events: none; }
+.me-v5 .mc-v5-top.in-host::after { content: ''; position: absolute; right: 108px; top: 13px; bottom: 13px; width: 1px; background: rgba(255,255,255,.07); pointer-events: none; }
+.me-v5 .mc-v5-top.in-host .mc-v5-top-actions { position: relative; z-index: 1; gap: 6px; }
+@media (max-width: 900px) { .me-v5 .mc-v5-top.in-host { padding-right: 92px; } .me-v5 .mc-v5-top.in-host::before { width: 92px; } .me-v5 .mc-v5-top.in-host::after { right: 92px; } }
 .me-v5 .mc-v5-logo { width: 22px; height: 22px; border-radius: 7px; object-fit: cover; flex: none; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
 .me-v5 .mc-v5-crumb { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #b0b7c1; white-space: nowrap; }
 .me-v5 .mc-v5-crumb b { color: #f3f5f8; font-weight: 600; }
