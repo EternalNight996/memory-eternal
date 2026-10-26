@@ -64,6 +64,7 @@ export const ZH = {
   kindBusiness: '业务',
   kindTool: '工具',
   kindMistake: '教训',
+  kindCore: '核心记忆',
   cardsTab: '知识卡',
   webTab: 'Web 版',
   webOpening: '正在用默认浏览器打开 Web 版…',
@@ -306,6 +307,16 @@ export const ZH = {
   readonlyBtn: '只读',
   setupRunInTerminal: '请复制以下命令到终端执行：',
   dshMemoryConfig: 'DSH 记忆配置',
+  coreMemory: '核心记忆（前置强制）',
+  coreMemoryHint: '每次会话自动注入，不依赖模型主动召回；只读取已批准的核心卡',
+  coreMemoryEnabled: '启用核心记忆注入',
+  coreMemoryLimit: '核心记忆上限（张）',
+  coreMemoryMaxChars: '核心记忆总字符上限',
+  setCore: '设为核心记忆',
+  unsetCore: '取消核心记忆',
+  coreSetOk: '已设为核心记忆',
+  coreUnsetOk: '已取消核心记忆',
+  coreSetFail: '设置失败',
   autoCapture: '自动沉淀',
   autoRecall: '自动召回',
   captureMinChars: '捕获最小长度',
@@ -631,6 +642,7 @@ export const EN = {
   kindBusiness: 'Business',
   kindTool: 'Tools',
   kindMistake: 'Mistakes',
+  kindCore: 'Core memory',
   cardsTab: 'Cards',
   webTab: 'Web version',
   webOpening: 'Opening the web version in your browser…',
@@ -873,6 +885,16 @@ export const EN = {
   readonlyBtn: 'Read-only',
   setupRunInTerminal: 'Copy this command to your terminal:',
   dshMemoryConfig: 'DSH Memory Config',
+  coreMemory: 'Core memory (always-on)',
+  coreMemoryHint: 'Injected into every session; only approved core cards are used',
+  coreMemoryEnabled: 'Enable core-memory injection',
+  coreMemoryLimit: 'Core-memory limit (cards)',
+  coreMemoryMaxChars: 'Core-memory total character limit',
+  setCore: 'Set as core memory',
+  unsetCore: 'Remove from core memory',
+  coreSetOk: 'Set as core memory',
+  coreUnsetOk: 'Removed from core memory',
+  coreSetFail: 'Failed to update',
   autoCapture: 'Auto capture',
   autoRecall: 'Auto recall',
   captureMinChars: 'Min capture chars',
@@ -1181,13 +1203,13 @@ export const EN = {
   tplWeeklyBody: '# Weekly report [YYYY-MM-DD]\n\n## Done this week\n- \n\n## Next week\n- \n\n## Risks/blockers\n- ',
 }
 
-const KIND_IDS = ['all', 'project', 'knowledge', 'content', 'prompt', 'business', 'tool', 'mistake']
-const KIND_COLORS = { project: '#3B82F6', knowledge: '#10B981', content: '#F59E0B', prompt: '#A855F7', business: '#EC4899', tool: '#06B6D4', mistake: '#EF4444', other: '#6B7280' }
+const KIND_IDS = ['all', 'core', 'project', 'knowledge', 'content', 'prompt', 'business', 'tool', 'mistake']
+const KIND_COLORS = { core: '#FF7A45', project: '#3B82F6', knowledge: '#10B981', content: '#F59E0B', prompt: '#A855F7', business: '#EC4899', tool: '#06B6D4', mistake: '#EF4444', other: '#6B7280' }
 // issue #41：畸形卡（tags 是字符串 / undefined）曾让整页黑屏（React 根组件挂载失败）——
 // 渲染层一律走这个兜底，坏数据最多少显示几个标签，不能把整棵树带走。
 const tagsOf = (c) => (Array.isArray(c && c.tags) ? c.tags : [])
-const KIND_EMOJI = { project: '📁', knowledge: '📚', content: '📝', prompt: '💬', business: '💼', tool: '🔧', mistake: '⚠️', other: '📎' }
-const KIND_LABELS = { project: 'kindProject', knowledge: 'kindKnowledge', content: 'kindContent', prompt: 'kindPrompt', business: 'kindBusiness', tool: 'kindTool', mistake: 'kindMistake', other: 'kindKnowledge' }
+const KIND_EMOJI = { core: '⭐', project: '📁', knowledge: '📚', content: '📝', prompt: '💬', business: '💼', tool: '🔧', mistake: '⚠️', other: '📎' }
+const KIND_LABELS = { core: 'kindCore', project: 'kindProject', knowledge: 'kindKnowledge', content: 'kindContent', prompt: 'kindPrompt', business: 'kindBusiness', tool: 'kindTool', mistake: 'kindMistake', other: 'kindKnowledge' }
 // DSH 宿主自动沉淀卡的署名（与 index.js 的 DSH_AGENT 保持一致）。
 // 归一化：session:<uuid> / agent / unknown / 空 → deepseek-harness；claude-code → claude；其余取冒号前 token。
 const DSH_AGENT = 'deepseek-harness'
@@ -2384,6 +2406,28 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     return () => io.disconnect()
   }, [view, cards, cardTotal, loading, loadingMore, kind, query, statusFilter, loadCards])
 
+  const changeCardKind = async (path, kind) => {
+    try {
+      const r = await fetch(`${API}/card-kind`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, kind }),
+      }).then((x) => x.json())
+      if (!r || !r.ok) {
+        setLibToast({ ok: false, msg: (r && r.error) || t('coreSetFail') })
+      } else {
+        setReader((prev) => (prev && prev.path === path ? { ...prev, kind: r.kind } : prev))
+        await loadAll()
+        bump()
+        setLibToast({ ok: true, msg: kind === 'core' ? t('coreSetOk') : t('coreUnsetOk') })
+      }
+    } catch (e) {
+      setLibToast({ ok: false, msg: String((e && e.message) || e) })
+    }
+    if (libToastTimer.current) clearTimeout(libToastTimer.current)
+    libToastTimer.current = setTimeout(() => setLibToast(null), 2000)
+  }
+
   const openCard = async (card) => {
     try {
       // 两套存储：未审核 / 回收站卡在隔离区，读取必须显式声明 status，
@@ -2400,7 +2444,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       const qs = st && st !== 'approved' ? `&status=${encodeURIComponent(st)}` : ''
       const res = await fetch(`${API}/card?path=${encodeURIComponent(card.path || card.id)}${qs}`)
       const data = await res.json()
-      if (data.ok) setReader({ path: data.path, title: card.title, text: data.text })
+      if (data.ok) setReader({ path: data.path, title: card.title, text: data.text, kind: card.kind || 'knowledge' })
       else setError(data.error || `HTTP ${res.status}`)
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
@@ -2736,7 +2780,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         {feedbackOpen && <FeedbackModal t={t} onClose={() => setFeedbackOpen(false)} />}
         {supportOpen && <SupportModal t={t} tab={supportTab} onTab={setSupportTab} onClose={() => setSupportOpen(false)} onFeedback={() => { setSupportOpen(false); setFeedbackOpen(true) }} onReplay={() => { setSupportOpen(false); setOnboardOpen(true) }} />}
         {onboardOpen && <Onboarding t={t} onDone={finishOnboard} />}
-        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) openCard(next) }} onTagClick={onTagPick} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} allCards={sortedCards} onOpenRelated={(c) => openCard(c)} />}
+        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) openCard(next) }} onTagClick={onTagPick} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} allCards={sortedCards} onOpenRelated={(c) => openCard(c)} onKindChange={changeCardKind} />}
         <NewCardModal t={t} newCard={newCard} setNewCard={setNewCard} onCreated={() => { loadAll(); bump(); setLibToast({ ok: true, msg: t('created') }); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />
         </div>
       </div>
@@ -3276,6 +3320,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 {/* 凭证取用提示：一句自己写的约定，会被注入到每个会话的 systemPrompt（触发 agent 去查目录卡） */}
                 <F k="secretHint" label={t('secretHint')} />
                 <F k="recallEmbedding" label={t('recallEmbedding')} />
+              </div>
+            </CfgSection>
+            {/* 核心记忆（前置强制注入） */}
+            <CfgSection icon="⭐" title={t('coreMemory')} sub={t('coreMemoryHint')}>
+              <div className="mc-cfg-grid">
+                <Bool k="coreMemoryEnabled" label={t('coreMemoryEnabled')} />
+                <F k="coreMemoryLimit" label={t('coreMemoryLimit')} type="number" />
+                <F k="coreMemoryMaxChars" label={t('coreMemoryMaxChars')} type="number" />
               </div>
             </CfgSection>
             {/* 多库（按项目隔离记忆）—— #10 */}
@@ -4721,7 +4773,7 @@ function Onboarding({ t, onDone }) {
   )
 }
 
-function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate, onTagClick, allCards, onOpenRelated }) {
+function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate, onTagClick, allCards, onOpenRelated, onKindChange }) {
   // 读卡进度（0–100）：长卡片下让人知道还剩多少
   const [progress, setProgress] = useState(0)
   // 复制反馈（1.5s 自动消失）：没有它用户点了按钮不知道成没成
@@ -4752,7 +4804,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
   const { meta, body } = useMemo(() => splitFrontmatter(card.text || ''), [card.text])
   const metaOf = (key) => { const hit = meta.find(([k]) => String(k).toLowerCase() === key); return hit ? hit[1] : '' }
   const tags = parseTags(metaOf('tags'))
-  const kind = metaOf('kind') || 'knowledge'
+  const kind = card.kind || metaOf('kind') || 'knowledge'
   const status = (metaOf('status') || 'approved').toLowerCase()
   const kindColor = KIND_COLORS[kind] || '#6B7280'
   const long = (body || '').length > 460
@@ -4786,6 +4838,9 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
             <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbIrr')}</button>
             {long && <button type="button" className="mc-btn" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>{expanded ? t('collapse') : t('expand')}</button>}
             <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => { if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>{t('delete')}</button>
+            {onKindChange && status === 'approved' && (kind === 'core'
+              ? <button type="button" className="mc-btn" onClick={() => onKindChange(card.path, 'knowledge')}>{t('unsetCore')}</button>
+              : <button type="button" className="mc-btn" onClick={() => onKindChange(card.path, 'core')}>⭐ {t('setCore')}</button>)}
             <button type="button" className="mc-btn" onClick={onClose}>{t('close')}</button>
           </div>
         </div>

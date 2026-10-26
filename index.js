@@ -54,6 +54,10 @@ export const Config = z.object({
   enabled: z.boolean().default(true),
   autoCapture: z.boolean().default(true),
   autoRecall: z.boolean().default(true),
+  // 核心记忆：人工批准的核心卡，每次会话强制注入 systemPrompt（不依赖 autoRecall / 工具调用）
+  coreMemoryEnabled: z.boolean().default(true),
+  coreMemoryLimit: z.number().min(1).max(20).default(6),
+  coreMemoryMaxChars: z.number().min(200).max(10000).default(2000),
   vaultDir: z.string().default(''),
   dedupThreshold: z.number().min(0).max(1).default(0.62),
   captureMinChars: z.number().default(200),
@@ -966,6 +970,50 @@ export function apply(ctx, config) {
     }
   }, 'memory-eternal: recall section')
 
+  // -- 2b. 核心记忆：每次会话强制注入（不依赖 autoRecall / 工具调用） ---------
+  ctx.effect(() => {
+    let disposeSection = null
+    let timer = null
+    let alive = true
+    let lastText = ''
+    const clearSection = () => {
+      if (!disposeSection) return
+      const dispose = disposeSection
+      disposeSection = null
+      dispose()
+    }
+    const refresh = async () => {
+      try {
+        const cfg = settings.get() ?? {}
+        if (cfg.enabled === false || cfg.coreMemoryEnabled === false) { clearSection(); lastText = ''; return }
+        const { coreMemoryPrompt } = await import('./lib/core-memory.js')
+        const out = await coreMemoryPrompt(vaultDir(), {
+          enabled: true,
+          limit: cfg.coreMemoryLimit,
+          maxChars: cfg.coreMemoryMaxChars,
+        })
+        if (!alive) return
+        if (!out.text) { clearSection(); lastText = ''; return }
+        if (out.text === lastText) return
+        lastText = out.text
+        clearSection()
+        disposeSection = ctx.systemPrompt.section({
+          name: 'memory-eternal: core-memory',
+          order: 120,
+          text: out.text,
+        })
+      } catch { /* 核心记忆失败不能影响普通对话 */ }
+    }
+    refresh()
+    timer = setInterval(refresh, 5000)
+    if (timer && typeof timer.unref === 'function') timer.unref()
+    return () => {
+      alive = false
+      if (timer) clearInterval(timer)
+      clearSection()
+    }
+  }, 'memory-eternal: core memory section')
+
   const tools = ctx.get('tools')
   if (tools !== undefined) {
     tools.register(defineTool({
@@ -1220,7 +1268,7 @@ export function apply(ctx, config) {
               const cfg = settings.get() ?? {}
               // 只暴露可安全展示/回填的字段
               const safe = {
-                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
+                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, coreMemoryEnabled: cfg.coreMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
                 captureMinChars: cfg.captureMinChars, captureCooldownMs: cfg.captureCooldownMs, dedupThreshold: cfg.dedupThreshold, maxCardsPerDay: cfg.maxCardsPerDay,
                 distillEnabled: cfg.distillEnabled, dedupByLLM: cfg.dedupByLLM, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
                 autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,
