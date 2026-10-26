@@ -2633,9 +2633,10 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       className="memory-eternal-root me-v5"
       data-ui-scale={uiScale}
       style={{
-        height: `calc(100% / ${uiZoom})`,
-        width: `calc(100% / ${uiZoom})`,
+        height: '100%',
+        width: '100%',
         zoom: uiZoom,
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -5655,7 +5656,15 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     }
 
     // interactions
-    const toWorld = (cx, cy) => { const r = canvas.getBoundingClientRect(); return { x: (cx - r.left - sim.panX) / sim.zoom, y: (cy - r.top - sim.panY) / sim.zoom } }
+    // 注意：根节点有 CSS zoom（布局大小配置）。getBoundingClientRect 返回视觉尺寸，
+    // 而 canvas 内部坐标是布局尺寸；不换算会让点击命中整体偏移（uiScale=large 时尤其明显）。
+    const toLocal = (cx, cy) => {
+      const r = canvas.getBoundingClientRect()
+      const sx = r.width ? canvas.clientWidth / r.width : 1
+      const sy = r.height ? canvas.clientHeight / r.height : 1
+      return { x: (cx - r.left) * sx, y: (cy - r.top) * sy }
+    }
+    const toWorld = (cx, cy) => { const p = toLocal(cx, cy); return { x: (p.x - sim.panX) / sim.zoom, y: (p.y - sim.panY) / sim.zoom } }
     const nodeVisible = (id) => { const info = sim.domainById[id]; if (!info) return false; if (filterRef.current !== 'all' && info.kind !== filterRef.current) return false; if (tagRef.current && !(info.tags || []).includes(tagRef.current)) return false; return true }
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
     const onMove = (e) => { sim.mouseX = e.clientX; sim.mouseY = e.clientY; const w = toWorld(e.clientX, e.clientY); let hov = null; for (let i = sim.nodes.length-1; i>=0; i--) { const n = sim.nodes[i]; if (!nodeVisible(n.id)) continue; const dx = n.x - w.x, dy = n.y - w.y; if (dx*dx + dy*dy < n.r*n.r + 36) { hov = n.id; break } } if (hov !== sim.hoverId) { sim.hoverId = hov; wake() } }
@@ -5684,9 +5693,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     const onUp = (e) => {
       if (sim.marquee) {
         const m = sim.marquee; sim.marquee = null
-        const rect = canvas.getBoundingClientRect()
-        const x1 = Math.min(m.sx, m.ex) - rect.left, x2 = Math.max(m.sx, m.ex) - rect.left
-        const y1 = Math.min(m.sy, m.ey) - rect.top, y2 = Math.max(m.sy, m.ey) - rect.top
+        const p1 = toLocal(m.sx, m.sy), p2 = toLocal(m.ex, m.ey)
+        const x1 = Math.min(p1.x, p2.x), x2 = Math.max(p1.x, p2.x)
+        const y1 = Math.min(p1.y, p2.y), y2 = Math.max(p1.y, p2.y)
         const ids = sim.nodes.filter((n) => { const wx = n.x * sim.zoom + sim.panX, wy = n.y * sim.zoom + sim.panY; return wx >= x1 && wx <= x2 && wy >= y1 && wy <= y2 }).map((n) => n.id)
         sim.multi = ids; setMulti(ids)
         wake(); return
@@ -5716,9 +5725,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     }
     const onWheel = (e) => {
       e.preventDefault()
-      const rect = canvas.getBoundingClientRect()
-      const wx = (e.clientX - rect.left - sim.panX) / sim.zoom
-      const wy = (e.clientY - rect.top - sim.panY) / sim.zoom
+      const p = toLocal(e.clientX, e.clientY)
+      const wx = (p.x - sim.panX) / sim.zoom
+      const wy = (p.y - sim.panY) / sim.zoom
       const newZoom = Math.max(0.3, Math.min(3, sim.zoom * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP)))
       sim.panX = clamp(sim.panX + wx * (sim.zoom - newZoom), -1e5, 1e5)
       sim.panY = clamp(sim.panY + wy * (sim.zoom - newZoom), -1e5, 1e5)
