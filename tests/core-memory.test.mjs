@@ -7,7 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { coreMemoryPrompt, CORE_HEADER } from '../lib/core-memory.js'
-import { writeCard, setCardKind } from '../lib/vault.js'
+import { writeCard, setCardKind, setCardStatus } from '../lib/vault.js'
 import { setAuditConfig } from '../lib/db.js'
 
 const makeRoot = () => fs.mkdtempSync(path.join(os.tmpdir(), 'me-core-'))
@@ -15,6 +15,9 @@ async function seed(root, title, body) {
   setAuditConfig(root, { auditMode: 'none', auditExemptAgents: [], auditExemptKinds: [] })
   const r = await writeCard(root, { kind: 'core', title, body, status: 'approved', submittedBy: 'test' })
   assert.equal(r.ok, true, '写入核心卡失败: ' + JSON.stringify(r))
+  // core 不论 auditMode / 显式 status 如何都先待审；测试里模拟用户批准。
+  assert.equal(r.status, 'pending', '核心卡必须强制待审')
+  await setCardStatus(root, r.path, 'approved')
   return r.path
 }
 
@@ -59,6 +62,23 @@ test('已批准普通卡可提升为核心，审核中的卡不能提升', async
   assert.equal(pending.ok, true)
   await assert.rejects(() => setCardKind(root, pending.path, 'core'), /已批准|审核/)
 })
+test('core 卡强制待审：auditMode=none 也不能免审', async () => {
+  const root = makeRoot()
+  setAuditConfig(root, { auditMode: 'none', auditExemptAgents: ['__all__'], auditExemptKinds: ['__all__'] })
+  const r = await writeCard(root, { kind: 'core', title: '免审测试', body: '核心偏好必须人工审核。', status: 'approved', submittedBy: 'test' })
+  assert.equal(r.ok, true)
+  assert.equal(r.status, 'pending')
+  assert.equal(r.store, 'quarantine')
+})
+
+test('自动沉淀能建议 core，但数据库层仍强制待审', () => {
+  const capture = readFileSync(new URL('../lib/capture.js', import.meta.url), 'utf8')
+  assert.match(capture, /knowledge|project|content|prompt|business|tool|mistake|core/)
+  assert.match(capture, /core 只在/)
+  const db = readFileSync(new URL('../lib/db.js', import.meta.url), 'utf8')
+  assert.match(db, /kind\) === 'core'\) return 'pending'/)
+})
+
 test('宿主在 systemPrompt 里注入核心记忆，且配置有默认值', () => {
   const src = readFileSync(new URL('../index.js', import.meta.url), 'utf8')
   assert.match(src, /memory-eternal: core-memory/, 'host 要注册核心记忆 systemPrompt 段')
