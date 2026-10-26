@@ -9,6 +9,7 @@
 // 数据全部来自 host 的 /memory-eternal/api/* JSON 路由（同源 fetch），不引入额外依赖。
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import brandIcon from '../../assets/icon.png'
 import { snippetAround } from './snippet.js'
@@ -1498,7 +1499,7 @@ const CSS = `
 .me-footer.rail .me-footer-label { display: none; }
 
 /* ---- full library modal ---- */
-.me-overlay-top { position: fixed; inset: 0; z-index: 1001; background: rgba(0,0,0,0.72); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 28px; }
+.me-overlay-top { position: fixed; inset: 0; z-index: 2147483000; background: rgba(0,0,0,0.72); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 28px; }
 .me-modal { width: min(1380px, 98vw); height: min(98vh, 1080px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border: 1px solid var(--dsw-alias-border-l1, #2c333c); border-radius: 18px; box-shadow: 0 34px 90px rgba(0,0,0,0.6); overflow: hidden; animation: me-pop 0.22s cubic-bezier(0.2,0.8,0.2,1); }
 /* 弹窗必须永远装得进遮罩的 28px×2 内边距。98vh 的弹窗 + 56px 内边距在多数窗口高度下会溢出，
    flex 居中把顶边顶到可视区外/顶进桌面壳的 caption —— 右上角控制条压到原生窗口按钮上，
@@ -1550,7 +1551,7 @@ const CSS = `
 @media (max-width: 816px) { .me-wctl-btn { height: 50px; } }
 @media (max-width: 776px) { .me-wctl-btn { width: 44px; height: 46px; } }
 .me-modal-body { flex: 1; padding: 18px 20px; overflow: hidden; display: flex; }
-.me-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.66); z-index: 1002; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.me-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.66); z-index: 2147483001; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .me-dialog { background: var(--dsw-alias-bg-layer-1, #1e232c); color: var(--dsw-alias-label-primary, #e5e7eb); border-radius: 14px; max-width: 760px; width: 100%; max-height: 84vh; display: flex; flex-direction: column; box-sizing: border-box; box-shadow: 0 24px 60px rgba(0,0,0,0.5); border: 1px solid var(--dsw-alias-border-l1, #2c333c); }
 .me-reader-dialog { max-width: 1180px; }
 .me-reader-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
@@ -2054,7 +2055,7 @@ function WebModal({ t, locale, onClose, tab }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-  return (
+  const overlay = (
     <div className="me-overlay-top" onClick={onClose}>
       <style>{CSS}</style>
       <div className={'me-modal' + (full ? ' me-modal-full' : '')} onClick={(e) => e.stopPropagation()}>
@@ -2076,6 +2077,8 @@ function WebModal({ t, locale, onClose, tab }) {
       </div>
     </div>
   )
+  // portal 到 body：脱离 DSH 插件容器的 stacking context，避免被第三方插件（对话栏等）盖住
+  return typeof document === 'undefined' ? overlay : createPortal(overlay, document.body)
 }
 
 function DatabaseIcon() {
