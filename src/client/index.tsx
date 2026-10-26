@@ -260,6 +260,8 @@ export const ZH = {
   noMcpEntry: '配置缺失',
   nodePathMismatch: 'node 路径不一致，建议重跑 setup',
   nodePathNote: 'node 环境不同（可用）',
+  mcpNeedsRepair: '⚠ 需修复（旧配置会拉起 GUI）',
+  repairMcp: '修复配置',
   healthy: '配置正常',
   mcpSetupHint: '「自动挂载 MCP」= 让 Claude Code / Codex / Cursor 这些工具能调用记忆库。开启后自动把它们配置好；关掉就不动你电脑上任何配置文件，需要时手动跑 dsh-memory setup。',
   mcpManageHint: '每个 agent 用下方按钮单独安装/卸载 MCP',
@@ -848,6 +850,8 @@ export const EN = {
   noMcpEntry: 'no MCP entry',
   nodePathMismatch: 'node path mismatch, consider re-running setup',
   nodePathNote: 'different node env (usable)',
+  mcpNeedsRepair: '⚠ Needs repair (old config launches GUI)',
+  repairMcp: 'Repair',
   healthy: 'healthy',
   mcpSetupHint: '"Auto-mount MCP" = lets Claude Code / Codex / Cursor use the memory vault. On = auto-configures them; Off = never touches your machine config, run dsh-memory setup manually when needed.',
   mcpManageHint: 'Use each agent row to install/uninstall MCP individually',
@@ -3306,6 +3310,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       {a.installed && a.mcpConfigured === false && <span className="mc-mcp-badge" style={{ color: '#f59e0b' }}>{t('noMcpEntry')}</span>}
                       {a.mcpConfigured === true && <span className="mc-mcp-badge" style={{ color: '#10b981' }}>✓ {t('healthy')}</span>}
                       {a.mcpConfigured === true && a.mcpMatchesCurrentNode === false && <span className="mc-mcp-badge">{t('nodePathNote')}</span>}
+                      {(a.needsRepair || a.mcpNeedsRepair) && <span className="mc-mcp-badge" style={{ color: '#f59e0b' }}>{t('mcpNeedsRepair')}</span>}
                       {a.isDsh && <span className="mc-mcp-badge">{t('recallTool')}: {a.recallTool ? t('enabled') : t('disabled')}</span>}
                       {a.detectedOnly && <span className="mc-mcp-badge">{t('mcpDetectedOnly')}</span>}
                       {a.reason && <span className="mc-mcp-badge" style={{ color: '#f59e0b' }}>{a.reason}</span>}
@@ -3321,6 +3326,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     {a.hook && <span style={{ fontSize: 10.5, opacity: 0.55 }}>hook: {a.hook}</span>}
                     {!a.isDsh && !a.detectedOnly && a.installed && a.mcpConfigured === false && (
                       <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => mcpAction(a.name, 'install')}>{t('installMcp')}</button>
+                    )}
+                    {!a.isDsh && !a.detectedOnly && a.installed && (a.needsRepair || a.mcpNeedsRepair || a.mcpMatchesCurrentNode === false) && (
+                      <button type="button" className="mc-btn me-on" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => mcpAction(a.name, 'install')}>{t('repairMcp')}</button>
                     )}
                     {!a.isDsh && !a.detectedOnly && a.installed && a.mcpConfigured === true && (
                       <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('uninstallConfirm'))) mcpAction(a.name, 'uninstall') }}>{t('uninstallMcp')}</button>
