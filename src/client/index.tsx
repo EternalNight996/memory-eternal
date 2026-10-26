@@ -8,7 +8,7 @@
 //
 // 数据全部来自 host 的 /memory-eternal/api/* JSON 路由（同源 fetch），不引入额外依赖。
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import brandIcon from '../../assets/icon.png'
@@ -2883,6 +2883,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [toast, setToast] = useState(null)
   const [appliedPlan, setAppliedPlan] = useState('')
   const [dirty, setDirty] = useState(false)
+  // 配置页滚动位置：编辑/保存/按钮触发的重渲染不能把视图弹回顶部。
+  const scrollRef = useRef(null)
+  const scrollTopRef = useRef(0)
+  const onScroll = (e) => { scrollTopRef.current = e.currentTarget.scrollTop }
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    if (Math.abs(el.scrollTop - scrollTopRef.current) > 1) el.scrollTop = scrollTopRef.current
+  })
   const toastTimer = useRef(null)
   const notify = (msg, ok = true) => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast({ msg, ok }); toastTimer.current = setTimeout(() => setToast(null), 1900) }
   // 「重启常驻实例」：常驻 web（默认 7999）比 DSH 宿主活得久 —— 升级只换磁盘文件，端口上那个
@@ -3179,10 +3188,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const mcpMounted = mcpList.filter((a) => a.mcpConfigured && !a.isDsh).length
   const mcpHasServerData = mcpList.some((a) => Array.isArray(a.servers))
   return (
-    <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
+    <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
       <style>{CSS}</style>
       {toast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (toast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: toast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{toast.ok ? '✓' : '✕'}</span><span style={{ wordBreak: 'break-all' }}>{toast.msg}</span></div>}
-      <div style={{ overflow: 'auto', padding: 4 }}>
+      <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', scrollbarGutter: 'stable', padding: 4 }}>
         {!compact && (
           <div className="mc-v5-pagehead">
             <div>
