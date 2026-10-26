@@ -31,7 +31,7 @@ import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
-import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
+import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { recordLedger } from './lib/ledger.js'
@@ -690,18 +690,19 @@ export function apply(ctx, config) {
       const source = DSH_AGENT
       if (cfg.distillEnabled === false || !llm) {
         const rawTitle = deriveTitle(text)
+        const rawKind = guessRawKind({ title: rawTitle, body: text })
         const out = await captureCard(root, {
-          kind: 'content',
+          kind: rawKind,
           title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
           tags: ['raw'],
           body: text,
           source,
-          status: resolveAuditStatus(cfg, 'content', source || 'unknown'),
+          status: resolveAuditStatus(cfg, rawKind, source || 'unknown'),
           submittedBy: source || 'unknown',
           severity: 'info',
           reason: 'AI 自动沉淀（原文卡）',
         }, { threshold: cfg.dedupThreshold })
-        if (out.ok) { countWrite(); logCapture(sessionId, 'created', '原文卡（蒸馏已关闭）', { path: out.path ?? out.rel, kind: 'content' }) }
+        if (out.ok) { countWrite(); logCapture(sessionId, 'created', '原文卡（蒸馏已关闭）', { path: out.path ?? out.rel, kind: rawKind }) }
         else if (out.duplicate) { countWrite(); logCapture(sessionId, 'appended', '与已有卡重复 → 追加更新记录', { path: out.duplicate.path }) }
         else logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`)
         return
@@ -812,20 +813,21 @@ export function apply(ctx, config) {
       if (!result) {
         // 蒸馏失败不能让内容白丢：退成原文卡（与「关闭蒸馏」同一条降级路径）。
         const rawTitle = deriveTitle(text)
+        const rawKind = guessRawKind({ title: rawTitle, body: text })
         const raw = await captureCard(root, {
-          kind: 'content',
+          kind: rawKind,
           title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
           // 蒸馏失败产出的原文卡与被批准的噪声卡是审核中心的主要污染源（#15 评论）：
           // 打上独立 tag，便于按 tag 过滤 / 批量处理，不再和正常卡混作一团。
           tags: ['raw', 'distill-failed'],
           body: text,
           source,
-          status: resolveAuditStatus(cfg, 'content', source),
+          status: resolveAuditStatus(cfg, rawKind, source),
           submittedBy: source,
           severity: 'info',
           reason: `AI 自动沉淀（蒸馏无输出 → 原文卡兜底；主因：${why}）`,
         }, { threshold: cfg.dedupThreshold })
-        if (raw.ok) { countWrite(); logCapture(sessionId, 'created', `蒸馏失败（${why}）→ 原文卡兜底`, { path: raw.path ?? raw.rel, kind: 'content', model: route.model }) }
+        if (raw.ok) { countWrite(); logCapture(sessionId, 'created', `蒸馏失败（${why}）→ 原文卡兜底`, { path: raw.path ?? raw.rel, kind: rawKind, model: route.model }) }
         else if (raw.duplicate) { countWrite(); logCapture(sessionId, 'appended', '蒸馏无输出 + 与已有卡重复 → 追加更新', { path: raw.duplicate.path, model: route.model }) }
         else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || '未知原因'}`, { model: route.model })
         return
