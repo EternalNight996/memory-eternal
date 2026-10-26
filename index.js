@@ -58,6 +58,8 @@ export const Config = z.object({
   coreMemoryEnabled: z.boolean().default(true),
   coreMemoryLimit: z.number().min(1).max(20).default(6),
   coreMemoryMaxChars: z.number().min(200).max(10000).default(2000),
+  // 记忆界面整体布局大小：compact / normal / large（只影响 UI，不影响召回）
+  uiScale: z.union([z.const('compact'), z.const('normal'), z.const('large')]).default('normal'),
   vaultDir: z.string().default(''),
   dedupThreshold: z.number().min(0).max(1).default(0.62),
   captureMinChars: z.number().default(200),
@@ -1272,7 +1274,7 @@ export function apply(ctx, config) {
               const cfg = settings.get() ?? {}
               // 只暴露可安全展示/回填的字段
               const safe = {
-                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, coreMemoryEnabled: cfg.coreMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
+                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, coreMemoryEnabled: cfg.coreMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
                 captureMinChars: cfg.captureMinChars, captureCooldownMs: cfg.captureCooldownMs, dedupThreshold: cfg.dedupThreshold, maxCardsPerDay: cfg.maxCardsPerDay,
                 distillEnabled: cfg.distillEnabled, dedupByLLM: cfg.dedupByLLM, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
                 autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,
