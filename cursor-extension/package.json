@@ -2,7 +2,7 @@
   "name": "memory-eternal",
   "displayName": "Memory Atlas",
   "description": "Memory-eternal: open the local Memory Atlas library, review queue and knowledge graph in a Cursor/VS Code webview.",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "publisher": "EternalNight996",
   "license": "MIT",
   "repository": {
