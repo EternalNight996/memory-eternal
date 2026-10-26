@@ -60,7 +60,8 @@ test('③ 配置同步失败不再冒充「自动沉淀异常」（不翻红沉�
 test('④ 版本漂移开关在快照缺这个键时按「默认开」渲染（面板与宿主生效值必须一致）', () => {
   // 现场：0.10.6 宿主 + 0.10.7 面板 —— 宿主 schema 里没有 autoRestartOnDrift，快照里也没有这个键，
   // 面板就渲染成「未勾选」，而宿主实际按「开」处理（cfg.autoRestartOnDrift !== false）→ 用户看到的是假状态。
-  assert.match(client, /const BOOL_DEFAULT_ON = new Set\(\['autoRestartOnDrift'\]\)/, '要有「默认开」的清单')
+  assert.match(client, /const BOOL_DEFAULT_ON = new Set\(\[[^\]]*'autoRestartOnDrift'[^\]]*\]\)/, '要有「默认开」的清单')
+  assert.match(client, /BOOL_DEFAULT_ON = new Set\(\[[^\]]*'coreMemoryEnabled'[^\]]*\]\)/, '核心记忆默认开也要在清单里')
   assert.match(client, /raw === undefined \? BOOL_DEFAULT_ON\.has\(k\) : !!raw/, '缺键取默认开、有键按实际值')
   assert.match(indexSrc, /autoRestartOnDrift: z\.boolean\(\)\.default\(true\)/, 'schema 默认必须是开')
   assert.match(indexSrc, /autoRestart: cfg0\.autoRestartOnDrift !== false/, '宿主未配置时也按开处理')
