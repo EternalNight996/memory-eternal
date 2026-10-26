@@ -2839,7 +2839,7 @@ const StatCell = ({ label, value }) => (
 
 /** DSH 设置→记忆 左栏配置面板：插件信息 + Agent MCP 挂载状态 + 全部配置项（一键推荐 / DSH 记忆配置 / 成本控制 / 自动审核配置 / 服务自管理配置 / 保存）。 */
 const CfgFormContext = createContext({ form: null, set: () => {} })
-const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift'])
+const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift', 'coreMemoryEnabled'])
 
 /** 配置字段：必须在模块顶层定义。放在 ConfigPanel 里会在每次输入重渲染时换组件类型，
  *  React 于是整棵表单卸载重建 —— 输入框失焦、滚动条回跳（用户反馈根因）。 */
@@ -3069,7 +3069,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     try { es.addEventListener('config', onConfig) } catch { /* 老浏览器忽略 */ }
     return () => { try { es.close() } catch { /* 已关闭 */ } }
   }, [])
-  const NUM_KEYS_LIKE = new Set(['dedupThreshold', 'captureMinChars', 'captureCooldownMs', 'maxCardsPerDay', 'captureMaxTokens', 'recallMinScore', 'recallLimit', 'recallSummaryLen', 'recycleRetentionDays', 'webPort', 'webCheckIntervalMs', 'webMaxRestart', 'sessionBudgetChars'])
+  const NUM_KEYS_LIKE = new Set(['dedupThreshold', 'captureMinChars', 'captureCooldownMs', 'maxCardsPerDay', 'captureMaxTokens', 'recallMinScore', 'recallLimit', 'recallSummaryLen', 'recycleRetentionDays', 'webPort', 'webCheckIntervalMs', 'webMaxRestart', 'sessionBudgetChars', 'coreMemoryLimit', 'coreMemoryMaxChars'])
   const autoWebModeLabel = (m) => ({ init: t('modeInit'), interval: t('modeInterval'), manual: t('modeManual') }[m] || m)
   const save = async () => {
     if (!form) return
@@ -3080,7 +3080,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
       maxCardsPerDay: [0, 1000000], captureMaxTokens: [100, 4000], recallMinScore: [0, 50],
       recallLimit: [1, 20], recallSummaryLen: [40, 400], recycleRetentionDays: [1, 3650],
       webPort: [1, 65535], webCheckIntervalMs: [1000, 600000], webMaxRestart: [1, 1000],
-      sessionBudgetChars: [0, 1000000000],
+      sessionBudgetChars: [0, 1000000000], coreMemoryLimit: [1, 20], coreMemoryMaxChars: [200, 10000],
     }
     const badFields = []
     for (const [k, [lo, hi]] of Object.entries(NUM_RANGE)) {
