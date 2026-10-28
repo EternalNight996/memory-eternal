@@ -2516,8 +2516,9 @@
     ];
     var body = '';
     if (state.supportTab === 'group') {
-      body = '<p class="support-note">扫码进交流群，遇到问题可以直接问。</p>' +
-        '<div class="support-qr"><figure><img src="' + SUP + 'group-qr.jpg" alt="交流群二维码"><figcaption>交流群</figcaption></figure></div>' +
+      body = '<p class="support-note">扫码进交流群（QQ / 微信），遇到问题可以直接问。</p>' +
+        '<div class="support-qr"><figure><img src="' + SUP + 'group-qr.jpg" alt="QQ 交流群二维码"><figcaption>QQ 交流群</figcaption></figure>' +
+        '<figure><img src="' + SUP + 'group-wechat.jpg" alt="微信交流群二维码"><figcaption>微信交流群</figcaption></figure></div>' +
         '<p class="support-note" style="margin-top:14px"><a class="support-link" href="' + README + '" target="_blank" rel="noreferrer">打开 README ↗</a></p>';
     } else if (state.supportTab === 'sponsor') {
       body = '<p class="support-note">如果这个插件帮你省了时间，可以请作者喝杯咖啡。完全自愿，不影响任何功能。</p>' +
