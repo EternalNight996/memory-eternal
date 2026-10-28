@@ -20,4 +20,4 @@ GitHub 的 `.github/FUNDING.yml` **只接受链接，不支持嵌入图片**—�
 
 如果希望赞助入口本身就带图/带档位，只能加入 [GitHub Sponsors](https://github.com/sponsors)（需要 Stripe 或银行账户），在自己的 Sponsors 主页里放置图片与档位描述。
 
-> 另外：README 的「交流群 & 打赏」章节也直接展示这两个码，并附 DeepSeek Harness 交流群二维码。
+> 另外：README 的「交流群 & 打赏」章节也直接展示这两个码，并附 DeepSeek Harness 交流群二维码（QQ 群 / 微信群）。
