@@ -141,7 +141,7 @@ Not everything should be injected into every session. Core memory is the small, 
 
 | QQ group | WeChat group |
 |:---:|:---:|
-| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ group QR" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.png" width="240" alt="WeChat group QR" /> |
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ group QR" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.jpg" width="240" alt="WeChat group QR" /> |
 
 **Buy the author a coffee (optional):**
 

@@ -603,7 +603,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # is the standalone we
 
 | QQ group | WeChat group |
 |:---:|:---:|
-| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="260" alt="DeepSeek Harness QQ community group QR code" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.png" width="260" alt="DeepSeek Harness WeChat community group QR code" /> |
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="260" alt="DeepSeek Harness QQ community group QR code" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.jpg" width="260" alt="DeepSeek Harness WeChat community group QR code" /> |
 
 **If this plugin saved you some time, you can buy the author a coffee (either code works):**
 

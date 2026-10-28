@@ -636,7 +636,7 @@ curl http://127.0.0.1:7999/memory-eternal/api/web-info    # 独立 web 是否活
 
 | QQ 交流群 | 微信交流群 |
 |:---:|:---:|
-| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="260" alt="DeepSeek Harness QQ 交流群二维码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.png" width="260" alt="DeepSeek Harness 微信交流群二维码" /> |
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="260" alt="DeepSeek Harness QQ 交流群二维码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.jpg" width="260" alt="DeepSeek Harness 微信交流群二维码" /> |
 
 **如果这个插件帮你省了时间，可以请作者喝杯咖啡（两个码任选其一）：**
 
