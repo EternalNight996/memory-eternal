@@ -380,11 +380,13 @@ export const ZH = {
   auditClearSelection: '清空',
   preview: '预览',
   supportGroup: '交流群',
+  supportGroupQQ: 'QQ 交流群',
+  supportGroupWechat: '微信交流群',
   supportSponsor: '赞助',
   supportLegacy: '旧程序',
   supportTitle: '支持与交流',
   clickToZoom: '点击放大',
-  supportGroupHint: '扫码进交流群，遇到问题可以直接问。',
+  supportGroupHint: '扫码进交流群（QQ / 微信），遇到问题可以直接问。',
   supportSponsorHint: '如果这个插件帮你省了时间，可以请作者喝杯咖啡。完全自愿，不影响任何功能。',
   supportLegacyTitle: '旧程序（dsh-desktop）已停止维护',
   supportLegacyBody: '作者自研的 dsh-desktop 已停止维护，官方 DeepSeek Harness 桌面版已覆盖同样能力，建议迁移。旧 profile 里如果还钉着已撤下的 dsh-desktop-shell@0.3.0，先删掉那套依赖，否则 pnpm install 会失败。',
@@ -975,11 +977,13 @@ export const EN = {
   auditClearSelection: 'Clear',
   preview: 'Preview',
   supportGroup: 'Community',
+  supportGroupQQ: 'QQ group',
+  supportGroupWechat: 'WeChat group',
   supportSponsor: 'Sponsor',
   supportLegacy: 'Legacy app',
   supportTitle: 'Support & community',
   clickToZoom: 'Click to enlarge',
-  supportGroupHint: 'Scan to join the community; ask questions directly.',
+  supportGroupHint: 'Scan to join the QQ or WeChat community; ask questions directly.',
   supportSponsorHint: 'If this plugin saved you time, you can buy the author a coffee. Completely optional.',
   supportLegacyTitle: 'Legacy app (dsh-desktop) is discontinued',
   supportLegacyBody: 'The author’s dsh-desktop is discontinued; the official DeepSeek Harness desktop build covers the same capabilities. If an old profile still pins the withdrawn dsh-desktop-shell@0.3.0, remove that dependency or pnpm install will fail.',
@@ -4837,7 +4841,8 @@ function SupportModal({ t, tab, onTab, onClose, onFeedback, onReplay }) {
             <>
               <p className="me-support-note">{t('supportGroupHint')}</p>
               <div className="me-support-qr">
-                {qr('support/group-qr.jpg', t('supportGroup'))}
+                {qr('support/group-qr.jpg', t('supportGroupQQ'))}
+                {qr('support/group-wechat.jpg', t('supportGroupWechat'))}
               </div>
               <p className="me-support-note" style={{ marginTop: 12 }}><a className="me-support-link" href={readme} target="_blank" rel="noreferrer">{t('supportReadme')} ↗</a></p>
             </>

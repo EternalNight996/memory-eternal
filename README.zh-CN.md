@@ -141,7 +141,7 @@ npx -y -p memory-eternal dsh-memory tui   # 终端里的实时待审队列
 
 | QQ 交流群 | 微信交流群 |
 |:---:|:---:|
-| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ 群二维码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.png" width="240" alt="微信群二维码" /> |
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ 群二维码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.jpg" width="240" alt="微信群二维码" /> |
 
 **如果这个插件帮你省了时间，可以请作者喝杯咖啡（两个码任选其一）：**
 
