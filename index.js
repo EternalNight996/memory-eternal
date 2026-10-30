@@ -58,6 +58,10 @@ export const Config = z.object({
   coreMemoryEnabled: z.boolean().default(true),
   coreMemoryLimit: z.number().min(1).max(20).default(6),
   coreMemoryMaxChars: z.number().min(200).max(10000).default(2000),
+  // 技能卡（kind=skill）：从「本机实际安装/可用的技能」生成卡，强制待审。
+  // 不由 agent 对话沉淀（见 lib/capture.js AGENT_CARD_KINDS 不含 skill）；
+  // 默认开：宿主启动 / 技能安装变化时后台同步，新技能自动进审核中心。
+  skillCardsAutoSync: z.boolean().default(true),
   // 记忆界面整体布局大小：compact / normal / large（只影响 UI，不影响召回）
   uiScale: z.union([z.const('compact'), z.const('normal'), z.const('large')]).default('normal'),
   vaultDir: z.string().default(''),
@@ -373,6 +377,63 @@ export function apply(ctx, config) {
   // 注意：watch 的回调会被传入「合并后的配置对象」，而 syncAudit 现在接受的是**库路径** ——
   // 必须包一层，否则热更新时会把配置对象当成路径传进 setAuditConfig（静默失败）。
   settings.watch(() => syncAudit())
+
+  // 技能卡同步：唯一入口。宿主有 ctx.skills 时以技能注册表为准（真正的「实际技能」，
+  // 含 bundled / project / user / plugin 全来源），没有该服务时由 lib/skill-cards.js
+  // 回落到文件系统扫描（独立 web / TUI 宿主）。生成结果一律 pending，由审核中心把关。
+  let skillSyncPromise = null
+  const syncSkillsNow = async (opts = {}) => {
+    const cfg = settings.get() ?? {}
+    if (cfg.enabled === false) return { ok: false, error: '记忆核心已禁用' }
+    if (opts.auto === true && cfg.skillCardsAutoSync === false) {
+      return { ok: true, skipped: true, reason: '自动同步已关闭', source: 'none', total: 0, created: 0, updated: 0, pendingUpdates: 0, unchanged: 0, skippedCount: 0, removed: 0, errors: [] }
+    }
+    // 同一时刻只跑一次：启动自动同步与用户点「同步技能」撞在一起时，不能各自写一遍。
+    if (skillSyncPromise) return skillSyncPromise
+    skillSyncPromise = (async () => {
+      try {
+        const { syncSkillCards } = await import('./lib/skill-cards.js')
+        return await syncSkillCards(vaultDir(), {
+          skills: ctx.get('skills') || undefined,
+          cwd: currentWorkspace() || process.cwd(),
+          env: process.env,
+          packageRoot: PACKAGE_ROOT,
+          force: opts.force === true,
+        })
+      } catch (error) {
+        return { ok: false, error: String((error && error.message) || error) }
+      } finally {
+        skillSyncPromise = null
+      }
+    })()
+    return skillSyncPromise
+  }
+  // 自动同步：技能服务就绪后跑一次；之后技能安装/卸载（skills/change）防抖 2.5s 再同步。
+  // ctx.inject 保证服务晚到也能挂上；没有 skills 服务的宿主安静跳过，不影响插件主流程。
+  ctx.inject(['skills'], (child) => {
+    // 测试/极简宿主里的 inject 可能不校验服务是否存在（直接回调）—— 没有 skills 就安静跳过。
+    const skillService = typeof child.get === 'function' ? child.get('skills') : (child.skills || null)
+    if (!skillService) return
+    let timer = null
+    let alive = true
+    const schedule = () => {
+      if (!alive) return
+      if ((settings.get() ?? {}).skillCardsAutoSync === false) return
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => { timer = null; syncSkillsNow({ auto: true }).catch(() => {}) }, 2500)
+      if (timer && typeof timer.unref === 'function') timer.unref()
+    }
+    const off = typeof ctx.on === 'function' ? ctx.on('skills/change', schedule) : null
+    const cleanup = () => {
+      alive = false
+      if (timer) clearTimeout(timer)
+      if (typeof off === 'function') off()
+    }
+    // 真 cordis 的子上下文有 effect；假 ctx 只有顶层 effect（测试里用它兜底）。
+    if (typeof child.effect === 'function') child.effect(() => cleanup, 'memory-eternal: skill cards')
+    else ctx.effect(() => cleanup, 'memory-eternal: skill cards')
+    schedule()
+  })
   // 独立 Web 页保存的配置：它写「待应用」文件，这边应用后删除（DSH 没运行时下次启动生效）
   // 待应用配置的最近一次失败（#16）：以前这里 catch {} 吞掉一切 —— 独立 Web 端显示
   // 「已保存」，而 settings.update 的报错、乃至重试耗尽后「改动被放弃」都无人可见。
@@ -1186,6 +1247,8 @@ export function apply(ctx, config) {
       vaultDir, vaultRoots, getSettings: settings.get,
       // 矛盾扫描（#36）在宿主侧跑模型：这里给它 llm 句柄，独立 web 进程拿不到就会如实报错
       getLlm: () => ctx.get('llm'),
+      // 技能卡同步：宿主进程能直接访问 ctx.skills（真正安装/可用的技能），独立 web 会走文件兜底
+      syncSkills: (opts) => syncSkillsNow(opts),
       // 版本对齐检查用：当前 schema 的键（用来发现共享配置里的旧键残留）
       getConfigKeys: () => Object.keys(Config.dict || {}),
       // 自动沉淀运行轨迹 + 健康状态：供「用量/今日」页排查「为什么没写卡」，异常时页面顶部亮红。
@@ -1292,6 +1355,7 @@ export function apply(ctx, config) {
                 captureModel: cfg.captureModel || '',
                 recallEmbedding: cfg.recallEmbedding || '',
                 sessionBudgetChars: cfg.sessionBudgetChars ?? 80000,
+                skillCardsAutoSync: cfg.skillCardsAutoSync !== false,
               }
               const descriptor = (ctx.get('settings') ?? {}).describe?.({ redactSecrets: true }) ?? []
               const me = descriptor.find((d) => d.ns === 'memory-eternal')
