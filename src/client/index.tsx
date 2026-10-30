@@ -106,6 +106,25 @@ export const ZH = {
   newsBodyPlaceholder: '写点值得留下的内容…支持 Markdown',
   newsCountUnit: '条',
   cancel: '取消',
+  newsDaily: '今日资讯',
+  newsMonthly: '本月热榜',
+  newsMine: '我的动态',
+  newsDailySub: '每日最新的 AI 资讯，按来源聚合',
+  newsMonthlySub: '本月 AI 讨论热度榜（Hacker News 分数）',
+  newsMineSub: '你自定义的发布、决策和团队简报',
+  newsLoading: '正在拉取资讯…',
+  newsFeedError: '资讯源暂时不可用',
+  newsHeat: '热度',
+  newsComments: '评论',
+  newsOriginal: '阅读原文',
+  newsUpdatedAt: '更新于',
+  newsPartialFail: '部分来源失败',
+  newsFeedEmpty: '今天还没有抓到资讯，点刷新再试。',
+  newsFeedRefresh: '刷新资讯',
+  newsJustNow: '刚刚',
+  newsMinutesAgo: '分钟前',
+  newsHoursAgo: '小时前',
+  newsDaysAgo: '天前',
 
   skillCards: '技能卡',
   skillCardsHint: '从本机实际安装/可用的技能生成卡片，强制进入审核；不由 Agent 对话沉淀。',
@@ -756,6 +775,25 @@ export const EN = {
   newsBodyPlaceholder: 'Write something worth keeping… Markdown supported',
   newsCountUnit: 'items',
   cancel: 'Cancel',
+  newsDaily: 'Daily AI',
+  newsMonthly: 'Monthly top',
+  newsMine: 'My updates',
+  newsDailySub: 'Latest AI news, aggregated by source',
+  newsMonthlySub: 'This month\'s AI discussion ranking (Hacker News points)',
+  newsMineSub: 'Your own releases, decisions and team briefs',
+  newsLoading: 'Fetching news…',
+  newsFeedError: 'News sources are unavailable',
+  newsHeat: 'heat',
+  newsComments: 'comments',
+  newsOriginal: 'Read original',
+  newsUpdatedAt: 'Updated',
+  newsPartialFail: 'Some sources failed',
+  newsFeedEmpty: 'No news fetched today. Try refresh.',
+  newsFeedRefresh: 'Refresh news',
+  newsJustNow: 'just now',
+  newsMinutesAgo: 'min ago',
+  newsHoursAgo: 'h ago',
+  newsDaysAgo: 'd ago',
 
   skillCards: 'Skill cards',
   skillCardsHint: 'Generated from the skills actually installed/available on this machine; always reviewed. Never deposited by agent chat.',
@@ -1610,6 +1648,26 @@ const CSS = `
 .mc-news-form label > input, .mc-news-form label > textarea { font-size: 12px; color: var(--dsw-alias-label-primary, #1f2937); }
 @media (max-width: 1100px) { .mc-news-main { flex-direction: column; } .mc-news-reader { position: static; width: 100%; flex-basis: auto; max-height: none; } }
 @media (max-width: 720px) { .mc-news-form { grid-template-columns: 1fr; } }
+
+/* ---- 动态 / News：模式切换 + 资讯流 ---- */
+.mc-news-modes { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.mc-news-mode { border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: transparent; color: inherit; border-radius: 999px; padding: 6px 13px; font-size: 11.5px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.mc-news-mode:hover { border-color: var(--dsw-alias-accent, #2563eb); }
+.mc-news-mode.active { background: var(--dsw-alias-accent, #2563eb); border-color: transparent; color: #fff; font-weight: 650; }
+.mc-news-feed-list { display: flex; flex-direction: column; gap: 8px; }
+.mc-news-feed-card { display: flex; gap: 10px; align-items: flex-start; background: var(--dsw-alias-bg-layer-1, #fff); border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; padding: 12px 14px; text-decoration: none; color: inherit; transition: border-color .15s, box-shadow .15s; }
+.mc-news-feed-card:hover { border-color: var(--dsw-alias-accent, #2563eb); box-shadow: 0 8px 22px rgba(0,0,0,.08); }
+.mc-news-rank { flex: 0 0 30px; text-align: center; font: 700 18px/1.2 var(--mono, monospace); color: var(--dsw-alias-accent, #2563eb); padding-top: 1px; }
+.mc-news-feed-body { flex: 1; min-width: 0; }
+.mc-news-feed-top { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 10px; color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-feed-title { margin: 4px 0 0; font-size: 14px; font-weight: 650; line-height: 1.45; }
+.mc-news-feed-summary { margin: 4px 0 0; font-size: 11.5px; line-height: 1.65; color: var(--dsw-alias-label-secondary, #6b7280); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mc-news-feed-bottom { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 7px; font-size: 10px; color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-feed-heat { color: #d97706; font-weight: 650; }
+.mc-news-feed-warn { margin-bottom: 10px; padding: 7px 10px; border-radius: 8px; font-size: 11px; color: #b45309; background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.28); }
+.mc-news-feed-empty { padding: 28px 16px; text-align: center; color: var(--dsw-alias-label-secondary, #6b7280); font-size: 12.5px; }
+.mc-news-feed-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.mc-news-feed-meta { font-size: 10.5px; color: var(--dsw-alias-label-secondary, #6b7280); margin-left: auto; }
 
 /* ---- 支持与交流 / 首次引导 ---- */
 .me-support { max-width: 720px; }
@@ -3043,7 +3101,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           {visited.has('graph') && <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} visible={view === 'graph'} />}
         </div>
         <div style={{ display: view === 'news' ? 'contents' : 'none' }}>
-          {visited.has('news') && <NewsPanel t={t} version={dataVer} onUnreadChange={setNewsUnread} />}
+          {visited.has('news') && <NewsHub t={t} version={dataVer} onUnreadChange={setNewsUnread} />}
         </div>
         <div style={{ display: view === 'terminal' ? 'contents' : 'none' }}>
           {visited.has('terminal') && <TerminalGuide t={t} />}
@@ -4123,8 +4181,145 @@ function NewsCard({ item, t, active, onOpen, onEdit, onToggleRead, onDelete }) {
   )
 }
 
-/** 动态 / 新闻：用户自定义 Markdown，独立于记忆卡。 */
-function NewsPanel({ t, version, onUnreadChange }) {
+function newsRelTime(ts, t) {
+  const diff = Date.now() - Number(ts || 0)
+  if (!Number.isFinite(diff) || diff < 0) return ''
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return t('newsJustNow')
+  if (min < 60) return min + ' ' + t('newsMinutesAgo')
+  const h = Math.floor(min / 60)
+  if (h < 24) return h + ' ' + t('newsHoursAgo')
+  const d = Math.floor(h / 24)
+  if (d < 7) return d + ' ' + t('newsDaysAgo')
+  return new Date(Number(ts)).toISOString().slice(0, 10)
+}
+
+/** 真实 AI 资讯 / 本月热榜。 */
+function NewsFeedPanel({ t, mode, version }) {
+  const [items, setItems] = useState([])
+  const [types, setTypes] = useState([])
+  const [type, setType] = useState('')
+  const [query, setQuery] = useState('')
+  const [q, setQ] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [fetchedAt, setFetchedAt] = useState(0)
+  const [errors, setErrors] = useState([])
+  const [toast, setToast] = useState(null)
+  const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3200) }
+
+  useEffect(() => {
+    const id = setTimeout(() => setQ(query.trim()), 250)
+    return () => clearTimeout(id)
+  }, [query])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const qs = new URLSearchParams({ period: mode === 'month' ? 'month' : 'today' })
+      if (type) qs.set('type', type)
+      if (q) qs.set('q', q)
+      const r = await fetch(API + '/news/feed?' + qs.toString()).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || t('newsFeedError'))
+      setItems(r.items || [])
+      setTypes(r.types || [])
+      setFetchedAt(Number(r.fetchedAt) || 0)
+      setErrors(r.errors || [])
+    } catch (e) {
+      notify((e && e.message) || t('newsFeedError'), false)
+    } finally {
+      setLoading(false)
+    }
+  }, [mode, type, q, t])
+
+  useEffect(() => { load() }, [version, load])
+
+  const refresh = async () => {
+    setLoading(true)
+    try {
+      const r = await fetch(API + '/news/feed/refresh', { method: 'POST' }).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || t('newsFeedError'))
+      await load()
+      notify(t('newsUpdatedAt') + ' ' + new Date().toLocaleTimeString())
+    } catch (e) {
+      notify((e && e.message) || t('newsFeedError'), false)
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mc-news">
+      <InlineToast toast={toast} />
+      <div className="mc-news-feed-toolbar">
+        <input className="mc-news-search" type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('newsSearch')} aria-label={t('newsSearch')} />
+        <button type="button" className={'mc-chip' + (type === '' ? ' active' : '')} onClick={() => setType('')}>{t('all')}</button>
+        {types.map((x) => <button key={x.id} type="button" className={'mc-chip' + (type === x.id ? ' active' : '')} onClick={() => setType((v) => (v === x.id ? '' : x.id))}>{x.label}</button>)}
+        <span className="mc-news-feed-meta">{fetchedAt ? t('newsUpdatedAt') + ' ' + new Date(fetchedAt).toLocaleTimeString() : ''}</span>
+        <button type="button" className="mc-btn" disabled={loading} onClick={refresh}>{loading ? t('newsLoading') : t('newsFeedRefresh')}</button>
+      </div>
+      {errors.length > 0 && <div className="mc-news-feed-warn">⚠ {t('newsPartialFail')}：{errors.slice(0, 2).join('；')}</div>}
+      {loading ? (
+        <div className="mc-card mc-news-feed-empty">{t('newsLoading')}</div>
+      ) : items.length === 0 ? (
+        <div className="mc-card mc-news-feed-empty">{t('newsFeedEmpty')}</div>
+      ) : (
+        <div className="mc-news-feed-list">
+          {items.map((item) => {
+            const link = safeNewsUrl(item.url)
+            const typeLabel = (types.find((x) => x.id === item.type) || {}).label || t('all')
+            return (
+              <a key={item.id || item.url || item.title} className="mc-news-feed-card" href={link || undefined} target={link ? '_blank' : undefined} rel="noopener noreferrer">
+                {mode === 'month' && <span className="mc-news-rank">#{item.rank}</span>}
+                <span className="mc-news-feed-body">
+                  <span className="mc-news-feed-top">
+                    <span className="mc-news-cat">{typeLabel}</span>
+                    <span>{item.source}</span>
+                    <span>· {newsRelTime(item.publishedAt, t)}</span>
+                  </span>
+                  <span className="mc-news-feed-title">{item.title}</span>
+                  {item.summary && <span className="mc-news-feed-summary">{item.summary}</span>}
+                  <span className="mc-news-feed-bottom">
+                    {mode === 'month' && <span className="mc-news-feed-heat">🔥 {t('newsHeat')} {item.heat ?? item.points}</span>}
+                    {item.comments > 0 && <span>💬 {item.comments} {t('newsComments')}</span>}
+                    {item.points > 0 && <span>▲ {item.points}</span>}
+                    <span style={{ marginLeft: 'auto' }}>{t('newsOriginal')} ↗</span>
+                  </span>
+                </span>
+              </a>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 动态首页：真实资讯 / 本月热榜 / 用户自定义动态。 */
+function NewsHub({ t, version, onUnreadChange }) {
+  const [mode, setMode] = useState('daily')
+  const sub = mode === 'month' ? 'newsMonthlySub' : mode === 'mine' ? 'newsMineSub' : 'newsDailySub'
+  return (
+    <div className="mc-news">
+      <div className="mc-v5-pagehead">
+        <div>
+          <div className="mc-v5-eyebrow">NEWSROOM</div>
+          <h1>{t('newsTitle')}</h1>
+          <p>{t(sub)}</p>
+        </div>
+      </div>
+      <div className="mc-news-modes">
+        <button type="button" className={'mc-news-mode' + (mode === 'daily' ? ' active' : '')} onClick={() => setMode('daily')}>{t('newsDaily')}</button>
+        <button type="button" className={'mc-news-mode' + (mode === 'month' ? ' active' : '')} onClick={() => setMode('month')}>{t('newsMonthly')}</button>
+        <button type="button" className={'mc-news-mode' + (mode === 'mine' ? ' active' : '')} onClick={() => setMode('mine')}>{t('newsMine')}</button>
+      </div>
+      {mode === 'mine'
+        ? <MyNewsPanel t={t} version={version} onUnreadChange={onUnreadChange} />
+        : <NewsFeedPanel t={t} mode={mode} version={version} />}
+    </div>
+  )
+}
+
+/** 我的动态：用户自定义 Markdown，独立于记忆卡。 */
+function MyNewsPanel({ t, version, onUnreadChange }) {
   const [items, setItems] = useState([])
   const [categories, setCategories] = useState([])
   const [counts, setCounts] = useState({ all: 0, unread: 0 })
@@ -4272,17 +4467,9 @@ function NewsPanel({ t, version, onUnreadChange }) {
   return (
     <div className="mc-news">
       <InlineToast toast={toast} />
-      <div className="mc-v5-pagehead">
-        <div>
-          <div className="mc-v5-eyebrow">NEWSROOM</div>
-          <h1>{t('newsTitle')}</h1>
-          <p>{t('newsHint')}</p>
-        </div>
-        <span className="mc-v5-pagecount">{counts.all} {t('newsCountUnit')} · {counts.unread} {t('newsUnread')}</span>
-        <button type="button" className="mc-btn me-on" onClick={() => openEditor(null)}>＋ {t('newsNew')}</button>
-      </div>
-
       <div className="mc-news-toolbar">
+        <span className="mc-news-feed-meta" style={{ marginLeft: 0 }}>{counts.all} {t('newsCountUnit')} · {counts.unread} {t('newsUnread')}</span>
+        <button type="button" className="mc-btn me-on" onClick={() => openEditor(null)}>＋ {t('newsNew')}</button>
         <input className="mc-news-search" type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('newsSearch')} aria-label={t('newsSearch')} />
         <button type="button" className={'mc-chip' + (category === '' ? ' active' : '')} onClick={() => setCategory('')}>{t('all')}</button>
         {categories.map((c) => (
