@@ -18,7 +18,7 @@
 
 - 🔍 **Review before it counts** — new cards wait in a review queue; approve or reject from the Web UI or terminal; every change is written to an immutable audit log.
 - 🧾 **Token ledger** — see how much recall injected, how many distillation calls ran, and how often recall was actually useful.
-- 🏠 **Local-first, no cloud** — SQLite + Markdown on your own disk. No third-party memory framework, no account, no outbound calls.
+- 🏠 **Local-first, no cloud** — SQLite + Markdown on your own disk. No third-party memory framework, no account. Memory data never leaves the machine; only the News page fetches public RSS / Hacker News on demand (titles, excerpts and outbound links only).
 - ⭐ **Core memory** — promote approved cards to always-on memory; every session gets them automatically, and the review queue still decides what qualifies.
 - 🧭 **Reader & layout** — clickable table of contents in the card reader, plus a compact / normal / large layout setting for the whole memory UI.
 
