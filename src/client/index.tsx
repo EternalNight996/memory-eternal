@@ -68,21 +68,21 @@ export const ZH = {
   kindMistake: '教训',
   kindCore: '核心记忆',
   kindSkill: '技能',
-  newsTab: '动态',
-  newsTitle: '动态',
-  newsHint: '你自定义的发布、决策和团队简报，独立于记忆卡。',
+  newsTab: '新闻',
+  newsTitle: '新闻',
+  newsHint: '每日 AI 新闻、本月榜单，以及你自己的发布。',
   newsNew: '写一条',
   newsSearch: '搜索标题 / 正文 / 标签…',
   newsUnreadOnly: '只看未读',
-  newsEmpty: '还没有动态。写第一条，把发布、决策和团队消息留在这里。',
-  newsNoMatch: '没有匹配的动态',
+  newsEmpty: '还没有新闻。写第一条发布、决策或团队简报。',
+  newsNoMatch: '没有匹配的新闻',
   newsPinned: '置顶',
   newsRead: '已读',
   newsUnread: '未读',
   newsMarkRead: '标记已读',
   newsMarkUnread: '标记未读',
   newsEdit: '编辑',
-  newsDeleteConfirm: '删除这条动态？',
+  newsDeleteConfirm: '删除这条新闻？',
   newsDeleted: '已删除',
   newsSave: '保存',
   newsSaving: '保存中…',
@@ -106,11 +106,11 @@ export const ZH = {
   newsBodyPlaceholder: '写点值得留下的内容…支持 Markdown',
   newsCountUnit: '条',
   cancel: '取消',
-  newsDaily: '今日资讯',
-  newsMonthly: '本月热榜',
-  newsMine: '我的动态',
-  newsDailySub: '每日最新的 AI 资讯，按来源聚合',
-  newsMonthlySub: '本月 AI 讨论热度榜（Hacker News 分数）',
+  newsDaily: '今日新闻',
+  newsMonthly: '本月',
+  newsMine: '我的新闻',
+  newsDailySub: '每日最新的 AI 新闻，中文优先',
+  newsMonthlySub: '本月 AI 新闻：中文按时间归档，英文按 Hacker News 热度',
   newsMineSub: '你自定义的发布、决策和团队简报',
   newsLoading: '正在拉取资讯…',
   newsFeedError: '资讯源暂时不可用',
@@ -125,6 +125,11 @@ export const ZH = {
   newsMinutesAgo: '分钟前',
   newsHoursAgo: '小时前',
   newsDaysAgo: '天前',
+  newsLangZh: '中文',
+  newsLangEn: '英文',
+  newsLangAll: '不限',
+  newsZhArchive: '中文月榜按时间归档（中文源暂无公开热度分数）',
+  newsEnRanking: '英文月榜按 Hacker News 分数排名',
 
   skillCards: '技能卡',
   skillCardsHint: '从本机实际安装/可用的技能生成卡片，强制进入审核；不由 Agent 对话沉淀。',
@@ -794,6 +799,11 @@ export const EN = {
   newsMinutesAgo: 'min ago',
   newsHoursAgo: 'h ago',
   newsDaysAgo: 'd ago',
+  newsLangZh: '中文',
+  newsLangEn: 'English',
+  newsLangAll: 'All',
+  newsZhArchive: 'Chinese monthly archive by date (no public heat score)',
+  newsEnRanking: 'English monthly ranking by Hacker News points',
 
   skillCards: 'Skill cards',
   skillCardsHint: 'Generated from the skills actually installed/available on this machine; always reviewed. Never deposited by agent chat.',
@@ -4199,6 +4209,8 @@ function NewsFeedPanel({ t, mode, version }) {
   const [items, setItems] = useState([])
   const [types, setTypes] = useState([])
   const [type, setType] = useState('')
+  const [lang, setLang] = useState('zh')
+  const [ranking, setRanking] = useState(false)
   const [query, setQuery] = useState('')
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
@@ -4215,13 +4227,14 @@ function NewsFeedPanel({ t, mode, version }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const qs = new URLSearchParams({ period: mode === 'month' ? 'month' : 'today' })
+      const qs = new URLSearchParams({ period: mode === 'month' ? 'month' : 'today', lang })
       if (type) qs.set('type', type)
       if (q) qs.set('q', q)
       const r = await fetch(API + '/news/feed?' + qs.toString()).then((x) => x.json())
       if (!r || !r.ok) throw new Error((r && r.error) || t('newsFeedError'))
       setItems(r.items || [])
       setTypes(r.types || [])
+      setRanking(!!r.ranking)
       setFetchedAt(Number(r.fetchedAt) || 0)
       setErrors(r.errors || [])
     } catch (e) {
@@ -4229,7 +4242,7 @@ function NewsFeedPanel({ t, mode, version }) {
     } finally {
       setLoading(false)
     }
-  }, [mode, type, q, t])
+  }, [mode, type, lang, q, t])
 
   useEffect(() => { load() }, [version, load])
 
@@ -4251,11 +4264,17 @@ function NewsFeedPanel({ t, mode, version }) {
       <InlineToast toast={toast} />
       <div className="mc-news-feed-toolbar">
         <input className="mc-news-search" type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('newsSearch')} aria-label={t('newsSearch')} />
-        <button type="button" className={'mc-chip' + (type === '' ? ' active' : '')} onClick={() => setType('')}>{t('all')}</button>
-        {types.map((x) => <button key={x.id} type="button" className={'mc-chip' + (type === x.id ? ' active' : '')} onClick={() => setType((v) => (v === x.id ? '' : x.id))}>{x.label}</button>)}
+        <button type="button" className={'mc-chip' + (lang === 'zh' ? ' active' : '')} onClick={() => setLang('zh')}>{t('newsLangZh')}</button>
+        <button type="button" className={'mc-chip' + (lang === 'en' ? ' active' : '')} onClick={() => setLang('en')}>{t('newsLangEn')}</button>
+        <button type="button" className={'mc-chip' + (lang === '' ? ' active' : '')} onClick={() => setLang('')}>{t('newsLangAll')}</button>
         <span className="mc-news-feed-meta">{fetchedAt ? t('newsUpdatedAt') + ' ' + new Date(fetchedAt).toLocaleTimeString() : ''}</span>
         <button type="button" className="mc-btn" disabled={loading} onClick={refresh}>{loading ? t('newsLoading') : t('newsFeedRefresh')}</button>
       </div>
+      <div className="mc-news-feed-toolbar" style={{ marginTop: -4 }}>
+        <button type="button" className={'mc-chip' + (type === '' ? ' active' : '')} onClick={() => setType('')}>{t('all')}</button>
+        {types.map((x) => <button key={x.id} type="button" className={'mc-chip' + (type === x.id ? ' active' : '')} onClick={() => setType((v) => (v === x.id ? '' : x.id))}>{x.label}</button>)}
+      </div>
+      {mode === 'month' && <div className="mc-news-feed-warn" style={{ color: 'var(--dsw-alias-label-secondary, #6b7280)', background: 'transparent', borderColor: 'var(--dsw-alias-border-l1, #e5e7eb)' }}>{ranking ? t('newsEnRanking') : t('newsZhArchive')}</div>}
       {errors.length > 0 && <div className="mc-news-feed-warn">⚠ {t('newsPartialFail')}：{errors.slice(0, 2).join('；')}</div>}
       {loading ? (
         <div className="mc-card mc-news-feed-empty">{t('newsLoading')}</div>
@@ -4268,7 +4287,7 @@ function NewsFeedPanel({ t, mode, version }) {
             const typeLabel = (types.find((x) => x.id === item.type) || {}).label || t('all')
             return (
               <a key={item.id || item.url || item.title} className="mc-news-feed-card" href={link || undefined} target={link ? '_blank' : undefined} rel="noopener noreferrer">
-                {mode === 'month' && <span className="mc-news-rank">#{item.rank}</span>}
+                {mode === 'month' && ranking && <span className="mc-news-rank">#{item.rank}</span>}
                 <span className="mc-news-feed-body">
                   <span className="mc-news-feed-top">
                     <span className="mc-news-cat">{typeLabel}</span>
@@ -4278,7 +4297,7 @@ function NewsFeedPanel({ t, mode, version }) {
                   <span className="mc-news-feed-title">{item.title}</span>
                   {item.summary && <span className="mc-news-feed-summary">{item.summary}</span>}
                   <span className="mc-news-feed-bottom">
-                    {mode === 'month' && <span className="mc-news-feed-heat">🔥 {t('newsHeat')} {item.heat ?? item.points}</span>}
+                    {mode === 'month' && ranking && <span className="mc-news-feed-heat">🔥 {t('newsHeat')} {item.heat ?? item.points}</span>}
                     {item.comments > 0 && <span>💬 {item.comments} {t('newsComments')}</span>}
                     {item.points > 0 && <span>▲ {item.points}</span>}
                     <span style={{ marginLeft: 'auto' }}>{t('newsOriginal')} ↗</span>
@@ -4293,7 +4312,7 @@ function NewsFeedPanel({ t, mode, version }) {
   )
 }
 
-/** 动态首页：真实资讯 / 本月热榜 / 用户自定义动态。 */
+/** 新闻首页：今日新闻 / 本月榜单 / 我的新闻。 */
 function NewsHub({ t, version, onUnreadChange }) {
   const [mode, setMode] = useState('daily')
   const sub = mode === 'month' ? 'newsMonthlySub' : mode === 'mine' ? 'newsMineSub' : 'newsDailySub'
@@ -4318,7 +4337,7 @@ function NewsHub({ t, version, onUnreadChange }) {
   )
 }
 
-/** 我的动态：用户自定义 Markdown，独立于记忆卡。 */
+/** 我的新闻：用户自定义 Markdown，独立于记忆卡。 */
 function MyNewsPanel({ t, version, onUnreadChange }) {
   const [items, setItems] = useState([])
   const [categories, setCategories] = useState([])
