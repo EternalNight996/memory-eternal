@@ -113,7 +113,7 @@
       "commands": "node",
       "credentials": [],
       "externalServices": [
-        "Public RSS/Atom feeds: 量子位, TechCrunch AI, The Verge AI, MIT Technology Review AI, Google DeepMind",
+        "Public RSS/Atom feeds: 量子位, 雷锋网, 钛媒体, InfoQ 中文, TechCrunch AI, The Verge AI, MIT Technology Review AI, Google DeepMind",
         "Hacker News Algolia API (AI story ranking)"
       ],
       "notes": "Read/write under ~/.dsh/memory-vault only. Memory data stays local; only the optional News page fetches the fixed public RSS/HN sources above on demand (titles, excerpts, links). No credentials, no shell. Hooks/MCP run via the `node` binary that hosts the DSH process."
