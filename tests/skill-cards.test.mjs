@@ -12,6 +12,7 @@ import { setAuditConfig } from '../lib/db.js'
 import { syncSkillCards, parseSkillFile, buildSkillCardBody, collectSkillFiles } from '../lib/skill-cards.js'
 import { parseCaptureJson, AGENT_CARD_KINDS, agentCardKind } from '../lib/capture.js'
 import { createApi, API_PREFIX } from '../lib/api.js'
+import { callTool } from '../lib/mcp.js'
 
 const makeRoot = () => fs.mkdtempSync(path.join(os.tmpdir(), 'me-skill-'))
 
@@ -268,6 +269,23 @@ test('API：POST /skills/sync 调用注入的同步器并返回统计；GET 拒�
   assert.equal(called, 1)
   const get = await call('GET')
   assert.equal(get.status, 405, '同步是写操作，GET 必须拒绝')
+})
+
+test('memory_recall 命中技能卡时标注技能，并提示用 skill 工具加载', async () => {
+  const root = makeRoot()
+  await syncSkillCards(root, { skills: fakeRegistry(), includeFilesystem: false })
+  const [card] = await listCards(root, { status: ['pending'], kind: 'skill' })
+  await setCardStatus(root, card.path, 'approved')
+  const out = await callTool('memory_recall', { query: 'alpha' }, root)
+  const text = out.content[0].text
+  assert.match(text, /技能卡/, '召回结果要标注这是技能卡')
+  assert.match(text, /skill 工具加载同名技能/, '要告诉 Agent 用 skill 工具加载，而不是直接执行卡内正文')
+})
+
+test('宿主 systemPrompt 写入技能卡与 skill 工具的联动提示', () => {
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8')
+  assert.match(src, /技能卡（kind=skill）记录本机实际可用的技能/, 'systemPrompt 要说明技能卡是什么')
+  assert.match(src, /用 skill 工具加载同名技能/, 'systemPrompt 要给出加载方式')
 })
 
 test('技能卡可在批准后重新归类（setCardKind 支持 skill）', async () => {
