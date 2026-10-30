@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import brandIcon from '../../assets/icon.png'
 import { snippetAround } from './snippet.js'
+import { auditMatches } from './audit-filter.js'
 import { versionCardState } from './version-state.js'
 // 「反馈异常」纯函数层（与宿主/独立 web 共用同一套脱敏与预填逻辑）
 import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
@@ -387,6 +388,8 @@ export const ZH = {
   fbSelectAll: '全选',
   auditTypeLabel: '类型',
   auditInboxSub: '自动沉淀的卡先到这里 · 批准后进入记忆库',
+  auditSearchPlaceholder: '搜索标题 / 标签 / 路径…',
+  auditNoMatch: '没有匹配的审核卡',
   auditUndo: '批准与驳回都可撤销',
   auditSelected: '已选',
   auditClearSelection: '清空',
@@ -996,6 +999,8 @@ export const EN = {
   fbSelectAll: 'Select all',
   auditTypeLabel: 'Type',
   auditInboxSub: 'Captured cards land here · approve to publish',
+  auditSearchPlaceholder: 'Search title, tag or path…',
+  auditNoMatch: 'No matching review cards',
   auditUndo: 'Approve and reject are both undoable',
   auditSelected: 'Selected',
   auditClearSelection: 'Clear',
@@ -3697,6 +3702,7 @@ function AuditPanel({ t, onReload, version }) {
   const [kindF, setKindF] = useState('all')
   const [agentF, setAgentF] = useState('all')
   const [dateF, setDateF] = useState('')
+  const [search, setSearch] = useState('')
   const [sel, setSel] = useState(new Set())
   const [previewPath, setPreviewPath] = useState(null)
   const [busy, setBusy] = useState('')
@@ -3709,6 +3715,7 @@ function AuditPanel({ t, onReload, version }) {
   }, [])
   useEffect(() => { load() }, [version, load])
   const items = (tab === 'pending' ? pending : rejected).filter((c) => {
+    if (!auditMatches(c, search)) return false
     if (kindF !== 'all' && c.kind !== kindF) return false
     if (agentF !== 'all' && normAgent(c.submittedBy) !== agentF) return false
     if (dateF) { const d = (c.created || '').slice(0, 10); if (d && d !== dateF) return false }
@@ -3719,13 +3726,14 @@ function AuditPanel({ t, onReload, version }) {
     const base = tab === 'pending' ? pending : rejected
     const m = { all: 0 }
     base.forEach((c) => {
+      if (!auditMatches(c, search)) return
       if (agentF !== 'all' && normAgent(c.submittedBy) !== agentF) return
       if (dateF) { const d = (c.created || '').slice(0, 10); if (d && d !== dateF) return }
       m.all++
       m[c.kind || 'other'] = (m[c.kind || 'other'] || 0) + 1
     })
     return m
-  }, [pending, rejected, tab, agentF, dateF])
+  }, [pending, rejected, tab, agentF, dateF, search])
   const toggle = (p) => setSel((s) => { const n = new Set(s); if (n.has(p)) { n.delete(p) } else { n.add(p) }; return n })
   const applyStatus = async (status, paths, opts = {}) => {
     const list = paths || [...sel]
@@ -3803,7 +3811,15 @@ function AuditPanel({ t, onReload, version }) {
           <div className="mc-card mc-audit-filtercard" style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="me-audit-filter-row">
               <b style={{ fontSize: 12 }}>🛡️ {t('tabAudit')}</b>
-              <div style={{ flex: 1 }} />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); clearSel(); setPreviewPath(null) }}
+                placeholder={t('auditSearchPlaceholder')}
+                aria-label={t('auditSearchPlaceholder')}
+                style={{ flex: '1 1 220px', minWidth: 160, padding: '5px 9px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', fontSize: 12 }}
+              />
+              {search && <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => { setSearch(''); clearSel(); setPreviewPath(null) }} title={t('clearFilter')}>✕</button>}
               <select value={agentF} onChange={(e) => { setAgentF(e.target.value); clearSel() }} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
                 <option value="all">{t('allAgents')}</option>
                 {agentOptions(agents).map((a) => <option key={a} value={a}>{a}</option>)}
@@ -3879,7 +3895,7 @@ function AuditPanel({ t, onReload, version }) {
                   )
                 })}
               </div>
-            ) : <div style={{ opacity: 0.6, fontSize: 12, padding: 20, textAlign: 'center' }}>{t('noAuditItems')}</div>}
+            ) : <div style={{ opacity: 0.6, fontSize: 12, padding: 20, textAlign: 'center' }}>{search ? t('auditNoMatch') : t('noAuditItems')}</div>}
             </div>
             <aside className="me-audit-preview">
               {previewCard ? (
@@ -3918,7 +3934,7 @@ function AuditPanel({ t, onReload, version }) {
                       : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>🗑 {t('restoreDelete')}</button>}
                   </div>
                 </>
-              ) : <div className="me-audit-preview-empty">{t('noAuditItems')}</div>}
+              ) : <div className="me-audit-preview-empty">{search ? t('auditNoMatch') : t('noAuditItems')}</div>}
             </aside>
           </div>
         </div>
