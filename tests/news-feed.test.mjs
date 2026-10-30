@@ -13,7 +13,7 @@ const DAY = 86400000
 
 function seedCache(root, items, fetchedAt = Date.now()) {
   fs.mkdirSync(path.join(root, 'news'), { recursive: true })
-  fs.writeFileSync(path.join(root, 'news', '.feed-cache.json'), JSON.stringify({ fetchedAt, items, errors: [] }), 'utf8')
+  fs.writeFileSync(path.join(root, 'news', '.feed-cache.json'), JSON.stringify({ fetchedAt, archiveFetchedAt: fetchedAt, items, errors: [] }), 'utf8')
 }
 
 test('RSS / Atom 解析：标题、链接、摘要、时间、分类', () => {
@@ -25,6 +25,10 @@ test('RSS / Atom 解析：标题、链接、摘要、时间、分类', () => {
   assert.equal(items[0].summary, '模型能力更新')
   assert.equal(items[0].source, 'Example')
   assert.equal(items[0].type, 'model')
+
+  const escaped = '<rss><channel><item><title>InfoQ</title><link>https://example.com/c</link><description>&lt;div&gt;&lt;a href=&quot;https://x&quot;&gt;点击阅读原文&lt;/a&gt;&lt;/div&gt;</description></item></channel></rss>'
+  const e = parseFeedXml(escaped, { id: 'z', name: 'InfoQ', weight: 3 })
+  assert.equal(e[0].summary, '点击阅读原文')
 
   const atom = '<feed><entry><title>Research benchmark</title><link rel="alternate" href="https://example.com/b"/><summary>new benchmark</summary><updated>2026-10-30T10:00:00Z</updated></entry></feed>'
   const a = parseFeedXml(atom, { id: 'y', name: 'Atom', weight: 2 })
@@ -47,22 +51,29 @@ test('今日 / 本月热榜 / 类型 / 搜索过滤（使用缓存，不联网�
   const root = makeRoot()
   const now = Date.now()
   seedCache(root, [
-    { title: '新模型发布', url: 'https://x/1', summary: '模型更新', source: '量子位', type: 'model', publishedAt: now - 3600000, points: 0, comments: 0 },
-    { title: '本月热榜第一', url: 'https://x/2', summary: 'AI 讨论', source: 'Hacker News', type: 'product', publishedAt: now - 2 * DAY, points: 900, comments: 120 },
-    { title: '本月热榜第二', url: 'https://x/3', summary: 'AI 讨论', source: 'Hacker News', type: 'research', publishedAt: now - 3 * DAY, points: 400, comments: 30 },
-    { title: '很旧的新闻', url: 'https://x/4', summary: '旧', source: '量子位', type: 'industry', publishedAt: now - 40 * DAY, points: 0, comments: 0 },
+    { title: '新模型发布', url: 'https://x/1', summary: '模型更新', source: '量子位', type: 'model', lang: 'zh', publishedAt: now - 3600000, points: 0, comments: 0 },
+    { title: '本月热榜第一', url: 'https://x/2', summary: 'AI 讨论', source: 'Hacker News', type: 'product', lang: 'en', publishedAt: now - 2 * DAY, points: 900, comments: 120 },
+    { title: '本月热榜第二', url: 'https://x/3', summary: 'AI 讨论', source: 'Hacker News', type: 'research', lang: 'en', publishedAt: now - 3 * DAY, points: 400, comments: 30 },
+    { title: '很旧的新闻', url: 'https://x/4', summary: '旧', source: '量子位', type: 'industry', lang: 'zh', publishedAt: now - 40 * DAY, points: 0, comments: 0 },
   ])
   const day = await getNewsFeed(root, { period: 'today', now })
   assert.equal(day.items.some((x) => x.title === '很旧的新闻'), false)
   assert.equal(day.items[0].title, '新模型发布')
+  assert.equal(day.lang, 'zh')
 
-  const month = await getNewsFeed(root, { period: 'month', now })
+  // 中文月榜按时间归档，不伪造 HN 分数排名
+  const zhMonth = await getNewsFeed(root, { period: 'month', lang: 'zh', now })
+  assert.equal(zhMonth.ranking, false)
+  assert.equal(zhMonth.items[0].title, '新模型发布')
+
+  const month = await getNewsFeed(root, { period: 'month', lang: 'en', now })
+  assert.equal(month.ranking, true)
   assert.equal(month.items[0].title, '本月热榜第一')
   assert.equal(month.items[0].rank, 1)
   assert.equal(month.items[1].rank, 2)
   assert.equal(month.items[0].heat, 900 + 120 * 2)
 
-  const typed = await getNewsFeed(root, { period: 'month', type: 'research', now })
+  const typed = await getNewsFeed(root, { period: 'month', lang: 'en', type: 'research', now })
   assert.equal(typed.items.length, 1)
   assert.equal(typed.items[0].title, '本月热榜第二')
   assert.equal(typed.items[0].rank, 1, '按类型筛选后应重新从 #1 排名')
@@ -76,7 +87,7 @@ test('API：/news/feed 返回真实资讯形状', async () => {
   const root = makeRoot()
   const now = Date.now()
   seedCache(root, [
-    { title: 'API 资讯', url: 'https://x/api', summary: '摘要', source: 'Example', type: 'model', publishedAt: now - 1000, points: 1, comments: 0 },
+    { title: 'API 资讯', url: 'https://x/api', summary: '摘要', source: 'Example', type: 'model', lang: 'zh', publishedAt: now - 1000, points: 1, comments: 0 },
   ], now)
   const api = createApi({ vaultDir: () => root, getSettings: () => ({}) })
   const out = { status: 0, body: '' }
