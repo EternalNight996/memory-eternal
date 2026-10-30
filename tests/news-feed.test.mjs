@@ -65,6 +65,7 @@ test('今日 / 本月热榜 / 类型 / 搜索过滤（使用缓存，不联网�
   const typed = await getNewsFeed(root, { period: 'month', type: 'research', now })
   assert.equal(typed.items.length, 1)
   assert.equal(typed.items[0].title, '本月热榜第二')
+  assert.equal(typed.items[0].rank, 1, '按类型筛选后应重新从 #1 排名')
 
   const searched = await getNewsFeed(root, { period: 'today', q: '新模型', now })
   assert.equal(searched.items.length, 1)
