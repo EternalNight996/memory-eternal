@@ -49,7 +49,7 @@ test('agent 自动沉淀不能产出 skill：模型输出 kind=skill 会被收�
 
 test('从技能注册表生成待审技能卡；再次同步幂等不重复', async () => {
   const root = makeRoot()
-  const first = await syncSkillCards(root, { skills: fakeRegistry() })
+  const first = await syncSkillCards(root, { skills: fakeRegistry(), includeFilesystem: false })
   assert.equal(first.ok, true)
   assert.equal(first.source, 'registry')
   assert.equal(first.total, 1)
@@ -61,7 +61,7 @@ test('从技能注册表生成待审技能卡；再次同步幂等不重复', as
   assert.equal(cards[0].status, 'pending')
   assert.match(cards[0].path, /^10-Skills\/alpha\.md$/)
 
-  const second = await syncSkillCards(root, { skills: fakeRegistry() })
+  const second = await syncSkillCards(root, { skills: fakeRegistry(), includeFilesystem: false })
   assert.equal(second.created, 0)
   assert.equal(second.unchanged, 1)
   cards = await listCards(root, { status: ['pending'], kind: 'skill' })
@@ -70,8 +70,8 @@ test('从技能注册表生成待审技能卡；再次同步幂等不重复', as
 
 test('技能正文变化：待审卡原地刷新，不新增第二张', async () => {
   const root = makeRoot()
-  await syncSkillCards(root, { skills: fakeRegistry('第一版技能正文。') })
-  const second = await syncSkillCards(root, { skills: fakeRegistry('第二版技能正文，内容已经更新。') })
+  await syncSkillCards(root, { skills: fakeRegistry('第一版技能正文。'), includeFilesystem: false })
+  const second = await syncSkillCards(root, { skills: fakeRegistry('第二版技能正文，内容已经更新。'), includeFilesystem: false })
   assert.equal(second.updated, 1, JSON.stringify(second))
   assert.equal(second.created, 0)
   const cards = await listCards(root, { status: ['pending'], kind: 'skill' })
@@ -82,11 +82,11 @@ test('技能正文变化：待审卡原地刷新，不新增第二张', async ()
 
 test('已批准技能内容变化：新开一张「技能更新」待审卡，旧卡保持可用', async () => {
   const root = makeRoot()
-  await syncSkillCards(root, { skills: fakeRegistry('第一版技能正文。') })
+  await syncSkillCards(root, { skills: fakeRegistry('第一版技能正文。'), includeFilesystem: false })
   const [base] = await listCards(root, { status: ['pending'], kind: 'skill' })
   await setCardStatus(root, base.path, 'approved')
 
-  const second = await syncSkillCards(root, { skills: fakeRegistry('第二版技能正文，内容已经更新。') })
+  const second = await syncSkillCards(root, { skills: fakeRegistry('第二版技能正文，内容已经更新。'), includeFilesystem: false })
   assert.equal(second.pendingUpdates, 1, JSON.stringify(second))
   const pending = await listCards(root, { status: ['pending'], kind: 'skill' })
   assert.equal(pending.length, 1)
@@ -98,14 +98,40 @@ test('已批准技能内容变化：新开一张「技能更新」待审卡，�
 
 test('已驳回的技能不会被同步复活', async () => {
   const root = makeRoot()
-  await syncSkillCards(root, { skills: fakeRegistry() })
+  await syncSkillCards(root, { skills: fakeRegistry(), includeFilesystem: false })
   const [base] = await listCards(root, { status: ['pending'], kind: 'skill' })
   await setCardStatus(root, base.path, 'rejected')
-  const second = await syncSkillCards(root, { skills: fakeRegistry() })
+  const second = await syncSkillCards(root, { skills: fakeRegistry(), includeFilesystem: false })
   assert.equal(second.created, 0)
   assert.equal(second.skipped, 1, JSON.stringify(second))
   const pending = await listCards(root, { status: ['pending'], kind: 'skill' })
   assert.equal(pending.length, 0)
+})
+
+test('注册表与磁盘技能合并：不会因为全局层只有少数技能就漏掉用户/项目技能', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-skill-merge-home-'))
+  const skillDir = path.join(home, '.agents', 'skills', 'disk-only')
+  fs.mkdirSync(skillDir, { recursive: true })
+  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: disk-only\ndescription: Disk only skill\n---\n\n# Disk only\n\nBody.\n', 'utf8')
+  const root = makeRoot()
+  const noHome = path.join(home, 'no-such-home')
+  const env = {
+    ...process.env,
+    DSH_HOME: path.join(home, '.dsh'),
+    DSH_AGENTS_HOME: path.join(home, '.agents'),
+    CLAUDE_CONFIG_DIR: path.join(noHome, '.claude'),
+    CODEX_HOME: path.join(noHome, '.codex'),
+    CURSOR_HOME: path.join(noHome, '.cursor'),
+    GEMINI_HOME: path.join(noHome, '.gemini'),
+    XDG_CONFIG_HOME: path.join(noHome, '.config'),
+    MEMORY_SKILL_DIRS: '',
+    DSH_BUNDLED_SKILL_DIR: '',
+  }
+  const out = await syncSkillCards(root, { skills: fakeRegistry(), env, cwd: home, packageRoot: '' })
+  assert.equal(out.source, 'registry+filesystem')
+  assert.equal(out.total, 2, JSON.stringify(out))
+  const cards = await listCards(root, { status: ['pending'], kind: 'skill' })
+  assert.deepEqual(cards.map((c) => c.title).sort(), ['alpha', 'disk-only'])
 })
 
 test('没有宿主技能服务时走文件系统兜底（DSH_HOME/skills）', async () => {
@@ -237,7 +263,7 @@ test('API：POST /skills/sync 调用注入的同步器并返回统计；GET 拒�
 
 test('技能卡可在批准后重新归类（setCardKind 支持 skill）', async () => {
   const root = makeRoot()
-  await syncSkillCards(root, { skills: fakeRegistry() })
+  await syncSkillCards(root, { skills: fakeRegistry(), includeFilesystem: false })
   const [base] = await listCards(root, { status: ['pending'], kind: 'skill' })
   await setCardStatus(root, base.path, 'approved')
   await setCardKind(root, base.path, 'knowledge')
