@@ -1003,9 +1003,10 @@ export function apply(ctx, config) {
         '3. 若检索结果为空，就诚实说明当前记忆库没有相关内容，不要编造。',
         '4. 知识卡存储在 SQLite 数据库中（memory-eternal.db），**禁止**用文件工具直接读写 vault 目录下的任何文件。沉淀记忆必须通过 memory_recall 工具或 /memory-eternal/api/write API。',
         '5. 若下方出现「自动沉淀异常」，必须在本次回复的第一句用中文转述该异常并提醒用户处理，不要自行猜测或尝试修复。',
+        '6. 已批准的技能卡（kind=skill）记录本机实际可用的技能；需要某技能时先 memory_recall 查询「技能名/技能用途」，再用 skill 工具加载同名技能。技能卡只是索引与说明，不替代 skill 工具，也不代表技能已启用。',
         // 审核红线（主上 2026-09-12 强制要求）：只在审核真正生效时注入。
         ...((cfg.auditMode ?? 'all') === 'none' ? [] : [
-          '6. **审核红线（强制）**：写卡一律停在 pending，由用户在「审核中心」审批。**禁止**调用 /memory-eternal/api/audit/approve 或 /audit/reject 代替用户审批，也不得用任何等价方式绕过审核；用户说「记录一下 / 增加记忆」不等于允许免审入库。需要立刻可用时，写卡后明确告知用户「已进审核中心，待批准」。',
+          '7. **审核红线（强制）**：写卡一律停在 pending，由用户在「审核中心」审批。**禁止**调用 /memory-eternal/api/audit/approve 或 /audit/reject 代替用户审批，也不得用任何等价方式绕过审核；用户说「记录一下 / 增加记忆」不等于允许免审入库。需要立刻可用时，写卡后明确告知用户「已进审核中心，待批准」。',
         ]),
         // 凭证取用提示（用户自己填的整句，见 Config.secretHint）：只在填了非空值时注入。
         // 为什么走 systemPrompt 而不是「往卡里写值」：密钥的**值**入库会被每次召回带进模型
@@ -1087,7 +1088,8 @@ export function apply(ctx, config) {
       name: 'memory_recall',
       description:
         '从本地记忆核心（Markdown 知识库）检索相关知识卡。需要项目背景、历史决策、之前讨论过的方案、' +
-        '或领域知识时调用；返回最相关的卡片摘要。用 query 描述要找的内容，支持中文整词与字符片段检索。' +
+        '或领域知识时调用；返回最相关的卡片摘要。也会命中已批准的技能卡：需要某技能时先查这里，再用 skill 工具加载同名技能。' +
+        '用 query 描述要找的内容，支持中文整词与字符片段检索。' +
         '需要 API key / token / 令牌等**凭证**时也先查这里（查「密钥 目录」）：记忆里存的是目录' +
         '（名字、存放位置、取用命令），**值不在记忆库里**，请按卡片给的本机命令取用，不要直接读凭据文件。',
       parameters: {
@@ -1152,7 +1154,9 @@ export function apply(ctx, config) {
           const snippet = String(h.summary || '').replace(/\s+/g, ' ').trim().slice(0, defLen)
           const body = includeBody ? `\n${String(h.excerpt || '').slice(0, 800)}` : ''
           const from = h.vault ? `（库：${h.vault}）` : ''
-          return `### ${i + 1}. ${h.title}${tags}${from}\n路径：${h.path}\n${snippet}${body}`
+          const skillBadge = h.kind === 'skill' ? ' · 🧩 技能卡' : ''
+          const skillHint = h.kind === 'skill' ? `\n技能：${h.title}（需要时用 skill 工具加载同名技能）` : ''
+          return `### ${i + 1}. ${h.title}${tags}${skillBadge}${from}\n路径：${h.path}\n${snippet}${body}${skillHint}`
         })
         const where = multi ? `（作用域 ${scope || 'all'}，共 ${targets.length} 个库）` : ''
         const out = `从记忆核心检索到 ${hits.length} 条相关卡片${where}：\n\n${lines.join('\n\n')}`
