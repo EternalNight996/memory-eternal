@@ -68,6 +68,45 @@ export const ZH = {
   kindMistake: '教训',
   kindCore: '核心记忆',
   kindSkill: '技能',
+  newsTab: '动态',
+  newsTitle: '动态',
+  newsHint: '你自定义的发布、决策和团队简报，独立于记忆卡。',
+  newsNew: '写一条',
+  newsSearch: '搜索标题 / 正文 / 标签…',
+  newsUnreadOnly: '只看未读',
+  newsEmpty: '还没有动态。写第一条，把发布、决策和团队消息留在这里。',
+  newsNoMatch: '没有匹配的动态',
+  newsPinned: '置顶',
+  newsRead: '已读',
+  newsUnread: '未读',
+  newsMarkRead: '标记已读',
+  newsMarkUnread: '标记未读',
+  newsEdit: '编辑',
+  newsDeleteConfirm: '删除这条动态？',
+  newsDeleted: '已删除',
+  newsSave: '保存',
+  newsSaving: '保存中…',
+  newsSaved: '已保存',
+  newsSaveFail: '保存失败',
+  newsTitleField: '标题',
+  newsBodyField: '正文（Markdown）',
+  newsCategoryField: '分类',
+  newsSourceField: '来源',
+  newsUrlField: '链接',
+  newsTagsField: '标签（逗号分隔）',
+  newsDateField: '日期',
+  newsPinField: '置顶',
+  newsPreview: '预览',
+  newsEditBody: '编辑正文',
+  newsOpenLink: '打开链接',
+  newsToday: '今天',
+  newsYesterday: '昨天',
+  newsEarlier: '更早',
+  newsTitlePlaceholder: '例如：v0.20.0 发布说明',
+  newsBodyPlaceholder: '写点值得留下的内容…支持 Markdown',
+  newsCountUnit: '条',
+  cancel: '取消',
+
   skillCards: '技能卡',
   skillCardsHint: '从本机实际安装/可用的技能生成卡片，强制进入审核；不由 Agent 对话沉淀。',
   skillAutoSync: '自动同步技能卡',
@@ -679,6 +718,45 @@ export const EN = {
   kindMistake: 'Mistakes',
   kindCore: 'Core memory',
   kindSkill: 'Skills',
+  newsTab: 'News',
+  newsTitle: 'News',
+  newsHint: 'Your own updates, decisions and team briefs, kept separate from memory cards.',
+  newsNew: 'Write one',
+  newsSearch: 'Search title / body / tags…',
+  newsUnreadOnly: 'Unread only',
+  newsEmpty: 'No news yet. Write the first update, decision or team brief here.',
+  newsNoMatch: 'No matching news',
+  newsPinned: 'Pinned',
+  newsRead: 'Read',
+  newsUnread: 'Unread',
+  newsMarkRead: 'Mark read',
+  newsMarkUnread: 'Mark unread',
+  newsEdit: 'Edit',
+  newsDeleteConfirm: 'Delete this news item?',
+  newsDeleted: 'Deleted',
+  newsSave: 'Save',
+  newsSaving: 'Saving…',
+  newsSaved: 'Saved',
+  newsSaveFail: 'Save failed',
+  newsTitleField: 'Title',
+  newsBodyField: 'Body (Markdown)',
+  newsCategoryField: 'Category',
+  newsSourceField: 'Source',
+  newsUrlField: 'URL',
+  newsTagsField: 'Tags (comma separated)',
+  newsDateField: 'Date',
+  newsPinField: 'Pin to top',
+  newsPreview: 'Preview',
+  newsEditBody: 'Edit body',
+  newsOpenLink: 'Open link',
+  newsToday: 'Today',
+  newsYesterday: 'Yesterday',
+  newsEarlier: 'Earlier',
+  newsTitlePlaceholder: 'e.g. v0.20.0 release notes',
+  newsBodyPlaceholder: 'Write something worth keeping… Markdown supported',
+  newsCountUnit: 'items',
+  cancel: 'Cancel',
+
   skillCards: 'Skill cards',
   skillCardsHint: 'Generated from the skills actually installed/available on this machine; always reviewed. Never deposited by agent chat.',
   skillAutoSync: 'Auto-sync skill cards',
@@ -1492,6 +1570,47 @@ const CSS = `
 @media (max-width: 1180px) { .me-audit-main { flex-direction: row; } .me-audit-preview { display: flex; flex: 0 0 460px; width: 460px; max-height: calc(100vh - 130px); position: sticky; top: 0; } }
 @media (max-width: 900px) { .me-audit-main { gap: 8px; } .me-audit-preview { flex-basis: 360px; width: 360px; } }
 .me-audit-bulk { position: sticky; bottom: 0; z-index: 6; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 10px; background: var(--dsw-alias-bg-layer-1, #fff); box-shadow: 0 -8px 24px rgba(0,0,0,.12); }
+/* ---- 动态 / News ---- */
+.mc-news { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.mc-news-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.mc-news-search { flex: 1 1 220px; min-width: 160px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font-size: 12px; }
+.mc-news-main { display: flex; gap: 10px; align-items: flex-start; }
+.mc-news-list { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.mc-news-group { display: flex; flex-direction: column; gap: 8px; }
+.mc-news-group-label { margin: 10px 0 0; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-card { position: relative; background: var(--dsw-alias-bg-layer-1, #fff); border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; padding: 13px 15px; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; }
+.mc-news-card:hover { border-color: var(--dsw-alias-border-l2, #d1d5db); box-shadow: 0 10px 26px rgba(0,0,0,.08); }
+.mc-news-card:active { transform: translateY(1px); }
+.mc-news-card.pinned { border-color: rgba(255,122,69,.5); background: linear-gradient(135deg, rgba(255,122,69,.07), transparent 60%); }
+.mc-news-card.unread { border-left: 3px solid var(--dsw-alias-accent, #2563eb); }
+.mc-news-card.active { border-color: var(--dsw-alias-accent, #2563eb); box-shadow: 0 0 0 1px var(--dsw-alias-accent, #2563eb) inset; }
+.mc-news-top { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.mc-news-cat { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 650; color: var(--dsw-alias-accent, #2563eb); background: rgba(37,99,235,.10); border: 1px solid rgba(37,99,235,.18); }
+.mc-news-pin { font-size: 10px; color: #f59e0b; font-weight: 650; }
+.mc-news-time { margin-left: auto; font-size: 10px; color: var(--dsw-alias-label-secondary, #6b7280); white-space: nowrap; }
+.mc-news-title { margin: 7px 0 0; font-size: 14.5px; font-weight: 650; line-height: 1.45; letter-spacing: -.01em; }
+.mc-news-excerpt { margin: 5px 0 0; font-size: 11.5px; line-height: 1.7; color: var(--dsw-alias-label-secondary, #6b7280); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mc-news-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px; font-size: 10px; color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-accent, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,.12); flex: none; }
+.mc-news-actions { display: flex; align-items: center; gap: 4px; }
+.mc-news-actions .mc-btn { padding: 2px 7px; font-size: 10.5px; }
+.mc-news-reader { flex: 0 0 440px; width: 440px; max-height: calc(100vh - 170px); overflow: auto; position: sticky; top: 0; background: var(--dsw-alias-bg-layer-1, #fff); border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; padding: 16px 18px; }
+.mc-news-reader-head { display: flex; align-items: flex-start; gap: 8px; }
+.mc-news-reader h2 { margin: 10px 0 0; font-size: 20px; line-height: 1.35; letter-spacing: -.02em; }
+.mc-news-reader-meta { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 8px; font-size: 10.5px; color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-reader .md-doc { font-size: 12.5px; line-height: 1.8; }
+.mc-news-reader-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
+.mc-news-empty { padding: 30px 16px; text-align: center; color: var(--dsw-alias-label-secondary, #6b7280); font-size: 12.5px; line-height: 1.8; }
+.mc-news-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mc-news-form .full { grid-column: 1 / -1; }
+.mc-news-input, .mc-news-textarea { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font-size: 12px; }
+.mc-news-textarea { min-height: 220px; resize: vertical; font-family: var(--mono, monospace); line-height: 1.7; }
+.mc-news-preview { border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 8px; padding: 12px; max-height: 260px; overflow: auto; }
+.mc-news-form label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-form label > input, .mc-news-form label > textarea { font-size: 12px; color: var(--dsw-alias-label-primary, #1f2937); }
+@media (max-width: 1100px) { .mc-news-main { flex-direction: column; } .mc-news-reader { position: static; width: 100%; flex-basis: auto; max-height: none; } }
+@media (max-width: 720px) { .mc-news-form { grid-template-columns: 1fr; } }
+
 /* ---- 支持与交流 / 首次引导 ---- */
 .me-support { max-width: 720px; }
 .me-support-tabs { display: flex; gap: 6px; padding: 10px 18px 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); }
@@ -2313,11 +2432,11 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   }, [])
   // 标签筛选（点击芯片即筛，可与搜索/类型/状态叠加）
   const [tagPick, setTagPick] = useState('')
-  // 'cards' | 'graph' | 'stats' | 'audit' | 'optimize' | 'config' | 'terminal'
+  // 'cards' | 'graph' | 'news' | 'stats' | 'audit' | 'optimize' | 'config' | 'terminal'
   const [view, setView] = useState(() => {
     try {
       const tab = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('tab')
-      const map = { cards: 'cards', graph: 'graph', usage: 'stats', stats: 'stats', audit: 'audit', recycle: 'optimize', optimize: 'optimize', config: 'config', terminal: 'terminal' }
+      const map = { cards: 'cards', graph: 'graph', news: 'news', usage: 'stats', stats: 'stats', audit: 'audit', recycle: 'optimize', optimize: 'optimize', config: 'config', terminal: 'terminal' }
       if (tab && map[tab]) return map[tab] // 深链：?tab=audit / config / graph / usage / recycle
     } catch {}
     return 'cards'
@@ -2335,6 +2454,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const importRef = useRef(null)
   const [exporting, setExporting] = useState(false)
   const [skillBusy, setSkillBusy] = useState(false)
+  const [newsUnread, setNewsUnread] = useState(0)
   const [reader, setReader] = useState(null)
   const [allVaults, setAllVaults] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -2440,12 +2560,14 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     try {
       // 只拉轻量数据（<1KB）：概览 + 沉淀健康状态。
       // 卡片列表（250KB）/ 图谱（890KB）改由各自视图按需拉取——设置页不该付这份代价。
-      const [ov, capRes, cfgRes] = await Promise.all([
+      const [ov, capRes, cfgRes, newsRes] = await Promise.all([
         fetch(`${API}/overview`).then((r) => r.json()),
         fetch(`${API}/capture-log`).then((r) => r.json()).catch(() => null),
         fetch(`${API}/config`).then((r) => r.json()).catch(() => null),
+        fetch(`${API}/news?unread=1&limit=1`).then((r) => r.json()).catch(() => null),
       ])
       if (ov.ok) setOverview(ov)
+      if (newsRes && newsRes.ok) setNewsUnread(Number((newsRes.counts || {}).unread) || 0)
       const nextScale = cfgRes && cfgRes.ok && cfgRes.config && cfgRes.config.uiScale
       if (['compact', 'normal', 'large'].includes(nextScale)) {
         setUiScale(nextScale)
@@ -2708,7 +2830,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       {!inModal && (
         <div className={`mc-v5-top${inHost ? ' in-host' : ''}`}>
           <img className="mc-v5-logo" src={brandIcon} alt="" />
-          <span className="mc-v5-crumb"><b>{t('memoryTitle')}</b><i>/</i><span>{t(view === 'cards' ? 'cardsTab' : view === 'graph' ? 'graphTab' : view === 'stats' ? 'tabUsage' : view === 'audit' ? 'tabAudit' : view === 'optimize' ? 'tabRecycle' : view === 'terminal' ? 'terminalTab' : 'tabConfig')}</span></span>
+          <span className="mc-v5-crumb"><b>{t('memoryTitle')}</b><i>/</i><span>{t(view === 'cards' ? 'cardsTab' : view === 'graph' ? 'graphTab' : view === 'news' ? 'newsTab' : view === 'stats' ? 'tabUsage' : view === 'audit' ? 'tabAudit' : view === 'optimize' ? 'tabRecycle' : view === 'terminal' ? 'terminalTab' : 'tabConfig')}</span></span>
           <div className="spacer" />
           <div className="mc-v5-top-actions">
             <span className="mc-v5-sys"><i />{t('v5Local')}</span>
@@ -2756,6 +2878,11 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           <button type="button" className={`mc-railbtn${view === 'graph' ? ' active' : ''}`} onClick={() => goView('graph')} title={t('graphTab')}>
             <span className="mc-rail-ico">🔮</span>
             {railOpen && <span className="mc-rail-label">{t('graphTab')}</span>}
+          </button>
+          <button type="button" className={`mc-railbtn${view === 'news' ? ' active' : ''}`} onClick={() => goView('news')} title={t('newsTab')}>
+            <span className="mc-rail-ico">📰</span>
+            {railOpen && <span className="mc-rail-label">{t('newsTab')}</span>}
+            {newsUnread > 0 && <span className="mc-dot">{newsUnread > 99 ? '99+' : newsUnread}</span>}
           </button>
           <button type="button" className={`mc-railbtn${view === 'stats' ? ' active' : ''}`} onClick={() => goView('stats')} title={t('tabUsage')}>
             <span className="mc-rail-ico">📈</span>
@@ -2914,6 +3041,9 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
           {/* active 必须跟着视图走：以前恒为 true → 打开任何视图都拉 890KB 图谱（约 3.5s） */}
           {visited.has('graph') && <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} visible={view === 'graph'} />}
+        </div>
+        <div style={{ display: view === 'news' ? 'contents' : 'none' }}>
+          {visited.has('news') && <NewsPanel t={t} version={dataVer} onUnreadChange={setNewsUnread} />}
         </div>
         <div style={{ display: view === 'terminal' ? 'contents' : 'none' }}>
           {visited.has('terminal') && <TerminalGuide t={t} />}
@@ -3944,6 +4074,316 @@ function AuditPanel({ t, onReload, version }) {
 }
 
 /** 回收中心：软删卡列表 + 恢复/永久删除 + 30天自动清理提示。 */
+const NEWS_EMPTY = { title: '', date: '', category: '', source: '', url: '', tags: '', pinned: false, body: '' }
+
+function newsToday() {
+  const d = new Date()
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
+
+function safeNewsUrl(raw) {
+  try {
+    const u = new URL(String(raw || ''))
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : ''
+  } catch { return '' }
+}
+
+function newsDateGroup(date, t) {
+  const d = String(date || '').slice(0, 10)
+  if (!d) return t('newsEarlier')
+  if (d === newsToday()) return t('newsToday')
+  const y = new Date()
+  y.setDate(y.getDate() - 1)
+  const yd = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0')
+  return d === yd ? t('newsYesterday') : d
+}
+
+function NewsCard({ item, t, active, onOpen, onEdit, onToggleRead, onDelete }) {
+  return (
+    <article className={'mc-news-card' + (item.pinned ? ' pinned' : '') + (item.read ? '' : ' unread') + (active ? ' active' : '')} onClick={() => onOpen(item)}>
+      <div className="mc-news-top">
+        {!item.read && <span className="mc-news-dot" title={t('newsUnread')} />}
+        <span className="mc-news-cat">{item.category || t('newsCategoryField')}</span>
+        {item.pinned && <span className="mc-news-pin">📌 {t('newsPinned')}</span>}
+        <span className="mc-news-time">{item.date || (item.updated || '').slice(0, 10)}</span>
+      </div>
+      <h3 className="mc-news-title">{item.title}</h3>
+      {item.excerpt && <p className="mc-news-excerpt">{item.excerpt}</p>}
+      <div className="mc-news-meta">
+        {item.source && <span>{item.source}</span>}
+        {(item.tags || []).slice(0, 3).map((tag) => <span key={tag}>#{tag}</span>)}
+        <span style={{ marginLeft: 'auto', opacity: .72 }}>{item.read ? t('newsRead') : t('newsUnread')}</span>
+        <span className="mc-news-actions" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className="mc-btn" onClick={() => onToggleRead(item)}>{item.read ? t('newsMarkUnread') : t('newsMarkRead')}</button>
+          <button type="button" className="mc-btn" onClick={() => onEdit(item)}>{t('newsEdit')}</button>
+          <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => onDelete(item)} title={t('delete')}>✕</button>
+        </span>
+      </div>
+    </article>
+  )
+}
+
+/** 动态 / 新闻：用户自定义 Markdown，独立于记忆卡。 */
+function NewsPanel({ t, version, onUnreadChange }) {
+  const [items, setItems] = useState([])
+  const [categories, setCategories] = useState([])
+  const [counts, setCounts] = useState({ all: 0, unread: 0 })
+  const [query, setQuery] = useState('')
+  const [q, setQ] = useState('')
+  const [category, setCategory] = useState('')
+  const [unreadOnly, setUnreadOnly] = useState(false)
+  const [selectedId, setSelectedId] = useState('')
+  const [detail, setDetail] = useState(null)
+  const [editor, setEditor] = useState(null)
+  const [preview, setPreview] = useState(false)
+  const [busy, setBusy] = useState('')
+  const [toast, setToast] = useState(null)
+  const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 2600) }
+
+  useEffect(() => {
+    const id = setTimeout(() => setQ(query.trim()), 220)
+    return () => clearTimeout(id)
+  }, [query])
+
+  const load = useCallback(async () => {
+    const qs = new URLSearchParams()
+    if (q) qs.set('q', q)
+    if (category) qs.set('category', category)
+    if (unreadOnly) qs.set('unread', '1')
+    try {
+      const r = await fetch(API + '/news?' + qs.toString()).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || 'load failed')
+      setItems(r.items || [])
+      setCategories(r.categories || [])
+      setCounts(r.counts || { all: 0, unread: 0 })
+      if (onUnreadChange) onUnreadChange(Number((r.counts || {}).unread) || 0)
+    } catch {
+      notify(t('newsSaveFail'), false)
+    }
+  }, [q, category, unreadOnly, onUnreadChange, t])
+
+  useEffect(() => { load() }, [version, load])
+
+  const openNews = async (item) => {
+    setSelectedId(item.id)
+    try {
+      const r = await fetch(API + '/news/item?id=' + encodeURIComponent(item.id)).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || 'load failed')
+      setDetail(r.item)
+      if (!r.item.read) await setRead(item.id, true)
+    } catch {
+      notify(t('newsSaveFail'), false)
+    }
+  }
+
+  const setRead = async (id, read) => {
+    try {
+      const r = await fetch(API + '/news/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, read }) }).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || 'read failed')
+      setDetail((d) => (d && d.id === id ? { ...d, read: !!read } : d))
+      await load()
+    } catch {
+      notify(t('newsSaveFail'), false)
+    }
+  }
+
+  const openEditor = async (item) => {
+    setPreview(false)
+    if (item) {
+      let src = item
+      // 列表接口不带正文；编辑列表项时先取完整正文，避免保存成空卡。
+      if (!src.body) {
+        try {
+          const r = await fetch(API + '/news/item?id=' + encodeURIComponent(src.id)).then((x) => x.json())
+          if (r && r.ok) src = r.item
+        } catch { /* 取不到就按空正文打开，用户可重新输入 */ }
+      }
+      setEditor({
+        id: src.id,
+        title: src.title || '',
+        date: src.date || newsToday(),
+        category: src.category || '',
+        source: src.source || '',
+        url: src.url || '',
+        tags: (src.tags || []).join(', '),
+        pinned: !!src.pinned,
+        body: src.body || '',
+        created: src.created || '',
+      })
+    } else {
+      setEditor({ ...NEWS_EMPTY, date: newsToday() })
+    }
+  }
+
+  const saveEditor = async () => {
+    if (!editor) return
+    if (!String(editor.title || '').trim() || !String(editor.body || '').trim()) {
+      notify(t('newsSaveFail'), false)
+      return
+    }
+    setBusy('save')
+    try {
+      const payload = {
+        id: editor.id || undefined,
+        title: editor.title,
+        date: editor.date,
+        category: editor.category,
+        source: editor.source,
+        url: editor.url,
+        tags: String(editor.tags || '').split(',').map((x) => x.trim()).filter(Boolean),
+        pinned: !!editor.pinned,
+        body: editor.body,
+        created: editor.created,
+      }
+      const r = await fetch(API + '/news/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || 'save failed')
+      setEditor(null)
+      setSelectedId(r.item.id)
+      setDetail(r.item)
+      await load()
+      notify(t('newsSaved'))
+    } catch (e) {
+      notify((e && e.message) || t('newsSaveFail'), false)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const deleteItem = async (item) => {
+    if (!window.confirm(t('newsDeleteConfirm'))) return
+    setBusy('delete')
+    try {
+      const r = await fetch(API + '/news/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id }) }).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || 'delete failed')
+      if (selectedId === item.id) { setSelectedId(''); setDetail(null) }
+      await load()
+      notify(t('newsDeleted'))
+    } catch {
+      notify(t('newsSaveFail'), false)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const pinned = items.filter((x) => x.pinned)
+  const rest = items.filter((x) => !x.pinned)
+  const detailLink = detail ? safeNewsUrl(detail.url) : ''
+  let lastGroup = ''
+  return (
+    <div className="mc-news">
+      <InlineToast toast={toast} />
+      <div className="mc-v5-pagehead">
+        <div>
+          <div className="mc-v5-eyebrow">NEWSROOM</div>
+          <h1>{t('newsTitle')}</h1>
+          <p>{t('newsHint')}</p>
+        </div>
+        <span className="mc-v5-pagecount">{counts.all} {t('newsCountUnit')} · {counts.unread} {t('newsUnread')}</span>
+        <button type="button" className="mc-btn me-on" onClick={() => openEditor(null)}>＋ {t('newsNew')}</button>
+      </div>
+
+      <div className="mc-news-toolbar">
+        <input className="mc-news-search" type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('newsSearch')} aria-label={t('newsSearch')} />
+        <button type="button" className={'mc-chip' + (category === '' ? ' active' : '')} onClick={() => setCategory('')}>{t('all')}</button>
+        {categories.map((c) => (
+          <button key={c} type="button" className={'mc-chip' + (category === c ? ' active' : '')} onClick={() => setCategory((v) => (v === c ? '' : c))}>{c}</button>
+        ))}
+        <button type="button" className={'mc-chip' + (unreadOnly ? ' active' : '')} onClick={() => setUnreadOnly((v) => !v)}>{t('newsUnreadOnly')}</button>
+        <button type="button" className="mc-btn" onClick={() => load()}>{t('refresh')}</button>
+      </div>
+
+      <div className="mc-news-main">
+        <div className="mc-news-list">
+          {items.length === 0 ? (
+            <div className="mc-card mc-news-empty">
+              {query || category || unreadOnly ? t('newsNoMatch') : t('newsEmpty')}
+              {!query && !category && !unreadOnly && <div style={{ marginTop: 10 }}><button type="button" className="mc-btn me-on" onClick={() => openEditor(null)}>＋ {t('newsNew')}</button></div>}
+            </div>
+          ) : (
+            <>
+              {pinned.length > 0 && (
+                <div className="mc-news-group">
+                  <div className="mc-news-group-label">📌 {t('newsPinned')}</div>
+                  {pinned.map((item) => <NewsCard key={item.id} item={item} t={t} active={selectedId === item.id} onOpen={openNews} onEdit={(x) => openEditor(x)} onToggleRead={(x) => setRead(x.id, !x.read)} onDelete={deleteItem} />)}
+                </div>
+              )}
+              <div className="mc-news-group">
+                {rest.map((item) => {
+                  const group = newsDateGroup(item.date, t)
+                  const show = group !== lastGroup
+                  lastGroup = group
+                  return (
+                    <React.Fragment key={item.id}>
+                      {show && <div className="mc-news-group-label">{group}</div>}
+                      <NewsCard item={item} t={t} active={selectedId === item.id} onOpen={openNews} onEdit={(x) => openEditor(x)} onToggleRead={(x) => setRead(x.id, !x.read)} onDelete={deleteItem} />
+                    </React.Fragment>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        {detail && (
+          <aside className="mc-news-reader">
+            <div className="mc-news-reader-head">
+              <span className="mc-news-cat">{detail.category || t('newsCategoryField')}</span>
+              {detail.pinned && <span className="mc-news-pin">📌 {t('newsPinned')}</span>}
+              <div style={{ flex: 1 }} />
+              <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => { setDetail(null); setSelectedId('') }} title={t('close')}>✕</button>
+            </div>
+            <h2>{detail.title}</h2>
+            <div className="mc-news-reader-meta">
+              <span>{detail.date || ''}</span>
+              {detail.source && <span>· {detail.source}</span>}
+              <span>· {detail.read ? t('newsRead') : t('newsUnread')}</span>
+              {(detail.tags || []).map((tag) => <span key={tag}>#{tag}</span>)}
+            </div>
+            {detailLink && <div style={{ marginTop: 8 }}><a className="mc-btn" style={{ textDecoration: 'none' }} href={detailLink} target="_blank" rel="noopener noreferrer">↗ {t('newsOpenLink')}</a></div>}
+            <div className="md-doc" style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: renderMd(stripRepeatedTitle(detail.body || '', detail.title)) }} />
+            <div className="mc-news-reader-actions">
+              <button type="button" className="mc-btn" onClick={() => openEditor(detail)}>{t('newsEdit')}</button>
+              <button type="button" className="mc-btn" onClick={() => setRead(detail.id, !detail.read)}>{detail.read ? t('newsMarkUnread') : t('newsMarkRead')}</button>
+              <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={busy === 'delete'} onClick={() => deleteItem(detail)}>{t('delete')}</button>
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {editor && (
+        <div className="me-overlay" onClick={() => setEditor(null)}>
+          <div className="me-dialog" style={{ maxWidth: 860, width: '94vw', maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--dsw-alias-border-l1, #e5e7eb)' }}>
+              <b>{editor.id ? t('newsEdit') : t('newsNew')}</b>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="mc-btn" onClick={() => setEditor(null)}>{t('close')}</button>
+            </div>
+            <div style={{ padding: 16, overflow: 'auto', maxHeight: 'calc(90vh - 60px)' }}>
+              <div className="mc-news-form">
+                <label className="full"><span>{t('newsTitleField')}</span><input className="mc-news-input" value={editor.title} onChange={(e) => setEditor((v) => ({ ...v, title: e.target.value }))} placeholder={t('newsTitlePlaceholder')} /></label>
+                <label><span>{t('newsDateField')}</span><input className="mc-news-input" type="date" value={editor.date || ''} onChange={(e) => setEditor((v) => ({ ...v, date: e.target.value }))} /></label>
+                <label><span>{t('newsCategoryField')}</span><input className="mc-news-input" list="me-news-categories" value={editor.category || ''} onChange={(e) => setEditor((v) => ({ ...v, category: e.target.value }))} /></label>
+                <datalist id="me-news-categories">{categories.map((c) => <option key={c} value={c} />)}</datalist>
+                <label><span>{t('newsSourceField')}</span><input className="mc-news-input" value={editor.source || ''} onChange={(e) => setEditor((v) => ({ ...v, source: e.target.value }))} /></label>
+                <label><span>{t('newsUrlField')}</span><input className="mc-news-input" value={editor.url || ''} onChange={(e) => setEditor((v) => ({ ...v, url: e.target.value }))} placeholder="https://…" /></label>
+                <label><span>{t('newsTagsField')}</span><input className="mc-news-input" value={editor.tags || ''} onChange={(e) => setEditor((v) => ({ ...v, tags: e.target.value }))} /></label>
+                <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 18 }}><input type="checkbox" checked={!!editor.pinned} onChange={(e) => setEditor((v) => ({ ...v, pinned: e.target.checked }))} /><span>{t('newsPinField')}</span></label>
+                <label className="full"><span>{t('newsBodyField')}</span><textarea className="mc-news-textarea" value={editor.body || ''} onChange={(e) => setEditor((v) => ({ ...v, body: e.target.value }))} placeholder={t('newsBodyPlaceholder')} /></label>
+                {preview && <div className="full mc-news-preview"><div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(editor.body || '') }} /></div>}
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
+                <button type="button" className="mc-btn" onClick={() => setPreview((v) => !v)}>{preview ? t('newsEditBody') : t('newsPreview')}</button>
+                <button type="button" className="mc-btn" onClick={() => setEditor(null)}>{t('cancel')}</button>
+                <button type="button" className="mc-btn me-on" disabled={busy === 'save'} onClick={saveEditor}>{busy === 'save' ? t('newsSaving') : t('newsSave')}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function RecoverPanel({ t, onReload, version }) {
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState('')
