@@ -66,6 +66,18 @@ export const ZH = {
   kindTool: '工具',
   kindMistake: '教训',
   kindCore: '核心记忆',
+  kindSkill: '技能',
+  skillCards: '技能卡',
+  skillCardsHint: '从本机实际安装/可用的技能生成卡片，强制进入审核；不由 Agent 对话沉淀。',
+  skillAutoSync: '自动同步技能卡',
+  syncSkills: '同步技能',
+  syncingSkills: '正在同步技能…',
+  skillsSyncDone: '技能卡同步完成',
+  skillsScanned: '扫描',
+  skillsCreated: '新增',
+  skillsUpdated: '更新',
+  skillsPendingUpdates: '待审更新',
+  skillsSyncFail: '技能卡同步失败',
   cardsTab: '知识卡',
   webTab: 'Web 版',
   webOpening: '正在用默认浏览器打开 Web 版…',
@@ -663,6 +675,18 @@ export const EN = {
   kindTool: 'Tools',
   kindMistake: 'Mistakes',
   kindCore: 'Core memory',
+  kindSkill: 'Skills',
+  skillCards: 'Skill cards',
+  skillCardsHint: 'Generated from the skills actually installed/available on this machine; always reviewed. Never deposited by agent chat.',
+  skillAutoSync: 'Auto-sync skill cards',
+  syncSkills: 'Sync skills',
+  syncingSkills: 'Syncing skills…',
+  skillsSyncDone: 'Skill cards synced',
+  skillsScanned: 'scanned',
+  skillsCreated: 'created',
+  skillsUpdated: 'updated',
+  skillsPendingUpdates: 'pending updates',
+  skillsSyncFail: 'Skill sync failed',
   cardsTab: 'Cards',
   webTab: 'Web version',
   webOpening: 'Opening the web version in your browser…',
@@ -1242,13 +1266,15 @@ export const EN = {
   tplWeeklyBody: '# Weekly report [YYYY-MM-DD]\n\n## Done this week\n- \n\n## Next week\n- \n\n## Risks/blockers\n- ',
 }
 
-const KIND_IDS = ['all', 'core', 'project', 'knowledge', 'content', 'prompt', 'business', 'tool', 'mistake']
-const KIND_COLORS = { core: '#FF7A45', project: '#3B82F6', knowledge: '#10B981', content: '#F59E0B', prompt: '#A855F7', business: '#EC4899', tool: '#06B6D4', mistake: '#EF4444', other: '#6B7280' }
+const KIND_IDS = ['all', 'core', 'project', 'knowledge', 'skill', 'content', 'prompt', 'business', 'tool', 'mistake']
+// 新建卡 / 统计里可选的普通类型（core 是审核时单独提升，不出现在普通创建下拉里）
+const FORM_KINDS = KIND_IDS.filter((k) => k !== 'all' && k !== 'core')
+const KIND_COLORS = { core: '#FF7A45', skill: '#8B5CF6', project: '#3B82F6', knowledge: '#10B981', content: '#F59E0B', prompt: '#A855F7', business: '#EC4899', tool: '#06B6D4', mistake: '#EF4444', other: '#6B7280' }
 // issue #41：畸形卡（tags 是字符串 / undefined）曾让整页黑屏（React 根组件挂载失败）——
 // 渲染层一律走这个兜底，坏数据最多少显示几个标签，不能把整棵树带走。
 const tagsOf = (c) => (Array.isArray(c && c.tags) ? c.tags : [])
-const KIND_EMOJI = { core: '⭐', project: '📁', knowledge: '📚', content: '📝', prompt: '💬', business: '💼', tool: '🔧', mistake: '⚠️', other: '📎' }
-const KIND_LABELS = { core: 'kindCore', project: 'kindProject', knowledge: 'kindKnowledge', content: 'kindContent', prompt: 'kindPrompt', business: 'kindBusiness', tool: 'kindTool', mistake: 'kindMistake', other: 'kindKnowledge' }
+const KIND_EMOJI = { core: '⭐', skill: '🧩', project: '📁', knowledge: '📚', content: '📝', prompt: '💬', business: '💼', tool: '🔧', mistake: '⚠️', other: '📎' }
+const KIND_LABELS = { core: 'kindCore', skill: 'kindSkill', project: 'kindProject', knowledge: 'kindKnowledge', content: 'kindContent', prompt: 'kindPrompt', business: 'kindBusiness', tool: 'kindTool', mistake: 'kindMistake', other: 'kindKnowledge' }
 // DSH 宿主自动沉淀卡的署名（与 index.js 的 DSH_AGENT 保持一致）。
 // 归一化：session:<uuid> / agent / unknown / 空 → deepseek-harness；claude-code → claude；其余取冒号前 token。
 const DSH_AGENT = 'deepseek-harness'
@@ -2303,6 +2329,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const libToastTimer = useRef(null)
   const importRef = useRef(null)
   const [exporting, setExporting] = useState(false)
+  const [skillBusy, setSkillBusy] = useState(false)
   const [reader, setReader] = useState(null)
   const [allVaults, setAllVaults] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -2595,6 +2622,33 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     libToastTimer.current = setTimeout(() => setLibToast(null), 2400)
   }
 
+  // 技能卡同步：从本机实际技能生成/刷新待审技能卡（kind=skill）。
+  // 不是 agent 沉淀；服务端强制 pending，同步完只会看到审核队列数量变化。
+  const syncSkills = async () => {
+    if (skillBusy) return
+    setSkillBusy(true)
+    try {
+      const r = await fetch(`${API}/skills/sync`, { method: 'POST' }).then((x) => x.json()).catch(() => null)
+      if (r && r.ok) {
+        const msg = t('skillsSyncDone') + ' · ' + t('skillsScanned') + ' ' + (r.total || 0) +
+          ' · ' + t('skillsCreated') + ' ' + (r.created || 0) +
+          ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) +
+          ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0)
+        setLibToast({ ok: true, msg })
+        await loadAll()
+        bump()
+      } else {
+        setLibToast({ ok: false, msg: (r && r.error) || t('skillsSyncFail') })
+      }
+    } catch (e) {
+      setLibToast({ ok: false, msg: t('skillsSyncFail') })
+    } finally {
+      setSkillBusy(false)
+    }
+    if (libToastTimer.current) clearTimeout(libToastTimer.current)
+    libToastTimer.current = setTimeout(() => setLibToast(null), 3600)
+  }
+
   const sortedCards = useMemo(() => {
     let arr = cards.slice()
     if (agentFilter !== 'all') arr = arr.filter((c) => normAgent(c.submittedBy) === agentFilter)
@@ -2787,6 +2841,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             <input ref={importRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={importVault} />
             <button type="button" className="mc-btn" onClick={() => importRef.current && importRef.current.click()}>{t('importVault')}</button>
             <button type="button" className="mc-btn me-on" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>+ {t('newCard')}</button>
+            <button type="button" className="mc-btn" disabled={skillBusy} onClick={syncSkills} title={t('skillCardsHint')}>{skillBusy ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</button>
             <button type="button" className="mc-btn" disabled={exporting} onClick={() => exportVault('md')}>{exporting ? t('exporting') : t('exportVault')}</button>
             <button type="button" className="mc-btn" disabled={exporting} onClick={() => exportVault('json')}>{exporting ? t('exporting') : t('exportJson')}</button>
             <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('refresh')}</button>
@@ -2898,7 +2953,7 @@ const StatCell = ({ label, value }) => (
 
 /** DSH 设置→记忆 左栏配置面板：插件信息 + Agent MCP 挂载状态 + 全部配置项（一键推荐 / DSH 记忆配置 / 成本控制 / 自动审核配置 / 服务自管理配置 / 保存）。 */
 const CfgFormContext = createContext({ form: null, set: () => {} })
-const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift', 'coreMemoryEnabled'])
+const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift', 'coreMemoryEnabled', 'skillCardsAutoSync'])
 
 /** 配置字段：必须在模块顶层定义。放在 ConfigPanel 里会在每次输入重渲染时换组件类型，
  *  React 于是整棵表单卸载重建 —— 输入框失焦、滚动条回跳（用户反馈根因）。 */
@@ -3446,6 +3501,23 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="coreMemoryMaxChars" label={t('coreMemoryMaxChars')} type="number" />
               </div>
             </CfgSection>
+            {/* 技能卡（从实际技能生成，强制待审；不由 agent 沉淀） */}
+            <CfgSection icon="🧩" title={t('skillCards')} sub={t('skillCardsHint')}>
+              <div className="mc-cfg-grid">
+                <Bool k="skillCardsAutoSync" label={t('skillAutoSync')} />
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => {
+                  setBusy('skills')
+                  try {
+                    const r = await fetch(API + '/skills/sync', { method: 'POST' }).then((x) => x.json()).catch(() => null)
+                    if (r && r.ok) {
+                      notify(t('skillsSyncDone') + '：' + t('skillsScanned') + ' ' + (r.total || 0) + ' · ' + t('skillsCreated') + ' ' + (r.created || 0) + ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) + ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0))
+                    } else notify((r && r.error) || t('skillsSyncFail'), false)
+                  } catch (e) { notify(t('skillsSyncFail'), false) } finally { setBusy('') }
+                }}>{busy === 'skills' ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</button>
+              </div>
+            </CfgSection>
             {/* 布局大小：只影响界面显示 */}
             <CfgSection icon="🔠" title={t('uiLayout')} sub={t('uiLayoutHint')}>
               <div className="mc-cfg-grid">
@@ -3566,7 +3638,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <MultiDD
                   label={t('auditExemptKinds')}
                   value={form.auditExemptKinds || []}
-                  options={[{ value: '__all__', label: t('allExempt') }, ...KIND_IDS.filter((k) => k !== 'all').map((k) => ({ value: k, label: t(KIND_LABELS[k]) }))]}
+                  options={[{ value: '__all__', label: t('allExempt') }, ...KIND_IDS.filter((k) => k !== 'all' && k !== 'core' && k !== 'skill').map((k) => ({ value: k, label: t(KIND_LABELS[k]) }))]}
                   onChange={(v) => set('auditExemptKinds', v)}
                 />
                 <F k="recycleRetentionDays" label={t('recycleDays')} hint={t('unitDays')} type="number" />
@@ -4208,7 +4280,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
     if (!window.confirm(t('deleteConfirm'))) return
     try { const r = await fetch(`${API}/delete?path=${encodeURIComponent(p)}`).then((x) => x.json()); if (r.ok) { await fetchAll(); onReload && onReload() } } catch (e) {}
   }
-  const kinds = ['project', 'knowledge', 'content', 'prompt', 'business', 'tool', 'mistake']
+  const kinds = FORM_KINDS
   const KN = ({ title, kind, updated, path }) => (
     <li style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px', borderBottom: '1px solid rgba(127,127,127,0.12)' }}>
       <span className="mc-kind" style={{ background: KG.colors[kind] || '#666' }} />
@@ -4659,7 +4731,7 @@ function NewCardModal({ t, newCard, setNewCard, onCreated }) {
             <button type="button" className={`mc-btn${newCard.template === '' ? ' me-on' : ''}`} onClick={() => setNewCard((v) => ({ ...v, template: '', body: '', tags: '', kind: 'knowledge' }))}>{t('tplBlank')}</button>
           </div>
           <select className="mc-btn" value={kind} onChange={(e) => setNewCard((v) => ({ ...v, kind: e.target.value }))} style={{ maxWidth: 180, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'var(--dsw-alias-label-primary, #111)' }}>
-            {['project','knowledge','content','prompt','business','tool','mistake'].map((k) => <option key={k} value={k} style={{ background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'var(--dsw-alias-label-primary, #111)' }}>{k}</option>)}
+            {FORM_KINDS.map((k) => <option key={k} value={k} style={{ background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'var(--dsw-alias-label-primary, #111)' }}>{t(KIND_LABELS[k]) || k}</option>)}
           </select>
           <input type="text" className="mc-btn" placeholder={t('cardTitle')} value={newCard.title || ''} onChange={(e) => setNewCard((v) => ({ ...v, title: e.target.value }))} />
           <input type="text" className="mc-btn" placeholder={t('tagsHint')} value={tags} onChange={(e) => setNewCard((v) => ({ ...v, tags: e.target.value }))} />
@@ -5217,8 +5289,8 @@ function countEdges(edges) {
 
 // agentmemory 式图谱：canvas 力导向 + 按 kind 聚合 + 分型节点 + 渐变/发光 + 药丸标签 + 网格。
 const KG = {
-  colors: { core:'#FF7A45', project:'#3B82F6', knowledge:'#10B981', content:'#F59E0B', prompt:'#A855F7', business:'#EC4899', tool:'#06B6D4', mistake:'#EF4444', other:'#6B7280' },
-  shapes: { core:'diamond', project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
+  colors: { core:'#FF7A45', skill:'#8B5CF6', project:'#3B82F6', knowledge:'#10B981', content:'#F59E0B', prompt:'#A855F7', business:'#EC4899', tool:'#06B6D4', mistake:'#EF4444', other:'#6B7280' },
+  shapes: { core:'diamond', skill:'hexagon', project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
 }
 
 // 图谱绘制异常兜底：渲染循环里的异常原来被空 catch 静默吞掉（表现是画布永远空白、
