@@ -121,6 +121,8 @@ export const ZH = {
   newsPartialFail: '部分来源失败',
   newsFeedEmpty: '今天还没有抓到资讯，点刷新再试。',
   newsFeedRefresh: '刷新资讯',
+  newsLoadingHint: '首次加载会抓取多个中文资讯源，可能需要几秒…',
+  newsRetry: '重试',
   newsJustNow: '刚刚',
   newsMinutesAgo: '分钟前',
   newsHoursAgo: '小时前',
@@ -795,6 +797,8 @@ export const EN = {
   newsPartialFail: 'Some sources failed',
   newsFeedEmpty: 'No news fetched today. Try refresh.',
   newsFeedRefresh: 'Refresh news',
+  newsLoadingHint: 'First load fetches several Chinese sources; this can take a few seconds.',
+  newsRetry: 'Retry',
   newsJustNow: 'just now',
   newsMinutesAgo: 'min ago',
   newsHoursAgo: 'h ago',
@@ -1676,6 +1680,9 @@ const CSS = `
 .mc-news-feed-heat { color: #d97706; font-weight: 650; }
 .mc-news-feed-warn { margin-bottom: 10px; padding: 7px 10px; border-radius: 8px; font-size: 11px; color: #b45309; background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.28); }
 .mc-news-feed-empty { padding: 28px 16px; text-align: center; color: var(--dsw-alias-label-secondary, #6b7280); font-size: 12.5px; }
+.mc-news-loading-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 34px 16px; min-height: 120px; }
+.mc-news-loading-card > span { font-size: 12.5px; color: var(--dsw-alias-label-primary, #1f2937); }
+.mc-news-loading-card > small { max-width: 46ch; font-size: 10.5px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #6b7280); }
 .mc-news-feed-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .mc-news-feed-meta { font-size: 10.5px; color: var(--dsw-alias-label-secondary, #6b7280); margin-left: auto; }
 
@@ -4216,6 +4223,7 @@ function NewsFeedPanel({ t, mode, version }) {
   const [loading, setLoading] = useState(true)
   const [fetchedAt, setFetchedAt] = useState(0)
   const [errors, setErrors] = useState([])
+  const [feedError, setFeedError] = useState('')
   const [toast, setToast] = useState(null)
   const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3200) }
 
@@ -4226,6 +4234,7 @@ function NewsFeedPanel({ t, mode, version }) {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setFeedError('')
     try {
       const qs = new URLSearchParams({ period: mode === 'month' ? 'month' : 'today', lang })
       if (type) qs.set('type', type)
@@ -4238,7 +4247,9 @@ function NewsFeedPanel({ t, mode, version }) {
       setFetchedAt(Number(r.fetchedAt) || 0)
       setErrors(r.errors || [])
     } catch (e) {
-      notify((e && e.message) || t('newsFeedError'), false)
+      const msg = (e && e.message) || t('newsFeedError')
+      setFeedError(msg)
+      notify(msg, false)
     } finally {
       setLoading(false)
     }
@@ -4254,7 +4265,9 @@ function NewsFeedPanel({ t, mode, version }) {
       await load()
       notify(t('newsUpdatedAt') + ' ' + new Date().toLocaleTimeString())
     } catch (e) {
-      notify((e && e.message) || t('newsFeedError'), false)
+      const msg = (e && e.message) || t('newsFeedError')
+      setFeedError(msg)
+      notify(msg, false)
       setLoading(false)
     }
   }
@@ -4275,11 +4288,24 @@ function NewsFeedPanel({ t, mode, version }) {
         {types.map((x) => <button key={x.id} type="button" className={'mc-chip' + (type === x.id ? ' active' : '')} onClick={() => setType((v) => (v === x.id ? '' : x.id))}>{x.label}</button>)}
       </div>
       {mode === 'month' && <div className="mc-news-feed-warn" style={{ color: 'var(--dsw-alias-label-secondary, #6b7280)', background: 'transparent', borderColor: 'var(--dsw-alias-border-l1, #e5e7eb)' }}>{ranking ? t('newsEnRanking') : t('newsZhArchive')}</div>}
+      {feedError && !loading && (
+        <div className="mc-news-feed-warn" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span>⚠ {feedError}</span>
+          <button type="button" className="mc-btn" onClick={refresh}>{t('newsRetry')}</button>
+        </div>
+      )}
       {errors.length > 0 && <div className="mc-news-feed-warn">⚠ {t('newsPartialFail')}：{errors.slice(0, 2).join('；')}</div>}
       {loading ? (
-        <div className="mc-card mc-news-feed-empty">{t('newsLoading')}</div>
+        <div className="mc-card mc-news-feed-empty mc-news-loading-card" role="status" aria-live="polite">
+          <ProgressBar />
+          <span>{t('newsLoading')}</span>
+          <small>{t('newsLoadingHint')}</small>
+        </div>
       ) : items.length === 0 ? (
-        <div className="mc-card mc-news-feed-empty">{t('newsFeedEmpty')}</div>
+        <div className="mc-card mc-news-feed-empty">
+          <div>{t('newsFeedEmpty')}</div>
+          <button type="button" className="mc-btn me-on" style={{ marginTop: 10 }} onClick={refresh}>{t('newsFeedRefresh')}</button>
+        </div>
       ) : (
         <div className="mc-news-feed-list">
           {items.map((item) => {
