@@ -123,6 +123,18 @@ export const ZH = {
   newsFeedRefresh: '刷新资讯',
   newsLoadingHint: '首次加载会抓取多个中文资讯源，可能需要几秒…',
   newsRetry: '重试',
+  newsSearchGo: '搜索',
+  newsSortRec: '为你推荐',
+  newsSortTime: '最新',
+  newsPersonalized: '已按你的喜爱定制排序',
+  newsLastQuery: '上次搜索',
+  newsResetPrefs: '重置偏好',
+  newsHeroEye: 'NEWSROOM · AI 情报站',
+  newsHeroHint: '搜索一次就会被记住，下次打开自动按你的口味排序；只在本页首次打开时拉取一次数据。',
+  newsMatched: '条命中',
+  newsNoMatch: '没有匹配的资讯',
+  newsNoMatchHint: '这批数据里没有命中当前关键词 + 分类 + 语言的条目，清除筛选就能看回全部。',
+  newsClearFilters: '清除筛选',
   newsJustNow: '刚刚',
   newsMinutesAgo: '分钟前',
   newsHoursAgo: '小时前',
@@ -799,6 +811,18 @@ export const EN = {
   newsFeedRefresh: 'Refresh news',
   newsLoadingHint: 'First load fetches several Chinese sources; this can take a few seconds.',
   newsRetry: 'Retry',
+  newsSearchGo: 'Search',
+  newsSortRec: 'For you',
+  newsSortTime: 'Latest',
+  newsPersonalized: 'Ordered by your taste',
+  newsLastQuery: 'Last search',
+  newsResetPrefs: 'Reset taste',
+  newsHeroEye: 'NEWSROOM · AI FEED',
+  newsHeroHint: 'One search is remembered — the next visit is ordered by your taste. Data is fetched once per page open.',
+  newsMatched: 'hits',
+  newsNoMatch: 'No matching news',
+  newsNoMatchHint: 'Nothing in this dataset matches the current keyword, category and language. Clear the filters to see everything.',
+  newsClearFilters: 'Clear filters',
   newsJustNow: 'just now',
   newsMinutesAgo: 'min ago',
   newsHoursAgo: 'h ago',
@@ -1684,6 +1708,57 @@ const CSS = `
 .mc-news-loading-card > span { font-size: 12.5px; color: var(--dsw-alias-label-primary, #1f2937); }
 .mc-news-loading-card > small { max-width: 46ch; font-size: 10.5px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #6b7280); }
 .mc-news-feed-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+/* ---- 新闻美术增强：Hero 搜索 / 缩略图卡片网格 / 胶囊分类 ---- */
+.mc-news-hero, .mc-news-pref, .mc-news-feed-toolbar, .mc-news-feed-meta, .mc-news-grid, .mc-news-loading-card { flex: 0 0 auto; }
+.mc-news-hero { position: relative; overflow: hidden; margin-bottom: 12px; padding: 15px 16px 13px; border-radius: 16px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: radial-gradient(120% 140% at 0% 0%, rgba(56,189,248,.16), transparent 58%), radial-gradient(120% 140% at 100% 0%, rgba(139,92,246,.16), transparent 58%), var(--dsw-alias-bg-layer-1, #fff); }
+.mc-news-hero-eye { margin-bottom: 9px; font-size: 10px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--dsw-alias-accent, #2563eb); }
+.mc-news-hero-search { position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 5px 4px 14px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-layer-1, #fff); transition: box-shadow .35s ease, border-color .25s ease, transform .25s ease; }
+.mc-news-hero-search:focus-within { border-color: transparent; transform: translateY(-1px); box-shadow: 0 0 0 3px rgba(56,189,248,.20), 0 0 24px rgba(56,189,248,.38), 0 0 52px rgba(139,92,246,.26); }
+.mc-news-hero-eye + .mc-news-hero-search, .mc-news-hero-search.is-focus { animation: mc-news-hero-glow 3.6s ease-in-out infinite; }
+@keyframes mc-news-hero-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); } 50% { box-shadow: 0 0 22px rgba(139,92,246,.16); } }
+.mc-news-hero-search input { flex: 1; min-width: 0; padding: 10px 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; font-size: 14px; }
+.mc-news-hero-search input::placeholder { color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-hero-go { flex: none; padding: 9px 18px; border: 0; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 650; color: #04101f; background: linear-gradient(120deg, #67e8f9, #38bdf8 45%, #a78bfa); box-shadow: 0 8px 20px -10px rgba(56,189,248,.9); transition: transform .18s ease, filter .2s ease; }
+.mc-news-hero-go:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.mc-news-hero-go:active { transform: scale(.98); }
+.mc-news-hero-clear { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: rgba(127,127,127,.08); color: var(--dsw-alias-label-secondary, #6b7280); font-size: 11px; line-height: 1; cursor: pointer; transition: all .2s ease; }
+.mc-news-hero-clear:hover { color: var(--dsw-alias-label-primary, #111827); border-color: var(--dsw-alias-border-l2, #d1d5db); }
+.mc-news-hero-hint { margin-top: 8px; font-size: 10.5px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-pref { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 7px 10px; border-radius: 10px; font-size: 10.5px; color: var(--dsw-alias-label-secondary, #6b7280); background: linear-gradient(96deg, rgba(56,189,248,.10), rgba(139,92,246,.10)); border: 1px solid rgba(56,189,248,.24); }
+.mc-news-pref b { color: var(--dsw-alias-label-primary, #111827); font-weight: 650; }
+.mc-news-pref .mc-news-pref-actions { margin-left: auto; display: flex; gap: 6px; }
+.mc-news-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.mc-news-pill { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: rgba(127,127,127,.06); color: var(--dsw-alias-label-secondary, #6b7280); font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: transform .2s ease, color .2s ease, background .25s ease, border-color .2s ease, box-shadow .25s ease; }
+.mc-news-pill:hover { transform: translateY(-1px); color: var(--dsw-alias-label-primary, #111827); border-color: var(--dsw-alias-border-l2, #d1d5db); }
+.mc-news-pill.on { color: #04101f; border-color: transparent; background: linear-gradient(120deg, #7dd3fc, #a78bfa); box-shadow: 0 6px 16px -8px rgba(125,211,252,.95); }
+.mc-news-pill-count { font-size: 10px; opacity: .62; font-variant-numeric: tabular-nums; }
+.mc-news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 12px; transition: opacity .16s ease, transform .16s ease; }
+.mc-news-grid.is-swapping { opacity: 0; transform: translateY(6px); }
+.mc-news-tile { position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: transform .34s cubic-bezier(.22,1,.36,1), box-shadow .34s ease, border-color .3s ease; animation: mc-news-tile-in .42s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--i, 0) * 38ms); }
+@keyframes mc-news-tile-in { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+.mc-news-tile:hover { transform: translateY(-6px) scale(1.015); border-color: var(--dsw-alias-accent, #2563eb); box-shadow: 0 18px 38px -14px rgba(15,23,42,.45), 0 6px 16px rgba(15,23,42,.14); z-index: 2; }
+.mc-news-tile:focus-visible { outline: 2px solid var(--dsw-alias-accent, #2563eb); outline-offset: 2px; }
+.mc-news-tile-cover { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; background: #0b1024; }
+.mc-news-tile-img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.22,1,.36,1), filter .4s ease; }
+.mc-news-tile:hover .mc-news-tile-img { transform: scale(1.08); filter: saturate(1.1) brightness(1.03); }
+.mc-news-tile-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4,8,18,0) 45%, rgba(4,8,18,.72) 100%); pointer-events: none; }
+.mc-news-tile-gen { position: absolute; inset: 0; display: grid; place-items: center; gap: 2px; background: radial-gradient(120% 120% at 18% 12%, hsl(var(--hue, 210) 92% 62% / .55), transparent 60%), radial-gradient(120% 120% at 82% 88%, hsl(calc(var(--hue, 210) + 46) 88% 58% / .45), transparent 58%), linear-gradient(150deg, #101a33 5%, #0a1024 92%); }
+.mc-news-tile-gen b { font-size: 28px; font-weight: 800; color: rgba(255,255,255,.92); text-shadow: 0 6px 20px rgba(0,0,0,.4); }
+.mc-news-tile-gen small { font-size: 9px; letter-spacing: .3em; color: rgba(255,255,255,.66); }
+.mc-news-tile-gen em { position: absolute; left: 9px; bottom: 7px; display: inline-flex; align-items: center; gap: 5px; font-style: normal; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.62); }
+.mc-news-tile-gen em i { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 5px; font-style: normal; font-size: 8.5px; font-weight: 700; letter-spacing: 0; color: #eaf6ff; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.22); }
+.mc-news-tile-badge { position: absolute; top: 8px; left: 8px; z-index: 2; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; color: #04101f; background: linear-gradient(120deg, #7dd3fc, #a5b4fc); }
+.mc-news-tile-badge.hot { background: linear-gradient(120deg, #fdba74, #f472b6); }
+.mc-news-tile-time { position: absolute; right: 8px; bottom: 7px; z-index: 2; padding: 1px 7px; border-radius: 999px; font-size: 10px; color: #e8ecf8; background: rgba(6,10,20,.55); border: 1px solid rgba(255,255,255,.10); }
+.mc-news-tile-body { display: flex; flex-direction: column; gap: 5px; flex: 1; padding: 10px 11px 9px; }
+.mc-news-tile-title { font-size: 13px; font-weight: 650; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mc-news-tile-summary { font-size: 11px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #6b7280); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mc-news-tile-foot { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 3px; font-size: 10px; color: var(--dsw-alias-label-secondary, #6b7280); }
+.mc-news-tile-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--dsw-alias-accent, #2563eb); flex: none; }
+.mc-news-tile-open { margin-left: auto; color: var(--dsw-alias-accent, #2563eb); opacity: .7; transition: transform .2s ease, opacity .2s ease; }
+.mc-news-tile:hover .mc-news-tile-open { opacity: 1; transform: translate(2px, -2px); }
+@media (max-width: 760px) { .mc-news-grid { grid-template-columns: 1fr; } .mc-news-hero-search { flex-wrap: wrap; border-radius: 18px; } .mc-news-hero-go { width: 100%; } }
+
 .mc-news-feed-meta { font-size: 10.5px; color: var(--dsw-alias-label-secondary, #6b7280); margin-left: auto; }
 
 /* ---- 支持与交流 / 首次引导 ---- */
@@ -4211,39 +4286,159 @@ function newsRelTime(ts, t) {
   return new Date(Number(ts)).toISOString().slice(0, 10)
 }
 
-/** 真实 AI 资讯 / 本月热榜。 */
+/** 新闻偏好：localStorage 持久化「最近一次搜索」与口味权重（重启浏览器仍生效）。 */
+const NEWS_LS_QUERY = 'me.news.lastQuery'
+const NEWS_LS_PREFS = 'me.news.prefs'
+const NEWS_LS_VIEW = 'me.news.view'
+const NEWS_TYPE_GLYPH = { model: '模', product: '品', research: '研', opensource: '源', industry: '业', policy: '策', other: '讯' }
+const NEWS_STOP_WORDS = new Set(['the', 'a', 'an', 'of', 'to', 'for', 'and', 'in', 'on', 'is', 'are', 'with', 'how', 'why', 'new', 'its', 'it', 'as', 'at', 'by', 'from'])
+
+function newsReadLS(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw === null) return fallback
+    try { return JSON.parse(raw) } catch { return raw }
+  } catch { return fallback }
+}
+function newsWriteLS(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
+}
+/** 读取后做类型收敛：localStorage 里可能是任何东西（老版本裸字符串、被手改的 JSON）。 */
+function newsReadLSString(key, fallback = '') {
+  const v = newsReadLS(key, fallback)
+  return typeof v === 'string' ? v : fallback
+}
+function newsReadView() {
+  const v = newsReadLS(NEWS_LS_VIEW, null)
+  return v && typeof v === 'object' ? v : {}
+}
+function newsPrefsDefault() { return { types: {}, sources: {}, terms: {}, opens: 0, updatedAt: 0 } }
+function newsReadPrefs() {
+  const p = newsReadLS(NEWS_LS_PREFS, null)
+  if (!p || typeof p !== 'object') return newsPrefsDefault()
+  return { ...newsPrefsDefault(), ...p, types: p.types || {}, sources: p.sources || {}, terms: p.terms || {} }
+}
+function newsTermsOf(text) {
+  const out = []
+  for (const raw of String(text || '').toLowerCase().split(/[^0-9a-z\u4e00-\u9fff]+/)) {
+    if (!raw || raw.length < 2 || NEWS_STOP_WORDS.has(raw)) continue
+    out.push(raw)
+  }
+  return out
+}
+function newsBump(map, key, amount) {
+  if (!key) return
+  map[key] = Math.min(60, (Number(map[key]) || 0) + amount)
+}
+/** 记录一次「喜爱」：点开新闻 → 类型/来源/关键词权重 +4。 */
+function newsLearn(item, weight, prefs) {
+  const next = { ...prefs, types: { ...prefs.types }, sources: { ...prefs.sources }, terms: { ...prefs.terms } }
+  if (item) {
+    newsBump(next.types, item.type, weight)
+    newsBump(next.sources, item.sourceId, weight)
+    newsTermsOf(item.title).slice(0, 6).forEach((tk) => newsBump(next.terms, tk, 1))
+    next.opens = (Number(prefs.opens) || 0) + 1
+  }
+  next.updatedAt = Date.now()
+  return next
+}
+function newsLearnQuery(prefs, q) {
+  const next = { ...prefs, terms: { ...prefs.terms } }
+  newsTermsOf(q).forEach((tk) => newsBump(next.terms, tk, 3))
+  next.updatedAt = Date.now()
+  return next
+}
+function newsHue(seed) {
+  let h = 0
+  for (const ch of String(seed || '')) h = (h * 31 + ch.charCodeAt(0)) % 360
+  return h
+}
+function newsMonogram(source) {
+  const s = String(source || '新闻')
+  if (/^[A-Za-z]/.test(s)) {
+    const parts = s.split(/\s+/)
+    return (parts.length > 1 ? parts[0][0] + parts[1][0] : s.slice(0, 2)).toUpperCase()
+  }
+  return s.slice(0, 1)
+}
+/** 推荐打分：新鲜度 + 口味权重 + 搜索命中。 */
+function newsScore(item, prefs, applied) {
+  const ageHours = Math.max(0, (Date.now() - Number(item.publishedAt || 0)) / 3600000)
+  let score = 100 - Math.min(60, ageHours * 0.28)
+  score += (Number(prefs.types[item.type]) || 0) * 1.6
+  score += (Number(prefs.sources[item.sourceId]) || 0) * 1.1
+  const hay = (item.title + ' ' + (item.summary || '')).toLowerCase()
+  for (const [term, weight] of Object.entries(prefs.terms)) {
+    if (hay.includes(term)) score += Math.min(8, Number(weight) || 0) * 0.9
+  }
+  const q = String(applied || '').trim().toLowerCase()
+  if (q) {
+    for (const term of q.split(/\s+/).filter(Boolean)) {
+      if (String(item.title || '').toLowerCase().includes(term)) score += 16
+      else if (hay.includes(term)) score += 8
+    }
+  }
+  return score
+}
+
+/** 真实 AI 资讯 / 本月热榜：Hero 搜索栏 + 缩略图卡片网格 + 喜爱偏好定制。 */
 function NewsFeedPanel({ t, mode, version }) {
   const [items, setItems] = useState([])
   const [types, setTypes] = useState([])
-  const [type, setType] = useState('')
-  const [lang, setLang] = useState('zh')
-  const [ranking, setRanking] = useState(false)
-  const [query, setQuery] = useState('')
-  const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
   const [fetchedAt, setFetchedAt] = useState(0)
   const [errors, setErrors] = useState([])
   const [feedError, setFeedError] = useState('')
   const [toast, setToast] = useState(null)
+  const [query, setQuery] = useState(() => newsReadLSString(NEWS_LS_QUERY))
+  const [applied, setApplied] = useState(() => newsReadLSString(NEWS_LS_QUERY).trim())
+  const [type, setType] = useState('')
+  const [lang, setLang] = useState(() => { const v = newsReadView(); return typeof v.lang === 'string' ? v.lang : 'zh' })
+  const [sort, setSort] = useState(() => (newsReadView().sort === 'time' ? 'time' : 'rec'))
+  const [prefs, setPrefs] = useState(newsReadPrefs)
+  const [swapping, setSwapping] = useState(false)
   const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3200) }
 
+  // 首次挂载恢复的搜索词只「应用」不「加权」：touched / lastQuery 用 ref 标记。
+  // 「是否用户真实输入」在输入侧判定（input 的 onChange 置 touchedRef=true，挂载恢复不触发 onChange），
+  // 落盘与加权仍放在防抖 effect 里；lastQueryRef 负责同一关键词不重复加权。
+  const touchedRef = useRef(false)
+  const lastQueryRef = useRef(newsReadLSString(NEWS_LS_QUERY).trim())
+
+  // 搜索防抖：输入停止 260ms 后应用，并记录「最近一次搜索」到 localStorage。
   useEffect(() => {
-    const id = setTimeout(() => setQ(query.trim()), 250)
+    const id = setTimeout(() => {
+      const q = query.trim()
+      setApplied(q)
+      if (!touchedRef.current) return
+      newsWriteLS(NEWS_LS_QUERY, q)
+      if (!q || q === lastQueryRef.current) return
+      lastQueryRef.current = q
+      setPrefs((p) => { const next = newsLearnQuery(p, q); newsWriteLS(NEWS_LS_PREFS, next); return next })
+    }, 260)
     return () => clearTimeout(id)
   }, [query])
+
+  useEffect(() => { newsWriteLS(NEWS_LS_VIEW, { lang, sort }) }, [lang, sort])
+
+  // 分类/语言/搜索切换时的列表过渡动效。
+  useEffect(() => {
+    setSwapping(true)
+    const id = setTimeout(() => setSwapping(false), 170)
+    return () => clearTimeout(id)
+  }, [type, lang, applied, sort])
 
   const load = useCallback(async () => {
     setLoading(true)
     setFeedError('')
     try {
-      const qs = new URLSearchParams({ period: mode === 'month' ? 'month' : 'today', lang })
-      if (type) qs.set('type', type)
-      if (q) qs.set('q', q)
+      // 只在首次挂载 / 手动刷新 / 切换榜单时拉一次，且固定 lang=all（一次拿全中英条目）；
+      // 分类 / 搜索 / 语言 / 排序全部本地完成，切语言不会重新请求。
+      const qs = new URLSearchParams({ period: mode === 'month' ? 'month' : 'today', lang: 'all' })
       const r = await fetch(API + '/news/feed?' + qs.toString()).then((x) => x.json())
       if (!r || !r.ok) throw new Error((r && r.error) || t('newsFeedError'))
       setItems(r.items || [])
       setTypes(r.types || [])
-      setRanking(!!r.ranking)
       setFetchedAt(Number(r.fetchedAt) || 0)
       setErrors(r.errors || [])
     } catch (e) {
@@ -4253,7 +4448,7 @@ function NewsFeedPanel({ t, mode, version }) {
     } finally {
       setLoading(false)
     }
-  }, [mode, type, lang, q, t])
+  }, [mode, t])
 
   useEffect(() => { load() }, [version, load])
 
@@ -4272,22 +4467,129 @@ function NewsFeedPanel({ t, mode, version }) {
     }
   }
 
+  const typeLabelOf = (id) => (types.find((x) => x.id === id) || {}).label || t('all')
+  const base = (items || []).filter((x) => !lang || x.lang === lang)
+  const typeCounts = {}
+  for (const x of base) typeCounts[x.type] = (typeCounts[x.type] || 0) + 1
+
+  let visible = type ? base.filter((x) => x.type === type) : base
+  if (applied) {
+    const terms = applied.toLowerCase().split(/\s+/).filter(Boolean)
+    visible = visible.filter((x) => {
+      const hay = [x.title, x.summary, x.source, typeLabelOf(x.type)].join(' ').toLowerCase()
+      return terms.every((k) => hay.includes(k))
+    })
+  }
+  // 月榜排名只看真实热度数据（HN points/comments），不看请求语言：
+  // 「本月 + 英文」有排名徽标与热度；「本月 + 中文」没有热度分数 → 归档视图，不伪造排名。
+  const newsHeatOf = (item) => (Number(item.points) || 0) + (Number(item.comments) || 0) * 2
+  const isMonth = mode === 'month'
+  const heatItems = isMonth ? visible.filter((x) => (x.points || 0) > 0) : []
+  const showHeat = isMonth && heatItems.length > 0
+  const rankOf = new Map()
+  if (showHeat) {
+    heatItems.slice()
+      .sort((a, b) => (b.points || 0) - (a.points || 0) || (b.comments || 0) - (a.comments || 0))
+      .forEach((x, i) => rankOf.set(x.id || x.url || x.title, i + 1))
+  }
+  visible = visible.slice().sort((a, b) => {
+    if (sort === 'time') return (b.publishedAt || 0) - (a.publishedAt || 0)
+    if (isMonth && showHeat) {
+      return (b.points || 0) - (a.points || 0) || (b.comments || 0) - (a.comments || 0) || (b.publishedAt || 0) - (a.publishedAt || 0)
+    }
+    return newsScore(b, prefs, applied) - newsScore(a, prefs, applied)
+  })
+
+  const topTypes = Object.keys(prefs.types || {}).sort((a, b) => (prefs.types[b] || 0) - (prefs.types[a] || 0)).slice(0, 3)
+  const topTerms = Object.keys(prefs.terms || {}).sort((a, b) => (prefs.terms[b] || 0) - (prefs.terms[a] || 0)).slice(0, 4)
+  const personalized = !!applied || topTypes.length > 0 || topTerms.length > 0
+  const useSearch = (value) => {
+    touchedRef.current = true
+    const q = String(value == null ? '' : value).trim()
+    setApplied(q)
+    newsWriteLS(NEWS_LS_QUERY, q)
+    if (!q || q === lastQueryRef.current) return
+    lastQueryRef.current = q
+    setPrefs((p) => { const next = newsLearnQuery(p, q); newsWriteLS(NEWS_LS_PREFS, next); return next })
+  }
+  // 「清除筛选」：本地筛选没结果时用，不触发任何请求，也不重复加权。
+  const clearFilters = () => {
+    touchedRef.current = false
+    lastQueryRef.current = ''
+    setType('')
+    setLang('')
+    setQuery('')
+    setApplied('')
+    newsWriteLS(NEWS_LS_QUERY, '')
+  }
+  const remember = (item) => setPrefs((p) => { const next = newsLearn(item, 4, p); newsWriteLS(NEWS_LS_PREFS, next); return next })
+  const resetPrefs = () => {
+    const empty = newsPrefsDefault()
+    newsWriteLS(NEWS_LS_PREFS, empty)
+    newsWriteLS(NEWS_LS_QUERY, '')
+    lastQueryRef.current = ''
+    touchedRef.current = false
+    setPrefs(empty)
+    setQuery('')
+    setApplied('')
+  }
+
   return (
     <div className="mc-news">
       <InlineToast toast={toast} />
+      <div className="mc-news-hero">
+        <div className="mc-news-hero-eye">{t('newsHeroEye')}</div>
+        <div className="mc-news-hero-search">
+          <span aria-hidden="true" style={{ fontSize: 15, opacity: .75 }}>🔎</span>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => { touchedRef.current = true; setQuery(e.target.value) }}
+            onKeyDown={(e) => { if (e.key === 'Enter') useSearch(query) }}
+            placeholder={t('newsSearch')}
+            aria-label={t('newsSearch')}
+          />
+          {query ? <button type="button" className="mc-news-hero-clear" title={t('cancel')} onClick={() => { setQuery(''); useSearch('') }}>✕</button> : null}
+          <button type="button" className="mc-news-hero-go" onClick={() => useSearch(query)}>{t('newsSearchGo')}</button>
+        </div>
+        <div className="mc-news-hero-hint">{t('newsHeroHint')}</div>
+      </div>
+      {personalized ? (
+        <div className="mc-news-pref">
+          <span>🎯 {t('newsPersonalized')}</span>
+          {applied ? <span>· {t('newsLastQuery')} <b>{applied}</b></span> : null}
+          {topTerms.length > 0 ? <span>· {topTerms.join(' / ')}</span> : null}
+          {topTypes.length > 0 ? <span>· {topTypes.map(typeLabelOf).join(' / ')}</span> : null}
+          <span className="mc-news-pref-actions">
+            <button type="button" className="mc-btn" onClick={resetPrefs}>{t('newsResetPrefs')}</button>
+          </span>
+        </div>
+      ) : null}
       <div className="mc-news-feed-toolbar">
-        <input className="mc-news-search" type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('newsSearch')} aria-label={t('newsSearch')} />
-        <button type="button" className={'mc-chip' + (lang === 'zh' ? ' active' : '')} onClick={() => setLang('zh')}>{t('newsLangZh')}</button>
-        <button type="button" className={'mc-chip' + (lang === 'en' ? ' active' : '')} onClick={() => setLang('en')}>{t('newsLangEn')}</button>
-        <button type="button" className={'mc-chip' + (lang === '' ? ' active' : '')} onClick={() => setLang('')}>{t('newsLangAll')}</button>
-        <span className="mc-news-feed-meta">{fetchedAt ? t('newsUpdatedAt') + ' ' + new Date(fetchedAt).toLocaleTimeString() : ''}</span>
-        <button type="button" className="mc-btn" disabled={loading} onClick={refresh}>{loading ? t('newsLoading') : t('newsFeedRefresh')}</button>
+        <div className="mc-news-pills">
+          <button type="button" className={'mc-news-pill' + (type === '' ? ' on' : '')} onClick={() => setType('')}>{t('all')}<span className="mc-news-pill-count">{base.length}</span></button>
+          {types.map((x) => (typeCounts[x.id]
+            ? <button key={x.id} type="button" className={'mc-news-pill' + (type === x.id ? ' on' : '')} onClick={() => setType(type === x.id ? '' : x.id)}>{x.label}<span className="mc-news-pill-count">{typeCounts[x.id]}</span></button>
+            : null))}
+        </div>
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <button type="button" className={'mc-chip' + (lang === 'zh' ? ' active' : '')} onClick={() => setLang('zh')}>{t('newsLangZh')}</button>
+          <button type="button" className={'mc-chip' + (lang === 'en' ? ' active' : '')} onClick={() => setLang('en')}>{t('newsLangEn')}</button>
+          <button type="button" className={'mc-chip' + (lang === '' ? ' active' : '')} onClick={() => setLang('')}>{t('newsLangAll')}</button>
+          <button type="button" className={'mc-chip' + (sort === 'rec' ? ' active' : '')} onClick={() => setSort('rec')}>{t('newsSortRec')}</button>
+          <button type="button" className={'mc-chip' + (sort === 'time' ? ' active' : '')} onClick={() => setSort('time')}>{t('newsSortTime')}</button>
+          <button type="button" className="mc-btn" disabled={loading} onClick={refresh}>{loading ? t('newsLoading') : t('newsFeedRefresh')}</button>
+        </span>
       </div>
-      <div className="mc-news-feed-toolbar" style={{ marginTop: -4 }}>
-        <button type="button" className={'mc-chip' + (type === '' ? ' active' : '')} onClick={() => setType('')}>{t('all')}</button>
-        {types.map((x) => <button key={x.id} type="button" className={'mc-chip' + (type === x.id ? ' active' : '')} onClick={() => setType((v) => (v === x.id ? '' : x.id))}>{x.label}</button>)}
+      <div className="mc-news-feed-meta" style={{ margin: '0 0 8px' }}>
+        {fetchedAt ? t('newsUpdatedAt') + ' ' + new Date(fetchedAt).toLocaleTimeString() : ''}
+        {!loading ? ' · ' + visible.length + ' ' + t('newsMatched') : ''}
       </div>
-      {mode === 'month' && <div className="mc-news-feed-warn" style={{ color: 'var(--dsw-alias-label-secondary, #6b7280)', background: 'transparent', borderColor: 'var(--dsw-alias-border-l1, #e5e7eb)' }}>{ranking ? t('newsEnRanking') : t('newsZhArchive')}</div>}
+      {mode === 'month' && (
+        <div className="mc-news-feed-warn" style={{ color: 'var(--dsw-alias-label-secondary, #6b7280)', background: 'transparent', borderColor: 'var(--dsw-alias-border-l1, #e5e7eb)' }}>
+          {showHeat ? t('newsEnRanking') : t('newsZhArchive')}
+        </div>
+      )}
       {feedError && !loading && (
         <div className="mc-news-feed-warn" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span>⚠ {feedError}</span>
@@ -4306,27 +4608,58 @@ function NewsFeedPanel({ t, mode, version }) {
           <div>{t('newsFeedEmpty')}</div>
           <button type="button" className="mc-btn me-on" style={{ marginTop: 10 }} onClick={refresh}>{t('newsFeedRefresh')}</button>
         </div>
+      ) : visible.length === 0 ? (
+        <div className="mc-card mc-news-feed-empty mc-news-nomatch">
+          <div>{t('newsNoMatch')}</div>
+          <p style={{ margin: '6px 0 0', fontSize: 11.5, lineHeight: 1.6, opacity: .75 }}>{t('newsNoMatchHint')}</p>
+          <button type="button" className="mc-btn me-on" style={{ marginTop: 10 }} onClick={clearFilters}>{t('newsClearFilters')}</button>
+        </div>
       ) : (
-        <div className="mc-news-feed-list">
-          {items.map((item) => {
+        <div className={'mc-news-grid' + (swapping ? ' is-swapping' : '')}>
+          {visible.map((item, index) => {
             const link = safeNewsUrl(item.url)
-            const typeLabel = (types.find((x) => x.id === item.type) || {}).label || t('all')
+            const typeLabel = typeLabelOf(item.type)
+            const cover = safeNewsUrl(item.image)
+            const rankNo = showHeat ? (rankOf.get(item.id || item.url || item.title) || 0) : 0
+            // 只有「本月 + 有真实热度分数」时才用热徽标；归档/今日视图一律只显示类型胶囊。
+            const hot = showHeat && rankNo > 0 && rankNo <= 3
             return (
-              <a key={item.id || item.url || item.title} className="mc-news-feed-card" href={link || undefined} target={link ? '_blank' : undefined} rel="noopener noreferrer">
-                {mode === 'month' && ranking && <span className="mc-news-rank">#{item.rank}</span>}
-                <span className="mc-news-feed-body">
-                  <span className="mc-news-feed-top">
-                    <span className="mc-news-cat">{typeLabel}</span>
-                    <span>{item.source}</span>
-                    <span>· {newsRelTime(item.publishedAt, t)}</span>
+              <a
+                key={item.id || item.url || item.title}
+                className="mc-news-tile"
+                style={{ '--i': Math.min(index, 14) }}
+                href={link || undefined}
+                target={link ? '_blank' : undefined}
+                rel="noopener noreferrer"
+                onClick={() => remember(item)}
+              >
+                <span className="mc-news-tile-cover">
+                  {cover ? (
+                    <img
+                      className="mc-news-tile-img"
+                      src={cover}
+                      alt=""
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => { const img = e.currentTarget; img.style.display = 'none'; if (img.nextElementSibling) img.nextElementSibling.style.display = 'grid' }}
+                    />
+                  ) : null}
+                  <span className="mc-news-tile-gen" style={{ '--hue': newsHue(item.title), display: cover ? 'none' : 'grid' }}>
+                    <b>{NEWS_TYPE_GLYPH[item.type] || '讯'}</b>
+                    <small>{typeLabel}</small>
+                    <em><i>{newsMonogram(item.source)}</i>{item.source}</em>
                   </span>
-                  <span className="mc-news-feed-title">{item.title}</span>
-                  {item.summary && <span className="mc-news-feed-summary">{item.summary}</span>}
-                  <span className="mc-news-feed-bottom">
-                    {mode === 'month' && ranking && <span className="mc-news-feed-heat">🔥 {t('newsHeat')} {item.heat ?? item.points}</span>}
-                    {item.comments > 0 && <span>💬 {item.comments} {t('newsComments')}</span>}
-                    {item.points > 0 && <span>▲ {item.points}</span>}
-                    <span style={{ marginLeft: 'auto' }}>{t('newsOriginal')} ↗</span>
+                  <span className={'mc-news-tile-badge' + (hot ? ' hot' : '')}>{rankNo ? '#' + rankNo : typeLabel}</span>
+                  <span className="mc-news-tile-time">{newsRelTime(item.publishedAt, t)}</span>
+                </span>
+                <span className="mc-news-tile-body">
+                  <span className="mc-news-tile-title">{item.title}</span>
+                  {item.summary ? <span className="mc-news-tile-summary">{item.summary}</span> : null}
+                  <span className="mc-news-tile-foot">
+                    <i className="mc-news-tile-dot" />
+                    <span>{item.source}</span>
+                    {rankNo ? <span>· 🔥 {t('newsHeat')} {newsHeatOf(item)}</span> : null}
+                    <span className="mc-news-tile-open">{t('newsOriginal')} ↗</span>
                   </span>
                 </span>
               </a>

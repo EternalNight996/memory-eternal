@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { parseFeedXml, classifyNews, getNewsFeed } from '../lib/news-feed.js'
+import { parseFeedXml, classifyNews, getNewsFeed, sanitizeImageUrl, pickFeedImage } from '../lib/news-feed.js'
 import { createApi, API_PREFIX } from '../lib/api.js'
 import { closeAllDb } from '../lib/db.js'
 
@@ -35,6 +35,34 @@ test('RSS / Atom 解析：标题、链接、摘要、时间、分类', () => {
   assert.equal(a.length, 1)
   assert.equal(a[0].url, 'https://example.com/b')
   assert.equal(a[0].type, 'research')
+})
+
+test('缩略图：media:content / enclosure / 转义 HTML 首图，拒绝 svg/gif/超大 URL', () => {
+  const xml = (inner) => '<rss><channel><item>' + inner + '</item></channel></rss>'
+  const src = { id: 'x', name: 'Example', weight: 1 }
+
+  assert.equal(
+    parseFeedXml(xml('<title>图A</title><link>https://example.com/a</link><media:content url="https://cdn.example.com/a.jpg"/>'), src)[0].image,
+    'https://cdn.example.com/a.jpg',
+  )
+  assert.equal(
+    parseFeedXml(xml('<title>图B</title><link>https://example.com/b</link><enclosure url="https://cdn.example.com/b.png" type="image/png"/>'), src)[0].image,
+    'https://cdn.example.com/b.png',
+  )
+  // description 里的 &lt;img …&gt; 是转义 HTML，必须先解码才能取到首图
+  assert.equal(
+    parseFeedXml(xml('<title>图C</title><link>https://example.com/c</link><description>&lt;p&gt;&lt;img src=&quot;https://cdn.example.com/c.webp&quot;/&gt; 正文&lt;/p&gt;</description>'), src)[0].image,
+    'https://cdn.example.com/c.webp',
+  )
+  assert.equal(parseFeedXml(xml('<title>无图</title><link>https://example.com/d</link>'), src)[0].image, '')
+
+  // svg / gif / 非 http(s) / 超长 URL 一律拒绝
+  assert.equal(sanitizeImageUrl('https://cdn.example.com/logo.svg'), '')
+  assert.equal(sanitizeImageUrl('https://cdn.example.com/a.gif'), '')
+  assert.equal(sanitizeImageUrl('javascript:alert(1)'), '')
+  assert.equal(sanitizeImageUrl('https://cdn.example.com/' + 'a'.repeat(950) + '.png'), '')
+  // 坏图跳过，继续挑下一张能用的
+  assert.equal(pickFeedImage('<media:content url="https://cdn.example.com/x.svg"/><media:content url="https://cdn.example.com/ok.jpg"/>', ''), 'https://cdn.example.com/ok.jpg')
 })
 
 test('分类：模型 / 产品 / 研究 / 开源 / 行业 / 政策', () => {
@@ -81,6 +109,47 @@ test('今日 / 本月热榜 / 类型 / 搜索过滤（使用缓存，不联网�
   const searched = await getNewsFeed(root, { period: 'today', q: '新模型', now })
   assert.equal(searched.items.length, 1)
   assert.equal(searched.types.length >= 7, true)
+})
+
+test('lang=all：一次请求拿中英全部条目；月榜排名只看真实热度', async () => {
+  const root = makeRoot()
+  const now = Date.now()
+  seedCache(root, [
+    { title: '中文今日', url: 'https://x/zh1', summary: '模型更新', source: '量子位', type: 'model', lang: 'zh', publishedAt: now - 3600000, points: 0, comments: 0 },
+    { title: 'English today', url: 'https://x/en1', summary: 'AI discussion', source: 'Hacker News', type: 'product', lang: 'en', publishedAt: now - 7200000, points: 300, comments: 40 },
+  ])
+
+  // 「不限」= lang=all / 空值：不过滤语言
+  const all = await getNewsFeed(root, { period: 'today', lang: 'all', now })
+  assert.equal(all.lang, '')
+  assert.equal(all.items.some((x) => x.lang === 'zh'), true, '「不限」里必须有中文')
+  assert.equal(all.items.some((x) => x.lang === 'en'), true, '「不限」里必须有英文')
+  const blank = await getNewsFeed(root, { period: 'today', lang: '', now })
+  assert.equal(blank.items.length, all.items.length, '空 lang 与 all 等价')
+
+  // 「英文」必须是英文条目
+  const en = await getNewsFeed(root, { period: 'today', lang: 'en', now })
+  assert.equal(en.items.length, 1)
+  assert.equal(en.items[0].lang, 'en')
+
+  // 本月 + 英文：有真实热度 → 出现排名与热度
+  const enMonth = await getNewsFeed(root, { period: 'month', lang: 'en', now })
+  assert.equal(enMonth.ranking, true)
+  assert.equal(enMonth.items.every((x) => x.lang === 'en'), true)
+  assert.equal(enMonth.items[0].rank, 1)
+  assert.equal(enMonth.items[0].heat, 300 + 40 * 2)
+
+  // 本月 + 中文：没有公开热度 → 归档视图，不伪造排名
+  const zhMonth = await getNewsFeed(root, { period: 'month', lang: 'zh', now })
+  assert.equal(zhMonth.ranking, false)
+  assert.equal(zhMonth.items.every((x) => x.rank === undefined), true)
+
+  // 本月 + 不限：中英都要在（中文不能被 points=0 过滤掉），且只有真实热度条目有排名
+  const mixMonth = await getNewsFeed(root, { period: 'month', lang: 'all', now })
+  assert.equal(mixMonth.ranking, true)
+  assert.equal(mixMonth.items.some((x) => x.lang === 'zh'), true, '不限语言的月榜里中文归档仍要出现')
+  assert.equal(mixMonth.items.filter((x) => (x.points || 0) > 0).every((x) => x.rank > 0), true)
+  assert.equal(mixMonth.items.filter((x) => (x.points || 0) === 0).every((x) => x.heat === 0), true)
 })
 
 test('API：/news/feed 返回真实资讯形状', async () => {
