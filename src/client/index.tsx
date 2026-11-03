@@ -15,6 +15,8 @@ import brandIcon from '../../assets/icon.png'
 import { snippetAround } from './snippet.js'
 import { auditMatches } from './audit-filter.js'
 import { versionCardState } from './version-state.js'
+// issue #55：卡片时间一律按运行环境本地时区显示（DB 里存的是 UTC ISO，不能直接 slice）
+import { localDateKey, localDateTime, localClock, toLocalDate } from './datetime.js'
 // 「反馈异常」纯函数层（与宿主/独立 web 共用同一套脱敏与预填逻辑）
 import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedback.js'
 // 图谱 LOD：视口剔除 + 标签预算（放大后卡顿的根治手段）
@@ -3998,7 +4000,8 @@ function AuditPanel({ t, onReload, version }) {
     if (!auditMatches(c, search)) return false
     if (kindF !== 'all' && c.kind !== kindF) return false
     if (agentF !== 'all' && normAgent(c.submittedBy) !== agentF) return false
-    if (dateF) { const d = (c.created || '').slice(0, 10); if (d && d !== dateF) return false }
+    // issue #55：日期筛选按**本地**日历日比较（c.created 是 UTC，slice 会错一天）
+    if (dateF) { const d = localDateKey(c.created); if (d && d !== dateF) return false }
     return true
   })
   // 左侧类型栏的计数：只按 agent/date 收窄，不按当前 kind，否则切到某类型后其他类型都变 0。
@@ -4008,7 +4011,7 @@ function AuditPanel({ t, onReload, version }) {
     base.forEach((c) => {
       if (!auditMatches(c, search)) return
       if (agentF !== 'all' && normAgent(c.submittedBy) !== agentF) return
-      if (dateF) { const d = (c.created || '').slice(0, 10); if (d && d !== dateF) return }
+      if (dateF) { const d = localDateKey(c.created); if (d && d !== dateF) return }
       m.all++
       m[c.kind || 'other'] = (m[c.kind || 'other'] || 0) + 1
     })
@@ -4148,7 +4151,7 @@ function AuditPanel({ t, onReload, version }) {
                           <div className="me-audit-row-top">
                             <span className={`me-audit-row-kind${c.kind === 'core' ? ' core' : ''}`}>{c.kind === 'core' ? '⭐ ' + t('kindCore') : t(KIND_LABELS[c.kind] || 'kindKnowledge')}</span>
                             <span className={`me-audit-row-state ${tab === 'pending' ? 'pending' : 'rejected'}`}>{tab === 'pending' ? '⏳ ' + t('statusPending') : '⛔ ' + t('statusRejected')}</span>
-                            <span className="me-audit-row-time">{c.created ? c.created.slice(0, 16).replace('T', ' ') : '-'}</span>
+                            <span className="me-audit-row-time">{localDateTime(c.created) || '-'}</span>
                           </div>
                           <button type="button" className="me-audit-row-title" title={c.title} onClick={() => setPreviewPath(c.path)}>{c.title}</button>
                           {(c.reason || c.summary) && <p className="me-audit-row-reason">{c.reason || c.summary}</p>}
@@ -4185,7 +4188,7 @@ function AuditPanel({ t, onReload, version }) {
                       <span className="me-audit-kind-badge" style={{ color: KIND_COLORS[previewCard.kind] || '#6B7280', borderColor: (KIND_COLORS[previewCard.kind] || '#6B7280') + '59', background: (KIND_COLORS[previewCard.kind] || '#6B7280') + '1a' }}>{KIND_EMOJI[previewCard.kind] || '📎'} {t(KIND_LABELS[previewCard.kind] || 'kindKnowledge')}</span>
                       <span className={`md-chip ${tab === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad'}`}>{tab === 'pending' ? (previewCard.kind === 'core' ? '⭐ ' + t('coreSuggested') : '⏳ ' + t('statusPending')) : '⛔ ' + t('statusRejected')}</span>
                       <span className="spacer" style={{ flex: 1 }} />
-                      <span style={{ fontSize: 10, opacity: 0.55 }}>{previewCard.created ? previewCard.created.slice(0, 16).replace('T', ' ') : ''}</span>
+                      <span style={{ fontSize: 10, opacity: 0.55 }}>{localDateTime(previewCard.created)}</span>
                     </div>
                     <h3>{previewCard.title}</h3>
                     <div className="me-audit-preview-meta">
@@ -4995,7 +4998,7 @@ function RecoverPanel({ t, onReload, version }) {
                   <span className="mc-v5-recycle-tile" style={{ color, background: color + '18', borderColor: color + '38' }}>{KIND_EMOJI[c.kind] || '📎'}</span>
                   <div className="mc-v5-recycle-copy">
                     <b>{c.title}</b>
-                    <span>{t(KIND_LABELS[c.kind] || 'kindKnowledge')} · {t('deletedAt')} {(c.deletedAt || '').slice(0, 10)}</span>
+                    <span>{t(KIND_LABELS[c.kind] || 'kindKnowledge')} · {t('deletedAt')} {localDateKey(c.deletedAt) || '-'}</span>
                   </div>
                   <div className="mc-v5-recycle-actions">
                     <button type="button" className="mc-btn" disabled={!!busy} onClick={() => action('restore', c.path)}>{t('restore')}</button>
@@ -7248,12 +7251,9 @@ function highlightMatches(text, q) {
 // renderMd / splitFrontmatter / parseTags 已抽到 ./markdown.js（便于单测，宿主与独立 web 共用同一套排版）。
 
 function fmtDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const now = new Date()
-  const sameDay = d.toDateString() === now.toDateString()
-  const pad = (n) => String(n).padStart(2, '0')
-  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const d = toLocalDate(iso)
+  if (!d) return ''
+  const sameDay = d.toDateString() === new Date().toDateString()
+  const hm = localClock(d)
   return sameDay ? hm : `${d.getMonth() + 1}-${d.getDate()} ${hm}`
 }
