@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ensureVault, writeCard, listCards, readCard, search, graph, overview, stats, optimizeCandidates, graphAll, searchAll } from '../lib/vault.js'
+import { ensureVault, writeCard, listCards, readCard, search, graph, overview, stats, optimizeCandidates, graphAll, searchAll, updateCardContent } from '../lib/vault.js'
 import { closeAllDb } from '../lib/db.js'
 
 const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'mc-api-'))
@@ -93,4 +93,19 @@ test('API data shapes: cross-vault graphAll + searchAll aggregate', async () => 
   assert.ok(g.nodes.some((n) => n.id.startsWith('v2::')), '命名 profile 节点应带 v2:: 前缀')
   const hits = await searchAll(roots, '跨库聚合', { limit: 10 })
   assert.ok(hits.length >= 2)
+})
+
+test('updateCardContent: 人工编辑只改标题/标签/正文，不动状态', async () => {
+  const cards = await listCards(root)
+  const target = cards.find((c) => c.title === 'A')
+  assert.ok(target, '应有标题为 A 的卡片')
+  const before = await readCard(root, target.path)
+  const r = await updateCardContent(root, target.path, { title: 'A（已编辑）', tags: ['t1', 'edited'], body: '# 新正文\n\n人工编辑后的内容。' })
+  assert.equal(r.ok, true)
+  const after = await readCard(root, target.path)
+  assert.match(after.text, /title: A（已编辑）/, '标题应被改写')
+  assert.match(after.text, /edited/, '标签应被替换')
+  assert.ok(after.text.includes('人工编辑后的内容。'), '正文应被替换')
+  assert.equal(after.status, before.status, '手动编辑不得改变审核状态')
+  assert.notEqual(after.text, before.text)
 })

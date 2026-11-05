@@ -733,6 +733,19 @@ export const ZH = {
   mergeAllConfirm: '将按相似度分组的卡片各合并为一张（保留各自 kind），原卡删除？',
   crossVault: '跨库聚合',
   deleteConfirm: '确定删除该记忆卡？此操作不可撤销。',
+  editCard: '编辑',
+  editHint: '只改标题 / 标签 / 正文；状态与类型仍由审核与系统流转决定，手动编辑不会绕过审核。',
+  editTitle: '标题',
+  editTags: '标签（逗号分隔）',
+  editTagsHint: '例如：记忆, 检索, 性能',
+  editBody: '正文（Markdown）',
+  editSave: '保存',
+  editSaving: '保存中…',
+  editCancel: '取消',
+  editSaved: '已保存',
+  editFail: '保存失败',
+  editTitleEmpty: '标题不能为空',
+  editBodyEmpty: '正文不能为空',
   deleted: '已删除',
   deleteFail: '删除失败',
   deleteSelected: '删除选中',
@@ -1440,6 +1453,19 @@ export const EN = {
   mergeAllConfirm: 'Merge similar-grouped cards into one each (keep kind), delete originals?',
   crossVault: 'All vaults',
   deleteConfirm: 'Delete this memory card? This cannot be undone.',
+  editCard: 'Edit',
+  editHint: 'Only title / tags / body are editable. Status and kind still flow through audit and system rules — manual edits never bypass review.',
+  editTitle: 'Title',
+  editTags: 'Tags (comma separated)',
+  editTagsHint: 'e.g. memory, recall, performance',
+  editBody: 'Body (Markdown)',
+  editSave: 'Save',
+  editSaving: 'Saving…',
+  editCancel: 'Cancel',
+  editSaved: 'Saved',
+  editFail: 'Save failed',
+  editTitleEmpty: 'Title cannot be empty',
+  editBodyEmpty: 'Body cannot be empty',
   deleted: 'Deleted',
   deleteFail: 'Delete failed',
   deleteSelected: 'Delete selected',
@@ -3274,7 +3300,17 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         {feedbackOpen && <FeedbackModal t={t} onClose={() => setFeedbackOpen(false)} />}
         {supportOpen && <SupportModal t={t} tab={supportTab} onTab={setSupportTab} onClose={() => setSupportOpen(false)} onFeedback={() => { setSupportOpen(false); setFeedbackOpen(true) }} onReplay={() => { setSupportOpen(false); setOnboardOpen(true) }} />}
         {onboardOpen && <Onboarding t={t} onDone={finishOnboard} />}
-        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) openCard(next) }} onTagClick={onTagPick} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} allCards={sortedCards} onOpenRelated={(c) => openCard(c)} onKindChange={changeCardKind} />}
+        {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) openCard(next) }} onTagClick={onTagPick} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} allCards={sortedCards} onOpenRelated={(c) => openCard(c)} onKindChange={changeCardKind} onSaved={async ({ path, status, title }) => {
+          try {
+            const qs = status && status !== 'approved' ? `&status=${encodeURIComponent(status)}` : ''
+            const data = await fetch(`${API}/card?path=${encodeURIComponent(path)}${qs}`).then((x) => x.json())
+            if (data && data.ok) setReader((prev) => (prev && prev.path === path ? { ...prev, title: title || data.title || prev.title, text: data.text } : prev))
+          } catch { /* 重新拉取失败时保留编辑结果：本地已保存，刷新即见 */ }
+          await loadAll(); bump()
+          setLibToast({ ok: true, msg: t('editSaved') })
+          if (libToastTimer.current) clearTimeout(libToastTimer.current)
+          libToastTimer.current = setTimeout(() => setLibToast(null), 2000)
+        }} />}
         <NewCardModal t={t} newCard={newCard} setNewCard={setNewCard} onCreated={() => { loadAll(); bump(); setLibToast({ ok: true, msg: t('created') }); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} />
         </div>
       </div>
@@ -6092,7 +6128,7 @@ function Onboarding({ t, onDone }) {
   )
 }
 
-function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate, onTagClick, allCards, onOpenRelated, onKindChange }) {
+function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate, onTagClick, allCards, onOpenRelated, onKindChange, onSaved }) {
   // 读卡进度（0–100）：长卡片下让人知道还剩多少
   const [progress, setProgress] = useState(0)
   // 复制反馈（1.5s 自动消失）：没有它用户点了按钮不知道成没成
@@ -6140,8 +6176,45 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
     const set = new Set(tags)
     return (allCards || []).filter((c) => c.path !== card.path && (c.tags || []).some((x) => set.has(x))).slice(0, 3)
   }, [allCards, card.path, tags.join('|')])
+
+  // 进入编辑：用当前卡片的标题 / 标签 / 正文填草稿（正文取 frontmatter 之后的纯正文）
+  const startEdit = () => {
+    setETitle(String(card.title || ''))
+    setETags((Array.isArray(tags) ? tags : []).join(', '))
+    setEBody(String(body || ''))
+    setSaveErr('')
+    setEditing(true)
+  }
+  const cancelEdit = () => { setEditing(false); setSaveErr('') }
+  const saveEdit = async () => {
+    const nextTitle = String(eTitle || '').trim()
+    const nextBody = String(eBody || '').trim()
+    if (!nextTitle) { setSaveErr(t('editTitleEmpty')); return }
+    if (!nextBody) { setSaveErr(t('editBodyEmpty')); return }
+    const nextTags = String(eTags || '').split(/[,，\n]+/).map((x) => x.trim()).filter(Boolean)
+    setSaving(true); setSaveErr('')
+    try {
+      const r = await fetch(`${API}/card/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: card.path, title: nextTitle, tags: nextTags, body: nextBody }),
+      }).then((x) => x.json())
+      if (!r || !r.ok) { setSaveErr((r && r.error) || t('editFail')); return }
+      setEditing(false)
+      if (onSaved) await onSaved({ path: card.path, status, title: nextTitle })
+    } catch (e) {
+      setSaveErr(String((e && e.message) || e))
+    } finally { setSaving(false) }
+  }
   // 默认「全部展开」，可收起（用户要求：打开卡片即读全文，需要时再折起来）。
   const [expanded, setExpanded] = useState(true)
+  // 手动编辑：只允许改标题 / 标签 / 正文；状态、类型、来源仍走审核与系统流转（issue: 知识卡可编辑）
+  const [editing, setEditing] = useState(false)
+  const [eTitle, setETitle] = useState('')
+  const [eTags, setETags] = useState('')
+  const [eBody, setEBody] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveErr, setSaveErr] = useState('')
   const readerMainRef = useRef(null)
   const [activeHeading, setActiveHeading] = useState('')
   const scrollToHeading = (id) => {
@@ -6183,6 +6256,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
             {copyTip && <span style={{ fontSize: 11.5, color: '#10b981', whiteSpace: 'nowrap' }}>{copyTip}</span>}
             <button type="button" className="mc-btn" title={t('copyBody')} onClick={() => copyText(body, t('copyBody'))}>📋 {t('copyBody')}</button>
             <button type="button" className="mc-btn" title={t('copyPath')} onClick={() => copyText(card.path, t('copyPath'))}>🔗 {t('copyPath')}</button>
+            <button type="button" className="mc-btn" title={t('editCard')} onClick={editing ? cancelEdit : startEdit}>{editing ? '✖ ' + t('editCancel') : '✏️ ' + t('editCard')}</button>
             <button type="button" className="mc-btn" title={t('readWidth')} onClick={() => { const order = ['narrow', 'mid', 'wide']; const next = order[(order.indexOf(widthMode) + 1) % order.length]; setWidthMode(next); try { localStorage.setItem('me-read-width', next) } catch { /* 隐私模式忽略 */ } }}>{t('readWidth')} · {t(widthMode === 'narrow' ? 'widthNarrow' : widthMode === 'wide' ? 'widthWide' : 'widthMid')}</button>
             <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button>
             <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbIrr')}</button>
@@ -6219,13 +6293,32 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
             ref={readerMainRef}
             onScroll={onReaderScroll}
             onClick={expanded ? undefined : (e) => { e.stopPropagation(); setExpanded(true) }}>
-            {!!readerLead && (
+            {!editing && !!readerLead && (
               <div className="me-reader-callout">
                 <span className="me-reader-callout-k">{t(cardInsightKey(card))}</span>
                 <p>{readerLead}</p>
               </div>
             )}
-            <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(cleanBody) }} />
+            {editing ? (
+              <div className="me-edit-form" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '2px 0 14px' }}>
+                <div style={{ fontSize: 11.5, opacity: 0.62, lineHeight: 1.6 }}>{t('editHint')}</div>
+                <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }} htmlFor="me-edit-title">{t('editTitle')}</label>
+                <input id="me-edit-title" value={eTitle} onChange={(e) => setETitle(e.target.value)} maxLength={200} style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 13, boxSizing: 'border-box' }} />
+                <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }} htmlFor="me-edit-tags">{t('editTags')}</label>
+                <input id="me-edit-tags" value={eTags} onChange={(e) => setETags(e.target.value)} placeholder={t('editTagsHint')} style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 13, boxSizing: 'border-box' }} />
+                <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }} htmlFor="me-edit-body">{t('editBody')}</label>
+                <textarea id="me-edit-body" value={eBody} onChange={(e) => setEBody(e.target.value)} spellCheck={false} rows={18}
+                  style={{  width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 13, boxSizing: 'border-box' , resize: 'vertical', minHeight: 260, lineHeight: 1.7, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
+                {saveErr && <div style={{ color: '#f87171', fontSize: 12 }}>{saveErr}</div>}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <span style={{ marginRight: 'auto', fontSize: 11.5, opacity: 0.55 }}>{card.path}</span>
+                  <button type="button" className="mc-btn" onClick={cancelEdit} disabled={saving}>{t('editCancel')}</button>
+                  <button type="button" className="mc-btn" onClick={saveEdit} disabled={saving} style={{ borderColor: 'var(--dsw-alias-brand-primary, #3b82f6)', color: 'var(--dsw-alias-brand-primary, #3b82f6)', fontWeight: 600 }}>{saving ? t('editSaving') : t('editSave')}</button>
+                </div>
+              </div>
+            ) : (
+              <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(cleanBody) }} />
+            )}
           </div>
           <aside className="me-reader-side">
             {toc.length > 0 && (
