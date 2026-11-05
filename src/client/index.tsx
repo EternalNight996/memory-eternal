@@ -23,6 +23,14 @@ import { buildIssueUrl, buildIssueBody, buildAgentPrompt } from '../../lib/feedb
 import { visibleWorldRect, inRect, pickLabelIds, labelBudget } from './graph-lod.js'
 // 图谱预热策略：分帧 + 时间预算（替代原来「200 次同步 tick」造成的 1s+ 主线程冻结/空白）
 import { WARM_FRAME_BUDGET_MS, warmTicksFor } from './graph-warmup.js'
+// 力导向内核：Barnes–Hut 四叉树斥力（替代每 tick 的 O(n²) 全对斥力，2049 节点 20–40ms → 3–4ms）
+import { stepSimulation, forceParamsFor, QUIET_TICKS } from './graph-force.js'
+// 星球分层：按层请求 + 层级缓存 + 图元→画布节点 + 资源账本（20 轮下钻不泄漏）
+import {
+  LEVEL_TIMEOUT_MS, LEVEL_MAX_ITEMS, LEVEL_PAYLOAD_LIMIT, PLANET_MIN_RADIUS,
+  pathKey, segmentsOf, urlForLevel, levelItemToNode, planetLayerParams,
+  describeLevelError, createLevelCache, createResourceTracker, validateLevelPayload, formatCount,
+} from './graph-planet.js'
 // 保存后不闪烁：宿主 volatile 回流滞后期间，用本地叠加层顶住输入框的值
 import { mergeLocalOverlay } from './config-merge.js'
 
@@ -234,6 +242,23 @@ export const ZH = {
   copyFail: '复制失败',
   timeDim: '时间维',
   graphWarming: '正在布局 {n} 个节点…',
+  // 星球分层（按层请求）
+  graphAllCrumb: '全部',
+  graphOther: '其他',
+  graphItems: '图元',
+  graphCardsUnit: '卡',
+  graphPlanetCards: '{n} 张卡',
+  graphEnter: '进入该层',
+  graphLevelLoading: '正在加载层级…',
+  graphLevelTimeout: '层加载超时（{ms}ms）· 已保留当前层',
+  graphLevelError: '层加载失败 · 已保留当前层',
+  graphRetry: '重试',
+  graphEmptyLevel: '这一层没有卡片。',
+  graphLevelHint: '点大星球进入该层 · Shift+点击选中 · 拖拽移动 · 滚轮缩放',
+  graphBreadcrumbAria: '层级面包屑',
+  // 星球球心大数字的紧凑单位（≥1 万才用）：中文「万」；locale 决定 Intl 紧凑写法
+  graphCountWan: '万',
+  graphCountLocale: 'zh-CN',
   timeNew: '3 天内',
   timeRecent: '2 周内',
   timeMonth: '1 月内',
@@ -866,6 +891,23 @@ export const EN = {
   graphHint: 'Nodes = cards; edges = [[links]] or shared tags. Click a node to read.',
   graphTip: 'Left-click highlights · Shift+drag box-select · right-click menu · scroll zoom · drag to pan',
   graphWarming: 'Laying out {n} nodes…',
+  // Planet levels (per-level requests)
+  graphAllCrumb: 'All',
+  graphOther: 'Other',
+  graphItems: 'items',
+  graphCardsUnit: 'cards',
+  graphPlanetCards: '{n} cards',
+  graphEnter: 'Open this level',
+  graphLevelLoading: 'Loading level…',
+  graphLevelTimeout: 'Level load timed out ({ms}ms) · current level kept',
+  graphLevelError: 'Level load failed · current level kept',
+  graphRetry: 'Retry',
+  graphEmptyLevel: 'No cards in this level.',
+  graphLevelHint: 'Click a planet to enter · Shift+click to select · drag to move · scroll to zoom',
+  graphBreadcrumbAria: 'Level breadcrumb',
+  // Compact unit for the big number inside a planet (only used from 10k up): English K/M
+  graphCountWan: 'K',
+  graphCountLocale: 'en-US',
   rebuild: 'Rebuild',
   reset: 'Reset',
   expandAll: 'Expand all',
@@ -2018,6 +2060,22 @@ const CSS = `
 .me-graph-ctxmenu button { display: block; width: 100%; text-align: left; padding: 7px 10px; border: none; border-radius: 7px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .me-graph-ctxmenu button:hover { background: rgba(255,255,255,0.1); }
 .me-graph-hint { font-size: 11px; opacity: 0.6; margin-left: auto; }
+/* 星球分层：图内面包屑（可点任意层级返回）+ 层级状态条 + 加载/失败提示 */
+.me-graph-crumbs { position: absolute; left: 12px; bottom: 12px; z-index: 4; display: flex; align-items: center; gap: 2px; max-width: calc(100% - 250px); padding: 4px 6px; border-radius: 999px; background: rgba(28,28,32,0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 24px rgba(0,0,0,.28); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.me-graph-crumbs::-webkit-scrollbar { display: none; }
+.me-graph-crumbs button { flex: none; border: none; background: transparent; color: #b9c0cb; font: inherit; font-size: 11.5px; font-weight: 600; letter-spacing: .01em; padding: 3px 8px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.me-graph-crumbs button:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.me-graph-crumbs button.current { background: rgba(59,130,246,0.28); color: #fff; box-shadow: 0 0 0 1px rgba(96,165,250,0.45) inset; cursor: default; }
+.me-graph-crumbs .sep { flex: none; color: #5b6572; font-size: 10px; }
+.me-graph-crumbs .home { color: #9aa3b0; font-weight: 700; }
+.me-graph-levelchip { position: absolute; right: 12px; bottom: 12px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 999px; background: rgba(28,28,32,0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.07); color: #aeb6c2; font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.me-graph-levelchip b { color: #e9ecf1; font-weight: 700; }
+.me-graph-levelbusy { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(28,28,32,0.88); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #e8ebf0; font-size: 11.5px; font-weight: 600; box-shadow: 0 8px 22px rgba(0,0,0,.26); pointer-events: none; }
+.me-graph-levelbusy .me-progress { width: 54px; flex: none; }
+.me-graph-levelerr { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 7; display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100% - 32px)); padding: 8px 12px; border-radius: 12px; background: rgba(66,22,24,0.94); border: 1px solid rgba(248,113,113,0.5); color: #fee2e2; font-size: 12px; box-shadow: 0 10px 26px rgba(0,0,0,.34); }
+.me-graph-levelerr .msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-graph-levelerr button { flex: none; border: 1px solid rgba(254,226,226,0.45); background: rgba(255,255,255,0.06); color: #fff5f5; font: inherit; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+.me-graph-levelerr button:hover { background: rgba(255,255,255,0.16); }
 /* ---- 官方桌面版：让开窗口标题栏 ----------------------------------------------
    桌面壳（Electron）把「最小化 / 最大化 / 关闭」画在页面顶部，并按 DSH 的约定在
    <html> 上打 data-windows-titlebar、给出 --dsh-windows-titlebar-height
@@ -6218,42 +6276,119 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
 }
 // -- Enhanced knowledge graph ------------------------------------------------
 
+// -- 星球分层图谱 -------------------------------------------------------------
+// 与改造前的区别：以前一次性 `GET /graph` 拉全量（2049 节点 / 10106 边）再一次性渲染；
+// 现在一次只取「一层」（`GET /graph/level?path=…`）：根层 kind 折叠 → 大类/语义簇 → 卡片层；
+// 每个层级都缓存：面包屑返回上层是**零新增请求**。
 function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
-  const [data, setData] = useState(null)
-  const [error, setError] = useState('')
-  const loadedRef = useRef(false)
+  const [segments, setSegments] = useState([]) // 当前层级路径段（['k:project', 't:ui'] …）
+  const [data, setData] = useState(null) // 宿主返回的当前层（{path,crumbs,level,stats}）
+  const [error, setError] = useState(null) // { timeout, message }：显式失败，不吞
+  const [loading, setLoading] = useState(false)
   const fitTrigger = useRef(0)
-  // 主 effect 依赖 [nodes, edges]，语言切换不重跑 → 经 ref 读最新 t（tooltip 等 canvas 内文案）
-  const tRef = useRef(t)
-  tRef.current = t
+  const cacheRef = useRef(null)
+  if (!cacheRef.current) cacheRef.current = createLevelCache(96)
+  const seqRef = useRef(0)
+  // 首屏（第一层）落地时刻：从页面脚本开始执行算起（performance.now 原点），只记第一次
+  const firstLevelMsRef = useRef(0)
+  const segRef = useRef(segments)
+  segRef.current = segments
+  const allRef = useRef(all)
+  const statsRef = useRef({ requests: 0, cacheHits: 0, errors: 0, timeouts: 0, lastMs: 0, lastBytes: 0 })
 
-  const reload = useCallback(async () => {
-    try {
-      loadedRef.current = false
-      const r = await fetch(`${API}/graph${all ? '?all=1' : ''}`)
-      const d = await r.json()
-      if (d.ok) { setData(d); setError(''); loadedRef.current = true }
-      else { setData(null); setError(d.error || t('error')) }
-    } catch (e) {
-      setError(String(e && e.message ? e.message : e))
+  const load = useCallback(async (segs, opts = {}) => {
+    const target = Array.isArray(segs) ? segs.filter(Boolean) : []
+    const key = (all ? 'all|' : '') + pathKey(target)
+    if (!opts.force) {
+      const hit = cacheRef.current.get(key)
+      if (hit) {
+        // 命中缓存：不跑物理、不发请求，直接把这一层换上去（面包屑返回上层的路径）
+        statsRef.current.cacheHits += 1
+        setData(hit); setSegments(target); setError(null); setLoading(false)
+        return hit
+      }
     }
-  }, [all, t])
+    const seq = ++seqRef.current
+    setLoading(true)
+    setError(null)
+    const ctrl = new AbortController()
+    // 超时：abort 掉请求 → catch 里给出「超时 + 可重试」的显式提示，当前层原样保留
+    const timer = setTimeout(() => { try { ctrl.abort() } catch { /* 已结束 */ } }, LEVEL_TIMEOUT_MS)
+    const started = performance.now()
+    statsRef.current.requests += 1
+    try {
+      const r = await fetch(urlForLevel(API, target, { all }), { signal: ctrl.signal })
+      const d = await r.json().catch(() => null)
+      if (seq !== seqRef.current) return null // 被更新的请求取代：丢弃旧响应
+      if (!r.ok || !d || !d.ok) throw new Error((d && d.error) || ('HTTP ' + r.status))
+      const check = validateLevelPayload(d)
+      if (!check.ok) {
+        // 宿主越界只告警（客户端不静默截断，否则永远发现不了宿主回归）
+        try { console.warn('[memory-eternal] 分层响应越界：' + check.problems.join('；')) } catch { /* console 不可用 */ }
+      }
+      cacheRef.current.set(key, d)
+      statsRef.current.lastMs = Math.round(performance.now() - started)
+      statsRef.current.lastBytes = check.bytes
+      if (!firstLevelMsRef.current) firstLevelMsRef.current = Math.round(performance.now())
+      setData(d); setSegments(target); setError(null)
+      return d
+    } catch (e) {
+      if (seq !== seqRef.current) return null
+      const info = describeLevelError(e, { timeoutMs: LEVEL_TIMEOUT_MS, elapsedMs: performance.now() - started })
+      if (info.timeout) statsRef.current.timeouts += 1
+      statsRef.current.errors += 1
+      try { console.warn('[memory-eternal] 层级加载失败 @ ' + key + '：' + info.message) } catch { /* console 不可用 */ }
+      // 保留 data（当前层照旧可看可点），同时记住「失败的是哪一层」—— 重试点的是它，不是当前层
+      setError({ ...info, target: pathKey(target), segments: target.slice() })
+      return null
+    } finally {
+      clearTimeout(timer)
+      if (seq === seqRef.current) setLoading(false)
+    }
+  }, [all])
 
-  // 首次激活时加载，之后切走不清空（缓存），只有 all 变化或手动刷新才重新获取
+  // 跨库开关：不同库的层不能混用 → 清缓存 + 回根层重取
   useEffect(() => {
-    if (!active || loadedRef.current) return
-    let alive = true
-    fetch(`${API}/graph${all ? '?all=1' : ''}`)
-      .then((r) => r.json())
-      .then((d) => { if (alive) { if (d.ok) { setData(d); setError(''); loadedRef.current = true } else { setData(null); setError(d.error || t('error')) } } })
-      .catch((e) => { if (alive) setError(String(e && e.message ? e.message : e)) })
-    return () => { alive = false }
-  }, [all, t, active])
+    if (allRef.current === all) return
+    allRef.current = all
+    cacheRef.current.clear()
+    if (active) load([], { force: true })
+  }, [all, active, load])
+
+  // 首次激活才拉根层；切走再回来命中缓存（不重复请求）
+  useEffect(() => {
+    if (!active || data || loading) return
+    load([])
+  }, [active, data, loading, load])
 
   // 切换到图谱视图时触发一次 fit，让画布居中适配
   useEffect(() => {
     if (visible && data) fitTrigger.current++
   }, [visible, data])
+
+  const navigate = useCallback((crumb) => {
+    const segs = Array.isArray(crumb) ? crumb : segmentsOf(crumb && crumb.path !== undefined ? crumb.path : crumb)
+    if (pathKey(segs) === pathKey(segRef.current)) return
+    load(segs) // 命中缓存 → 零请求；未命中 → 正常按层取
+  }, [load])
+
+  const drill = useCallback((id) => {
+    if (!id) return
+    load(segRef.current.concat(String(id)))
+  }, [load])
+
+  const retry = useCallback(() => {
+    cacheRef.current.clear()
+    // 重试的是「刚才失败的那一层」（失败时没有切层，所以不能拿当前层当目标）
+    const target = error && Array.isArray(error.segments) ? error.segments : segRef.current
+    load(target, { force: true })
+  }, [load, error])
+
+  const reload = useCallback(async () => {
+    // 写操作（删卡/合并）会改变宿主指纹 → 层级缓存全部作废，当前层重取一次
+    cacheRef.current.clear()
+    return load(segRef.current, { force: true })
+  }, [load])
 
   const del = useCallback(async (path) => {
     try {
@@ -6262,7 +6397,7 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
       if (d && d.ok) { await reload(); onMutate && onMutate(); return true }
       return false
     } catch (e) { return false }
-  }, [reload])
+  }, [reload, onMutate])
 
   const merge = useCallback(async (paths) => {
     if (!paths || paths.length < 2) return false
@@ -6273,6 +6408,43 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
     } catch (e) { return false }
   }, [reload, onMutate])
 
+  // 只读运行时探针（CDP 断言用）：层级、请求/缓存计数、画布资源账本、图元屏幕坐标
+  useEffect(() => {
+    const probe = () => {
+      const runtime = typeof globalThis.__meGraphRuntime === 'function' ? globalThis.__meGraphRuntime() : null
+      return {
+        path: pathKey(segRef.current),
+        crumbs: data && Array.isArray(data.crumbs)
+          ? data.crumbs.map((c) => ({ path: c.path, label: c.label, labelKey: c.labelKey, count: c.count }))
+          : [],
+        level: data && data.level
+          ? { mode: data.level.mode, total: data.level.total, items: data.level.items.length, edges: data.level.edges.length }
+          : null,
+        loading: !!loading,
+        error: error ? { timeout: !!error.timeout, message: error.message, target: error.target || '' } : null,
+        requests: statsRef.current.requests,
+        cacheHits: statsRef.current.cacheHits,
+        errors: statsRef.current.errors,
+        timeouts: statsRef.current.timeouts,
+        lastMs: statsRef.current.lastMs,
+        lastBytes: statsRef.current.lastBytes,
+        firstLevelMs: firstLevelMsRef.current,
+        cacheSize: cacheRef.current.size,
+        timeoutMs: LEVEL_TIMEOUT_MS,
+        runtime,
+      }
+    }
+    globalThis.__meGraphProbe = probe
+    return () => {
+      if (globalThis.__meGraphProbe === probe) { try { delete globalThis.__meGraphProbe } catch { globalThis.__meGraphProbe = undefined } }
+    }
+  }, [data, loading, error])
+
+  const level = data && data.level ? data.level : null
+  const itemCount = level ? level.items.length : 0
+  const cardTotal = level ? level.total : 0
+  const edgeCount = level ? level.edges.length : 0
+
   return (
     <div className="me-graph me-v5-graph">
       <style>{CSS}</style>
@@ -6282,22 +6454,31 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
           <h1>{t('graphTab')}</h1>
           <p>{t('graphHint')}</p>
         </div>
-        <span className="mc-v5-pagecount">{data ? `${data.nodes.length} ${t('nodes')} · ${countEdges(data.edges)} ${t('edges')}` : ''}</span>
+        <span className="mc-v5-pagecount">{data ? `${itemCount} ${t('graphItems')} · ${cardTotal} ${t('graphCardsUnit')} · ${edgeCount} ${t('edges')}` : ''}</span>
       </div>
-      {error && <div className="mc-empty">{t('error')}：{error}</div>}
       {!data && !error && <LoadingNote text={t('loadingGraph')} />}
-      {data && data.nodes.length === 0 && <div className="mc-empty">{t('emptyGraph')}</div>}
-      {data && data.nodes.length > 0 && (
+      {!data && error && (
+        <div className="mc-empty" style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+          <span>{error.timeout ? t('graphLevelTimeout').replace('{ms}', String(LEVEL_TIMEOUT_MS)) : t('graphLevelError')}：{error.message}</span>
+          <button type="button" className="mc-btn" onClick={retry}>{t('graphRetry')}</button>
+        </div>
+      )}
+      {data && itemCount === 0 && <div className="mc-empty">{t('graphEmptyLevel')}</div>}
+      {data && itemCount > 0 && (
         <GraphCanvas
-          nodes={data.nodes}
-          edges={data.edges}
+          level={level}
+          crumbs={data.crumbs || []}
           onOpen={onOpen}
           onDelete={del}
           onMerge={merge}
+          onDrill={drill}
+          onNavigate={navigate}
+          onRetry={retry}
+          error={data ? error : null}
+          loading={loading}
           t={t}
           all={all}
           onAllChange={onAllChange}
-          countLabel={`${data.nodes.length} ${t('nodes')} · ${countEdges(data.edges)} ${t('edges')}`}
           fitTrigger={fitTrigger.current}
         />
       )}
@@ -6305,17 +6486,14 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
   )
 }
 
-function countEdges(edges) {
-  const seen = new Set()
-  for (const e of edges || []) seen.add([e.source, e.target].sort().join('|'))
-  return seen.size
-}
-
 // agentmemory 式图谱：canvas 力导向 + 按 kind 聚合 + 分型节点 + 渐变/发光 + 药丸标签 + 网格。
 const KG = {
   colors: { core:'#FF7A45', skill:'#8B5CF6', project:'#3B82F6', knowledge:'#10B981', content:'#F59E0B', prompt:'#A855F7', business:'#EC4899', tool:'#06B6D4', mistake:'#EF4444', other:'#6B7280' },
   shapes: { core:'diamond', skill:'hexagon', project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
 }
+
+// 星球层打的大数字：≤5 位直接写，上万用 Intl 紧凑写法（中文「万」/ 英文 K/M），
+// 保证球心字不会撑破球体。实现见 graph-planet.js 的 formatCount（纯函数、可单测）。
 
 // 图谱绘制异常兜底：渲染循环里的异常原来被空 catch 静默吞掉（表现是画布永远空白、
 // Console 里也没有任何线索）；而 React effect 里的同步重绘一旦抛出又会卸载整棵组件树
@@ -6360,18 +6538,72 @@ function LoadingNote({ text, value }) {
   )
 }
 
-function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, all, onAllChange, fitTrigger }) {
+// 图元 → 归一化「域对象」：卡片层是卡片（title/kind/tags/updated），星球层是聚合体（count）。
+// 画布渲染、搜索、图例、右侧邻居列表都读这个域，所以「这一层是什么」不影响交互代码。
+const EMPTY_ITEMS = []
+
+function GraphBreadcrumb({ crumbs, t, onPick, busy }) {
+  const list = Array.isArray(crumbs) && crumbs.length ? crumbs : [{ path: '', labelKey: 'graphAllCrumb', label: '全部' }]
+  return (
+    <nav className="me-graph-crumbs" aria-label={t('graphBreadcrumbAria')} data-level-depth={list.length}>
+      {list.map((c, i) => {
+        // labelKey 有译文才用（宿主可能给一个客户端还没收录的 key：退回宿主给的 label，不显示原始 key）
+        const translated = c.labelKey ? t(c.labelKey) : ''
+        const label = translated && translated !== c.labelKey ? translated : (c.label || c.path || '—')
+        const current = i === list.length - 1
+        return (
+          <span key={c.path || 'root'} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+            {i > 0 && <span className="sep" aria-hidden="true">›</span>}
+            <button
+              type="button"
+              className={(i === 0 ? 'home' : '') + (current ? ' current' : '')}
+              aria-current={current ? 'page' : undefined}
+              title={label}
+              disabled={current || busy}
+              onClick={() => { if (!current) onPick(c) }}
+            >{label}</button>
+          </span>
+        )
+      })}
+    </nav>
+  )
+}
+
+function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavigate, onRetry, error, loading, t, all, onAllChange, fitTrigger }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
   const simRef = useRef(null)
   const fitRef = useRef(null)
   const resetRef = useRef(null)
+  // 图谱数据换成「一层图元」：items/edges 都来自 GraphView 的层响应（缓存复用同一份对象）
+  const items = (level && Array.isArray(level.items)) ? level.items : EMPTY_ITEMS
+  const rawEdges = (level && Array.isArray(level.edges)) ? level.edges : EMPTY_ITEMS
+  const levelId = (level && level.id) || ''
+  // 归一化：id/title/kind/tags/updated 到处都要用；星球额外带 count/type=planet
+  const nodes = useMemo(() => items.map((it) => ({
+    id: it.id,
+    title: it.label || it.id,
+    name: it.label || it.id,
+    kind: it.kind || 'other',
+    tags: Array.isArray(it.tags) ? it.tags : [],
+    updated: it.updated || '',
+    count: Number(it.count) || 0,
+    type: it.type || 'card',
+  })), [items])
+  // 层内边统一成 {source,target}（宿主层边不带 tag 名，减 payload）
+  const edges = useMemo(() => rawEdges.map((e) => ({ source: e.source, target: e.target, type: e.type || 'tag', weight: Number(e.weight) || 1 })), [rawEdges])
+  // GraphCanvas 自己的 tRef：hover tooltip 在 render() 闭包里读 tRef.current，
+  // 而 render 只随 [items, edges] 重建 —— 语言切换时必须是 ref 才能拿到新文案。
+  const tRef = useRef(t)
+  tRef.current = t
   const onOpenRef = useRef(onOpen)
   useEffect(() => { onOpenRef.current = onOpen }, [onOpen])
   const onDeleteRef = useRef(onDelete)
   useEffect(() => { onDeleteRef.current = onDelete }, [onDelete])
   const onMergeRef = useRef(onMerge)
   useEffect(() => { onMergeRef.current = onMerge }, [onMerge])
+  const onDrillRef = useRef(onDrill)
+  useEffect(() => { onDrillRef.current = onDrill }, [onDrill])
   const [search, setSearch] = useState('')
   const [sel, setSel] = useState(null)
   // 预热进度：>0 表示「分帧布局」还没跑完（此时显示进度提示，且不启动常规 rAF 循环）
@@ -6406,13 +6638,14 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24).map(([t0, n0]) => ({ tag: t0, n: n0 }))
   }, [nodes])
   const kindStats = useMemo(() => {
+    // 图例口径 = 卡片数：大星球本身占 1 个图元，但它代表 count 张卡
     const m = {}
-    for (const n of nodes) m[n.kind || 'other'] = (m[n.kind || 'other'] || 0) + 1
+    for (const n of nodes) m[n.kind || 'other'] = (m[n.kind || 'other'] || 0) + (n.type === 'planet' ? Math.max(1, n.count || 0) : 1)
     return m
   }, [nodes])
   const noMatch = (() => { const q = search.trim().toLowerCase(); return !!q && !nodes.some((n) => (n.title || n.name || '').toLowerCase().includes(q) || String(n.kind || '').toLowerCase().includes(q) || String(KIND_LABELS[n.kind] || '').toLowerCase().includes(q)) })()
-  // 搜索变化时唤醒仿真重绘（否则布局停车后搜索不刷新）
-  useEffect(() => { const s = simRef.current; if (s && s.wake) s.wake() }, [search])
+  // 搜索变化时唤醒重绘（搜索只改高亮/居中，不重启布局）
+  useEffect(() => { const s = simRef.current; if (s && s.requestRender) s.requestRender() }, [search])
   // 图例/标签/时间维 过滤变化时直接重绘（不重启布局）。
   // 必须兜住异常：这是 React effect 里的同步调用，一旦抛出就会把整棵组件树卸载 → 整页白屏。
   useEffect(() => { const s = simRef.current; if (!s || !s.render) return; try { s.render() } catch (e) { warnGraphDrawError(e, 'filter/timeDim') } }, [filterKind, filterTag, timeMode])
@@ -6435,26 +6668,78 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     const dpr = Math.min(1.5, Math.max(1, window.devicePixelRatio || 1))
-    const degrade = () => document.documentElement.getAttribute('data-theme') === 'dark'
+    // 独立 Web 版没有 DSH 注入的 data-theme，只靠 prefers-color-scheme 切暗色 —— 之前
+    // 这里只认 data-theme，导致暗色页上仍用白底药丸/浅色网格（视觉上发脏）。现在补上系统主题兜底。
+    const degrade = () => {
+      const attr = document.documentElement.getAttribute('data-theme')
+      if (attr) return attr === 'dark'
+      try { return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches } catch { return false }
+    }
 
     const deg = {}
     edges.forEach((e) => { deg[e.source] = (deg[e.source] || 0) + 1; deg[e.target] = (deg[e.target] || 0) + 1 })
     const maxDeg = Math.max(1, ...Object.values(deg))
+    // 资源账本：本层实例申请的所有 rAF / 定时器 / 监听器都记在这里，卸载时一次性归还。
+    // 20 轮下钻/返回后 snapshot() 的三个数必须回到同一个值（见 probes + REPORT 的泄漏断言）。
+    const tracker = createResourceTracker()
+    const planetLayer = items.some((it) => it && it.type === 'planet')
 
+    // 绘制/命中顺序：卡片先画、星球后画（星球永远压在卡片上面，不会被小圆点啃掉）
+    const drawItems = items.filter((it) => it && it.type !== 'planet').concat(items.filter((it) => it && it.type === 'planet'))
     const sim = {
-      nodes: nodes.map((n) => ({ id: n.id, name: n.title || '', type: n.kind || 'other', r: 9 + Math.min(10, ((deg[n.id] || 0) / maxDeg) * 8) + (n.kind === 'core' ? 3 : 0), x: 0, y: 0, vx: 0, vy: 0 })),
-      edges: edges.map((e) => ({ sourceNodeId: e.source, targetNodeId: e.target, weight: 1 })),
+      // 图元 → 画布节点：大星球半径随卡数（对数），卡片沿用「按度数放大」的老规则。
+      // 注意：必须从**原始图元**（带 label）构节点 —— 归一化域对象用的是 title/name。
+      nodes: drawItems.map((it) => levelItemToNode(it, { degree: deg[it.id] || 0, maxDegree: maxDeg })),
+      // 层内边统一成 {source,target}：保留宿主的聚合权重（星球层 = 共享标签数），
+      // 渲染时用它区分粗细 —— 旧版图谱的「关系强弱」视觉不能少。
+      edges: edges.map((e) => ({ sourceNodeId: e.source, targetNodeId: e.target, weight: Math.max(1, Number(e.weight) || 1) })),
       panX: 0, panY: 0, zoom: 1, running: true, raf: 0, tickCount: 0, quietTicks: 0, dragNode: null, selectedId: null, mouseX: 0, mouseY: 0, w: 0, h: 0, dpr, ctx, multi: [], marquee: null,
+      planetLayer, levelId,
     }
     sim.domain = nodes
     sim.domainById = nodes.reduce((m, n) => (m[n.id] = n, m), {})
-    // 初始位形：黄金角螺旋（半径 ∝ √i）。原来是「半径 60 的圆等分」——1084 个节点全挤在
+    // 边弹簧每 tick 都要按 id 找两端：预先把边转成节点下标（Int32Array），
+    // 单 tick 的万级边从「Map.get × 2」降到纯数组下标访问。
+    sim.nodeById = new Map(sim.nodes.map((n) => [n.id, n]))
+    sim.edgePairs = (() => {
+      const index = new Map(sim.nodes.map((n, i) => [n.id, i]))
+      const pairs = new Int32Array(sim.edges.length * 2)
+      let w = 0
+      for (const edge of sim.edges) {
+        const a = index.get(edge.sourceNodeId)
+        const b = index.get(edge.targetNodeId)
+        if (a === undefined || b === undefined) continue
+        pairs[w] = a
+        pairs[w + 1] = b
+        w += 2
+      }
+      return pairs.subarray(0, w)
+    })()
+    sim.alpha = 1
+    // 星球层：大圆必须分得开 → 换一套更大的斥力/更弱的重力（内核公式不变，只换参数）
+    sim.forceParams = planetLayer ? planetLayerParams(forceParamsFor(sim.nodes.length)) : forceParamsFor(sim.nodes.length)
+    sim.lastTickMs = 0
+    sim.lastRenderMs = 0
+    // 初始位形：黄金角螺旋（半径 ∝ √i）。原来是「半径 60 的圆等分」——上千个节点全挤在
     // 一个小圆上，首帧就是一团墨点；螺旋铺开后首帧是一盘散点，预热过程也更自然。
-    sim.nodes.forEach((n, i) => { const a = i * 2.399963229728653; const r = 12 * Math.sqrt(i); n.x = Math.cos(a) * r; n.y = Math.sin(a) * r })
+    // 统一从黄金角螺旋起步：大星球和卡片一起参与力导向，散乱地漂，而不是被钉在固定环槽上。
+    // （旧版把星球钉在「专属引力槽」里，看着整齐但像一张图表；用户要的是「跟以前一样散乱会动」。）
+    sim.nodes.forEach((n, i) => {
+      const a = i * 2.399963229728653
+      const r = 12 * Math.sqrt(i)
+      n.x = Math.cos(a) * r
+      n.y = Math.sin(a) * r
+    })
     const types = [...new Set(sim.nodes.map((n) => n.type))]
-    sim.clustered = types.length > 1
-    sim.typeCenters = {}
-    types.forEach((ty, i) => { const a = (i / types.length) * Math.PI * 2 - Math.PI / 2; sim.typeCenters[ty] = { x: Math.cos(a) * 160, y: Math.sin(a) * 160 } })
+    // 星球层不做 type 聚类（每个大 kind 各占一个中心会又回到「绕圈排排坐」），改用中心重力 + 斥力。
+    sim.clustered = !planetLayer && types.length > 1
+    sim.typeCenters = sim.typeCenters || {}
+    const typeSpread = planetLayer ? 0 : 160
+    types.forEach((ty, i) => {
+      if (sim.typeCenters[ty]) return
+      const a = (i / types.length) * Math.PI * 2 - Math.PI / 2
+      sim.typeCenters[ty] = { x: Math.cos(a) * typeSpread, y: Math.sin(a) * typeSpread }
+    })
     simRef.current = sim
 
     let lastW = 0, lastH = 0
@@ -6466,7 +6751,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       // 容器从 0 变为有效尺寸时（display:none → flex），自动 fit 居中
       if ((lastW === 0 || lastH === 0) && w > 0 && h > 0 && sim.tickCount > 0) {
-        requestAnimationFrame(() => fit())
+        tracker.raf(() => fit())
       }
       lastW = w; lastH = h
     }
@@ -6500,6 +6785,19 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       }
       return g
     }
+    // '#rrggbb' + 透明度 → rgba()：星球的光晕/环/描边都要半透明同色
+    const hexA = (hex, a) => {
+      const cr = parseInt(hex.slice(1,3),16), cg = parseInt(hex.slice(3,5),16), cb = parseInt(hex.slice(5,7),16)
+      return 'rgba(' + cr + ',' + cg + ',' + cb + ',' + a + ')'
+    }
+    // 颜色混合（用于球体的高光/暗面），into 只接受 #ffffff / #000000
+    const mixColor = (hex, into, t) => {
+      const p = (h) => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]
+      const a = p(hex)
+      const b = p(into)
+      const k = Math.max(0, Math.min(1, Number(t) || 0))
+      return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',') + ')'
+    }
 
     // 滚轮/初始视图共用同一个「度」：一格 = ×ZOOM_STEP（滚轮、放大/缩小按钮、初始 fit 一致）。
     const ZOOM_STEP = 1.1
@@ -6509,7 +6807,16 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     const fit = () => {
       if (!sim.nodes.length) return
       let minX = 1/0, maxX = -1/0, minY = 1/0, maxY = -1/0
-      sim.nodes.forEach((n) => { minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x); minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y) })
+      // 边界按「圆心 ± 半径」算：星球很大时只算圆心会把大圆裁到画布外；
+      // 星球的行星环画到 1.82r，边界再放大一点，别让环被画布边缘切掉。
+      sim.nodes.forEach((n) => {
+        const base = Number(n.r) || 0
+        const r = n.planet ? base * 1.75 : base
+        if (n.x - r < minX) minX = n.x - r
+        if (n.x + r > maxX) maxX = n.x + r
+        if (n.y - r < minY) minY = n.y - r
+        if (n.y + r > maxY) maxY = n.y + r
+      })
       const pad = 20
       const spanX = (maxX - minX) + pad * 2, spanY = (maxY - minY) + pad * 2
       const z = Math.min(sim.w / spanX, sim.h / spanY)
@@ -6517,6 +6824,12 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       // 再叠一个「初始视图缩小三度」的系数（重置视图按钮也走这里，行为与首次打开一致）。
       const initialZoomOut = Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS)
       sim.zoom = Math.max(0.35, Math.min(1.8, z * initialZoomOut))
+      // 星球层可能比「0.35 缩放下限」还大（20 颗大星球要排 2~3 圈），
+      // 这时允许继续缩小 —— 整盘被裁掉（看不到全部）比节点略小更糟。只对星球层生效。
+      if (sim.planetLayer) {
+        const fitZoom = z * Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS)
+        if (fitZoom < sim.zoom) sim.zoom = Math.max(0.12, fitZoom)
+      }
       sim.panX = sim.w / 2 - ((minX + maxX) / 2) * sim.zoom
       sim.panY = sim.h / 2 - ((minY + maxY) / 2) * sim.zoom
     }
@@ -6549,6 +6862,9 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       ctx.translate(sim.panX, sim.panY); ctx.scale(sim.zoom, sim.zoom)
       const nodeMap = {}
       sim.nodes.forEach((n) => (nodeMap[n.id] = n))
+      // 运动期 LOD：拖拽 / 平移 / 缩放 / 自移动时，边画直线、标签只留焦点，
+      // 松手 140ms 后再补一帧完整细节（视觉只在「动的时候」降级，静置后恢复）。
+      const motion = performance.now() < (sim.motionUntil || 0)
       const dense = sim.nodes.length > 40
       const labelThreshold = dense ? 1.5 : 0.55
       const focusId = sim.selectedId || sim.hoverId
@@ -6593,14 +6909,15 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         if (kfTag) { const sT = sim.domainById[e.sourceNodeId] && (sim.domainById[e.sourceNodeId].tags || []).includes(kfTag); const tT = sim.domainById[e.targetNodeId] && (sim.domainById[e.targetNodeId].tags || []).includes(kfTag); if (!sT && !tT) return }
         let dr = t.x - s.x, dy = t.y - s.y
         const len = Math.sqrt(dr * dr + dy * dy) || 1
-        const curve = dense ? 12 : 18
+        const curve = motion ? 0 : (dense ? 12 : 18)
         const ox = -dy / len * curve, oy = dr / len * curve
         const cpx = (s.x + t.x) / 2 + ox, cpy = (s.y + t.y) / 2 + oy
         const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other'] || KG.colors.other
         const focused = focusId && (e.sourceNodeId === focusId || e.targetNodeId === focusId)
-        const alpha = focusId ? (focused ? 0.6 : 0.08) : (dense ? 0.14 : 0.24)
+        const alpha = focusId ? (focused ? 0.62 : 0.09) : (sim.planetLayer ? 0.32 : (dense ? 0.18 : 0.26))
         const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
-        const width = focused ? 1.6 + (e.weight||1) : 0.8 + (e.weight||1)*0.5
+        const w = Math.max(1, Number(e.weight) || 1)
+        const width = focused ? 1.8 + Math.min(4, w) : 0.9 + Math.min(3, w - 1) * 0.45
         const key = cr + ',' + cg + ',' + cb + ',' + alpha + ',' + width
         let bucket = edgeBuckets.get(key)
         if (!bucket) {
@@ -6621,8 +6938,111 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
           else if (ed.targetNodeId === focusId) focusNeighbors.add(ed.sourceNodeId)
         })
       }
+      // 药丸标签（星球/卡片共用，带避让）：随缩放补偿字号/线宽，避免放大后标签变糊
+      const drawLabelPill = (n, opts = {}) => {
+        const label = truncate(n.name, opts.maxChars || 16)
+        const zi = 1 / sim.zoom
+        const font = '500 ' + (12 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+        ctx.font = font
+        const tw = measureText(font, label)
+        const lw = tw + 16 * zi, lh = 18 * zi
+        const ly = n.y + n.r + (opts.gap === undefined ? 8 : opts.gap) * zi
+        let fits = true
+        for (const r of drawn) { if (n.x - lw/2 < r.x + r.w && n.x + lw/2 > r.x && ly < r.y + r.h && ly + lh > r.y) { fits = false; break } }
+        if (!fits && !opts.force) return false
+        drawn.push({ x: n.x - lw/2, y: ly, w: lw, h: lh })
+        ctx.fillStyle = degrade() ? 'rgba(30,30,35,0.92)' : 'rgba(255,255,255,0.92)'
+        ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(n.x - lw/2, ly, lw, lh, 4*zi); else ctx.rect(n.x - lw/2, ly, lw, lh); ctx.fill()
+        ctx.strokeStyle = degrade() ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+        ctx.lineWidth = 1 * zi; ctx.stroke()
+        ctx.fillStyle = degrade() ? (opts.strong ? '#eee' : '#bbb') : (opts.strong ? '#111' : '#444')
+        ctx.textAlign = 'center'; ctx.fillText(label, n.x, ly + 13 * zi)
+        return true
+      }
+      // 大星球：柔光球体 + 一道细轨道环 + 晨昏线。去掉了原来的双环「土星插画」感。
+      const drawPlanet = (n, color, flags) => {
+        const zi = 1 / sim.zoom
+        const { isSel, isHov, dimmed } = flags
+        ctx.save()
+        ctx.globalAlpha = dimmed ? 0.12 : 1
+        // 大气层：两层柔光，越靠外越淡
+        const glow = ctx.createRadialGradient(n.x, n.y, n.r * 0.7, n.x, n.y, n.r * 1.9)
+        glow.addColorStop(0, hexA(color, 0.34))
+        glow.addColorStop(0.5, hexA(color, 0.12))
+        glow.addColorStop(1, hexA(color, 0))
+        ctx.fillStyle = glow
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 1.9, 0, Math.PI * 2); ctx.fill()
+        // 轨道环：只留一圈，压扁、微倾
+        ctx.save()
+        ctx.translate(n.x, n.y)
+        ctx.rotate(-0.34)
+        ctx.strokeStyle = hexA(color, isSel || isHov ? 0.8 : 0.32)
+        ctx.lineWidth = Math.max(0.8, 1.1 * zi)
+        ctx.beginPath(); ctx.ellipse(0, 0, n.r * 1.5, n.r * 0.30, 0, 0, Math.PI * 2); ctx.stroke()
+        ctx.restore()
+        // 球体：上亮下暗的渐变球 + 晨昏线 + 左上高光
+        ctx.save()
+        ctx.translate(n.x, n.y)
+        ctx.save()
+        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.clip()
+        const body = ctx.createRadialGradient(-n.r * 0.34, -n.r * 0.38, n.r * 0.08, 0, 0, n.r * 1.08)
+        body.addColorStop(0, mixColor(color, '#ffffff', 0.46))
+        body.addColorStop(0.52, color)
+        body.addColorStop(1, mixColor(color, '#000000', 0.44))
+        if (paintShadows) { ctx.shadowColor = hexA(color, 0.45); ctx.shadowBlur = isSel ? 26 : 14 }
+        ctx.fillStyle = body
+        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.fill()
+        ctx.shadowBlur = 0
+        const shade = ctx.createLinearGradient(-n.r, -n.r, n.r, n.r)
+        shade.addColorStop(0, 'rgba(255,255,255,0.10)')
+        shade.addColorStop(0.52, 'rgba(0,0,0,0)')
+        shade.addColorStop(1, 'rgba(0,0,0,0.30)')
+        ctx.fillStyle = shade
+        ctx.fillRect(-n.r, -n.r, n.r * 2, n.r * 2)
+        ctx.beginPath(); ctx.arc(-n.r * 0.36, -n.r * 0.4, n.r * 0.30, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fill()
+        ctx.restore()
+        // 边缘光：只亮上沿一段
+        ctx.beginPath(); ctx.arc(0, 0, n.r - Math.max(0.5, 1 * zi) * 0.5, Math.PI * 1.05, Math.PI * 1.95)
+        ctx.strokeStyle = 'rgba(255,255,255,0.34)'
+        ctx.lineWidth = Math.max(0.8, 1.4 * zi)
+        ctx.stroke()
+        ctx.restore()
+        if (isSel || isHov) {
+          ctx.save()
+          ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 5, 0, Math.PI * 2)
+          ctx.strokeStyle = isSel ? '#ffffff' : hexA(color, 0.9)
+          ctx.lineWidth = isSel ? 2.4 : 1.6
+          if (paintShadows) { ctx.shadowColor = color; ctx.shadowBlur = 12 }
+          ctx.stroke()
+          ctx.restore()
+        }
+        ctx.restore()
+        // 卡数：字号按**屏幕尺寸**定（而非世界尺寸），缩得很小时也读得清；太小就交给标签
+        const screenR = n.r * sim.zoom
+        if (isSel || isHov || screenR >= 11) {
+          const fs = Math.max(8, Math.min(22, screenR * 0.46)) * zi
+          ctx.save()
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+          ctx.font = '800 ' + fs.toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+          ctx.fillStyle = 'rgba(255,255,255,0.97)'
+          // 紧凑单位跟着界面语言走（中文「万」/ 英文 K/M）；<1 万原样，2049/10k 的显示不变
+          ctx.fillText(formatCount(n.count, {
+            unit: tRef.current('graphCountWan'),
+            locale: tRef.current('graphCountLocale'),
+          }), n.x, n.y - (screenR >= 24 ? fs * 0.28 : 0))
+          if (screenR >= 24) {
+            const sub = tRef.current('graphCardsUnit')
+            ctx.font = '600 ' + (fs * 0.46).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+            ctx.fillStyle = 'rgba(255,255,255,0.72)'
+            ctx.fillText(sub, n.x, n.y + fs * 0.82)
+          }
+          ctx.restore()
+        }
+      }
       // nodes
       const drawn = []
+      const planetDraws = []
       sim.nodes.forEach((n) => {
         // 视口剔除：屏幕外的节点连渐变/形状/标签都不必画
         if (!inRect(n.x, n.y, n.r + 2, viewRect)) return
@@ -6639,6 +7059,11 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         const kindOk = kf === 'all' || kind === kf
         const tagOk = !kfTag || ((info.tags || []).includes(kfTag))
         const dimmed = (focusId && n.id !== focusId && !(focusNeighbors && focusNeighbors.has(n.id))) || (searchTerm && !searchHit) || !kindOk || !tagOk
+        if (n.planet) {
+          // 星球先只登记，等所有球画完再统一画名字（否则后画的球会盖住前一颗的标签）
+          planetDraws.push({ n, color, isSel, isHov, dimmed, ok: kindOk && tagOk })
+          return
+        }
         ctx.save()
         ctx.globalAlpha = dimmed ? 0.08 : 1
         if ((isSel || isHov) && paintShadows) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 20 : 14 }
@@ -6657,31 +7082,32 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         else if (isHov) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
         else if (searchTerm && searchHit) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
         else if (sim.multi.indexOf(n.id) >= 0) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2; ctx.shadowColor = '#60a5fa'; ctx.shadowBlur = 8; ctx.stroke(); ctx.restore() }
-        // pill label
-        const label = truncate(n.name, 16)
         // 标签预算：大图只画「焦点/悬停/搜索命中/度数最高」的若干节点。
-        // 原来 zoom > labelThreshold 时 589 个标签全画（每个都要 measureText + 圆角矩形 + fillText），
+        // 原来 zoom > labelThreshold 时上千个标签全画（每个都要 measureText + 圆角矩形 + fillText），
         // 这正是「放大后卡顿、缩小正常」的原因。
-        const showLab = (isSel || isHov || (labelIds.has(n.id) && sim.zoom > labelThreshold) || (!dense && sim.zoom > 0.6)) && kindOk && tagOk
-        if (showLab) {
-          const zi = 1 / sim.zoom
-          const font = '500 ' + (12 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
-          ctx.font = font
-          const tw = measureText(font, label)
-          const lw = tw + 16 * zi, lh = 18 * zi
-          const ly = n.y + n.r + 8 * zi
-          let fits = true
-          for (const r of drawn) { if (n.x - lw/2 < r.x + r.w && n.x + lw/2 > r.x && ly < r.y + r.h && ly + lh > r.y) { fits = false; break } }
-          if (!fits && !isSel && !isHov) return
-          drawn.push({ x: n.x - lw/2, y: ly, w: lw, h: lh })
-          ctx.fillStyle = degrade() ? 'rgba(30,30,35,0.92)' : 'rgba(255,255,255,0.92)'
-          ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(n.x - lw/2, ly, lw, lh, 4*zi); else ctx.rect(n.x - lw/2, ly, lw, lh); ctx.fill()
-          ctx.strokeStyle = degrade() ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
-          ctx.lineWidth = 1 * zi; ctx.stroke()
-          ctx.fillStyle = degrade() ? (isSel||isHov ? '#eee' : '#bbb') : (isSel||isHov ? '#111' : '#444')
-          ctx.textAlign = 'center'; ctx.fillText(label, n.x, ly + 13 * zi)
-        }
+        const showLab = (isSel || isHov || (!motion && ((labelIds.has(n.id) && sim.zoom > labelThreshold) || (!dense && sim.zoom > 0.6)))) && kindOk && tagOk
+        if (showLab) drawLabelPill(n, { force: isSel || isHov })
       })
+      // 星球：先把所有球画完（球压卡片），再统一画名字（名字压所有球，不会被邻居挡住）。
+      // 星球很多时（20 颗语义簇）给标签一个预算：悬停/选中必留 + 卡数最大的若干颗，
+      // 否则 20 条药丸会叠在一起，反而看不清。
+      planetDraws.forEach((p) => drawPlanet(p.n, p.color, p))
+      const planetLabelBudget = planetDraws.length <= 12
+        ? Infinity
+        : 8
+      const labelled = new Set()
+      if (Number.isFinite(planetLabelBudget)) {
+        planetDraws
+          .filter((p) => (p.isSel || p.isHov) && p.ok)
+          .forEach((p) => { labelled.add(p.n.id); drawLabelPill(p.n, { gap: 8, force: true, maxChars: 20 }) })
+        planetDraws
+          .filter((p) => p.ok && !labelled.has(p.n.id))
+          .sort((a, b) => (b.n.count || 0) - (a.n.count || 0))
+          .slice(0, planetLabelBudget)
+          .forEach((p) => { if (labelled.has(p.n.id)) return; labelled.add(p.n.id); drawLabelPill(p.n, { gap: 8, maxChars: 20 }) })
+      } else {
+        planetDraws.forEach((p) => { if (p.ok) drawLabelPill(p.n, { gap: 8, force: p.isSel || p.isHov, maxChars: 20 }) })
+      }
       ctx.restore()
       // Marquee 框选矩形（屏幕坐标）
       if (sim.marquee) {
@@ -6704,57 +7130,190 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
           tooltipRef.current.style.display = 'block'
           tooltipRef.current.style.left = (lx + 14) + 'px'
           tooltipRef.current.style.top = (ly - 6) + 'px'
-          tooltipRef.current.innerHTML = '<b>' + esc(hn.title || hn.name || '') + '</b><br/><span style="opacity:.8">' + esc(hn.kind || '') + ' · ' + tRef.current('connCount').replace('{n}', conn) + '</span>'
+          const meta = sn.planet
+            ? tRef.current('graphPlanetCards').replace('{n}', String(sn.count)) + ' · ' + tRef.current('graphEnter')
+            : tRef.current('connCount').replace('{n}', conn)
+          tooltipRef.current.innerHTML = '<b>' + esc(hn.title || hn.name || '') + '</b><br/><span style="opacity:.8">' + esc(hn.kind || '') + ' · ' + esc(meta) + '</span>'
         }
       } else if (tooltipRef.current) tooltipRef.current.style.display = 'none'
     }
 
     // 预热期间不启动常规 rAF 循环（预热自己驱动 rAF），避免同一帧里跑两遍 tick。
     let warmLeft = 0
-    const wake = () => { if (warmLeft > 0) return; sim.running = true; if (!sim.raf) sim.raf = requestAnimationFrame(step) }
+    // 重绘与模拟解耦：
+    //   - requestRender() 只画一帧（rAF 合并），不推进物理 —— 点击/悬停/选中/筛选/缩放/平移都走它；
+    //   - wake() 才推进物理 —— 只给「拖拽节点 / 松手收敛 / 预热结束」这类真的会改变布局的动作。
+    // 这是「点击即渲染卡死」的第二半根因：原来点一下会唤醒 30+ 次 O(n²) tick。
+    let renderRaf = 0
+    let motionTimer = 0
+    const markMotion = () => {
+      sim.motionUntil = performance.now() + 140
+      if (motionTimer) tracker.clearTimeout(motionTimer)
+      motionTimer = tracker.setTimeout(() => {
+        motionTimer = 0
+        requestRender()
+      }, 160)
+    }
+    const requestRender = () => {
+      if (renderRaf) return
+      renderRaf = tracker.raf(() => {
+        renderRaf = 0
+        const t0 = performance.now()
+        try { render() } catch (e) { warnGraphDrawError(e, 'render') }
+        sim.lastRenderMs = performance.now() - t0
+      })
+    }
+    sim.requestRender = requestRender
+    const wake = () => {
+      if (warmLeft > 0) return
+      // 重新加热：拖拽/松手后要给自组织留出「力」的时间，冷却到 0 的布局才会重新响应。
+      sim.alpha = Math.max(sim.alpha || 0, 0.35)
+      sim.running = true
+      if (!sim.raf) sim.raf = tracker.raf(step)
+    }
     sim.wake = wake
     sim.render = render
 
-    const tick = () => {
-      const nn = sim.nodes.length
-      sim.tickCount++
-      const cool = Math.min(0.4, sim.tickCount / 1500)
-      const damping = 0.9 - cool
-      const repulsion = nn > 1000 ? 3000 : nn > 100 ? 2000 : nn > 50 ? 1200 : 800
-      const attraction = nn > 100 ? 0.002 : 0.005
-      const centerGravity = nn > 1000 ? 0.012 : nn > 100 ? 0.005 : 0.01
-      const velCap = nn > 1000 ? 6 : nn > 200 ? 12 : 24
-      const map = {}; sim.nodes.forEach((n) => (map[n.id] = n))
-      for (let i = 0; i < nn; i++) {
-        if (sim.dragNode === sim.nodes[i]) continue
-        const n = sim.nodes[i]; let fx = 0, fy = 0
-        for (let j = 0; j < nn; j++) { if (i === j) continue; const dx = n.x - sim.nodes[j].x, dy = n.y - sim.nodes[j].y; const d = Math.sqrt(dx*dx+dy*dy)||1; const f = repulsion/(d*d); fx += dx/d*f; fy += dy/d*f }
-        if (sim.clustered && sim.typeCenters[n.type]) { const tc = sim.typeCenters[n.type]; fx += (tc.x - n.x) * 0.006; fy += (tc.y - n.y) * 0.006 }
-        else { fx -= n.x * centerGravity; fy -= n.y * centerGravity }
-        let nvx = (n.vx + fx) * damping, nvy = (n.vy + fy) * damping
-        nvx = Math.max(-velCap, Math.min(velCap, nvx)); nvy = Math.max(-velCap, Math.min(velCap, nvy))
-        n.vx = nvx; n.vy = nvy
+    // 星球层的碰撞分离：BH 斥力是「点斥力」，不考虑球体半径 —— 大球之间、大球与卡片必须显式推开，
+    // 否则散乱漂移几步就叠在一起。只处理星球层（≤20 颗球 + ≤1000 个卡片），每 tick O(P×N)。
+    const separateCollisions = () => {
+      if (!planetLayer) return
+      const planets = sim.nodes.filter((n) => n.planet)
+      if (!planets.length) return
+      const gap = 12
+      for (let a = 0; a < planets.length; a++) {
+        for (let b = a + 1; b < planets.length; b++) {
+          const pa = planets[a]
+          const pb = planets[b]
+          const dx = pb.x - pa.x
+          const dy = pb.y - pa.y
+          const d = Math.sqrt(dx * dx + dy * dy) || 1
+          const min = pa.r + pb.r + gap
+          if (d >= min) continue
+          const push = (min - d) * 0.5
+          const ux = dx / d
+          const uy = dy / d
+          pa.x -= ux * push; pa.y -= uy * push
+          pb.x += ux * push; pb.y += uy * push
+          pa.vx *= 0.4; pa.vy *= 0.4; pb.vx *= 0.4; pb.vy *= 0.4
+        }
       }
-      sim.edges.forEach((e) => {
-        const s = map[e.sourceNodeId], t = map[e.targetNodeId]; if (!s || !t) return
-        const dx = t.x - s.x, dy = t.y - s.y; const d = Math.sqrt(dx*dx+dy*dy)||1
-        const f = (d - 100) * attraction; const fx = dx/d*f, fy = dy/d*f
-        if (sim.dragNode !== s) { s.vx += fx; s.vy += fy }
-        if (sim.dragNode !== t) { t.vx -= fx; t.vy -= fy }
-      })
-      let kinetic = 0
-      sim.nodes.forEach((n) => { if (sim.dragNode === n) return; n.x += n.vx; n.y += n.vy; kinetic += n.vx*n.vx + n.vy*n.vy })
+      for (const p of planets) {
+        for (const c of sim.nodes) {
+          if (c.planet) continue
+          const dx = c.x - p.x
+          const dy = c.y - p.y
+          const d = Math.sqrt(dx * dx + dy * dy) || 1
+          const min = p.r + c.r + 8
+          if (d >= min) continue
+          const push = min - d
+          c.x += (dx / d) * push
+          c.y += (dy / d) * push
+          c.vx *= 0.5
+          c.vy *= 0.5
+        }
+      }
+    }
+
+    // 单步物理：Barnes–Hut 四叉树斥力（O(n log n)），力常数/阻尼/边弹簧与改造前逐项一致。
+    // 2049 节点实测单 tick 从 20–40ms（O(n²)）降到 ≈3–4ms（见 tests/graph-force.test.mjs）。
+    const tick = () => {
+      const t0 = performance.now()
+      const result = stepSimulation(sim, { params: sim.forceParams, alphaFloor: sim.drift ? 1 : 0, damping: sim.drift ? 0.8 : undefined })
+      separateCollisions()
+      sim.lastTickMs = performance.now() - t0
+      sim.lastRms = result.rms
       if (sim.autoFitPending && sim.tickCount > 45) { sim.autoFitPending = false; fit() }
-      const rms = nn ? Math.sqrt(kinetic / nn) : 0
-      if (rms < 0.05 && sim.tickCount > 60 && !sim.dragNode) sim.quietTicks = (sim.quietTicks|0)+1; else sim.quietTicks = 0
     }
 
     const step = () => {
       if (!sim.running) return
-      try { tick(); render() } catch (er) { warnGraphDrawError(er, 'step') }
-      if (sim.quietTicks > 30) { sim.raf = 0; return }
-      sim.raf = requestAnimationFrame(step)
+      // 常驻自移动：预热结束后不再彻底停车，而是进入 ~30fps 的低速漂移 ——
+      // 用户要的是「跟改造前一样 散乱会动」，一张静止的图体验很差。
+      // 拖拽时恢复 60fps + 1 tick/帧保证跟手；松手后继续漂。
+      if (sim.quietTicks > QUIET_TICKS) {
+        sim.quietTicks = 0
+        if (!sim.drift) {
+          sim.drift = true
+          sim.alpha = Math.max(sim.alpha || 0, 1)
+          sim.motionUntil = 0 // 常驻运动也保留完整细节（标签/曲线边）
+          if (!sim.userTouched) fit()
+        }
+      }
+      // 漂移期降到 ~30fps（每两帧算一次）：省一半 CPU，慢速漂移肉眼依然连续。
+      // 拖拽期间不降帧，保证跟手。必须在 tick/render 之前跳过，否则只是多排了一次空帧。
+      if (sim.drift && !sim.dragNode) {
+        sim.driftFrame = (sim.driftFrame | 0) + 1
+        if (sim.driftFrame % 2) { sim.raf = tracker.raf(step); return }
+      }
+      try {
+        // 帧预算：拖拽时必须跟手（每帧 1 tick）；自组织阶段在 18ms 内多跑几步，
+        // 让大图在 ~2s 内铺开，而不是每帧 1 tick 磨很久。漂移期每帧 1 tick。
+        const frameStart = performance.now()
+        const maxTicks = sim.dragNode || sim.drift ? 1 : 6
+        let ticks = 0
+        do {
+          tick()
+          ticks += 1
+        } while (!sim.dragNode && !sim.drift && ticks < maxTicks && performance.now() - frameStart < 18 && sim.quietTicks <= QUIET_TICKS)
+        if (!sim.drift) sim.motionUntil = performance.now() + 60
+        const r0 = performance.now()
+        render()
+        sim.lastRenderMs = performance.now() - r0
+      } catch (er) { warnGraphDrawError(er, 'step') }
+      sim.raf = tracker.raf(step)
     }
+
+    // 只读运行时诊断（性能回归时用 CDP 探针读取）：不改变任何渲染/交互行为。
+    const graphStats = () => ({
+      nodes: sim.nodes.length,
+      edges: sim.edges.length,
+      planets: sim.nodes.filter((n) => n.planet).length,
+      level: sim.levelId || '',
+      tickCount: sim.tickCount,
+      quietTicks: sim.quietTicks,
+      running: !!sim.running,
+      dragging: !!sim.dragNode,
+      lastTickMs: Math.round((sim.lastTickMs || 0) * 100) / 100,
+      lastRenderMs: Math.round((sim.lastRenderMs || 0) * 100) / 100,
+      rms: Math.round((sim.lastRms || 0) * 1000) / 1000,
+      alpha: Math.round((sim.alpha || 0) * 1000) / 1000,
+      drift: !!sim.drift,
+    })
+    sim.stats = graphStats
+    globalThis.__meGraphStats = graphStats
+    // 交互/泄漏探针：图元的**屏幕坐标**（CDP 据此精确点击星球）+ 本层资源账本快照
+    const runtimeProbe = () => {
+      const rect = canvas.getBoundingClientRect()
+      const sx = rect.width ? canvas.clientWidth / rect.width : 1
+      const sy = rect.height ? canvas.clientHeight / rect.height : 1
+      return {
+        level: sim.levelId || '',
+        planetLayer: !!sim.planetLayer,
+        nodes: sim.nodes.length,
+        planets: sim.nodes.filter((n) => n.planet).length,
+        edges: sim.edges.length,
+        running: !!sim.running,
+        quietTicks: sim.quietTicks,
+        zoom: Math.round(sim.zoom * 1000) / 1000,
+        panX: Math.round(sim.panX), panY: Math.round(sim.panY),
+        selected: sim.selectedId || null,
+        multi: Array.isArray(sim.multi) ? sim.multi.length : 0,
+        resources: tracker.snapshot(),
+        screen: sim.nodes.map((n) => ({
+          id: n.id,
+          label: n.name,
+          planet: !!n.planet,
+          count: n.count || 0,
+          // 屏幕坐标（CSS 像素）：r.left + 局部位移*scale
+          x: rect.left + (n.x * sim.zoom + sim.panX) / sx,
+          y: rect.top + (n.y * sim.zoom + sim.panY) / sy,
+          r: Math.max(4, (n.r * sim.zoom) / sx),
+        })),
+      }
+    }
+    sim.runtime = runtimeProbe
+    globalThis.__meGraphRuntime = runtimeProbe
 
     // interactions
     // 注意：根节点有 CSS zoom（布局大小配置）。getBoundingClientRect 返回视觉尺寸，
@@ -6768,7 +7327,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     const toWorld = (cx, cy) => { const p = toLocal(cx, cy); return { x: (p.x - sim.panX) / sim.zoom, y: (p.y - sim.panY) / sim.zoom } }
     const nodeVisible = (id) => { const info = sim.domainById[id]; if (!info) return false; if (filterRef.current !== 'all' && info.kind !== filterRef.current) return false; if (tagRef.current && !(info.tags || []).includes(tagRef.current)) return false; return true }
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
-    const onMove = (e) => { sim.mouseX = e.clientX; sim.mouseY = e.clientY; const w = toWorld(e.clientX, e.clientY); let hov = null; for (let i = sim.nodes.length-1; i>=0; i--) { const n = sim.nodes[i]; if (!nodeVisible(n.id)) continue; const dx = n.x - w.x, dy = n.y - w.y; if (dx*dx + dy*dy < n.r*n.r + 36) { hov = n.id; break } } if (hov !== sim.hoverId) { sim.hoverId = hov; wake() } }
+    const onMove = (e) => { sim.mouseX = e.clientX; sim.mouseY = e.clientY; const w = toWorld(e.clientX, e.clientY); let hov = null; for (let i = sim.nodes.length-1; i>=0; i--) { const n = sim.nodes[i]; if (!nodeVisible(n.id)) continue; const dx = n.x - w.x, dy = n.y - w.y; if (dx*dx + dy*dy < n.r*n.r + 36) { hov = n.id; break } } if (hov !== sim.hoverId) { sim.hoverId = hov; sim.motionUntil = performance.now() + 140; requestRender() } }
     const onDown = (e) => {
       if (e.button !== 0) return
       const w = toWorld(e.clientX, e.clientY); let hit = null
@@ -6784,12 +7343,17 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       if (hit) sim.dragOffset = { dx: hit.x - w.x, dy: hit.y - w.y }
     }
     const onDrag = (e) => {
-      if (sim.marquee) { sim.marquee.ex = e.clientX; sim.marquee.ey = e.clientY; wake(); return }
+      if (sim.marquee) { sim.marquee.ex = e.clientX; sim.marquee.ey = e.clientY; markMotion(); requestRender(); return }
       if (!sim.dragStart) return
       const dx = e.clientX - sim.dragStart.x, dy = e.clientY - sim.dragStart.y
-      if (Math.abs(dx) + Math.abs(dy) > 3) sim.dragging = true
-      if (sim.dragNode) { const w = toWorld(e.clientX, e.clientY); sim.dragNode.x = w.x + sim.dragOffset.dx; sim.dragNode.y = w.y + sim.dragOffset.dy; wake() }
-      else if (sim.dragging) { sim.panX = clamp(sim.dragStart.px + dx, -1e5, 1e5); sim.panY = clamp(sim.dragStart.py + dy, -1e5, 1e5); wake() }
+      if (Math.abs(dx) + Math.abs(dy) > 3 && !sim.dragging) {
+        sim.dragging = true
+        // 真的开始拖节点才重新加热；单纯点击（没有位移）绝不能让物理复活
+        if (sim.dragNode) sim.alpha = Math.max(sim.alpha || 0, 0.35)
+      }
+      // 拖拽节点要真的带动布局（物理），拖拽画布只是平移（只重绘）
+      if (sim.dragNode) { const w = toWorld(e.clientX, e.clientY); sim.dragNode.x = w.x + sim.dragOffset.dx; sim.dragNode.y = w.y + sim.dragOffset.dy; markMotion(); wake() }
+      else if (sim.dragging) { sim.panX = clamp(sim.dragStart.px + dx, -1e5, 1e5); sim.panY = clamp(sim.dragStart.py + dy, -1e5, 1e5); markMotion(); requestRender() }
     }
     const onUp = (e) => {
       if (sim.marquee) {
@@ -6797,31 +7361,49 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         const p1 = toLocal(m.sx, m.sy), p2 = toLocal(m.ex, m.ey)
         const x1 = Math.min(p1.x, p2.x), x2 = Math.max(p1.x, p2.x)
         const y1 = Math.min(p1.y, p2.y), y2 = Math.max(p1.y, p2.y)
-        const ids = sim.nodes.filter((n) => { const wx = n.x * sim.zoom + sim.panX, wy = n.y * sim.zoom + sim.panY; return wx >= x1 && wx <= x2 && wy >= y1 && wy <= y2 }).map((n) => n.id)
+        // 框选只收卡片（大星球是层级入口，不能参与合并/批量删除）
+        const ids = sim.nodes.filter((n) => !n.planet && nodeVisible(n.id)).filter((n) => { const wx = n.x * sim.zoom + sim.panX, wy = n.y * sim.zoom + sim.panY; return wx >= x1 && wx <= x2 && wy >= y1 && wy <= y2 }).map((n) => n.id)
         sim.multi = ids; setMulti(ids)
-        wake(); return
+        markMotion(); requestRender(); return
       }
       const wasClick = sim.dragStart && !sim.dragging
+      const draggedNode = !!sim.dragNode && !!sim.dragging
       if (sim.shiftClick) {
-        // shift 单点凸显：把该节点并入 multi（累积选择）
+        // shift 单点凸显：卡片并入 multi（累积选择）；大星球只做单选（没有可合并的实体）
         const id = sim.shiftClick; sim.shiftClick = null
+        const target = sim.nodeById.get(id)
+        if (target && target.planet) { sim.selectedId = id; setSel(id); requestRender(); return }
         const cur = Array.isArray(sim.multi) ? sim.multi.slice() : []
         if (!cur.includes(id)) cur.push(id)
-        sim.multi = cur; setMulti(cur); wake(); return
+        sim.multi = cur; setMulti(cur); requestRender(); return
       }
       if (wasClick) {
         const w = toWorld(e.clientX, e.clientY); let hit = null
         for (let i = sim.nodes.length-1; i>=0; i--) { const n = sim.nodes[i]; if (!nodeVisible(n.id)) continue; const dx = n.x - w.x, dy = n.y - w.y; if (dx*dx + dy*dy < n.r*n.r + 20) { hit = n; break } }
-        if (hit) { sim.selectedId = hit.id; setSel(hit.id); wake() }
-        else { sim.selectedId = null; sim.hoverId = null; if (!e.shiftKey) { sim.multi = []; setMulti([]) } setSel(null); wake() }
+        if (hit && hit.planet) {
+          // 点大星球 = 进入它那一层（唯一入口手势；拖拽不会触发，因为 dragging 走的是上面那条分支）
+          sim.selectedId = null; setSel(null); requestRender()
+          sim.dragStart = null; sim.dragging = false; sim.dragNode = null
+          if (onDrillRef.current) onDrillRef.current(hit.id)
+          return
+        }
+        // 选中/取消只改视觉：重绘一帧即可，不唤醒物理（这是「点击即卡死」的关键解耦点）。
+        // 再点一次同一张卡 = 取消选中（「点击选中/取消」两态都在这一个手势里）。
+        if (hit) {
+          if (sim.selectedId === hit.id) { sim.selectedId = null; setSel(null); requestRender() }
+          else { sim.selectedId = hit.id; setSel(hit.id); requestRender() }
+        }
+        else { sim.selectedId = null; sim.hoverId = null; if (!e.shiftKey) { sim.multi = []; setMulti([]) } setSel(null); requestRender() }
       }
       sim.dragStart = null; sim.dragging = false; sim.dragNode = null
+      // 拖拽结束：让被拖动的节点带动邻居重新自组织（收敛到静止后自动停车）
+      if (draggedNode) wake()
     }
     const onCtx = (e) => {
       e.preventDefault()
       const w = toWorld(e.clientX, e.clientY); let hit = null
       for (let i = sim.nodes.length-1; i>=0; i--) { const n = sim.nodes[i]; if (!nodeVisible(n.id)) continue; const dx = n.x - w.x, dy = n.y - w.y; if (dx*dx + dy*dy < n.r*n.r + 25) { hit = n; break } }
-      if (hit) { const d = sim.domainById[hit.id]; if (d) setCtx({ x: e.clientX, y: e.clientY, id: hit.id, path: d.id, title: d.title }) }
+      if (hit) { const d = sim.domainById[hit.id]; if (d) setCtx({ x: e.clientX, y: e.clientY, id: hit.id, path: d.id, title: d.title, planet: !!hit.planet, count: hit.count || 0 }) }
       else setCtx(null)
     }
     const onWheel = (e) => {
@@ -6834,16 +7416,18 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       sim.panY = clamp(sim.panY + wy * (sim.zoom - newZoom), -1e5, 1e5)
       sim.zoom = newZoom
       sim.userTouched = true
-      wake()
+      markMotion()
+      requestRender()
     }
-    canvas.addEventListener('mousemove', onMove)
-    canvas.addEventListener('mousedown', onDown)
-    window.addEventListener('mousemove', onDrag)
-    window.addEventListener('mouseup', onUp)
-    canvas.addEventListener('wheel', onWheel, { passive: false })
-    canvas.addEventListener('contextmenu', onCtx)
+    // 所有监听器都过 tracker：卸载时 releaseAll() 一次归还，20 轮下钻不会积累
+    tracker.listen(canvas, 'mousemove', onMove)
+    tracker.listen(canvas, 'mousedown', onDown)
+    tracker.listen(window, 'mousemove', onDrag)
+    tracker.listen(window, 'mouseup', onUp)
+    tracker.listen(canvas, 'wheel', onWheel, { passive: false })
+    tracker.listen(canvas, 'contextmenu', onCtx)
 
-    resetRef.current = () => { sim.selectedId = null; sim.hoverId = null; sim.multi = []; setMulti([]); sim.userTouched = false; fit(); wake() }
+    resetRef.current = () => { sim.selectedId = null; sim.hoverId = null; sim.multi = []; setMulti([]); sim.userTouched = false; fit(); markMotion(); requestRender() }
     // ---- 稳定初始化：分帧预热 ---------------------------------------------------
     // 旧实现是一次性循环 tick 200 次：1084 个节点时单次 tick 是 O(n²)，实测同步阻塞
     // 主线程 1–2 秒（4× CPU 降速下 5–7 秒），期间画面完全空白 —— 用户看到的就是「打开知识星图一片空白」。
@@ -6871,7 +7455,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       }
       if (warmLeft > 0) {
         if (!sim.userTouched) fit()
-        sim.warmRaf = requestAnimationFrame(warmStep)
+        sim.warmRaf = tracker.raf(warmStep)
         return
       }
       sim.warmRaf = 0
@@ -6883,14 +7467,30 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
     sim.warmStep = warmStep
     fit()
     try { render() } catch (e) { warnGraphDrawError(e, 'first-frame') }
-    if (warmLeft > 0) sim.warmRaf = requestAnimationFrame(warmStep)
+    if (warmLeft > 0) sim.warmRaf = tracker.raf(warmStep)
     else { setWarming(0); wake() }
 
     const onDocMouseDown = () => setFilterOpen(false)
-    window.addEventListener('mousedown', onDocMouseDown)
+    tracker.listen(window, 'mousedown', onDocMouseDown)
 
-    return () => { sim.running = false; if (sim.raf) cancelAnimationFrame(sim.raf); if (sim.warmRaf) cancelAnimationFrame(sim.warmRaf); ro.disconnect(); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', onUp); canvas.removeEventListener('wheel', onWheel); canvas.removeEventListener('contextmenu', onCtx); window.removeEventListener('mousedown', onDocMouseDown) }
-  }, [nodes, edges])
+    return () => {
+      sim.running = false
+      // 一次归还：rAF / 定时器 / 监听器全部由账本统一取消（20 轮下钻/返回不增长）
+      tracker.releaseAll()
+      if (globalThis.__meGraphStats === graphStats) { try { delete globalThis.__meGraphStats } catch (e) { globalThis.__meGraphStats = undefined } }
+      if (globalThis.__meGraphRuntime === runtimeProbe) { try { delete globalThis.__meGraphRuntime } catch (e) { globalThis.__meGraphRuntime = undefined } }
+      try { ro.disconnect() } catch { /* 已断开 */ }
+    }
+  }, [items, edges, levelId])
+
+  // 换层时清空选中/框选：上一层的图元 id 在新层里不存在，留着会显示成一条「孤儿」侧栏
+  useEffect(() => {
+    setSel(null)
+    setMulti([])
+    setCtx(null)
+    const s = simRef.current
+    if (s) { s.selectedId = null; s.multi = [] }
+  }, [levelId])
 
   // 切换到图谱视图时重新 fit，让画布居中适配当前容器尺寸
   useEffect(() => {
@@ -6902,7 +7502,7 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
   return (
     <div className="me-graph" ref={wrapRef}>
       <div className="me-graph-toolbar">
-        <span className="me-graph-count">{nodes.length} {t('nodes')} · {edges.length} {t('edges')}</span>
+        <span className="me-graph-count">{nodes.length} {t('graphItems')} · {level && level.total} {t('graphCardsUnit')} · {edges.length} {t('edges')}</span>
         <span className="spacer" style={{ flex: 1 }} />
         <input type="text" placeholder={t('search')} value={search} onChange={(e) => setSearch(e.target.value)} />
         <span style={{ position: 'relative', display: 'inline-flex' }}>
@@ -6943,6 +7543,23 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
       </div>
       <div className="me-graph-canvas" style={{ position: 'relative', overflow: 'hidden' }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'grab' }} />
+        {/* 图内面包屑：任意一级都能点回去（命中层级缓存 → 零新增请求） */}
+        <GraphBreadcrumb crumbs={crumbs} t={t} onPick={onNavigate} busy={loading} />
+        <div className="me-graph-levelchip">
+          <span><b>{nodes.length}</b> {t('graphItems')}</span>
+          <span><b>{level && level.total}</b> {t('graphCardsUnit')}</span>
+          <span><b>{edges.length}</b> {t('edges')}</span>
+        </div>
+        {error && (
+          <div className="me-graph-levelerr" role="alert">
+            <span style={{ flex: 'none', fontWeight: 800 }}>{error.timeout ? '⏱' : '✕'}</span>
+            <span className="msg">{(error.timeout ? t('graphLevelTimeout').replace('{ms}', String(LEVEL_TIMEOUT_MS)) : t('graphLevelError')) + '：' + error.message}</span>
+            <button type="button" onClick={() => onRetry && onRetry()}>{t('graphRetry')}</button>
+          </div>
+        )}
+        {!error && loading && (
+          <div className="me-graph-levelbusy" role="status" aria-live="polite"><ProgressBar small />{t('graphLevelLoading')}</div>
+        )}
 {warming !== null && <div role="status" aria-live="polite" style={{ position: 'absolute', left: '50%', top: 10, transform: 'translateX(-50%)', zIndex: 3, display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px', borderRadius: 999, background: 'rgba(28,28,32,0.86)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#eee', fontSize: 11.5, fontWeight: 600, letterSpacing: '.02em', pointerEvents: 'none', boxShadow: '0 6px 18px rgba(0,0,0,.22)' }}><ProgressBar value={warming} small /><span>{t('graphWarming').replace('{n}', nodes.length)} · {Math.round(warming)}%</span></div>}
         <div className="mc-v5-graph-legend">
           <div className="mc-v5-graph-legend-title">连接簇</div>
@@ -6955,11 +7572,13 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
         {ctx && <div className="me-graph-ctx-back" style={{ position: 'fixed', inset: 0, zIndex: 30 }} onMouseDown={() => setCtx(null)} />}
         {ctx && (
           <div className="me-graph-ctxmenu" style={{ position: 'fixed', left: ctx.x, top: ctx.y, zIndex: 31 }} onMouseDown={(e) => e.stopPropagation()}>
-            <button type="button" onClick={() => { onOpenRef.current({ path: ctx.path, title: ctx.title }); setCtx(null) }}>{t('openCard')}</button>
-            <button type="button" onClick={() => { if (ctx.id) { simRef.current.selectedId = ctx.id; setSel(ctx.id) } setCtx(null); const s = simRef.current; if (s && s.wake) s.wake() }}>{t('focusNeighbors')}</button>
+            {ctx.planet && <button type="button" onClick={() => { const id = ctx.id; setCtx(null); if (onDrillRef.current) onDrillRef.current(id) }}>{t('graphEnter')} ›</button>}
+            {ctx.planet && <div style={{ padding: '4px 10px 6px', fontSize: 11, opacity: 0.7 }}>{t('graphPlanetCards').replace('{n}', String(ctx.count || 0))}</div>}
+            {!ctx.planet && <button type="button" onClick={() => { onOpenRef.current({ path: ctx.path, title: ctx.title }); setCtx(null) }}>{t('openCard')}</button>}
+            {!ctx.planet && <button type="button" onClick={() => { if (ctx.id) { simRef.current.selectedId = ctx.id; setSel(ctx.id) } setCtx(null); const s = simRef.current; if (s && s.requestRender) s.requestRender() }}>{t('focusNeighbors')}</button>}
             <button type="button" onClick={() => { try { if (navigator.clipboard) navigator.clipboard.writeText(ctx.title || '') } catch (e) {} setCtx(null); notify(t('copied')) }}>{t('copyName')}</button>
-            <button type="button" onClick={() => { const s = simRef.current; const ps = (s && Array.isArray(s.multi) ? s.multi.slice() : []); const id = ctx.id; if (id && !ps.includes(id)) ps.push(id); setCtx(null); if (ps.length < 2) { notify(t('mergeNeed'), false); return } if (!window.confirm(t('mergeConfirm'))) return; const pr = onMergeRef.current && onMergeRef.current(ps); if (pr && pr.then) pr.then((ok) => ok ? notify(t('merged')) : notify(t('mergeFail'), false)).catch(() => notify(t('mergeFail'), false)); else if (pr) notify(t('merged')); }}>{t('merge')}</button>
-            <button type="button" style={{ color: '#f87171' }} onClick={() => { const p = ctx.path; setCtx(null); if (window.confirm(t('deleteConfirm'))) { (async () => { try { const ok = onDeleteRef.current ? await onDeleteRef.current(p) : false; if (ok) { notify(t('deleted')) } else { notify(t('deleteFail'), false) } } catch (e) { notify(t('deleteFail'), false) } })() } }}>{t('delete')}</button>
+            {!ctx.planet && <button type="button" onClick={() => { const s = simRef.current; const ps = (s && Array.isArray(s.multi) ? s.multi.slice() : []); const id = ctx.id; if (id && !ps.includes(id)) ps.push(id); setCtx(null); if (ps.length < 2) { notify(t('mergeNeed'), false); return } if (!window.confirm(t('mergeConfirm'))) return; const pr = onMergeRef.current && onMergeRef.current(ps); if (pr && pr.then) pr.then((ok) => ok ? notify(t('merged')) : notify(t('mergeFail'), false)).catch(() => notify(t('mergeFail'), false)); else if (pr) notify(t('merged')); }}>{t('merge')}</button>}
+            {!ctx.planet && <button type="button" style={{ color: '#f87171' }} onClick={() => { const p = ctx.path; setCtx(null); if (window.confirm(t('deleteConfirm'))) { (async () => { try { const ok = onDeleteRef.current ? await onDeleteRef.current(p) : false; if (ok) { notify(t('deleted')) } else { notify(t('deleteFail'), false) } } catch (e) { notify(t('deleteFail'), false) } })() } }}>{t('delete')}</button>}
           </div>
         )}
         {multi.length > 0 && (
@@ -6971,14 +7590,20 @@ function GraphCanvas({ nodes, edges, onOpen, onDelete, onMerge, t, countLabel, a
             <button type="button" className="mc-btn" onClick={() => { const s = simRef.current; if (s) { s.multi = [] } setMulti([]); const s2 = simRef.current; if (s2 && s2.render) s2.render() }}>{t('clearSelection')}</button>
           </div>
         )}
-        {sel && <div className="me-graph-sidebar" style={{ position: 'absolute', right: 10, top: 10, zIndex: 3, maxWidth: 240, background: 'rgba(28,28,32,0.92)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#eee', borderRadius: 10, padding: 12, fontSize: 12, boxShadow: '0 10px 30px rgba(0,0,0,.25)' }}>
+        {sel && nodeById[sel] && <div className="me-graph-sidebar" style={{ position: 'absolute', right: 10, top: 10, zIndex: 3, maxWidth: 240, background: 'rgba(28,28,32,0.92)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#eee', borderRadius: 10, padding: 12, fontSize: 12, boxShadow: '0 10px 30px rgba(0,0,0,.25)' }}>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{nodeById[sel] ? (nodeById[sel].title || nodeById[sel].name) : sel}</div>
-          <div style={{ opacity: .8, marginBottom: 8 }}>{nodeById[sel] ? t(KIND_LABELS[nodeById[sel].kind] || 'kindKnowledge') : '—'}</div>
-          <div style={{ fontSize: 11, opacity: .65, letterSpacing: '.04em', marginBottom: 6 }}>{t('graphHint')}</div>
+          <div style={{ opacity: .8, marginBottom: 8 }}>
+            {nodeById[sel] ? t(KIND_LABELS[nodeById[sel].kind] || 'kindKnowledge') : '—'}
+            {nodeById[sel] && nodeById[sel].type === 'planet' ? ' · ' + t('graphPlanetCards').replace('{n}', String(nodeById[sel].count || 0)) : ''}
+          </div>
+          {nodeById[sel] && nodeById[sel].type === 'planet' && (
+            <button type="button" className="mc-btn" style={{ width: '100%', marginBottom: 8 }} onClick={() => { const id = sel; setSel(null); if (onDrillRef.current) onDrillRef.current(id) }}>{t('graphEnter')} ›</button>
+          )}
+          <div style={{ fontSize: 11, opacity: .65, letterSpacing: '.04em', marginBottom: 6 }}>{t('graphLevelHint')}</div>
           {(edges.filter((e) => e.source === sel || e.target === sel) || []).slice(0, 8).map((e, i) => {
             const o = e.source === sel ? e.target : e.source
             const nn = nodeById[o]
-            return <div key={i} style={{ padding: '4px 6px', cursor: 'pointer', borderRadius: 6 }} onMouseDown={(ev) => { ev.preventDefault(); const s = simRef.current; if (s) { s.selectedId = o; s.hoverId = o; if (s.wake) s.wake() } setSel(o) }}>{nn ? (nn.title || nn.name).slice(0, 28) : o}</div>
+            return <div key={i} style={{ padding: '4px 6px', cursor: 'pointer', borderRadius: 6 }} onMouseDown={(ev) => { ev.preventDefault(); const s = simRef.current; if (s) { s.selectedId = o; s.hoverId = o; if (s.requestRender) s.requestRender() } setSel(o) }}>{nn ? (nn.title || nn.name).slice(0, 28) : o}</div>
           })}
         </div>}
       </div>

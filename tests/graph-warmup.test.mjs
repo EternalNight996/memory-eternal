@@ -38,7 +38,11 @@ test('预热次数：随节点数收缩，且有上下界（不再固定 200 次
 
 test('预热是分帧跑的：源码里不允许出现「一次性同步 tick 200 次」', () => {
   assert.doesNotMatch(src, /for \(let s = 0; s < 200; s\+\+\) tick\(\)/, '旧的一次性 200 次同步 tick 必须删除')
-  assert.match(src, /requestAnimationFrame\(warmStep\)/, '预热必须通过 rAF 分帧推进（帧间让出主线程）')
+  // 星球分层改造后，画布的 rAF 统一走资源账本 tracker.raf（卸载时 releaseAll）；
+  // 语义不变：预热仍是「每帧一次 warmStep」，帧间让出主线程。
+  assert.match(src, /(?:requestAnimationFrame|tracker\.raf)\(warmStep\)/, '预热必须通过 rAF 分帧推进（帧间让出主线程）')
+  const planetSrc = readFileSync(path.join(root, 'src/client/graph-planet.js'), 'utf8')
+  assert.match(planetSrc, /requestAnimationFrame\(fn\)/, '资源账本的 raf 必须真的落到 requestAnimationFrame 上（不能改成 setTimeout 轮询）')
   assert.match(src, /performance\.now\(\) - t0 < WARM_FRAME_BUDGET_MS/, '每帧必须受时间预算约束，否则单帧还是会长时间独占主线程')
   assert.ok(WARM_FRAME_BUDGET_MS > 0 && WARM_FRAME_BUDGET_MS <= 16, '单帧预算不得超过一帧时长（16ms），实测 ' + WARM_FRAME_BUDGET_MS)
   assert.match(src, /try \{ render\(\) \} catch \(e\) \{ warnGraphDrawError\(e, 'first-frame'\) \}/, '首帧必须同步画（不依赖 rAF：窗口未聚焦/被遮挡时 rAF 不会来）')
