@@ -496,6 +496,8 @@ export const ZH = {
   auditNoMatch: '没有匹配的审核卡',
   auditUndo: '批准与驳回都可撤销',
   auditSelected: '已选',
+  auditRevision: '修改',
+  auditRevisionFrom: '修改原卡',
   auditClearSelection: '清空',
   preview: '预览',
   supportGroup: '交流群',
@@ -1214,6 +1216,8 @@ export const EN = {
   auditNoMatch: 'No matching review cards',
   auditUndo: 'Approve and reject are both undoable',
   auditSelected: 'Selected',
+  auditRevision: 'Revision',
+  auditRevisionFrom: 'Revises',
   auditClearSelection: 'Clear',
   preview: 'Preview',
   supportGroup: 'Community',
@@ -4244,10 +4248,12 @@ function AuditPanel({ t, onReload, version }) {
                         <div className="me-audit-row-copy">
                           <div className="me-audit-row-top">
                             <span className={`me-audit-row-kind${c.kind === 'core' ? ' core' : ''}`}>{c.kind === 'core' ? '⭐ ' + t('kindCore') : t(KIND_LABELS[c.kind] || 'kindKnowledge')}</span>
+                            {c.revision && <span className="me-audit-row-state" style={{ color: '#a78bfa', filter: 'saturate(1.2)' }}>✏️ {t('auditRevision')}</span>}
                             <span className={`me-audit-row-state ${tab === 'pending' ? 'pending' : 'rejected'}`}>{tab === 'pending' ? '⏳ ' + t('statusPending') : '⛔ ' + t('statusRejected')}</span>
                             <span className="me-audit-row-time">{localDateTime(c.created) || '-'}</span>
                           </div>
                           <button type="button" className="me-audit-row-title" title={c.title} onClick={() => setPreviewPath(c.path)}>{c.title}</button>
+                          {c.revision && <p className="me-audit-row-reason" style={{ color: '#a78bfa' }}>✏️ {t('auditRevisionFrom')}：{c.revision.targetTitle || c.revision.targetPath}</p>}
                           {(c.reason || c.summary) && <p className="me-audit-row-reason">{c.reason || c.summary}</p>}
                           <div className="me-audit-row-meta">
                             <span>🤖 {normAgent(c.submittedBy)}</span>
@@ -4285,6 +4291,7 @@ function AuditPanel({ t, onReload, version }) {
                       <span style={{ fontSize: 10, opacity: 0.55 }}>{localDateTime(previewCard.created)}</span>
                     </div>
                     <h3>{previewCard.title}</h3>
+                    {previewCard.revision && <div className="me-audit-preview-reason" style={{ color: '#a78bfa', marginBottom: 6 }}>✏️ {t('auditRevisionFrom')}：{previewCard.revision.targetTitle || previewCard.revision.targetPath}</div>}
                     <div className="me-audit-preview-meta">
                       <span>🤖 {normAgent(previewCard.submittedBy)}</span>
                       {!!previewCard.reason && <span className="me-audit-preview-reason">⚑ {previewCard.reason}</span>}
@@ -4300,7 +4307,7 @@ function AuditPanel({ t, onReload, version }) {
                   </div>
                   <div className="me-audit-preview-actions">
                     <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path])}>✓ {tab === 'rejected' ? t('restore') : previewCard.kind === 'core' ? t('approveCore') : t('approve')}</button>
-                    {tab === 'pending' && previewCard.kind !== 'core' && (
+                    {tab === 'pending' && previewCard.kind !== 'core' && !previewCard.revision && (
                       <button type="button" className="mc-btn me-core-btn" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'core' })}>⭐ {t('approveAndCore')}</button>
                     )}
                     {tab === 'pending' && previewCard.kind === 'core' && (
