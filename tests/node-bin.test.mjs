@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
-import { nodeBinary, nodeBinarySource, childEnv, usesElectronBinary } from '../lib/node-bin.js'
+import { nodeBinary, nodeBinarySource, childEnv, usesElectronBinary, findNodeOnPath } from '../lib/node-bin.js'
 
 let failed = 0
 const check = async (name, fn) => {
@@ -61,7 +61,15 @@ await check('诊断信息自洽', () => {
   assert.ok(['env', 'execPath', 'path', 'electron-run-as-node'].includes(source), `未知来源 ${source}`)
   assert.equal(usesElectronBinary(), source === 'electron-run-as-node')
   if (!process.versions.electron) {
-    assert.equal(source, 'execPath', '非 Electron 宿主应直接用 execPath')
+    // issue #56：非 Electron 下**PATH 优先**（brew/nvm/volta 的入口是稳定 shim，写进外部客户端的
+    // 路径不能是带版本号的真实路径），execPath 只在 PATH 上没有 node 时兜底 —— 按分支断言。
+    const viaPath = findNodeOnPath()
+    if (viaPath) {
+      assert.equal(source, 'path', 'PATH 上有 node 时必须优先用它，否则外部客户端接线会随升级漂移')
+      assert.equal(nodeBinary(), viaPath, '解析结果应就是 PATH 上那个 node')
+    } else {
+      assert.equal(source, 'execPath', 'PATH 上没有 node 时才退回 execPath')
+    }
     assert.equal(usesElectronBinary(), false)
   }
 })

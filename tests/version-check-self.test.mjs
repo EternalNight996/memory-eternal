@@ -81,7 +81,9 @@ test('#44：node 可执行文件解析要验存在性（brew 升级后旧路径�
   assert.equal(binaryUsable('C:/definitely/not/here/node'), false)
   const src = read('lib/node-bin.js')
   assert.match(src, /cachedSource !== 'env' && !exists\(cachedBinary\)/, '缓存命中前要验存在')
-  assert.match(src, /path-fallback/, '旧 execPath 消失时要回退 PATH')
+  // issue #56：非 Electron 下改为 PATH 优先（brew/nvm/volta 的入口是稳定 shim），execPath 降为兜底，
+  // 原先表示「execPath 失效后走 PATH」的 'path-fallback' 标签随之取消 —— 断言改为守 PATH 优先的解析结构。
+  assert.match(src, /const viaPath = findNodeOnPath\(\)/, 'issue #56：PATH 优先解析（接线不能钉死在带版本号的 execPath 上）')
   assert.match(read('index.js'), /portServing: info\.portServing/, '宿主要把端口应答情况喂给决策')
   assert.match(read('bin/dsh-memory.mjs'), /子进程 node：/, 'status 要打印实际用的 node 与存在性')
 })
