@@ -49,5 +49,7 @@ test('#55 待审页源码守卫：不再 slice UTC 字符串，日期筛选走�
   assert.match(client, /localDateTime\(previewCard\.created\)/, '判词栏用本地时间')
   assert.match(client, /localDateKey\(c\.created\)/, '日期筛选用本地日历日')
   assert.doesNotMatch(client, /\(c\.deletedAt \|\| ''\)\.slice\(0, ?10\)/, '回收中心删除日期不许再截断 UTC')
-  assert.match(client, /localDateKey\(c\.deletedAt\)/, '回收中心删除日期走本地日历日')
+  // issue #57：回收中心同时收「已驳回」，驳回卡没有 deletedAt，日期回落到 updated。
+  // 守的是「必须走 localDateKey（本地日历日）」，不是某一种字面写法。
+  assert.match(client, /localDateKey\(c\.deletedAt\s*(\|\|\s*c\.updated)?\)/, '回收中心日期走本地日历日（驳回卡回落 updated）')
 })
