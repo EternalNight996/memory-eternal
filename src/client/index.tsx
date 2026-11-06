@@ -435,6 +435,8 @@ export const ZH = {
   workCleared: '已清空会话工作区',
   workPromoted: '已提交审核，请在「待审」里处理',
   workLimitHint: '上限 200 行 / 24KB，超出截断',
+  workPromoteHint: '选中一段时只晋升选中部分',
+  workPromoteEmpty: '没有可晋升的内容',
   starAskTitle: '记忆已经用起来了',
   starAskBody: '已召回 {recalls} 次 · 沉淀 {cards} 张卡。如果它帮你省过时间，给个 Star 会让更多人找到它。',
   starAskGo: '去 Star',
@@ -1206,6 +1208,8 @@ export const EN = {
   workCleared: 'Session workspace cleared',
   workPromoted: 'Submitted for review',
   workLimitHint: 'capped at 200 lines / 24KB, truncated',
+  workPromoteHint: 'select a passage to promote only that',
+  workPromoteEmpty: 'Nothing to promote',
   starAskTitle: 'Memory is being used',
   starAskBody: 'Recalled {recalls} times · {cards} cards captured. If it saved you time, a Star helps others find it.',
   starAskGo: 'Star on GitHub',
@@ -2849,6 +2853,7 @@ function WorkingNoteCard({ t, notify, onPromoted }) {
   const [text, setText] = useState('')
   const [meta, setMeta] = useState(null)
   const [busy, setBusy] = useState('')
+  const taRef = useRef(null)
   const load = useCallback(async () => {
     try {
       const r = await fetch(`${API}/working`)
@@ -2879,8 +2884,14 @@ function WorkingNoteCard({ t, notify, onPromoted }) {
     if (j && j.ok) { setText(''); notify(true, t('workCleared')); await load() } else notify(false, (j && j.error) || 'clear failed')
   }
   const promote = async () => {
+    // 有选中内容时**只晋升选中部分**：草稿里常有半成品，整篇进审核队列只会给审核添乱
+    const ta = taRef.current
+    const picked = ta && ta.selectionEnd > ta.selectionStart
+      ? ta.value.slice(ta.selectionStart, ta.selectionEnd)
+      : text
+    if (!String(picked || '').trim()) { notify(false, t('workPromoteEmpty')); return }
     setBusy('promote')
-    const j = await post('/working/promote', { text })
+    const j = await post('/working/promote', { text: picked })
     setBusy('')
     if (j && j.ok) { notify(true, t('workPromoted')); if (onPromoted) onPromoted() } else notify(false, (j && j.error) || 'promote failed')
   }
@@ -2897,6 +2908,7 @@ function WorkingNoteCard({ t, notify, onPromoted }) {
       {open && (
         <div style={{ marginTop: 8 }}>
           <textarea
+            ref={taRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={7}
@@ -2908,7 +2920,7 @@ function WorkingNoteCard({ t, notify, onPromoted }) {
             <button type="button" className="mc-btn" disabled={!!busy} onClick={promote}>{busy === 'promote' ? '…' : t('workPromote')}</button>
             <button type="button" className="mc-btn mc-danger" disabled={!!busy || !text.trim()} onClick={clear}>{t('workClear')}</button>
             <span style={{ fontSize: 11, opacity: 0.55 }}>
-              {(meta && meta.maxLines ? meta.maxLines + ' 行 / ' + Math.round((meta.maxBytes || 0) / 1024) + 'KB ' : '')}{t('workLimitHint')}
+              {(meta && meta.maxLines ? meta.maxLines + ' 行 / ' + Math.round((meta.maxBytes || 0) / 1024) + 'KB ' : '')}{t('workLimitHint')} · {t('workPromoteHint')}
             </span>
           </div>
         </div>
@@ -7455,6 +7467,8 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
 
     // 滚轮/初始视图共用同一个「度」：一格 = ×ZOOM_STEP（滚轮、放大/缩小按钮、初始 fit 一致）。
     const ZOOM_STEP = 1.1
+    // 初始化总览的最小视图（与滚轮下限一致）：用户要求「打开就缩到最小」，也最省渲染
+    const MIN_VIEW_ZOOM = 0.3
     // 初始视图比「刚好铺满」再**缩小三度**：节点不再挤到边缘，四周留出可拖拽/框选的余量。
     // 用户反馈：卡数量多时默认视图偏大、放大容易卡；再缩小一度，默认先看全局。
     const INITIAL_ZOOM_OUT_STEPS = 3
@@ -7480,9 +7494,14 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       // 再叠一个「初始视图缩小三度」的系数（重置视图按钮也走这里，行为与首次打开一致）。
       const initialZoomOut = Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS)
       sim.zoom = Math.max(0.35, Math.min(1.8, z * initialZoomOut))
-      // 星球层少缩一度：4~8 颗大球按 3 度缩会在画布上下留出大片空白（旧截图里很明显），
-      // 2 度既能铺满又不裁切（fit 的 z 本身就是「刚好放下」）。只对星球层生效。
-      if (sim.planetLayer) sim.zoom = Math.max(0.12, z * Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS - 2))
+      // 根层初始化：直接给最小视图（0.3）—— 用户要求「打开就缩到最小」，全览也最省渲染；
+      // 下钻后的层级仍按 fit 铺满，方便看这一层的结构。
+      const rootLevel = !(Array.isArray(crumbs) && crumbs.length > 1)
+      if (sim.planetLayer && rootLevel) {
+        sim.zoom = Math.max(0.12, Math.min(MIN_VIEW_ZOOM, z))
+      } else if (sim.planetLayer) {
+        sim.zoom = Math.max(0.12, z * Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS - 2))
+      }
       sim.panX = sim.w / 2 - ((minX + maxX) / 2) * sim.zoom
       sim.panY = sim.h / 2 - ((minY + maxY) / 2) * sim.zoom
     }
@@ -7568,7 +7587,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       // 视觉细节只在最差档位降级：能跑满帧的机器保留渐变/描边/光晕，
       // 掉帧的机器才逐档变朴素（0→1→2→3）。
       const closeUp = quality >= 3
-      const edgeStride = !zoomedIn ? 1 : (quality <= 0 ? 1 : quality === 1 ? 2 : quality === 2 ? 4 : 8)
+      const edgeStride = quality <= 0 ? 1 : quality === 1 ? 2 : quality === 2 ? 4 : 8
       sim.edges.forEach((e, ei) => {
         if (skipEdges) return
         // 聚焦时反过来：只画焦点相关的边（全部），其余不画 —— 既看清关系又省光栅化
@@ -7584,7 +7603,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         let dr = t.x - s.x, dy = t.y - s.y
         const len = Math.sqrt(dr * dr + dy * dy) || 1
         // 放大观察时连线改直线：二次曲线在小视野里占满屏幕，光栅化成本是直线的数倍
-        const curve = (motion || sim.zoom >= 0.6) ? 0 : (dense ? 10 : 16)
+        const curve = (motion || zoomedIn || quality >= 2) ? 0 : (dense ? 10 : 16)
         const ox = -dy / len * curve, oy = dr / len * curve
         const cpx = (s.x + t.x) / 2 + ox, cpy = (s.y + t.y) / 2 + oy
         const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other'] || KG.colors.other
@@ -7594,7 +7613,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         const w = Math.max(1, Number(e.weight) || 1)
         // 线宽量化到 0.5：减少 Path2D 分桶数量（每多一个桶就多一次 stroke）
         const rawWidth = focused ? 1.6 + Math.min(3.2, w * 0.8) : 0.7 + Math.min(2.4, (w - 1) * 0.35)
-        const width = Math.min(zoomedIn ? 1.2 : Infinity, Math.round(rawWidth * 2) / 2)
+        const width = Math.min((zoomedIn || quality >= 1) ? 1.2 : Infinity, Math.round(rawWidth * 2) / 2)
         const key = cr + ',' + cg + ',' + cb + ',' + alpha + ',' + width
         let bucket = edgeBuckets.get(key)
         if (!bucket) {
@@ -7953,11 +7972,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         sim.frameEma = sim.frameEma ? sim.frameEma * 0.8 + dt * 0.2 : dt
       }
       sim.lastStepAt = now
-      if (sim.zoom < 0.6) {
-        if (sim.quality) sim.quality = 0
-        sim.frameEma = 16.7
-        sim.perfBad = 0
-      } else if (sim.tickCount > 30 && dt > 0) {
+      if (sim.tickCount > 30 && dt > 0) {
         // 只在「持续掉帧」时降档：滚轮缩放本身会有几帧抖动，不能因此把画质永久打低。
         if (sim.frameEma > 17.8) sim.perfBad = (sim.perfBad || 0) + dt
         else sim.perfBad = Math.max(0, (sim.perfBad || 0) - dt * 0.5)
@@ -7967,9 +7982,9 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           sim.frameEma = 16.7
         }
       }
-      // 常驻自移动：预热结束后不再彻底停车，而是进入 ~30fps 的低速漂移 ——
+      // 常驻自移动：预热结束后不再彻底停车，而是进入 60fps 的低速漂移 ——
       // 用户要的是「跟改造前一样 散乱会动」，一张静止的图体验很差。
-      // 拖拽时恢复 60fps + 1 tick/帧保证跟手；松手后继续漂。
+      // 掉帧由自适应画质降档处理，而不是降低更新频率（30fps 在大球移动时看起来会发顿）。
       // 触发常驻漂移：正常是「连续静置」；但护城河会持续推动小球，rms 可能永远降不到阈值，
       // 所以加一个「冷却结束（alpha 到 0）后重开」的兜底 —— 否则大球公转/漂移都不会启动。
       if (!sim.drift && (sim.quietTicks > QUIET_TICKS || (sim.alpha === 0 && sim.tickCount > 120))) {
@@ -7980,15 +7995,8 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         sim.motionUntil = 0 // 常驻运动也保留完整细节（标签/曲线边）
         if (!sim.userTouched) fit()
       }
-      // 漂移期降到 ~30fps（每两帧算一次）：省一半 CPU，慢速漂移肉眼依然连续。
-      // 拖拽期间不降帧，保证跟手。必须在 tick/render 之前跳过，否则只是多排了一次空帧。
-      if (sim.drift && !sim.dragNode) {
-        // 只在缩得很小（看全局）时降到 ~30fps 省 CPU；一旦放大观察，同样的世界位移
-        // 在屏幕上会变成更大的像素位移，30fps 会明显发顿 —— 这一档保持 60fps。
-        const lowZoom = sim.zoom < 0.6
-        sim.driftFrame = (sim.driftFrame | 0) + 1
-        if (lowZoom && sim.driftFrame % 2) { sim.raf = tracker.raf(step); return }
-      }
+      // 不再做「漂移期每两帧算一次」的 30fps 降帧：大球公转/小球漂移在任何缩放下都保持
+      // 60fps；真的跑不动由上面的自适应画质降档，而不是靠降低更新频率（那会明显发顿）。
       try {
         // 帧预算：拖拽时必须跟手（每帧 1 tick）；自组织阶段在 18ms 内多跑几步，
         // 让大图在 ~2s 内铺开，而不是每帧 1 tick 磨很久。漂移期每帧 1 tick。
@@ -8163,7 +8171,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       const p = toLocal(e.clientX, e.clientY)
       const wx = (p.x - sim.panX) / sim.zoom
       const wy = (p.y - sim.panY) / sim.zoom
-      const newZoom = Math.max(0.3, Math.min(3, sim.zoom * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP)))
+      const newZoom = Math.max(MIN_VIEW_ZOOM, Math.min(3, sim.zoom * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP)))
       sim.panX = clamp(sim.panX + wx * (sim.zoom - newZoom), -1e5, 1e5)
       sim.panY = clamp(sim.panY + wy * (sim.zoom - newZoom), -1e5, 1e5)
       sim.zoom = newZoom

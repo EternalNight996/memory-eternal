@@ -101,6 +101,108 @@ export function planetLayerParams(base) {
 }
 
 /**
+ * 大星球对卡片的「护城河」半径：越大的球推开得越远。
+ * 旧版只做「刚体重叠才推开」，小卡片会被吸在大球表面形成一圈紧贴的疙瘩；
+ * 这里把排斥范围随半径放大，让大球周围始终留出一圈可呼吸的空白。
+ */
+export function planetMoat(radius) {
+  const r = Math.max(0, Number(radius) || 0)
+  return 12 + r * 0.25
+}
+
+/**
+ * 星球层的「大球公转」：所有星球绕当前质心缓慢旋转（原地改 x/y，半径不变）。
+ * - 只改角度不改半径 → 构图稳定，不会越转越散；
+ * - 大球角速度更小（ω ∝ 1/√r）→ 四颗球不会像刚体一样死板地一起转；
+ * - 少于 2 颗球、或 speed=0 时不动；拖拽中的球可以由 skip 跳过。
+ * @param {Array<{planet?:boolean,x:number,y:number,r?:number}>} planets
+ * @param {{speed?:number, skip?:(p:any)=>boolean}} [opts]
+ * @returns {{cx:number,cy:number}|null} 质心（没有球时 null）
+ */
+const hash01 = (value) => {
+  const s = String(value == null ? '' : value)
+  let h = 2166136261
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  // FNV 对短字符串的尾部雪崩不够：不混一下，p0..p7 会落在同一侧。
+  h ^= h >>> 16
+  h = Math.imul(h, 2246822507)
+  h ^= h >>> 13
+  h = Math.imul(h, 3266489909)
+  h ^= h >>> 16
+  return (h >>> 0) / 4294967296
+}
+
+/**
+ * 给每颗大球分配各自的运动参数：方向正反各半（洗牌），速度倍率/相位随机。
+ * 用户要的是「活动方向不要一致、随意活动」，所以不能整盘同向、同速。
+ * @param {Array} planets
+ * @param {() => number} [rand] 注入随机源（单测用）
+ */
+export function assignOrbitRandom(planets, rand = Math.random) {
+  const list = (Array.isArray(planets) ? planets : []).filter((p) => p && p.planet)
+  const n = list.length
+  if (!n) return list
+  const dirs = list.map((_, i) => (i % 2 ? 1 : -1))
+  for (let i = n - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.max(0, Math.min(0.999999, Number(rand()) || 0)) * (i + 1))
+    const tmp = dirs[i]
+    dirs[i] = dirs[j]
+    dirs[j] = tmp
+  }
+  list.forEach((p, i) => {
+    p.orbitDir = dirs[i]
+    p.orbitScale = 0.55 + Math.max(0, Math.min(0.999999, Number(rand()) || 0)) * 1.1
+    p.orbitPhase = Math.max(0, Math.min(0.999999, Number(rand()) || 0)) * Math.PI * 2
+  })
+  return list
+}
+
+export function orbitPlanets(planets, opts = {}) {
+  const list = (Array.isArray(planets) ? planets : [])
+    .filter((p) => p && p.planet && Number.isFinite(p.x) && Number.isFinite(p.y))
+  if (!list.length) return null
+  let cx = 0
+  let cy = 0
+  for (const p of list) { cx += p.x; cy += p.y }
+  cx /= list.length
+  cy /= list.length
+  if (list.length < 2) return { cx, cy }
+  const speed = opts.speed === undefined ? 0.0028 : Math.max(0, Number(opts.speed) || 0)
+  if (!speed) return { cx, cy }
+  const skip = typeof opts.skip === 'function' ? opts.skip : null
+  const random = opts.random !== false
+  const tick = Number.isFinite(opts.tick) ? opts.tick : 0
+  for (let i = 0; i < list.length; i += 1) {
+    const p = list[i]
+    if (skip && skip(p)) continue
+    const dx = p.x - cx
+    const dy = p.y - cy
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < 1e-3) continue
+    // 每颗球各转各的：方向正反随机、速度倍率随机、角速度再叠一个慢速正弦摆动。
+    // 旧版「整盘同向旋转」看起来像刚体，用户要的是「随意活动」。
+    const seed = p.id == null ? 'planet-' + i : String(p.id)
+    const dir = p.orbitDir === 1 || p.orbitDir === -1
+      ? p.orbitDir
+      : (random ? (hash01(seed) < 0.5 ? -1 : 1) : 1)
+    const speedScale = Number.isFinite(p.orbitScale)
+      ? Math.max(0.2, Math.min(2, p.orbitScale))
+      : (random ? 0.55 + hash01(seed + '#s') * 1.1 : 1)
+    const phase = Number.isFinite(p.orbitPhase) ? p.orbitPhase : hash01(seed + '#w') * Math.PI * 2
+    const wobble = random ? 1 + Math.sin(tick * 0.009 + phase) * 0.35 : 1
+    // 半径越大转得越慢：ω 用 1/√r 过渡，视觉上有「质量感」
+    const omega = speed * dir * speedScale * wobble * Math.sqrt(120 / Math.max(40, Number(p.r) || 120))
+    const a = Math.atan2(dy, dx) + omega
+    p.x = cx + Math.cos(a) * dist
+    p.y = cy + Math.sin(a) * dist
+  }
+  return { cx, cy }
+}
+
+/**
  * 层加载失败的归类：超时（AbortError 或耗时越过预算）单独标出来 —— UI 上要提示「可重试」，
  * 而不是把两者混成一句「加载失败」。纯函数，便于单测。
  */
