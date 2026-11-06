@@ -15,7 +15,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
 [![npm](https://img.shields.io/npm/v/memory-eternal)](https://www.npmjs.com/package/memory-eternal)
-[![release](https://img.shields.io/badge/release-v0.25.0-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
+[![release](https://img.shields.io/badge/release-v0.26.0-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [English (default)](README.md) · **简体中文（镜像）**
@@ -156,23 +156,23 @@ flowchart TD
 
 ## 📊 与同类产品的实测对比
 
-数据快照：**2026-11-07**。我们的数字在**真实 2,321 张卡的库**上实测（不是玩具语料）；竞品数据取自同一日期的公开 README / npm / GitHub。`—` 表示**未公开或无法核实**，不代表"没有"。
+数据快照：**2026-11-07**。我们的数字在**真实 2,321 张卡的库**上实测（不是玩具语料）；同类产品信息取自同一日期的官方 README / 文档 / 许可证页。`—` 表示**未公开或无法核实**，不代表"没有"。
 
-| 能力 | **memory-eternal v0.24.0** | 灵枢 dsh-memory v0.9.23 | SAG-Wiki v0.2.7 | CLAUDE.md / AGENTS.md |
-|---|---|---|---|---|
-| 存储 | SQLite + Markdown 镜像 | Markdown 认知图 | 对本地文件的 SQLite FTS5 索引 | 单个文件 |
-| 写入闸门 | **人工审核队列**（三库分离） | 确定性规则裁决 | 无（索引即真相） | 无 |
-| 不可变审计日志 | ✅ SQLite 层强制 | ✅ 官方声称 | — | — |
-| 检索 | FTS5 + **BM25/IDF**，多列加权 | 规则化图谱遍历 | BM25 → JEV（LLM 判定） | 整文件注入 |
-| 召回延迟 | **p50 2.33ms · p95 6.18ms** | — | — | 随文件体积增长 |
-| 召回模型调用 | **0** | 0 | 每次查询 1–2 次 | 0 |
-| 记忆账本（可量化有用率） | ✅ | — | — | — |
-| 多 Agent | DSH + MCP + Hook + TUI + 浏览器 | DSH + MCP | CLI + Skill | 各工具各自为政 |
-| npm 月下载 | 14,370 | **31,421** | 119 | 不适用 |
-| GitHub Star | 147 | **612** | 124 | 不适用 |
-| 许可证 | MIT | MIT | MIT | 不适用 |
+| 能力 | **memory-eternal v0.25.0** | [agentmemory](https://github.com/rohitg00/agentmemory) v0.9.32 | [mem0](https://github.com/mem0ai/mem0) v3 | [Obsidian](https://obsidian.md) | CLAUDE.md / AGENTS.md |
+|---|---|---|---|---|---|
+| 形态 | DSH 原生插件：采集、审核界面、星图、CLI/TUI/MCP | 给编码 Agent 的本地记忆服务 + MCP | 记忆 SDK / 自托管服务 / 云平台 | 本地 Markdown 笔记应用 | 手写上下文文件 |
+| 存储 | SQLite + Markdown 镜像（可 git） | 本地文件存储（可选 Redis） | 向量库 + 图库（自托管或云） | 磁盘上的 Markdown 文件 | 单个文件 |
+| 写入闸门 | **人工审核队列**（三库分离） | 自动捕获，无人工审核 | LLM 抽取写入，无人工审核 | 只由人写 | 无 |
+| 不可变审计日志 | ✅ SQLite 层强制 | 有操作审计工具，非存储层强制 | — | — | — |
+| 检索 | FTS5 + **BM25/IDF**，多列加权 | BM25 + 向量 + 图谱（可选本地嵌入） | 语义 + BM25 + 实体 + 图谱 | 全文搜索 / 插件 | 整文件注入 |
+| 召回延迟 | **p50 2.33ms · p95 6.18ms** | — | p50 约 0.88–1.09s（官方论文，云平台） | 随库规模增长 | 随文件体积增长 |
+| 召回模型调用 | **0**（纯 BM25） | 关键词 0；开启语义时 1 次嵌入调用 | 1 次嵌入 + 可选 LLM 重排 | 0 | 0 |
+| 写入模型调用 | 触发自动沉淀时 1 次（可关） | 默认 0 次（合成压缩），可选 LLM 压缩 | 每次 add 至少 1 次 LLM | 0 | 0 |
+| 记忆账本（可量化有用率） | ✅ | — | 平台用量面板 | — | — |
+| 多 Agent | DSH + MCP + Hook + TUI + 浏览器 | MCP + REST：Claude Code、Codex、Cursor、DSH 等 | Python/TS SDK、自托管服务、云平台 | 无原生 Agent 接口 | 各工具各自加载 |
+| 许可证 | MIT | Apache-2.0 | Apache-2.0 | 专有（个人/商用免费） | 不适用 |
 
-**我们不是这里最大的。** 灵枢的 star 和下载都比我们多；SAG-Wiki 检索你自己文档的能力也比我们强。我们做的不一样的是**写入路径**：人审闸门、三库分离、可指认的审计链条，外加一本让你能自己核对"召回到底值不值"的记忆账本。
+**我们不是这里最大的。** mem0 背后是成熟团队、研究论文与托管服务；agentmemory 自动捕获覆盖的编码 Agent 比我们多；Obsidian 是很多人已经在用的笔记库。我们做的不一样的是**写入路径**：人审闸门、三库分离、可指认的审计链条，外加一本让你能自己核对"召回到底值不值"的记忆账本。
 
 在我们的库上自己复跑：
 

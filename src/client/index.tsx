@@ -29,6 +29,7 @@ import { stepSimulation, forceParamsFor, QUIET_TICKS } from './graph-force.js'
 import {
   LEVEL_TIMEOUT_MS, LEVEL_MAX_ITEMS, LEVEL_PAYLOAD_LIMIT, PLANET_MIN_RADIUS,
   pathKey, segmentsOf, urlForLevel, levelItemToNode, planetLayerParams,
+  planetMoat, orbitPlanets, assignOrbitRandom,
   describeLevelError, createLevelCache, createResourceTracker, validateLevelPayload, formatCount,
 } from './graph-planet.js'
 // 保存后不闪烁：宿主 volatile 回流滞后期间，用本地叠加层顶住输入框的值
@@ -84,6 +85,7 @@ export const ZH = {
   all: '全部',
   kindProject: '项目',
   kindKnowledge: '知识',
+  kindOther: '其他',
   kindContent: '内容',
   kindPrompt: '提示词',
   kindBusiness: '业务',
@@ -220,6 +222,7 @@ export const ZH = {
   graphTab: '知识星图',
   graph: '知识图谱',
   graphHint: '节点=知识卡；连线=[[链接]] 或共享标签。点击节点阅读卡片。',
+  graphLegendTitle: '卡片分布',
   graphTip: '左键凸显 · Shift+拖拽框选 · 右键菜单 · 滚轮缩放 · 拖拽平移',
   rebuild: '重建',
   reset: '重置',
@@ -418,6 +421,20 @@ export const ZH = {
   healthy: '配置正常',
   mcpSetupHint: '「自动挂载 MCP」= 让 Claude Code / Codex / Cursor 这些工具能调用记忆库。开启后自动把它们配置好；关掉就不动你电脑上任何配置文件，需要时手动跑 dsh-memory setup。',
   mcpManageHint: '每个 agent 用下方按钮单独安装/卸载 MCP',
+  workTitle: '本会话工作区',
+  workHint: '临时草稿 · 不进入知识库 · 不参与召回',
+  workLines: '行',
+  workExpand: '展开',
+  workCollapse: '收起',
+  workPlaceholder: '记下这个任务现在做到哪、下一步做什么…（会话结束自动归档）',
+  workSave: '保存草稿',
+  workPromote: '存为待审卡',
+  workClear: '清空',
+  workClearConfirm: '清空本会话工作区？此操作不可恢复。',
+  workSaved: '已保存会话工作区',
+  workCleared: '已清空会话工作区',
+  workPromoted: '已提交审核，请在「待审」里处理',
+  workLimitHint: '上限 200 行 / 24KB，超出截断',
   starAskTitle: '记忆已经用起来了',
   starAskBody: '已召回 {recalls} 次 · 沉淀 {cards} 张卡。如果它帮你省过时间，给个 Star 会让更多人找到它。',
   starAskGo: '去 Star',
@@ -476,6 +493,7 @@ export const ZH = {
   coreMemory: '核心记忆（前置强制）',
   coreMemoryHint: '每次会话自动注入，不依赖模型主动召回；只读取已批准的核心卡',
   coreMemoryEnabled: '启用核心记忆注入',
+  workingMemoryEnabled: '启用会话工作区（草稿本）',
   coreMemoryLimit: '核心记忆上限（张）',
   coreMemoryMaxChars: '核心记忆总字符上限',
   setCore: '设为核心记忆',
@@ -838,6 +856,7 @@ export const EN = {
   all: 'All',
   kindProject: 'Projects',
   kindKnowledge: 'Knowledge',
+  kindOther: 'Other',
   kindContent: 'Content',
   kindPrompt: 'Prompts',
   kindBusiness: 'Business',
@@ -974,6 +993,7 @@ export const EN = {
   graphTab: 'Star map',
   graph: 'Knowledge Graph',
   graphHint: 'Nodes = cards; edges = [[links]] or shared tags. Click a node to read.',
+  graphLegendTitle: 'Card types',
   graphTip: 'Left-click highlights · Shift+drag box-select · right-click menu · scroll zoom · drag to pan',
   graphWarming: 'Laying out {n} nodes…',
   // Planet levels (per-level requests)
@@ -1172,6 +1192,20 @@ export const EN = {
   healthy: 'healthy',
   mcpSetupHint: '"Auto-mount MCP" = lets Claude Code / Codex / Cursor use the memory vault. On = auto-configures them; Off = never touches your machine config, run dsh-memory setup manually when needed.',
   mcpManageHint: 'Use each agent row to install/uninstall MCP individually',
+  workTitle: 'This session\'s workspace',
+  workHint: 'scratch note · not knowledge · never recalled',
+  workLines: 'lines',
+  workExpand: 'Expand',
+  workCollapse: 'Collapse',
+  workPlaceholder: 'Where this task stands, what is next… (archived when the session ends)',
+  workSave: 'Save draft',
+  workPromote: 'Save as pending card',
+  workClear: 'Clear',
+  workClearConfirm: 'Clear this session workspace? This cannot be undone.',
+  workSaved: 'Session workspace saved',
+  workCleared: 'Session workspace cleared',
+  workPromoted: 'Submitted for review',
+  workLimitHint: 'capped at 200 lines / 24KB, truncated',
   starAskTitle: 'Memory is being used',
   starAskBody: 'Recalled {recalls} times · {cards} cards captured. If it saved you time, a Star helps others find it.',
   starAskGo: 'Star on GitHub',
@@ -1230,6 +1264,7 @@ export const EN = {
   coreMemory: 'Core memory (always-on)',
   coreMemoryHint: 'Injected into every session; only approved core cards are used',
   coreMemoryEnabled: 'Enable core-memory injection',
+  workingMemoryEnabled: 'Enable session workspace (scratchpad)',
   coreMemoryLimit: 'Core-memory limit (cards)',
   coreMemoryMaxChars: 'Core-memory total character limit',
   setCore: 'Set as core memory',
@@ -1588,7 +1623,7 @@ const KIND_COLORS = { core: '#FF7A45', skill: '#8B5CF6', project: '#3B82F6', kno
 // 渲染层一律走这个兜底，坏数据最多少显示几个标签，不能把整棵树带走。
 const tagsOf = (c) => (Array.isArray(c && c.tags) ? c.tags : [])
 const KIND_EMOJI = { core: '⭐', skill: '🧩', project: '📁', knowledge: '📚', content: '📝', prompt: '💬', business: '💼', tool: '🔧', mistake: '⚠️', other: '📎' }
-const KIND_LABELS = { core: 'kindCore', skill: 'kindSkill', project: 'kindProject', knowledge: 'kindKnowledge', content: 'kindContent', prompt: 'kindPrompt', business: 'kindBusiness', tool: 'kindTool', mistake: 'kindMistake', other: 'kindKnowledge' }
+const KIND_LABELS = { core: 'kindCore', skill: 'kindSkill', project: 'kindProject', knowledge: 'kindKnowledge', content: 'kindContent', prompt: 'kindPrompt', business: 'kindBusiness', tool: 'kindTool', mistake: 'kindMistake', other: 'kindOther' }
 // DSH 宿主自动沉淀卡的署名（与 index.js 的 DSH_AGENT 保持一致）。
 // 归一化：session:<uuid> / agent / unknown / 空 → deepseek-harness；claude-code → claude；其余取冒号前 token。
 const DSH_AGENT = 'deepseek-harness'
@@ -2212,13 +2247,32 @@ const CSS = `
 .md-collapsed-hint { text-align: center; font-size: 12px; padding: 7px; cursor: pointer; opacity: .72; border-top: 1px dashed var(--dsw-alias-border-l1, rgba(127,127,127,.28)); }
 .md-collapsed-hint:hover { opacity: 1; color: var(--dsw-alias-accent, #2563eb); }
 /* ---- enhanced graph ---- */
-.me-graph { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
-.me-graph-toolbar { display: flex; align-items: center; gap: 8px; }
-.me-graph-toolbar input[type=text] { flex: 1; min-width: 180px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-base, #f9fafb); color: inherit; font-size: 13px; }
+.me-graph { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+.me-graph-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.me-graph-search { position: relative; flex: 1 1 220px; min-width: 170px; display: flex; align-items: center; }
+.me-graph-search .ico { position: absolute; left: 11px; width: 13px; height: 13px; color: #8b939f; opacity: .85; pointer-events: none; }
+.me-graph-search input { width: 100%; height: 32px; padding: 0 12px 0 32px; border-radius: 9px; border: 1px solid #343b45; background: #1b1f25; color: #e9edf3; font: inherit; font-size: 12px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.me-graph-search input::placeholder { color: #7d8695; }
+.me-graph-search input:focus { border-color: rgba(255,122,69,.55); box-shadow: 0 0 0 3px rgba(255,122,69,.1); }
 .me-graph-count { font-size: 12px; opacity: 0.7; }
-.me-graph-canvas { position: relative; flex: 1; min-height: 300px; border-radius: 14px; overflow: hidden; background: radial-gradient(120% 120% at 50% 40%, var(--dsw-alias-bg-layer-2, #f8fafc) 0%, var(--dsw-alias-bg-base, #eef2f7) 100%); border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); cursor: grab; touch-action: none; user-select: none; }
+.me-gtool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid #343b45; border-radius: 9px; background: rgba(38,43,51,.55); color: #cdd4de; font: inherit; font-size: 11.5px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: border-color .15s, color .15s, background .15s; }
+.me-gtool:hover { border-color: rgba(255,122,69,.5); color: #fff; background: rgba(255,122,69,.06); }
+.me-gtool:focus-visible, .me-gswitch:focus-within, .me-graph-search input:focus-visible { outline: 2px solid rgba(255,122,69,.55); outline-offset: 2px; }
+.me-gtool.on { border-color: rgba(255,122,69,.55); background: rgba(255,122,69,.13); color: #ffb08a; }
+.me-gtool .caret { font-size: 9px; opacity: .55; margin-left: 1px; }
+.me-gtool .badge { width: 5px; height: 5px; border-radius: 50%; background: #ff7a45; box-shadow: 0 0 0 3px rgba(255,122,69,.16); }
+.me-gswitch { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid #343b45; border-radius: 9px; background: rgba(38,43,51,.55); color: #cdd4de; font-size: 11.5px; font-weight: 500; cursor: pointer; user-select: none; white-space: nowrap; }
+.me-gswitch:hover { border-color: rgba(255,122,69,.4); color: #fff; }
+.me-gswitch .track { position: relative; width: 24px; height: 13px; border-radius: 999px; background: #3a414b; transition: background .16s; flex: none; }
+.me-gswitch .track::after { content: ''; position: absolute; left: 2px; top: 2px; width: 9px; height: 9px; border-radius: 50%; background: #9aa3b0; transition: transform .16s, background .16s; }
+.me-gswitch input { position: absolute; opacity: 0; pointer-events: none; }
+.me-gswitch.on { border-color: rgba(255,122,69,.5); background: rgba(255,122,69,.1); color: #ffb08a; }
+.me-gswitch.on .track { background: rgba(255,122,69,.3); }
+.me-gswitch.on .track::after { transform: translateX(11px); background: #ff7a45; }
+.me-gdiv { width: 1px; height: 18px; background: #343b45; margin: 0 2px; flex: none; }
+.me-graph-canvas { position: relative; flex: 1; min-height: 300px; border-radius: 16px; overflow: hidden; background: radial-gradient(120% 92% at 50% 0%, #1d222a 0%, #171b21 54%, #14171c 100%); border: 1px solid #2f353e; box-shadow: inset 0 1px 0 rgba(255,255,255,.035); cursor: grab; touch-action: none; user-select: none; }
 .me-graph-canvas.dragging { cursor: grabbing; }
-.me-graph-tip { font-size: 11px; opacity: 0.6; }
+.me-graph-tip { font-size: 10.5px; letter-spacing: .01em; color: #8b939f; }
 .me-graph-canvas svg { width: 100%; height: 100%; display: block; }
 .me-graph-edge { fill: none; stroke-width: 1; }
 .me-graph-node { cursor: pointer; }
@@ -2229,27 +2283,25 @@ const CSS = `
 .me-graph-legend .lg:hover { background: var(--dsw-alias-bg-layer-1, rgba(255,255,255,0.08)); }
 .me-graph-legend .lg.active { background: var(--dsw-alias-bg-layer-1, rgba(255,255,255,0.14)); box-shadow: 0 0 0 1px var(--dsw-alias-border-l1, #d1d5db); }
 .me-graph-legend .lg.lg-clear { opacity: 0.85; }
-/* 图谱筛选下拉：选项深色底浅字，避免白卡片刺眼 */
-.me-graph-legend-pop { color: #e5e7eb; }
-.me-graph-legend-pop .lg { width: 100%; background: rgba(255,255,255,0.06); color: #e5e7eb; padding: 7px 9px; margin-bottom: 2px; border-radius: 7px; }
-.me-graph-legend-pop .lg:hover { background: rgba(255,255,255,0.14); }
-.me-graph-legend-pop .lg.active { background: rgba(59,130,246,0.32); color: #fff; box-shadow: 0 0 0 1px rgba(59,130,246,0.5); }
+/* 图谱筛选下拉：暗色浮层 + 橙色强调（与 v5 皮肤一致） */
+.me-graph-legend-pop { color: #e5e9ef; }
+.me-graph-legend-pop .lg { display: flex; align-items: center; gap: 7px; width: 100%; padding: 6px 8px; border: 0; border-radius: 7px; background: transparent; color: #cdd4de; font: inherit; font-size: 11.5px; text-align: left; cursor: pointer; }
+.me-graph-legend-pop .lg:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.me-graph-legend-pop .lg.active { background: rgba(255,122,69,0.16); color: #ffb08a; box-shadow: inset 0 0 0 1px rgba(255,122,69,0.28); }
 .me-graph-legend-pop .lg.lg-clear { color: #f87171; }
-.me-graph-ctxmenu { min-width: 156px; padding: 6px; background: rgba(28,28,32,0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #eee; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; box-shadow: 0 12px 34px rgba(0,0,0,.3); font-size: 12px; }
-.me-graph-ctxmenu button { display: block; width: 100%; text-align: left; padding: 7px 10px; border: none; border-radius: 7px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.me-graph-ctxmenu button:hover { background: rgba(255,255,255,0.1); }
+.me-graph-ctxmenu { min-width: 160px; padding: 6px; background: rgba(24,28,34,0.96); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: #e6eaf0; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; box-shadow: 0 16px 40px rgba(0,0,0,.42); font-size: 12px; }
+.me-graph-ctxmenu button { display: block; width: 100%; text-align: left; padding: 7px 9px; border: none; border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 11.5px; cursor: pointer; }
+.me-graph-ctxmenu button:hover { background: rgba(255,255,255,0.07); }
 .me-graph-hint { font-size: 11px; opacity: 0.6; margin-left: auto; }
 /* 星球分层：图内面包屑（可点任意层级返回）+ 层级状态条 + 加载/失败提示 */
-.me-graph-crumbs { position: absolute; left: 12px; bottom: 12px; z-index: 4; display: flex; align-items: center; gap: 2px; max-width: calc(100% - 250px); padding: 4px 6px; border-radius: 999px; background: rgba(28,28,32,0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 24px rgba(0,0,0,.28); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.me-graph-crumbs { position: absolute; left: 14px; bottom: 14px; z-index: 4; display: flex; align-items: center; gap: 2px; max-width: calc(100% - 32px); padding: 3px 5px; border-radius: 10px; background: rgba(23,27,33,0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.07); box-shadow: 0 10px 26px rgba(0,0,0,.25); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .me-graph-crumbs::-webkit-scrollbar { display: none; }
-.me-graph-crumbs button { flex: none; border: none; background: transparent; color: #b9c0cb; font: inherit; font-size: 11.5px; font-weight: 600; letter-spacing: .01em; padding: 3px 8px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
-.me-graph-crumbs button:hover { background: rgba(255,255,255,0.12); color: #fff; }
-.me-graph-crumbs button.current { background: rgba(59,130,246,0.28); color: #fff; box-shadow: 0 0 0 1px rgba(96,165,250,0.45) inset; cursor: default; }
-.me-graph-crumbs .sep { flex: none; color: #5b6572; font-size: 10px; }
-.me-graph-crumbs .home { color: #9aa3b0; font-weight: 700; }
-.me-graph-levelchip { position: absolute; right: 12px; bottom: 12px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 999px; background: rgba(28,28,32,0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.07); color: #aeb6c2; font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; }
-.me-graph-levelchip b { color: #e9ecf1; font-weight: 700; }
-.me-graph-levelbusy { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(28,28,32,0.88); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #e8ebf0; font-size: 11.5px; font-weight: 600; box-shadow: 0 8px 22px rgba(0,0,0,.26); pointer-events: none; }
+.me-graph-crumbs button { flex: none; border: none; background: transparent; color: #98a1ad; font: inherit; font-size: 11px; font-weight: 500; letter-spacing: .01em; padding: 4px 9px; border-radius: 7px; cursor: pointer; white-space: nowrap; transition: background .14s, color .14s; }
+.me-graph-crumbs button:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.me-graph-crumbs button.current { background: rgba(255,122,69,0.14); color: #ffb08a; box-shadow: inset 0 0 0 1px rgba(255,122,69,0.26); cursor: default; }
+.me-graph-crumbs .sep { flex: none; color: #4f5762; font-size: 10px; }
+.me-graph-crumbs .home { color: #c6ccd6; }
+.me-graph-levelbusy { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(23,27,33,0.9); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: #e8ebf0; font-size: 11px; font-weight: 500; border: 1px solid rgba(255,255,255,0.07); box-shadow: 0 10px 26px rgba(0,0,0,.3); pointer-events: none; }
 .me-graph-levelbusy .me-progress { width: 54px; flex: none; }
 .me-graph-levelerr { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 7; display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100% - 32px)); padding: 8px 12px; border-radius: 12px; background: rgba(66,22,24,0.94); border: 1px solid rgba(248,113,113,0.5); color: #fee2e2; font-size: 12px; box-shadow: 0 10px 26px rgba(0,0,0,.34); }
 .me-graph-levelerr .msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2469,13 +2521,14 @@ const CSS = `
 .me-v5 .mc-v5-statuscard > span:not(.mc-v5-status-ico) { font-size: 10.5px; color: #b0b7c1; }
 .me-v5 .mc-v5-statuscard small { font-size: 9.5px; color: #99a1ac; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .me-v5 .mc-v5-graphhead { flex: none; padding: 0 4px 10px; }
-.me-v5 .me-graph-count { display: none; }
-.me-v5 .mc-v5-graph-legend { position: absolute; left: 12px; top: 12px; z-index: 2; min-width: 130px; padding: 9px 10px; border: 1px solid rgba(127,127,127,.18); border-radius: 9px; background: rgba(28,31,37,.78); backdrop-filter: blur(10px); WebkitBackdropFilter: blur(10px); pointer-events: none; }
-.me-v5 .mc-v5-graph-legend-title { margin-bottom: 6px; font-size: 8.5px; letter-spacing: .14em; color: #99a1ac; font-weight: 650; }
-.me-v5 .mc-v5-graph-legend-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 10px; color: #b0b7c1; }
-.me-v5 .mc-v5-graph-legend-row i { width: 6px; height: 6px; border-radius: 2px; flex: none; }
-.me-v5 .mc-v5-graph-legend-row span { flex: 1; }
-.me-v5 .mc-v5-graph-legend-row b { color: #e9ecf1; font-weight: 600; font-variant-numeric: tabular-nums; }
+.me-v5 .mc-v5-graph-legend { transition: opacity .18s ease, transform .18s ease; }
+.me-graph[data-zoom="in"] .mc-v5-graph-legend { opacity: 0; transform: translateY(-4px); }
+.me-v5 .mc-v5-graph-legend { position: absolute; left: 14px; top: 14px; z-index: 2; min-width: 150px; padding: 11px 12px 9px; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; background: rgba(23,27,33,.74); backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%); box-shadow: 0 12px 30px rgba(0,0,0,.28); pointer-events: none; }
+.me-v5 .mc-v5-graph-legend-title { margin-bottom: 8px; font-size: 9px; letter-spacing: .16em; color: #8b939f; font-weight: 600; }
+.me-v5 .mc-v5-graph-legend-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 10.5px; color: #aab1bb; }
+.me-v5 .mc-v5-graph-legend-row i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.me-v5 .mc-v5-graph-legend-row span { flex: 1; letter-spacing: .01em; }
+.me-v5 .mc-v5-graph-legend-row b { color: #e6eaf0; font-weight: 600; font-variant-numeric: tabular-nums; font-size: 10.5px; }
 @media (max-width: 900px) { .me-v5 .mc-v5-statusgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .me-v5 .mc-v5-graph-legend { display: none; } }
 .me-v5 .mc-stats { gap: 10px; }
 .me-v5 .mc-stats .mc-card { border-radius: 12px; }
@@ -2784,6 +2837,84 @@ class PanelErrorBoundary extends React.Component {
       </div>
     )
   }
+}
+
+
+/**
+ * 会话工作区（草稿本）：按会话隔离的临时笔记，**不进入知识库**。
+ * 这里只做三件事：看/改这份草稿、清空、以及把值得保留的内容「存为待审卡」。
+ */
+function WorkingNoteCard({ t, notify, onPromoted }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [meta, setMeta] = useState(null)
+  const [busy, setBusy] = useState('')
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/working`)
+      const j = await r.json().catch(() => null)
+      if (j && j.ok) { setMeta(j); setText(j.text || '') }
+    } catch { /* 工作区坏了不影响面板 */ }
+  }, [])
+  useEffect(() => { load() }, [load])
+  const post = async (path, body) => {
+    const r = await fetch(`${API}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    })
+    return r.json().catch(() => null)
+  }
+  const save = async () => {
+    setBusy('save')
+    const j = await post('/working', { text, mode: 'replace' })
+    setBusy('')
+    if (j && j.ok) { notify(true, t('workSaved')); await load() } else notify(false, (j && j.error) || 'save failed')
+  }
+  const clear = async () => {
+    if (!window.confirm(t('workClearConfirm'))) return
+    setBusy('clear')
+    const j = await post('/working/clear', {})
+    setBusy('')
+    if (j && j.ok) { setText(''); notify(true, t('workCleared')); await load() } else notify(false, (j && j.error) || 'clear failed')
+  }
+  const promote = async () => {
+    setBusy('promote')
+    const j = await post('/working/promote', { text })
+    setBusy('')
+    if (j && j.ok) { notify(true, t('workPromoted')); if (onPromoted) onPromoted() } else notify(false, (j && j.error) || 'promote failed')
+  }
+  const lines = text ? text.split('\n').length : 0
+  return (
+    <div className="mc-card" style={{ margin: '0 0 10px', padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <b style={{ fontSize: 12.5 }}>📝 {t('workTitle')}</b>
+        <span style={{ fontSize: 11, opacity: 0.65 }}>{t('workHint')}</span>
+        <span style={{ fontSize: 11, opacity: 0.5 }}>{lines} {t('workLines')}</span>
+        <div style={{ flex: 1 }} />
+        <button type="button" className="mc-btn" onClick={() => setOpen((v) => !v)}>{open ? t('workCollapse') : t('workExpand')}</button>
+      </div>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={7}
+            placeholder={t('workPlaceholder')}
+            style={{ width: '100%', boxSizing: 'border-box', borderRadius: 8, padding: '8px 10px', fontSize: 12.5, lineHeight: 1.6, background: 'rgba(0,0,0,0.18)', color: 'inherit', border: '1px solid rgba(140,148,160,0.35)', resize: 'vertical' }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={save}>{busy === 'save' ? '…' : t('workSave')}</button>
+            <button type="button" className="mc-btn" disabled={!!busy} onClick={promote}>{busy === 'promote' ? '…' : t('workPromote')}</button>
+            <button type="button" className="mc-btn mc-danger" disabled={!!busy || !text.trim()} onClick={clear}>{t('workClear')}</button>
+            <span style={{ fontSize: 11, opacity: 0.55 }}>
+              {(meta && meta.maxLines ? meta.maxLines + ' 行 / ' + Math.round((meta.maxBytes || 0) / 1024) + 'KB ' : '')}{t('workLimitHint')}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function MemoryLibrary(props) {
@@ -3408,6 +3539,14 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         )}
 
         {view === 'cards' && (
+          <WorkingNoteCard
+            t={t}
+            notify={(ok, msg) => setLibToast({ ok, msg })}
+            onPromoted={() => { loadAll(); bump() }}
+          />
+        )}
+
+        {view === 'cards' && (
           <div className="mc-toolbar">
             <input
               type="text"
@@ -3548,7 +3687,7 @@ const StatCell = ({ label, value }) => (
 
 /** DSH 设置→记忆 左栏配置面板：插件信息 + Agent MCP 挂载状态 + 全部配置项（一键推荐 / DSH 记忆配置 / 成本控制 / 自动审核配置 / 服务自管理配置 / 保存）。 */
 const CfgFormContext = createContext({ form: null, set: () => {} })
-const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift', 'coreMemoryEnabled', 'skillCardsAutoSync'])
+const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift', 'coreMemoryEnabled', 'skillCardsAutoSync', 'workingMemoryEnabled'])
 
 /** 配置字段：必须在模块顶层定义。放在 ConfigPanel 里会在每次输入重渲染时换组件类型，
  *  React 于是整棵表单卸载重建 —— 输入框失焦、滚动条回跳（用户反馈根因）。 */
@@ -4094,6 +4233,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
             <CfgSection icon="⭐" title={t('coreMemory')} sub={t('coreMemoryHint')}>
               <div className="mc-cfg-grid">
                 <Bool k="coreMemoryEnabled" label={t('coreMemoryEnabled')} />
+              <Bool k="workingMemoryEnabled" label={t('workingMemoryEnabled')} />
                 <F k="coreMemoryLimit" label={t('coreMemoryLimit')} type="number" />
                 <F k="coreMemoryMaxChars" label={t('coreMemoryMaxChars')} type="number" />
               </div>
@@ -6989,9 +7129,13 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
   )
 }
 
-// agentmemory 式图谱：canvas 力导向 + 按 kind 聚合 + 分型节点 + 渐变/发光 + 药丸标签 + 网格。
+// agentmemory 式图谱：canvas 力导向 + 按 kind 聚合 + 分型节点 + 暗玻璃星球 + 点阵底 + 卡片药丸标签。
 const KG = {
-  colors: { core:'#FF7A45', skill:'#8B5CF6', project:'#3B82F6', knowledge:'#10B981', content:'#F59E0B', prompt:'#A855F7', business:'#EC4899', tool:'#06B6D4', mistake:'#EF4444', other:'#6B7280' },
+  // 配色按「同一亮度带」重挑：比 Tailwind-500 再柔一档，暗底上不刺眼，
+  // 与 v5 皮肤的炭灰底 + 橙色强调（#ff7a45）属于同一套视觉语言。
+  colors: { core:'#FF7A45', skill:'#A78BFA', project:'#60A5FA', knowledge:'#34D399', content:'#FBBF24', prompt:'#C084FC', business:'#F472B6', tool:'#22B8CF', mistake:'#FB7185', other:'#8CA0B3' },
+  // 星球球体用「深色宝石」版本：比节点色低一档明度，白字对比更稳，也不会显得糖果。
+  deep: { core:'#E8590C', skill:'#7C3AED', project:'#2563EB', knowledge:'#059669', content:'#D97706', prompt:'#9333EA', business:'#DB2777', tool:'#0891B2', mistake:'#E11D48', other:'#64748B' },
   shapes: { core:'diamond', skill:'hexagon', project:'circle', knowledge:'circle', content:'rect', prompt:'diamond', business:'hexagon', tool:'circle', mistake:'diamond', other:'circle' },
 }
 
@@ -7171,14 +7315,6 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     const dpr = Math.min(1.5, Math.max(1, window.devicePixelRatio || 1))
-    // 独立 Web 版没有 DSH 注入的 data-theme，只靠 prefers-color-scheme 切暗色 —— 之前
-    // 这里只认 data-theme，导致暗色页上仍用白底药丸/浅色网格（视觉上发脏）。现在补上系统主题兜底。
-    const degrade = () => {
-      const attr = document.documentElement.getAttribute('data-theme')
-      if (attr) return attr === 'dark'
-      try { return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches } catch { return false }
-    }
-
     const deg = {}
     edges.forEach((e) => { deg[e.source] = (deg[e.source] || 0) + 1; deg[e.target] = (deg[e.target] || 0) + 1 })
     const maxDeg = Math.max(1, ...Object.values(deg))
@@ -7193,12 +7329,15 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       // 图元 → 画布节点：大星球半径随卡数（对数），卡片沿用「按度数放大」的老规则。
       // 注意：必须从**原始图元**（带 label）构节点 —— 归一化域对象用的是 title/name。
       nodes: drawItems.map((it) => levelItemToNode(it, { degree: deg[it.id] || 0, maxDegree: maxDeg })),
+      // 每颗大球拿到自己的方向/速度/相位：不能整盘同向，否则又变成刚体旋转
+      // （assignOrbitRandom 会保证正反各半并打乱顺序）。
       // 层内边统一成 {source,target}：保留宿主的聚合权重（星球层 = 共享标签数），
       // 渲染时用它区分粗细 —— 旧版图谱的「关系强弱」视觉不能少。
       edges: edges.map((e) => ({ sourceNodeId: e.source, targetNodeId: e.target, weight: Math.max(1, Number(e.weight) || 1) })),
       panX: 0, panY: 0, zoom: 1, running: true, raf: 0, tickCount: 0, quietTicks: 0, dragNode: null, selectedId: null, mouseX: 0, mouseY: 0, w: 0, h: 0, dpr, ctx, multi: [], marquee: null,
       planetLayer, levelId,
     }
+    if (planetLayer) assignOrbitRandom(sim.nodes.filter((n) => n.planet))
     sim.domain = nodes
     sim.domainById = nodes.reduce((m, n) => (m[n.id] = n, m), {})
     // 边弹簧每 tick 都要按 id 找两端：预先把边转成节点下标（Int32Array），
@@ -7280,10 +7419,12 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       const key = color + '|' + Math.round(r)
       let g = gradCache.get(key)
       if (!g) {
-        const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
-        g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r * 1.2)
-        g.addColorStop(0, 'rgba(' + Math.min(255,cr+70) + ',' + Math.min(255,cg+70) + ',' + Math.min(255,cb+70) + ',0.95)')
-        g.addColorStop(1, color)
+        // 原来中心直接 +70 提亮 → 小圆点看起来像糖果珠。现在只在左上带一点点体积感，
+        // 主体保持本色、边缘略压暗，放大后才像「宝石」，缩小后仍是一颗干净的色点。
+        g = ctx.createRadialGradient(-r * 0.32, -r * 0.38, 0, 0, 0, r * 1.15)
+        g.addColorStop(0, mixColor(color, '#ffffff', 0.20))
+        g.addColorStop(0.62, color)
+        g.addColorStop(1, mixColor(color, '#000000', 0.22))
         gradCache.set(key, g)
       }
       return g
@@ -7301,6 +7442,16 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       const k = Math.max(0, Math.min(1, Number(t) || 0))
       return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',') + ')'
     }
+    // 大星球的柔光/球体渐变按「颜色+半径」缓存（星球 ≤ 20 颗，每帧不重建渐变对象）
+    const planetGlowCache = new Map()
+    const planetBodyCache = new Map()
+    // 混合两色并带 alpha：暗玻璃球体用（把本色压到半透明，背景暗部透出来）
+    const rgbaMix = (hex, into, t, a) => {
+      const p2 = (h) => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]
+      const x = p2(hex), y2 = p2(into)
+      const k = Math.max(0, Math.min(1, Number(t) || 0))
+      return 'rgba(' + x.map((v, i) => Math.round(v + (y2[i] - v) * k)).join(',') + ',' + a + ')'
+    }
 
     // 滚轮/初始视图共用同一个「度」：一格 = ×ZOOM_STEP（滚轮、放大/缩小按钮、初始 fit 一致）。
     const ZOOM_STEP = 1.1
@@ -7314,31 +7465,34 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       // 星球的行星环画到 1.82r，边界再放大一点，别让环被画布边缘切掉。
       sim.nodes.forEach((n) => {
         const base = Number(n.r) || 0
-        const r = n.planet ? base * 1.75 : base
+        // 星球之前按 1.75r 留白（旧版光晕画到 1.9r）；光晕已收到 1.36r，留到 1.45r 就够，
+        // 否则 fit 会多缩一圈，四周全是空白、球也被缩得很小。
+        const r = n.planet ? base * 1.32 : base
         if (n.x - r < minX) minX = n.x - r
         if (n.x + r > maxX) maxX = n.x + r
         if (n.y - r < minY) minY = n.y - r
         if (n.y + r > maxY) maxY = n.y + r
       })
-      const pad = 20
+      const pad = 28
       const spanX = (maxX - minX) + pad * 2, spanY = (maxY - minY) + pad * 2
       const z = Math.min(sim.w / spanX, sim.h / spanY)
       // 展示全部：按边界精确缩放（不放大裁剪），让所有节点一屏可见、无滚动。
       // 再叠一个「初始视图缩小三度」的系数（重置视图按钮也走这里，行为与首次打开一致）。
       const initialZoomOut = Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS)
       sim.zoom = Math.max(0.35, Math.min(1.8, z * initialZoomOut))
-      // 星球层可能比「0.35 缩放下限」还大（20 颗大星球要排 2~3 圈），
-      // 这时允许继续缩小 —— 整盘被裁掉（看不到全部）比节点略小更糟。只对星球层生效。
-      if (sim.planetLayer) {
-        const fitZoom = z * Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS)
-        if (fitZoom < sim.zoom) sim.zoom = Math.max(0.12, fitZoom)
-      }
+      // 星球层少缩一度：4~8 颗大球按 3 度缩会在画布上下留出大片空白（旧截图里很明显），
+      // 2 度既能铺满又不裁切（fit 的 z 本身就是「刚好放下」）。只对星球层生效。
+      if (sim.planetLayer) sim.zoom = Math.max(0.12, z * Math.pow(1 / ZOOM_STEP, INITIAL_ZOOM_OUT_STEPS - 2))
       sim.panX = sim.w / 2 - ((minX + maxX) / 2) * sim.zoom
       sim.panY = sim.h / 2 - ((minY + maxY) / 2) * sim.zoom
     }
     fitRef.current = fit
 
     const render = () => {
+      sim.renderFrames = (sim.renderFrames | 0) + 1
+      // 放大后图例会压住球体：超过 1.2× 自动淡出，缩回去再出现（类名切换而非每帧写 DOM）
+      const zState = sim.zoom >= 1.2 ? 'in' : 'out'
+      if (wrapRef.current && wrapRef.current.dataset.zoom !== zState) wrapRef.current.dataset.zoom = zState
       ctx.clearRect(0, 0, sim.w, sim.h)
       sim.searchTerm = searchRef.current
       sim.kindFilter = filterRef.current
@@ -7351,15 +7505,20 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       // grid：只构建一次 Path2D，尺寸变化时重建；不再每帧 stroke 上百次
       ctx.save()
       const gk = sim.w + 'x' + sim.h
+      // 点阵（不是方格）：星图应该像「观测底片」而不是坐标纸；一次 fill 画完，不额外增加绘制调用。
       if (!gridPath || gridKey !== gk) {
         gridPath = new Path2D()
-        for (let gx = 0; gx < sim.w; gx += 24) { gridPath.moveTo(gx, 0); gridPath.lineTo(gx, sim.h) }
-        for (let gy = 0; gy < sim.h; gy += 24) { gridPath.moveTo(0, gy); gridPath.lineTo(sim.w, gy) }
+        const step = 26
+        for (let gx = step / 2; gx < sim.w; gx += step) {
+          for (let gy = step / 2; gy < sim.h; gy += step) {
+            gridPath.moveTo(gx + 1, gy)
+            gridPath.arc(gx, gy, 1, 0, Math.PI * 2)
+          }
+        }
         gridKey = gk
       }
-      ctx.strokeStyle = degrade() ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
-      ctx.lineWidth = 0.5
-      ctx.stroke(gridPath)
+      ctx.fillStyle = 'rgba(255,255,255,0.055)'
+      ctx.fill(gridPath)
       ctx.restore()
       ctx.save()
       ctx.translate(sim.panX, sim.panY); ctx.scale(sim.zoom, sim.zoom)
@@ -7386,7 +7545,8 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         }
         return ids
       })()
-      const labelIds = pickLabelIds(sim.nodes, { limit: labelBudget(sim.nodes.length), focusId, hoverId: sim.hoverId, searchHits, degree: deg })
+      const quality = sim.quality | 0
+      const labelIds = pickLabelIds(sim.nodes, { limit: labelBudget(sim.nodes.length, quality), focusId, hoverId: sim.hoverId, searchHits, degree: deg })
       // 文本宽度缓存：原来每帧每个标签都要 measureText（589 个标签时是大头）
       const measureCache = new Map()
       const measureText = (font, text) => {
@@ -7402,8 +7562,19 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       const edgeBuckets = new Map()
       // 大图远景：先不画边，优先保证拖动/缩放帧率；放大后再显示关系
       const skipEdges = sim.nodes.length > 1200 && sim.zoom < 0.3
-      sim.edges.forEach((e) => {
+      // 放大观察时的连线 LOD：小视野里 872 条曲线会把光栅化吃满。
+      // 先按步长抽样（边本来就是 0.2 alpha 的底噪），聚焦时反过来只画焦点相关的边。
+      const zoomedIn = sim.zoom >= 0.6
+      // 视觉细节只在最差档位降级：能跑满帧的机器保留渐变/描边/光晕，
+      // 掉帧的机器才逐档变朴素（0→1→2→3）。
+      const closeUp = quality >= 3
+      const edgeStride = !zoomedIn ? 1 : (quality <= 0 ? 1 : quality === 1 ? 2 : quality === 2 ? 4 : 8)
+      sim.edges.forEach((e, ei) => {
         if (skipEdges) return
+        // 聚焦时反过来：只画焦点相关的边（全部），其余不画 —— 既看清关系又省光栅化
+        const focused = focusId && (e.sourceNodeId === focusId || e.targetNodeId === focusId)
+        if (focusId) { if (!focused) return }
+        else if (edgeStride > 1 && ei % edgeStride !== 0) return
         const s = nodeMap[e.sourceNodeId], t = nodeMap[e.targetNodeId]
         if (!s || !t) return
         // 视口剔除：两端都在屏幕外就不画（放大后大部分边都被剔掉）
@@ -7412,15 +7583,18 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         if (kfTag) { const sT = sim.domainById[e.sourceNodeId] && (sim.domainById[e.sourceNodeId].tags || []).includes(kfTag); const tT = sim.domainById[e.targetNodeId] && (sim.domainById[e.targetNodeId].tags || []).includes(kfTag); if (!sT && !tT) return }
         let dr = t.x - s.x, dy = t.y - s.y
         const len = Math.sqrt(dr * dr + dy * dy) || 1
-        const curve = motion ? 0 : (dense ? 12 : 18)
+        // 放大观察时连线改直线：二次曲线在小视野里占满屏幕，光栅化成本是直线的数倍
+        const curve = (motion || sim.zoom >= 0.6) ? 0 : (dense ? 10 : 16)
         const ox = -dy / len * curve, oy = dr / len * curve
         const cpx = (s.x + t.x) / 2 + ox, cpy = (s.y + t.y) / 2 + oy
         const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other'] || KG.colors.other
-        const focused = focusId && (e.sourceNodeId === focusId || e.targetNodeId === focusId)
-        const alpha = focusId ? (focused ? 0.62 : 0.09) : (sim.planetLayer ? 0.32 : (dense ? 0.18 : 0.26))
+        // 连线比旧版更暗更细：星图的「关系」应该是底噪，不是彩色意面。
+        const alpha = focusId ? (focused ? 0.72 : 0.06) : (sim.planetLayer ? 0.22 : (dense ? 0.12 : 0.17))
         const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
         const w = Math.max(1, Number(e.weight) || 1)
-        const width = focused ? 1.8 + Math.min(4, w) : 0.9 + Math.min(3, w - 1) * 0.45
+        // 线宽量化到 0.5：减少 Path2D 分桶数量（每多一个桶就多一次 stroke）
+        const rawWidth = focused ? 1.6 + Math.min(3.2, w * 0.8) : 0.7 + Math.min(2.4, (w - 1) * 0.35)
+        const width = Math.min(zoomedIn ? 1.2 : Infinity, Math.round(rawWidth * 2) / 2)
         const key = cr + ',' + cg + ',' + cb + ',' + alpha + ',' + width
         let bucket = edgeBuckets.get(key)
         if (!bucket) {
@@ -7441,104 +7615,114 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           else if (ed.targetNodeId === focusId) focusNeighbors.add(ed.sourceNodeId)
         })
       }
-      // 药丸标签（星球/卡片共用，带避让）：随缩放补偿字号/线宽，避免放大后标签变糊
+      // 卡片药丸标签：深底降到 0.78、描边更淡，避免一圈小黑块抢走星球的重量。
       const drawLabelPill = (n, opts = {}) => {
         const label = truncate(n.name, opts.maxChars || 16)
         const zi = 1 / sim.zoom
-        const font = '500 ' + (12 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+        const font = '500 ' + (11.5 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
         ctx.font = font
         const tw = measureText(font, label)
-        const lw = tw + 16 * zi, lh = 18 * zi
+        const lw = tw + 14 * zi, lh = 17 * zi
         const ly = n.y + n.r + (opts.gap === undefined ? 8 : opts.gap) * zi
         let fits = true
         for (const r of drawn) { if (n.x - lw/2 < r.x + r.w && n.x + lw/2 > r.x && ly < r.y + r.h && ly + lh > r.y) { fits = false; break } }
         if (!fits && !opts.force) return false
         drawn.push({ x: n.x - lw/2, y: ly, w: lw, h: lh })
-        ctx.fillStyle = degrade() ? 'rgba(30,30,35,0.92)' : 'rgba(255,255,255,0.92)'
+        ctx.fillStyle = 'rgba(20,24,30,0.78)'
         ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(n.x - lw/2, ly, lw, lh, 4*zi); else ctx.rect(n.x - lw/2, ly, lw, lh); ctx.fill()
-        ctx.strokeStyle = degrade() ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)'
         ctx.lineWidth = 1 * zi; ctx.stroke()
-        ctx.fillStyle = degrade() ? (opts.strong ? '#eee' : '#bbb') : (opts.strong ? '#111' : '#444')
-        ctx.textAlign = 'center'; ctx.fillText(label, n.x, ly + 13 * zi)
+        ctx.fillStyle = opts.strong ? '#f2f5f8' : '#aeb6c2'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+        ctx.fillText(label, n.x, ly + 4.6 * zi)
         return true
       }
-      // 大星球：柔光球体 + 一道细轨道环 + 晨昏线。去掉了原来的双环「土星插画」感。
+
+      // 大星球：低对比体积球 + 发丝外圈 + 克制的柔光。
+      // 去掉了白色高光斑、土星环和 shadowBlur —— 那套「玻璃弹珠」质感是旧版最显廉价的地方；
+      // 现在星球只承担「层级入口」的语义，把亮度让给卡片和连线。
       const drawPlanet = (n, color, flags) => {
         const zi = 1 / sim.zoom
         const { isSel, isHov, dimmed } = flags
+        const screenR = n.r * sim.zoom
         ctx.save()
-        ctx.globalAlpha = dimmed ? 0.12 : 1
-        // 大气层：两层柔光，越靠外越淡
-        const glow = ctx.createRadialGradient(n.x, n.y, n.r * 0.7, n.x, n.y, n.r * 1.9)
-        glow.addColorStop(0, hexA(color, 0.34))
-        glow.addColorStop(0.5, hexA(color, 0.12))
-        glow.addColorStop(1, hexA(color, 0))
-        ctx.fillStyle = glow
-        ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 1.9, 0, Math.PI * 2); ctx.fill()
-        // 轨道环：只留一圈，压扁、微倾
+        ctx.globalAlpha = dimmed ? 0.16 : 1
+        // 大气柔光：一圈很淡的同色光晕
+        const gkey = 'g|' + color + '|' + Math.round(n.r)
+        let glow = planetGlowCache.get(gkey)
+        if (!glow) {
+          glow = ctx.createRadialGradient(0, 0, n.r * 0.8, 0, 0, n.r * 1.24)
+          glow.addColorStop(0, hexA(color, 0.18))
+          glow.addColorStop(0.58, hexA(color, 0.06))
+          glow.addColorStop(1, hexA(color, 0))
+          planetGlowCache.set(gkey, glow)
+        }
         ctx.save()
         ctx.translate(n.x, n.y)
-        ctx.rotate(-0.34)
-        ctx.strokeStyle = hexA(color, isSel || isHov ? 0.8 : 0.32)
+        // 放大观察时跳过整块径向光晕：几颗大球的渐变填充占掉大量像素，是小视野下掉帧的主因之一。
+        if (!closeUp) {
+          ctx.fillStyle = glow
+          ctx.beginPath(); ctx.arc(0, 0, n.r * 1.24, 0, Math.PI * 2); ctx.fill()
+        }
+        // 暗玻璃球体：先铺一层近黑底色，再叠半透明本色 —— 颜色仍在，但不再是糖果色圆盘；
+        // 白字在任意色相上都够对比（黄/青球也不用换深色字）。
+        const deep = sim.timeMode ? color : (KG.deep[n.type] || color)
+        const bkey = 'b|' + deep + '|' + Math.round(n.r)
+        let body = planetBodyCache.get(bkey)
+        if (!body) {
+          body = ctx.createRadialGradient(-n.r * 0.26, -n.r * 0.32, n.r * 0.12, 0, 0, n.r * 1.1)
+          body.addColorStop(0, rgbaMix(deep, '#ffffff', 0.24, 0.9))
+          body.addColorStop(0.58, hexA(deep, 0.86))
+          body.addColorStop(1, rgbaMix(deep, '#000000', 0.34, 0.9))
+          planetBodyCache.set(bkey, body)
+        }
+        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.fillStyle = 'rgba(13,16,21,0.92)'; ctx.fill()
+        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.fillStyle = body; ctx.fill()
+        // 上沿一道薄高光（弧线，不是圆斑）
+        ctx.beginPath(); ctx.arc(0, 0, n.r - Math.max(0.6, 1.1 * zi), Math.PI * 1.06, Math.PI * 1.94)
+        ctx.strokeStyle = 'rgba(255,255,255,0.14)'
+        ctx.lineWidth = Math.max(0.7, 1.2 * zi)
+        ctx.stroke()
+        // 发丝外圈：给球体一个干净的边界
+        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2)
+        ctx.strokeStyle = hexA(color, isSel || isHov ? 0.95 : 0.58)
         ctx.lineWidth = Math.max(0.8, 1.1 * zi)
-        ctx.beginPath(); ctx.ellipse(0, 0, n.r * 1.5, n.r * 0.30, 0, 0, Math.PI * 2); ctx.stroke()
-        ctx.restore()
-        // 球体：上亮下暗的渐变球 + 晨昏线 + 左上高光
-        ctx.save()
-        ctx.translate(n.x, n.y)
-        ctx.save()
-        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.clip()
-        const body = ctx.createRadialGradient(-n.r * 0.34, -n.r * 0.38, n.r * 0.08, 0, 0, n.r * 1.08)
-        body.addColorStop(0, mixColor(color, '#ffffff', 0.46))
-        body.addColorStop(0.52, color)
-        body.addColorStop(1, mixColor(color, '#000000', 0.44))
-        if (paintShadows) { ctx.shadowColor = hexA(color, 0.45); ctx.shadowBlur = isSel ? 26 : 14 }
-        ctx.fillStyle = body
-        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.fill()
-        ctx.shadowBlur = 0
-        const shade = ctx.createLinearGradient(-n.r, -n.r, n.r, n.r)
-        shade.addColorStop(0, 'rgba(255,255,255,0.10)')
-        shade.addColorStop(0.52, 'rgba(0,0,0,0)')
-        shade.addColorStop(1, 'rgba(0,0,0,0.30)')
-        ctx.fillStyle = shade
-        ctx.fillRect(-n.r, -n.r, n.r * 2, n.r * 2)
-        ctx.beginPath(); ctx.arc(-n.r * 0.36, -n.r * 0.4, n.r * 0.30, 0, Math.PI * 2)
-        ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fill()
-        ctx.restore()
-        // 边缘光：只亮上沿一段
-        ctx.beginPath(); ctx.arc(0, 0, n.r - Math.max(0.5, 1 * zi) * 0.5, Math.PI * 1.05, Math.PI * 1.95)
-        ctx.strokeStyle = 'rgba(255,255,255,0.34)'
-        ctx.lineWidth = Math.max(0.8, 1.4 * zi)
         ctx.stroke()
         ctx.restore()
         if (isSel || isHov) {
           ctx.save()
-          ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 5, 0, Math.PI * 2)
-          ctx.strokeStyle = isSel ? '#ffffff' : hexA(color, 0.9)
-          ctx.lineWidth = isSel ? 2.4 : 1.6
-          if (paintShadows) { ctx.shadowColor = color; ctx.shadowBlur = 12 }
+          ctx.beginPath(); ctx.arc(n.x, n.y, n.r + (isSel ? 7 : 5) * zi, 0, Math.PI * 2)
+          ctx.strokeStyle = isSel ? 'rgba(255,122,69,0.9)' : hexA(color, 0.7)
+          ctx.lineWidth = Math.max(1, 1.2 * zi)
+          if (isSel) ctx.setLineDash([5 * zi, 4 * zi])
           ctx.stroke()
           ctx.restore()
         }
         ctx.restore()
-        // 卡数：字号按**屏幕尺寸**定（而非世界尺寸），缩得很小时也读得清；太小就交给标签
-        const screenR = n.r * sim.zoom
+        // 球内排版：簇名（小）/ 卡数（大）/ 单位（小）。
+        // 名字放进球里，原来的浮动标签就不会再压到隔壁的球和卡片上。
         if (isSel || isHov || screenR >= 11) {
-          const fs = Math.max(8, Math.min(22, screenR * 0.46)) * zi
+          const fs = Math.max(9, Math.min(21, screenR * 0.42)) * zi
+          const big = screenR >= 30
           ctx.save()
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-          ctx.font = '800 ' + fs.toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
-          ctx.fillStyle = 'rgba(255,255,255,0.97)'
+          ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5 * zi
+          if (big) {
+            ctx.font = '600 ' + (fs * 0.48).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+            ctx.fillStyle = 'rgba(255,255,255,0.72)'
+            ctx.fillText(truncate(n.name, 12), n.x, n.y - fs * 1.02)
+          }
+          ctx.font = '700 ' + fs.toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+          ctx.fillStyle = 'rgba(255,255,255,0.96)'
           // 紧凑单位跟着界面语言走（中文「万」/ 英文 K/M）；<1 万原样，2049/10k 的显示不变
           ctx.fillText(formatCount(n.count, {
             unit: tRef.current('graphCountWan'),
             locale: tRef.current('graphCountLocale'),
-          }), n.x, n.y - (screenR >= 24 ? fs * 0.28 : 0))
-          if (screenR >= 24) {
-            const sub = tRef.current('graphCardsUnit')
-            ctx.font = '600 ' + (fs * 0.46).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
-            ctx.fillStyle = 'rgba(255,255,255,0.72)'
-            ctx.fillText(sub, n.x, n.y + fs * 0.82)
+          }), n.x, n.y + (big ? fs * 0.06 : 0))
+          if (big) {
+            ctx.font = '500 ' + (fs * 0.38).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'
+            ctx.fillText(tRef.current('graphCardsUnit'), n.x, n.y + fs * 0.92)
           }
           ctx.restore()
         }
@@ -7554,7 +7738,9 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         // kind 兜底：未知类型（历史卡/外部导入）以前会让 KG.colors[kind] 变成 undefined，
         // 随后 gradientFor 里 color.slice() 直接 TypeError —— 现在统一落到 other 的配色/圆点，
         // 坏数据最多画得朴素一点，不会再抛异常（并在兜底处告警一次）。
-        const color = sim.timeMode ? recencyColor(info.updated) : (KG.colors[kind] || KG.colors.other)
+        // 时间维：只有带 updated 的图元才按新旧染色；星球是聚合体没有 updated，
+        // 之前会统一退成灰色（整层看点全灰、也看不出类别），现在保持类别色。
+        const color = (sim.timeMode && info.updated) ? recencyColor(info.updated) : (KG.colors[kind] || KG.colors.other)
         const shape = KG.shapes[kind] || 'circle'
         const isSel = sim.selectedId === n.id, isHov = sim.hoverId === n.id
         const searchTerm = sim.searchTerm || ''
@@ -7569,10 +7755,18 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         }
         ctx.save()
         ctx.globalAlpha = dimmed ? 0.08 : 1
-        if ((isSel || isHov) && paintShadows) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 20 : 14 }
+        if ((isSel || isHov) && paintShadows) { ctx.shadowColor = color; ctx.shadowBlur = isSel ? 16 : 11 }
         ctx.translate(n.x, n.y) // 局部坐标 → 渐变可跨节点复用
         drawShape(0, 0, n.r, shape)
-        ctx.fillStyle = gradientFor(color, n.r); ctx.fill()
+        // 放大后改用纯色填充：节点在屏幕上已经很大，逐像素径向渐变在软件光栅/弱 GPU 上很贵
+        ctx.fillStyle = closeUp ? color : gradientFor(color, n.r); ctx.fill()
+        // 极细的浅色内描边：让六边形/菱形/圆在深底上有「切面」而不是色块。
+        // 放大后节点已经很大，逐节点描边在弱 GPU 上是纯浪费，只在选中/悬停时保留。
+        if (!closeUp || isSel || isHov) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.16)'
+          ctx.lineWidth = Math.max(0.6, 0.8 * (1 / sim.zoom))
+          ctx.stroke()
+        }
         if (kind === 'core') {
           ctx.fillStyle = '#1b120e'
           ctx.font = '700 ' + Math.max(10, Math.round(n.r * 0.95)) + 'px sans-serif'
@@ -7583,7 +7777,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         ctx.restore()
         if (isSel) { ctx.save(); drawShape(n.x, n.y, n.r+3, shape); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.stroke(); ctx.restore() }
         else if (isHov) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
-        else if (searchTerm && searchHit) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
+        else if (searchTerm && searchHit) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#ffa06b'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
         else if (sim.multi.indexOf(n.id) >= 0) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2; ctx.shadowColor = '#60a5fa'; ctx.shadowBlur = 8; ctx.stroke(); ctx.restore() }
         // 标签预算：大图只画「焦点/悬停/搜索命中/度数最高」的若干节点。
         // 原来 zoom > labelThreshold 时上千个标签全画（每个都要 measureText + 圆角矩形 + fillText），
@@ -7591,26 +7785,9 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         const showLab = (isSel || isHov || (!motion && ((labelIds.has(n.id) && sim.zoom > labelThreshold) || (!dense && sim.zoom > 0.6)))) && kindOk && tagOk
         if (showLab) drawLabelPill(n, { force: isSel || isHov })
       })
-      // 星球：先把所有球画完（球压卡片），再统一画名字（名字压所有球，不会被邻居挡住）。
-      // 星球很多时（20 颗语义簇）给标签一个预算：悬停/选中必留 + 卡数最大的若干颗，
-      // 否则 20 条药丸会叠在一起，反而看不清。
+      // 星球最后画（球压卡片）。名字/卡数都排在球内，不再需要额外的标签层，
+      // 也就不会出现「名字飘到隔壁球上」的错位。
       planetDraws.forEach((p) => drawPlanet(p.n, p.color, p))
-      const planetLabelBudget = planetDraws.length <= 12
-        ? Infinity
-        : 8
-      const labelled = new Set()
-      if (Number.isFinite(planetLabelBudget)) {
-        planetDraws
-          .filter((p) => (p.isSel || p.isHov) && p.ok)
-          .forEach((p) => { labelled.add(p.n.id); drawLabelPill(p.n, { gap: 8, force: true, maxChars: 20 }) })
-        planetDraws
-          .filter((p) => p.ok && !labelled.has(p.n.id))
-          .sort((a, b) => (b.n.count || 0) - (a.n.count || 0))
-          .slice(0, planetLabelBudget)
-          .forEach((p) => { if (labelled.has(p.n.id)) return; labelled.add(p.n.id); drawLabelPill(p.n, { gap: 8, maxChars: 20 }) })
-      } else {
-        planetDraws.forEach((p) => { if (p.ok) drawLabelPill(p.n, { gap: 8, force: p.isSel || p.isHov, maxChars: 20 }) })
-      }
       ctx.restore()
       // Marquee 框选矩形（屏幕坐标）
       if (sim.marquee) {
@@ -7636,7 +7813,8 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           const meta = sn.planet
             ? tRef.current('graphPlanetCards').replace('{n}', String(sn.count)) + ' · ' + tRef.current('graphEnter')
             : tRef.current('connCount').replace('{n}', conn)
-          tooltipRef.current.innerHTML = '<b>' + esc(hn.title || hn.name || '') + '</b><br/><span style="opacity:.8">' + esc(hn.kind || '') + ' · ' + esc(meta) + '</span>'
+          const kindLabel = tRef.current(KIND_LABELS[hn.kind] || 'kindKnowledge')
+          tooltipRef.current.innerHTML = '<b>' + esc(hn.title || hn.name || '') + '</b><br/><span style="opacity:.8">' + esc(kindLabel) + ' · ' + esc(meta) + '</span>'
         }
       } else if (tooltipRef.current) tooltipRef.current.style.display = 'none'
     }
@@ -7679,11 +7857,15 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
 
     // 星球层的碰撞分离：BH 斥力是「点斥力」，不考虑球体半径 —— 大球之间、大球与卡片必须显式推开，
     // 否则散乱漂移几步就叠在一起。只处理星球层（≤20 颗球 + ≤1000 个卡片），每 tick O(P×N)。
+    //
+    // 0.26 起按「大球排斥小球」重写：
+    //   ① 星球之间留的缝随半径增长（大球之间更宽，不再挤成串）；
+    //   ② 大球对卡片有一圈「护城河」：硬边界绝不叠球，外侧再用软推力把小卡片赶开，
+    //      越大的球推得越远 —— 用户原话「小的球数量多紧贴着大的丑」就是这里来的。
     const separateCollisions = () => {
       if (!planetLayer) return
       const planets = sim.nodes.filter((n) => n.planet)
       if (!planets.length) return
-      const gap = 12
       for (let a = 0; a < planets.length; a++) {
         for (let b = a + 1; b < planets.length; b++) {
           const pa = planets[a]
@@ -7691,29 +7873,54 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           const dx = pb.x - pa.x
           const dy = pb.y - pa.y
           const d = Math.sqrt(dx * dx + dy * dy) || 1
+          const gap = 24 + Math.min(pa.r, pb.r) * 0.18
           const min = pa.r + pb.r + gap
           if (d >= min) continue
-          const push = (min - d) * 0.5
+          const pen = min - d
           const ux = dx / d
           const uy = dy / d
-          pa.x -= ux * push; pa.y -= uy * push
-          pb.x += ux * push; pb.y += uy * push
-          pa.vx *= 0.4; pa.vy *= 0.4; pb.vx *= 0.4; pb.vy *= 0.4
+          // 大球排斥小球：按「面积当质量」分配位移 —— 大球几乎不动，小球被推得更远
+          const ma = pa.r * pa.r
+          const mb = pb.r * pb.r
+          const mt = ma + mb
+          const pushA = pen * (mb / mt)
+          const pushB = pen * (ma / mt)
+          pa.x -= ux * pushA; pa.y -= uy * pushA
+          pb.x += ux * pushB; pb.y += uy * pushB
+          // 只做部分阻尼：把速度按住会让大球看起来「钉死」，只留一点惯性即可
+          pa.vx *= 0.55; pa.vy *= 0.55; pb.vx *= 0.55; pb.vy *= 0.55
         }
       }
       for (const p of planets) {
+        const moat = planetMoat(p.r)
         for (const c of sim.nodes) {
-          if (c.planet) continue
+          if (c.planet || c === sim.dragNode) continue
           const dx = c.x - p.x
           const dy = c.y - p.y
           const d = Math.sqrt(dx * dx + dy * dy) || 1
-          const min = p.r + c.r + 8
-          if (d >= min) continue
-          const push = min - d
-          c.x += (dx / d) * push
-          c.y += (dy / d) * push
-          c.vx *= 0.5
-          c.vy *= 0.5
+          const ux = dx / d
+          const uy = dy / d
+          const hard = p.r + c.r + 30
+          const zone = hard + moat
+          if (d >= zone) continue
+          let dist = d
+          if (d < hard) {
+            // 硬边界：不允许视觉重叠；只去掉朝内的径向速度，保留切向滑动
+            c.x = p.x + ux * hard
+            c.y = p.y + uy * hard
+            const vr0 = c.vx * ux + c.vy * uy
+            if (vr0 < 0) { c.vx -= ux * vr0; c.vy -= uy * vr0 }
+            dist = hard
+          }
+          // 软护城河：越靠近球面推力越强，最大推力随球半径增长
+          const depth = Math.min(1, (zone - dist) / moat)
+          const want = (0.28 + p.r * 0.009) * depth * depth
+          const vr = c.vx * ux + c.vy * uy
+          if (vr < want) {
+            const add = (want - vr) * 0.5
+            c.vx += ux * add
+            c.vy += uy * add
+          }
         }
       }
     }
@@ -7723,6 +7930,12 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     const tick = () => {
       const t0 = performance.now()
       const result = stepSimulation(sim, { params: sim.forceParams, alphaFloor: sim.drift ? 1 : 0, damping: sim.drift ? 0.8 : undefined })
+      // 大球公转：预热结束（布局摊开）后就开始，不等「漂移」判定 ——
+      // 大球是否在动不能依赖 quietTicks（护城河会持续给小球速度，可能永远等不到静置）。
+      if (planetLayer && sim.orbitOn) {
+        orbitPlanets(sim.nodes, { speed: 0.0024, tick: sim.tickCount, skip: (p) => sim.dragNode === p })
+        sim.orbitTicks = (sim.orbitTicks | 0) + 1
+      }
       separateCollisions()
       sim.lastTickMs = performance.now() - t0
       sim.lastRms = result.rms
@@ -7731,23 +7944,50 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
 
     const step = () => {
       if (!sim.running) return
+      // 自适应画质：放大后逐帧采样 rAF 间隔；持续掉到 50fps 以下就逐档降细节
+      // （只降不升，避免画质在阈值附近来回抖动）。缩回全景时恢复最高画质。
+      const now = performance.now()
+      let dt = 0
+      if (sim.lastStepAt && now - sim.lastStepAt > 0 && now - sim.lastStepAt < 120) {
+        dt = now - sim.lastStepAt
+        sim.frameEma = sim.frameEma ? sim.frameEma * 0.8 + dt * 0.2 : dt
+      }
+      sim.lastStepAt = now
+      if (sim.zoom < 0.6) {
+        if (sim.quality) sim.quality = 0
+        sim.frameEma = 16.7
+        sim.perfBad = 0
+      } else if (sim.tickCount > 30 && dt > 0) {
+        // 只在「持续掉帧」时降档：滚轮缩放本身会有几帧抖动，不能因此把画质永久打低。
+        if (sim.frameEma > 17.8) sim.perfBad = (sim.perfBad || 0) + dt
+        else sim.perfBad = Math.max(0, (sim.perfBad || 0) - dt * 0.5)
+        if (sim.perfBad > 500 && (sim.quality | 0) < 3) {
+          sim.quality = (sim.quality | 0) + 1
+          sim.perfBad = 0
+          sim.frameEma = 16.7
+        }
+      }
       // 常驻自移动：预热结束后不再彻底停车，而是进入 ~30fps 的低速漂移 ——
       // 用户要的是「跟改造前一样 散乱会动」，一张静止的图体验很差。
       // 拖拽时恢复 60fps + 1 tick/帧保证跟手；松手后继续漂。
-      if (sim.quietTicks > QUIET_TICKS) {
+      // 触发常驻漂移：正常是「连续静置」；但护城河会持续推动小球，rms 可能永远降不到阈值，
+      // 所以加一个「冷却结束（alpha 到 0）后重开」的兜底 —— 否则大球公转/漂移都不会启动。
+      if (!sim.drift && (sim.quietTicks > QUIET_TICKS || (sim.alpha === 0 && sim.tickCount > 120))) {
         sim.quietTicks = 0
-        if (!sim.drift) {
-          sim.drift = true
-          sim.alpha = Math.max(sim.alpha || 0, 1)
-          sim.motionUntil = 0 // 常驻运动也保留完整细节（标签/曲线边）
-          if (!sim.userTouched) fit()
-        }
+        sim.drift = true
+        sim.alpha = Math.max(sim.alpha || 0, 1)
+        sim.orbitOn = true
+        sim.motionUntil = 0 // 常驻运动也保留完整细节（标签/曲线边）
+        if (!sim.userTouched) fit()
       }
       // 漂移期降到 ~30fps（每两帧算一次）：省一半 CPU，慢速漂移肉眼依然连续。
       // 拖拽期间不降帧，保证跟手。必须在 tick/render 之前跳过，否则只是多排了一次空帧。
       if (sim.drift && !sim.dragNode) {
+        // 只在缩得很小（看全局）时降到 ~30fps 省 CPU；一旦放大观察，同样的世界位移
+        // 在屏幕上会变成更大的像素位移，30fps 会明显发顿 —— 这一档保持 60fps。
+        const lowZoom = sim.zoom < 0.6
         sim.driftFrame = (sim.driftFrame | 0) + 1
-        if (sim.driftFrame % 2) { sim.raf = tracker.raf(step); return }
+        if (lowZoom && sim.driftFrame % 2) { sim.raf = tracker.raf(step); return }
       }
       try {
         // 帧预算：拖拽时必须跟手（每帧 1 tick）；自组织阶段在 18ms 内多跑几步，
@@ -7782,6 +8022,10 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       rms: Math.round((sim.lastRms || 0) * 1000) / 1000,
       alpha: Math.round((sim.alpha || 0) * 1000) / 1000,
       drift: !!sim.drift,
+      orbitTicks: sim.orbitTicks | 0,
+      frames: sim.renderFrames | 0,
+      quality: sim.quality | 0,
+      frameEma: Math.round((sim.frameEma || 0) * 10) / 10,
     })
     sim.stats = graphStats
     globalThis.__meGraphStats = graphStats
@@ -7802,12 +8046,17 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         panX: Math.round(sim.panX), panY: Math.round(sim.panY),
         selected: sim.selectedId || null,
         multi: Array.isArray(sim.multi) ? sim.multi.length : 0,
+        drift: !!sim.drift,
+        orbitTicks: sim.orbitTicks | 0,
+        frames: sim.renderFrames | 0,
         resources: tracker.snapshot(),
         screen: sim.nodes.map((n) => ({
           id: n.id,
           label: n.name,
           planet: !!n.planet,
           count: n.count || 0,
+          dir: n.orbitDir || 0,
+          scale: n.orbitScale ? Math.round(n.orbitScale * 100) / 100 : 0,
           // 屏幕坐标（CSS 像素）：r.left + 局部位移*scale
           x: rect.left + (n.x * sim.zoom + sim.panX) / sx,
           y: rect.top + (n.y * sim.zoom + sim.panY) / sy,
@@ -7919,6 +8168,10 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       sim.panY = clamp(sim.panY + wy * (sim.zoom - newZoom), -1e5, 1e5)
       sim.zoom = newZoom
       sim.userTouched = true
+      // 每次缩放都重新校准画质：放大后先按最高画质跑，真掉帧再降档
+      sim.quality = 0
+      sim.perfBad = 0
+      sim.frameEma = 16.7
       markMotion()
       requestRender()
     }
@@ -7963,6 +8216,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       }
       sim.warmRaf = 0
       if (!sim.userTouched) fit()
+      sim.orbitOn = true // 首屏布局已摊开：大球从这一刻开始公转
       try { render() } catch (e) { warnGraphDrawError(e, 'warm-final') }
       setWarming(null)
       wake()
@@ -7971,7 +8225,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     fit()
     try { render() } catch (e) { warnGraphDrawError(e, 'first-frame') }
     if (warmLeft > 0) sim.warmRaf = tracker.raf(warmStep)
-    else { setWarming(0); wake() }
+    else { sim.orbitOn = true; setWarming(0); wake() }
 
     const onDocMouseDown = () => setFilterOpen(false)
     tracker.listen(window, 'mousedown', onDocMouseDown)
@@ -8005,54 +8259,56 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
   return (
     <div className="me-graph" ref={wrapRef}>
       <div className="me-graph-toolbar">
-        <span className="me-graph-count">{nodes.length} {t('graphItems')} · {level && level.total} {t('graphCardsUnit')} · {edges.length} {t('edges')}</span>
-        <span className="spacer" style={{ flex: 1 }} />
-        <input type="text" placeholder={t('search')} value={search} onChange={(e) => setSearch(e.target.value)} />
+        <label className="me-graph-search">
+          <svg className="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.4" /><path d="m10.4 10.4 3.2 3.2" strokeLinecap="round" /></svg>
+          <input type="text" placeholder={t('search')} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t('search')} />
+        </label>
         <span style={{ position: 'relative', display: 'inline-flex' }}>
-          <button type="button" className="mc-btn" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen} title={t('filterLabel')} style={{ borderRadius: 8 }}>
-            🔍 {t('filterLabel')} {filterKind !== 'all' || timeMode || filterTag ? '●' : '▾'}
+          <button type="button" className={'me-gtool' + (filterKind !== 'all' || timeMode || filterTag ? ' on' : '')} onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen} title={t('filterLabel')}>
+            {t('filterLabel')}
+            {filterKind !== 'all' || timeMode || filterTag ? <span className="badge" aria-hidden="true" /> : <span className="caret" aria-hidden="true">▾</span>}
           </button>
-          {filterOpen && <div className="me-graph-legend-pop" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, background: 'rgba(28,28,32,0.92)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#eee', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 8, minWidth: 240, boxShadow: '0 12px 34px rgba(0,0,0,.35)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <button type="button" className={`lg${filterKind === 'all' && !timeMode ? ' active' : ''}`} style={{ justifyContent: 'flex-start' }} onClick={() => { setFilterKind('all'); setTimeMode(false) }}>{t('all')}</button>
+          {filterOpen && <div className="me-graph-legend-pop" onMouseDown={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 50, background: 'rgba(24,28,34,0.97)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', color: '#e5e9ef', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 11, padding: 8, minWidth: 236, boxShadow: '0 18px 44px rgba(0,0,0,.5)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <button type="button" className={`lg${filterKind === 'all' && !timeMode ? ' active' : ''}`} onClick={() => { setFilterKind('all'); setTimeMode(false) }}>{t('all')}</button>
               {Object.keys(KIND_COLORS).map((k) => (
-                <button key={k} type="button" className={`lg${filterKind === k ? ' active' : ''}`} style={{ justifyContent: 'flex-start' }} onClick={() => setFilterKind((f) => (f === k ? 'all' : k))}>
+                <button key={k} type="button" className={`lg${filterKind === k ? ' active' : ''}`} onClick={() => setFilterKind((f) => (f === k ? 'all' : k))}>
                   <span className="mc-kind" style={{ background: KG.colors[k] || KIND_COLORS[k] }} />{t(KIND_LABELS[k])}
                 </button>
               ))}
-              <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
-              <button type="button" className={`lg${timeMode ? ' active' : ''}`} style={{ justifyContent: 'flex-start' }} onClick={() => setTimeMode((v) => !v)}>⏱ {t('timeDim')}</button>
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '5px 0' }} />
+              <button type="button" className={`lg${timeMode ? ' active' : ''}`} onClick={() => setTimeMode((v) => !v)}>⏱ {t('timeDim')}</button>
               {allTags.length > 0 && (
                 <>
-                  <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
-                  <div style={{ maxHeight: 130, overflow: 'auto', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '5px 0' }} />
+                  <div style={{ maxHeight: 130, overflow: 'auto', display: 'flex', flexWrap: 'wrap', gap: 4, padding: '1px 1px 2px' }}>
                     {allTags.map((o) => (
-                      <button key={o.tag} type="button" className={`lg${filterTag === o.tag ? ' active' : ''}`} style={{ color: '#ddd', padding: '2px 7px', fontSize: 11 }} onClick={() => setFilterTag((f) => (f === o.tag ? '' : o.tag))} title={o.tag}>
+                      <button key={o.tag} type="button" className={`lg${filterTag === o.tag ? ' active' : ''}`} style={{ width: 'auto', color: '#b9c0ca', padding: '2px 7px', fontSize: 10.5, border: '1px solid rgba(255,255,255,.07)' }} onClick={() => setFilterTag((f) => (f === o.tag ? '' : o.tag))} title={o.tag}>
                         #{o.tag} <span style={{ opacity: 0.55 }}>{o.n}</span>
                       </button>
                     ))}
                   </div>
                 </>
               )}
-              {(filterKind !== 'all' || timeMode || filterTag) && <button type="button" className="lg lg-clear" style={{ justifyContent: 'flex-start', color: '#f87171' }} onClick={() => { setFilterKind('all'); setTimeMode(false); setFilterTag('') }}>{t('clearFilter')} ✕</button>}
+              {(filterKind !== 'all' || timeMode || filterTag) && <button type="button" className="lg lg-clear" style={{ color: '#f87171' }} onClick={() => { setFilterKind('all'); setTimeMode(false); setFilterTag('') }}>{t('clearFilter')} ✕</button>}
             </div>
           </div>}
         </span>
-        <label className="mc-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }} title={t('crossVault')}><input type="checkbox" checked={!!all} onChange={(e) => onAllChange && onAllChange(e.target.checked)} />{t('crossVault')}</label>
-        <button type="button" className={`mc-btn${timeMode ? ' me-on' : ''}`} onClick={() => setTimeMode((v) => !v)}>{t('timeDim')}</button>
-        <button type="button" className="mc-btn" onClick={() => { const c = canvasRef.current; if (!c) return; try { c.toBlob((blob) => { if (!blob) return; setExportData({ url: URL.createObjectURL(blob), blob }) }, 'image/png') } catch (e) { /* 预览兜底 */ } }}>{t('exportGraph')}</button>
-        <button type="button" className="mc-btn" onClick={() => fitRef.current && fitRef.current()}>{t('fit')}</button>
-        <button type="button" className="mc-btn" onClick={() => { setSel(null); setFilterKind('all'); resetRef.current && resetRef.current() }}>{t('reset')}</button>
+        <label className={'me-gswitch' + (all ? ' on' : '')} title={t('crossVault')}>
+          <input type="checkbox" checked={!!all} onChange={(e) => onAllChange && onAllChange(e.target.checked)} />
+          <span className="track" aria-hidden="true" />
+          <span>{t('crossVault')}</span>
+        </label>
+        <button type="button" className={'me-gtool' + (timeMode ? ' on' : '')} aria-pressed={timeMode} onClick={() => setTimeMode((v) => !v)}>{t('timeDim')}</button>
+        <span className="me-gdiv" aria-hidden="true" />
+        <button type="button" className="me-gtool" onClick={() => { const c = canvasRef.current; if (!c) return; try { c.toBlob((blob) => { if (!blob) return; setExportData({ url: URL.createObjectURL(blob), blob }) }, 'image/png') } catch (e) { /* 预览兜底 */ } }}>{t('exportGraph')}</button>
+        <button type="button" className="me-gtool" onClick={() => fitRef.current && fitRef.current()}>{t('fit')}</button>
+        <button type="button" className="me-gtool" onClick={() => { setSel(null); setFilterKind('all'); resetRef.current && resetRef.current() }}>{t('reset')}</button>
       </div>
       <div className="me-graph-canvas" style={{ position: 'relative', overflow: 'hidden' }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'grab' }} />
         {/* 图内面包屑：任意一级都能点回去（命中层级缓存 → 零新增请求） */}
         <GraphBreadcrumb crumbs={crumbs} t={t} onPick={onNavigate} busy={loading} />
-        <div className="me-graph-levelchip">
-          <span><b>{nodes.length}</b> {t('graphItems')}</span>
-          <span><b>{level && level.total}</b> {t('graphCardsUnit')}</span>
-          <span><b>{edges.length}</b> {t('edges')}</span>
-        </div>
         {error && (
           <div className="me-graph-levelerr" role="alert">
             <span style={{ flex: 'none', fontWeight: 800 }}>{error.timeout ? '⏱' : '✕'}</span>
@@ -8063,14 +8319,14 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         {!error && loading && (
           <div className="me-graph-levelbusy" role="status" aria-live="polite"><ProgressBar small />{t('graphLevelLoading')}</div>
         )}
-{warming !== null && <div role="status" aria-live="polite" style={{ position: 'absolute', left: '50%', top: 10, transform: 'translateX(-50%)', zIndex: 3, display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px', borderRadius: 999, background: 'rgba(28,28,32,0.86)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#eee', fontSize: 11.5, fontWeight: 600, letterSpacing: '.02em', pointerEvents: 'none', boxShadow: '0 6px 18px rgba(0,0,0,.22)' }}><ProgressBar value={warming} small /><span>{t('graphWarming').replace('{n}', nodes.length)} · {Math.round(warming)}%</span></div>}
+{warming !== null && <div role="status" aria-live="polite" style={{ position: 'absolute', left: '50%', top: 14, transform: 'translateX(-50%)', zIndex: 3, display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px', borderRadius: 999, background: 'rgba(23,27,33,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', color: '#e8ebf0', fontSize: 11, fontWeight: 500, letterSpacing: '.01em', pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 10px 26px rgba(0,0,0,.3)' }}><ProgressBar value={warming} small /><span>{t('graphWarming').replace('{n}', nodes.length)} · {Math.round(warming)}%</span></div>}
         <div className="mc-v5-graph-legend">
-          <div className="mc-v5-graph-legend-title">连接簇</div>
+          <div className="mc-v5-graph-legend-title">{t('graphLegendTitle')}</div>
           {Object.keys(KG.colors).filter((k) => kindStats[k]).map((k) => (
-            <div key={k} className="mc-v5-graph-legend-row"><i style={{ background: KG.colors[k] }} /><span>{t(KIND_LABELS[k] || 'kindKnowledge')}</span><b>{kindStats[k]}</b></div>
+            <div key={k} className="mc-v5-graph-legend-row"><i style={{ background: KG.colors[k], boxShadow: '0 0 0 3px ' + KG.colors[k] + '24' }} /><span>{t(KIND_LABELS[k] || 'kindKnowledge')}</span><b>{kindStats[k]}</b></div>
           ))}
         </div>
-        <div className="me-graph-tooltip" ref={tooltipRef} style={{ display: 'none', position: 'absolute', zIndex: 4, pointerEvents: 'none', background: 'rgba(28,28,32,0.88)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#eee', borderRadius: 8, padding: '7px 10px', fontSize: 12, maxWidth: 220, boxShadow: '0 8px 24px rgba(0,0,0,.2)' }} />
+        <div className="me-graph-tooltip" ref={tooltipRef} style={{ display: 'none', position: 'absolute', zIndex: 4, pointerEvents: 'none', background: 'rgba(24,28,34,0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', color: '#e6eaf0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 9, padding: '8px 10px', fontSize: 11.5, maxWidth: 220, boxShadow: '0 12px 30px rgba(0,0,0,.34)' }} />
         {noMatch && <div className="mc-empty" style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}>{t('noMatch')}</div>}
         {ctx && <div className="me-graph-ctx-back" style={{ position: 'fixed', inset: 0, zIndex: 30 }} onMouseDown={() => setCtx(null)} />}
         {ctx && (
@@ -8085,7 +8341,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           </div>
         )}
         {multi.length > 0 && (
-          <div style={{ position: 'absolute', left: 10, top: 10, zIndex: 3, display: 'flex', gap: 8, alignItems: 'center', background: 'rgba(28,28,32,0.92)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#eee', borderRadius: 10, padding: '6px 10px', fontSize: 12, boxShadow: '0 10px 30px rgba(0,0,0,.25)' }}>
+          <div style={{ position: 'absolute', left: '50%', bottom: 52, transform: 'translateX(-50%)', zIndex: 3, display: 'flex', gap: 8, alignItems: 'center', background: 'rgba(24,28,34,0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', color: '#e6eaf0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 11, padding: '7px 11px', fontSize: 11.5, boxShadow: '0 14px 34px rgba(0,0,0,.4)' }}>
             <span style={{ fontWeight: 700 }}>{multi.length} {t('nodes')}</span>
             <button type="button" className="mc-btn" onClick={() => { const ns = multi.map((id) => nodeById[id]).filter(Boolean); const txt = ns.map((n) => n.title || n.name).join('\n'); const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'memory-selected.txt'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 1000); notify(multi.length + t('exportedSel')) }}>{t('exportSel')}</button>
             <button type="button" className="mc-btn" onClick={() => { if (multi.length < 2) { notify(t('mergeNeed'), false); return } const paths = multi.map((id) => (nodeById[id] ? nodeById[id].id : id)); if (!window.confirm(t('mergeConfirm'))) return; setMulti([]); const st = simRef.current; if (st) { st.multi = [] } fetch(`${API}/merge?paths=${encodeURIComponent(paths.join(','))}`).then((r) => r.json()).then((d) => { if (d && d.ok) { notify(t('merged')) } else { notify(t('mergeFail'), false) } }).catch(() => notify(t('mergeFail'), false)) }}>{t('merge')}</button>
@@ -8093,7 +8349,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
             <button type="button" className="mc-btn" onClick={() => { const s = simRef.current; if (s) { s.multi = [] } setMulti([]); const s2 = simRef.current; if (s2 && s2.render) s2.render() }}>{t('clearSelection')}</button>
           </div>
         )}
-        {sel && nodeById[sel] && <div className="me-graph-sidebar" style={{ position: 'absolute', right: 10, top: 10, zIndex: 3, maxWidth: 240, background: 'rgba(28,28,32,0.92)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', color: '#eee', borderRadius: 10, padding: 12, fontSize: 12, boxShadow: '0 10px 30px rgba(0,0,0,.25)' }}>
+        {sel && nodeById[sel] && <div className="me-graph-sidebar" style={{ position: 'absolute', right: 14, top: 14, zIndex: 3, maxWidth: 248, background: 'rgba(24,28,34,0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', color: '#e6eaf0', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 11, padding: 13, fontSize: 11.5, boxShadow: '0 14px 34px rgba(0,0,0,.38)' }}>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{nodeById[sel] ? (nodeById[sel].title || nodeById[sel].name) : sel}</div>
           <div style={{ opacity: .8, marginBottom: 8 }}>
             {nodeById[sel] ? t(KIND_LABELS[nodeById[sel].kind] || 'kindKnowledge') : '—'}
@@ -8272,10 +8528,10 @@ function recencyColor(updated) {
   const t = new Date(updated || 0).getTime()
   if (!t) return '#94a3b8'
   const days = (Date.now() - t) / 86400000
-  if (days < 3) return '#10b981'
-  if (days < 14) return '#f59e0b'
-  if (days < 30) return '#f97316'
-  return '#94a3b8'
+  if (days < 3) return '#34D399'
+  if (days < 14) return '#FBBF24'
+  if (days < 30) return '#FF7A45'
+  return '#8CA0B3'
 }
 function hexToRgb(hex) {
   const h = hex.replace('#', '')
