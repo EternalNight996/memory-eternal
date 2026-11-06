@@ -418,6 +418,11 @@ export const ZH = {
   healthy: '配置正常',
   mcpSetupHint: '「自动挂载 MCP」= 让 Claude Code / Codex / Cursor 这些工具能调用记忆库。开启后自动把它们配置好；关掉就不动你电脑上任何配置文件，需要时手动跑 dsh-memory setup。',
   mcpManageHint: '每个 agent 用下方按钮单独安装/卸载 MCP',
+  starAskTitle: '记忆已经用起来了',
+  starAskBody: '已召回 {recalls} 次 · 沉淀 {cards} 张卡。如果它帮你省过时间，给个 Star 会让更多人找到它。',
+  starAskGo: '去 Star',
+  starAskLater: '晚点再说',
+  starAskNever: '不再提示',
   tabConfig: '记忆配置',
   configPageSub: '写入、路由、审核与服务的本地配置',
   tabAudit: '待审',
@@ -1167,6 +1172,11 @@ export const EN = {
   healthy: 'healthy',
   mcpSetupHint: '"Auto-mount MCP" = lets Claude Code / Codex / Cursor use the memory vault. On = auto-configures them; Off = never touches your machine config, run dsh-memory setup manually when needed.',
   mcpManageHint: 'Use each agent row to install/uninstall MCP individually',
+  starAskTitle: 'Memory is being used',
+  starAskBody: 'Recalled {recalls} times · {cards} cards captured. If it saved you time, a Star helps others find it.',
+  starAskGo: 'Star on GitHub',
+  starAskLater: 'Later',
+  starAskNever: "Don't ask again",
   tabConfig: 'Memory Config',
   configPageSub: 'Local write, routing, audit and service settings',
   tabAudit: 'Review',
@@ -2829,6 +2839,36 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   }, [])
   const [sort, setSort] = useState('recent') // 'recent' | 'title' | 'hot'
   const [libToast, setLibToast] = useState(null)
+  // Star 提示：只在账本里已有真实数据（召回 ≥8 次或 ≥15 张卡）时问一次，
+  // 问之前不打扰；7 天冷却、最多 3 次、「不再提示」永久关闭。判定在服务端做。
+  const [starAsk, setStarAsk] = useState(null)
+  const starAct = useCallback((action) => {
+    setStarAsk(null)
+    try {
+      fetch(`${API}/star/action`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      }).catch(() => {})
+    } catch { /* 面板不能因为提示失败而崩 */ }
+  }, [])
+  useEffect(() => {
+    let alive = true
+    fetch(`${API}/star/status`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive || !j || !j.shouldAsk) return
+        setStarAsk(j)
+        // 展示即计数，避免用户什么都不点时下次又弹
+        fetch(`${API}/star/action`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'shown' }),
+        }).catch(() => {})
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
   const libToastTimer = useRef(null)
   const importRef = useRef(null)
   const [exporting, setExporting] = useState(false)
@@ -3221,6 +3261,20 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             <button type="button" className="mc-v5-star" onClick={() => openExternal('https://github.com/EternalNight996/memory-eternal')} title={t('v5Star')}>★ <span className="mc-v5-star-label">Star</span></button>
             <button type="button" className="mc-v5-help" onClick={() => openSupport('group')} title={t('supportTitle')} aria-label={t('supportTitle')}>?</button>
           </div>
+        </div>
+      )}
+      {starAsk && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 14px 0', padding: '10px 14px', borderRadius: 10, background: 'linear-gradient(90deg, rgba(255,122,69,0.14), rgba(255,122,69,0.03))', border: '1px solid rgba(255,122,69,0.32)', color: 'var(--dsw-alias-label-primary, #e5e7eb)', fontSize: 12.5, lineHeight: 1.55 }}>
+          <span style={{ fontSize: 15, color: '#FF7A45' }}>★</span>
+          <span style={{ flex: 1 }}>
+            <b>{t('starAskTitle')}</b>
+            <span style={{ opacity: 0.82, marginLeft: 8 }}>
+              {t('starAskBody').replace('{recalls}', String(starAsk.evidence?.recalls ?? 0)).replace('{cards}', String(starAsk.evidence?.cards ?? 0))}
+            </span>
+          </span>
+          <button type="button" className="mc-btn me-on" onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal'); starAct('never') }}>★ {t('starAskGo')}</button>
+          <button type="button" className="mc-btn" onClick={() => starAct('later')}>{t('starAskLater')}</button>
+          <button type="button" className="mc-btn" onClick={() => starAct('never')}>{t('starAskNever')}</button>
         </div>
       )}
       {libToast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (libToast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: libToast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{libToast.ok ? '✓' : '✕'}</span><span>{libToast.msg}</span></div>}
