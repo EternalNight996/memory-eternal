@@ -26,12 +26,15 @@ export function inRect(x, y, r, rect) {
  * 标签预算随节点数收敛：小图全画；大图只画焦点/悬停/搜索命中 + 度数最高的若干。
  * @returns {number} Infinity 表示不限制
  */
-export function labelBudget(nodeCount) {
+export function labelBudget(nodeCount, quality = 0) {
   const n = Number(nodeCount) || 0
-  if (n <= 120) return Infinity
-  if (n <= 300) return 160
-  if (n <= 600) return 90
-  return 60
+  const q = Number(quality) || 0
+  if (n <= 60) return Infinity
+  // 160 条标签在放大时每帧都要 measureText + 圆角矩形 + fillText，是「放大后卡顿」的
+  // 另一半原因。这里收到 64：悬停/选中/搜索命中必留，其余按度数优先，够读且帧率稳。
+  const base = n <= 600 ? 64 : 48
+  // 自适应画质降到最低档（仍在掉帧）时，标签再减半：文字光栅化在弱 GPU 上很贵。
+  return q >= 3 ? Math.min(base, 32) : base
 }
 
 /**

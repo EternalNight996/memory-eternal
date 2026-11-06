@@ -26,7 +26,7 @@ const PACKAGE_ROOT = path.resolve(path.dirname(__filename))
 const versionRef = (() => { try { const p = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')); return p.version } catch { return '' } })()
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { workingPrompt, readWorking, writeWorking, clearWorking } from './lib/working-memory.js'
+import { workingPrompt, readWorking, writeWorking, clearWorking, archiveStaleWorking } from './lib/working-memory.js'
 import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
@@ -1340,6 +1340,19 @@ export function apply(ctx, config) {
     import('./lib/vault.js').then((v) => v.purgeExpired(vaultDir(), days)).catch(() => {})
   }, 30 * 60 * 1000)
   ctx.effect(() => () => clearInterval(purgeTimer), 'memory-eternal: recycle purge timer')
+
+  // 会话工作区闲置归档：DSH 没有必到的「会话结束」事件，按时间兜底（24h 没动 = 当它结束）。
+  // 先跑一次（启动时清掉上次残留），之后每 30 分钟一次；关闭工作区时整体跳过。
+  const archiveWorkingNow = () => {
+    try {
+      const cfg = settings.get() ?? {}
+      if (cfg.enabled === false || cfg.workingMemoryEnabled === false) return
+      archiveStaleWorking(process.env)
+    } catch { /* 归档失败不影响任何主流程 */ }
+  }
+  const workingKick = setTimeout(archiveWorkingNow, 60 * 1000)
+  const workingTimer = setInterval(archiveWorkingNow, 30 * 60 * 1000)
+  ctx.effect(() => () => { clearTimeout(workingKick); clearInterval(workingTimer) }, 'memory-eternal: working archive timer')
 
   // SQLite 定时备份：每天凌晨 3 点自动备份，保留最近 7 天。
   let lastBackupDate = ''

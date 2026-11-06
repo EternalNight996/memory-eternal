@@ -13,7 +13,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {
   writeWorking, readWorking, clearWorking, listWorking, archiveWorking,
-  workingPrompt, clipWorking, workingDir, workingPath, safeSessionId,
+  workingPrompt, clipWorking, workingDir, workingPath, safeSessionId, archiveStaleWorking,
   WORKING_MAX_LINES, WORKING_MAX_BYTES, WORKING_KEEP,
 } from '../lib/working-memory.js'
 
@@ -108,4 +108,21 @@ test('写入前脱敏：密钥不能进工作区（它会被注入 prompt）', (
 test('活动工作区数量受 WORKING_KEEP 约束', () => {
   for (let i = 0; i < WORKING_KEEP + 5; i++) writeWorking(env, 'keep-' + i, 'x' + i, { mode: 'replace' })
   assert.ok(listWorking(env).length <= WORKING_KEEP, '实际 ' + listWorking(env).length)
+})
+
+test('闲置归档：超过 24h 没动过的工作区被移到 archive', async () => {
+  writeWorking(env, 'idle-old', '两天前的草稿', { mode: 'replace' })
+  const file = workingPath(env, 'idle-old')
+  const old = new Date(Date.now() - 48 * 3600 * 1000)
+  await fsp.utimes(file, old, old)
+  const r = archiveStaleWorking(env, 24 * 3600 * 1000)
+  assert.ok(r.archived.includes('idle-old'), JSON.stringify(r))
+  assert.equal(readWorking(env, 'idle-old').exists, false)
+})
+
+test('闲置归档：刚写过的工作区不动', async () => {
+  writeWorking(env, 'idle-new', '刚刚', { mode: 'replace' })
+  const r = archiveStaleWorking(env, 24 * 3600 * 1000)
+  assert.ok(!r.archived.includes('idle-new'))
+  assert.equal(readWorking(env, 'idle-new').exists, true)
 })
