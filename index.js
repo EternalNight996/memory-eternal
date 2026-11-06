@@ -26,6 +26,7 @@ const PACKAGE_ROOT = path.resolve(path.dirname(__filename))
 const versionRef = (() => { try { const p = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')); return p.version } catch { return '' } })()
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { workingPrompt, readWorking, writeWorking, clearWorking } from './lib/working-memory.js'
 import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
@@ -58,6 +59,9 @@ export const Config = z.object({
   coreMemoryEnabled: z.boolean().default(true),
   coreMemoryLimit: z.number().min(1).max(20).default(6),
   coreMemoryMaxChars: z.number().min(200).max(10000).default(2000),
+  // 会话工作区（草稿本）：按会话隔离的 Markdown 文件，不写 SQLite、不进 FTS、不参与召回。
+  // 默认开：只有写入过才有内容，空文档不注入、不占位。
+  workingMemoryEnabled: z.boolean().default(true),
   // 关注摘要推送：开启后按间隔抓取「新闻关注」，有新内容时注入 systemPrompt，
   // 让 Agent 在下一轮主动告诉用户。**默认关闭** —— 这是会打扰人的功能，必须用户显式开启。
   newsDigestEnabled: z.boolean().default(false),
@@ -945,6 +949,9 @@ export function apply(ctx, config) {
   }
 
   const lastSeqs = new Map() // sessionId -> 已处理到的 seq 水位
+  // 最近活跃会话：sessionPrompt 分段的 text 是「每次装配时求值」的函数，但装配上下文只给 scope，
+  // 不一定带 sessionId。所以这里用事件钩子兜底记录一个「最近会话」，供工作区注入使用。
+  let activeSession = ''
   const lastTouched = new Map() // sessionId -> 上次监听时间（用于清理，避免 Map 无界增长）
   // 轮次计数：inbox/claimed 每轮必发（不依赖 turn-stopping），两个计数器对不上
   // 就说明收尾事件没到——这是「监听器整个没被调用」这类静默死亡的兜底探测。
@@ -959,6 +966,7 @@ export function apply(ctx, config) {
     turnsStopped += 1
     stamp(stoppedAt)
     const sessionId = agent?.session?.id ?? agent?.id ?? 'unknown'
+    if (sessionId && sessionId !== 'unknown') activeSession = sessionId
     try {
       const api = sessionEventApi(agent?.session)
       const first = !lastTouched.has(sessionId)
@@ -1086,6 +1094,33 @@ export function apply(ctx, config) {
       clearSection()
     }
   }, 'memory-eternal: core memory section')
+
+  // -- 2b-2. 会话工作区：按会话注入草稿（**不是知识**，见 lib/working-memory.js）----
+  // text 传函数：每次装配时求值，所以同一个进程里多个会话各自拿到自己的那份，
+  // 且内容随时改写立刻生效（不需要 settings.watch 触发重建）。
+  ctx.effect(() => {
+    const sessionOfScope = (context) => {
+      try {
+        const s = context && context.scope
+        if (!s) return ''
+        return String(s.session?.id || s.id || s.sessionId || '')
+      } catch { return '' }
+    }
+    const dispose = ctx.systemPrompt.section({
+      name: 'memory-eternal: working',
+      order: 122,
+      text: (context) => {
+        try {
+          const cfg = settings.get() ?? {}
+          if (cfg.enabled === false || cfg.workingMemoryEnabled === false) return ''
+          const sid = sessionOfScope(context) || activeSession
+          if (!sid) return ''
+          return workingPrompt(sid)
+        } catch { return '' }
+      },
+    })
+    return () => { if (typeof dispose === 'function') dispose() }
+  }, 'memory-eternal: working section')
 
   // -- 2c. 关注摘要：默认关闭；开启后按间隔抓取，只把「还没送过」的那一份推一轮 ----
   // 送达方式与核心记忆一致：systemPrompt 分段。不新增宿主能力，也不往会话里插消息。
@@ -1238,6 +1273,49 @@ export function apply(ctx, config) {
         return out
       },
     }))
+
+    // -- 2b-3. memory_note：会话工作区（草稿本）读写 -------------------------
+    // 与卡片库彻底分开：不写 SQLite、不进 FTS、不参与召回、不需要审核。
+    // 要长期保留的内容必须走 memory_write（进待审队列），这里只是「当前会话的状态」。
+    tools.register(defineTool({
+      name: 'memory_note',
+      description:
+        '读写**当前会话的工作区草稿**（session workspace）：适合记录"这个任务现在做到哪一步、下一步做什么、' +
+        '已经确认过的临时决策"。它按会话隔离、整篇覆盖、不进入记忆库、不需要审核、也不会被召回。' +
+        '不要把它当长期记忆：跨会话要保留的内容请用 memory_write 提交待审卡。' +
+        'action=replace 覆盖整篇（主用法，建议每次写完当前全貌）；append 追加；clear 清空；read 读回当前内容。',
+      parameters: {
+        action: { type: 'string', required: true, description: 'replace | append | clear | read' },
+        text: { type: 'string', description: '正文；replace / append 时必填（≤200 行 / 24KB，超出截断）' },
+      },
+      output: { schema: { type: 'string' }, render(_a, v) { return [{ type: 'text', text: v }] } },
+      timeoutMs: 10000,
+      async execute(args, exec) {
+        const cfg = settings.get() ?? {}
+        if (cfg.enabled === false) return '（记忆核心已禁用）'
+        if (cfg.workingMemoryEnabled === false) return '（会话工作区已在设置里关闭）'
+        const sid = String(exec?.agent?.session?.id || exec?.agent?.id || activeSession || '')
+        if (!sid) return '（取不到当前会话 id，工作区未写入）'
+        const action = String(args.action || '').trim().toLowerCase()
+        if (action === 'read') {
+          const w = readWorking(process.env, sid)
+          if (!w.exists || !w.text.trim()) return '（本会话工作区为空）'
+          return '本会话工作区（' + w.lines + ' 行 / ' + w.bytes + ' 字节）：\n\n' + w.text
+        }
+        if (action === 'clear') {
+          const r = clearWorking(process.env, sid)
+          return r.ok ? '已清空本会话工作区。' : '（清空失败：' + r.error + '）'
+        }
+        if (action !== 'replace' && action !== 'append') return '（action 必须是 replace / append / clear / read）'
+        const text = String(args.text == null ? '' : args.text)
+        if (!text.trim()) return '（text 为空，未写入）'
+        const r = writeWorking(process.env, sid, text, { mode: action })
+        if (!r.ok) return '（写入失败：' + r.error + '）'
+        return '已' + (action === 'replace' ? '覆盖' : '追加') + '本会话工作区：' + r.lines + ' 行 / ' + r.bytes + ' 字节'
+          + (r.truncated ? '（超出上限，已截断到 ' + r.maxLines + ' 行 / ' + r.maxBytes + ' 字节）' : '')
+          + '。注意：这是草稿，不会进入记忆库。'
+      },
+    }))
   }
 
   // 沉淀停滞探测：只有「有轮次在跑」且「管线 15 分钟一个活口都没有」才报（真死才报）。
@@ -1323,6 +1401,8 @@ export function apply(ctx, config) {
     beatHostMarker()
     const handleApi = createApi({
       vaultDir, vaultRoots, getSettings: settings.get,
+      // 会话工作区：面板没传 session 时按「最近活跃会话」兜底
+      getActiveSession: () => activeSession,
       // 矛盾扫描（#36）在宿主侧跑模型：这里给它 llm 句柄，独立 web 进程拿不到就会如实报错
       getLlm: () => ctx.get('llm'),
       // 技能卡同步：宿主进程能直接访问 ctx.skills（真正安装/可用的技能），独立 web 会走文件兜底
@@ -1415,7 +1495,7 @@ export function apply(ctx, config) {
               const cfg = settings.get() ?? {}
               // 只暴露可安全展示/回填的字段
               const safe = {
-                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, coreMemoryEnabled: cfg.coreMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
+                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, coreMemoryEnabled: cfg.coreMemoryEnabled, workingMemoryEnabled: cfg.workingMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
                 captureMinChars: cfg.captureMinChars, captureCooldownMs: cfg.captureCooldownMs, dedupThreshold: cfg.dedupThreshold, maxCardsPerDay: cfg.maxCardsPerDay,
                 distillEnabled: cfg.distillEnabled, dedupByLLM: cfg.dedupByLLM, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
                 autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,

@@ -112,6 +112,12 @@ function makeHarness({ legacy = false, raw = {}, entryId = 'memory-eternal', liv
   return harness
 }
 
+/**
+ * 只统计「召回提示段」。会话工作区段（v0.26 新增）是独立贡献，空文档时文本为空，
+ * 不属于这组「autoRecall 开关」的契约；按名字排除，避免把两件事绑死。
+ */
+const nonWorkingSections = (state) => state.sections.filter((s) => s.name !== 'memory-eternal: working')
+
 /** 假 res：json() 只用到 writeHead/end/req.headers。 */
 function fakeRes() {
   const chunks = []
@@ -150,8 +156,8 @@ test('0.1.7 形状：没有 register 也能挂载，并登记 configure({auto:fa
   assert.equal(h.state.configureCalls.length, 1, '应登记一次表单页策略')
   assert.equal(h.state.configureCalls[0].presentation.auto, false, '插件自带设置页 → auto:false')
   assert.equal(h.state.configureCalls[0].owner, h.ctx.fiber, '策略归属当前插件 fiber')
-  assert.equal(h.state.sections.length, 1, 'autoRecall 默认开 → 注入一段 systemPrompt')
-  assert.equal(h.state.sections[0].name, 'memory-eternal: auto-recall')
+  assert.equal(nonWorkingSections(h.state).length, 1, 'autoRecall 默认开 → 注入一段 systemPrompt')
+  assert.equal(nonWorkingSections(h.state)[0].name, 'memory-eternal: auto-recall')
   h.disposeAll()
 })
 
@@ -168,11 +174,11 @@ test('0.1.7 形状：settings.get() 读的是 apply 收到的活引用', () => {
 test("0.1.7 形状：'loader/volatile-update' 触发 watch → systemPrompt 段重建", () => {
   const h = makeHarness()
   apply(h.ctx, h.live)
-  assert.equal(h.state.sections.length, 1)
-  const before = h.state.sections.length
+  assert.equal(nonWorkingSections(h.state).length, 1)
+  const before = nonWorkingSections(h.state).length
   h.live.recallLimit = 9
   h.ctx.emit('loader/volatile-update', [['recallLimit']])
-  assert.equal(h.state.sections.length, before + 1, 'volatile 更新应重建提示段（watch 生效）')
+  assert.equal(nonWorkingSections(h.state).length, before + 1, 'volatile 更新应重建提示段（watch 生效）')
   assert.equal(h.state.sectionDisposals.length, 1, '旧段应先被注销')
   h.disposeAll()
 })
@@ -180,10 +186,10 @@ test("0.1.7 形状：'loader/volatile-update' 触发 watch → systemPrompt 段�
 test('0.1.7 形状：autoRecall=false 不注入提示段；volatile 打开后即时注入', () => {
   const h = makeHarness({ raw: { autoRecall: false } })
   apply(h.ctx, h.live)
-  assert.equal(h.state.sections.length, 0)
+  assert.equal(nonWorkingSections(h.state).length, 0)
   h.live.autoRecall = true
   h.ctx.emit('loader/volatile-update', [['autoRecall']])
-  assert.equal(h.state.sections.length, 1, 'volatile 打开 autoRecall 后应立刻注入')
+  assert.equal(nonWorkingSections(h.state).length, 1, 'volatile 打开 autoRecall 后应立刻注入')
   h.disposeAll()
 })
 
@@ -227,7 +233,7 @@ test('≤0.1.5 兼容：老 register 路径原样保留（不登记 configure，
   assert.equal(h.state.legacyWatches, 2, 'register 句柄的 watch 应被用两次（audit + prompt）')
   assert.equal(h.state.configureCalls.length, 0, '老版本没有表单策略 API')
   assert.equal(h.state.listeners.get('loader/volatile-update'), undefined, '老路径不应依赖 loader 事件')
-  assert.equal(h.state.sections.length, 1)
+  assert.equal(nonWorkingSections(h.state).length, 1)
   h.disposeAll()
 })
 

@@ -15,7 +15,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
 [![npm](https://img.shields.io/npm/v/memory-eternal)](https://www.npmjs.com/package/memory-eternal)
-[![release](https://img.shields.io/badge/release-v0.25.0-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
+[![release](https://img.shields.io/badge/release-v0.26.0-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **English (default)** · [简体中文](README.zh-CN.md)
@@ -156,23 +156,23 @@ net benefit ≈ avoided context cost − (injected characters + distillation cal
 
 ## 📊 How it compares — measured on a real vault
 
-Snapshot **2026-11-07**. Our figures are measured on a real **2,321-card vault** on Windows (not a toy corpus); competitor figures come from their public README / npm / GitHub on the same date. `—` means *not advertised or not verifiable*, not "absent".
+Snapshot **2026-11-07**. Our figures are measured on a real **2,321-card vault** on Windows (not a toy corpus); competitor facts come from their public README / docs / license page on the same date. `—` means *not advertised or not verifiable*, not "absent".
 
-| Capability | **memory-eternal v0.24.0** | 灵枢 dsh-memory v0.9.23 | SAG-Wiki v0.2.7 | CLAUDE.md / AGENTS.md |
-|---|---|---|---|---|
-| Storage | SQLite + Markdown mirror | Markdown cognitive graph | SQLite FTS5 over your files | flat file(s) |
-| Write gate | **human review queue** (3 stores) | deterministic rules | none — index is truth | none |
-| Immutable audit log | ✅ enforced at the SQLite layer | ✅ claimed | — | — |
-| Retrieval | FTS5 + **BM25/IDF**, column weights | rule-based graph walk | BM25 → JEV (LLM judge) | whole file injected |
-| Recall latency | **p50 2.33 ms · p95 6.18 ms** | — | — | grows with file size |
-| Recall model calls | **0** | 0 | 1–2 per query | 0 |
-| Token ledger (measured usefulness) | ✅ | — | — | — |
-| Multi-agent | DSH + MCP + hooks + TUI + browser | DSH + MCP | CLI + skill | per tool |
-| npm downloads / month | 14,370 | **31,421** | 119 | n/a |
-| GitHub stars | 147 | **612** | 124 | n/a |
-| License | MIT | MIT | MIT | n/a |
+| Capability | **memory-eternal v0.25.0** | [agentmemory](https://github.com/rohitg00/agentmemory) v0.9.32 | [mem0](https://github.com/mem0ai/mem0) v3 | [Obsidian](https://obsidian.md) | CLAUDE.md / AGENTS.md |
+|---|---|---|---|---|---|
+| Form factor | DSH-native plugin: capture, review UI, graph, CLI/TUI/MCP | local memory server + MCP for coding agents | memory SDK / self-hosted server / cloud | local Markdown notes app | hand-written context files |
+| Storage | SQLite + Markdown mirror (git-friendly) | local file store (Redis optional) | vector + graph stores (self-hosted or cloud) | Markdown files on disk | one flat file |
+| Write gate | **human review queue** (three stores) | automatic capture, no review | LLM extraction, no review | human-written only | none |
+| Immutable audit log | ✅ enforced at the SQLite layer | operation audit tool, not storage-enforced | — | — | — |
+| Retrieval | FTS5 + **BM25/IDF**, column weights | BM25 + vector + graph (local embeddings optional) | semantic + BM25 + entity + graph | full-text search / plugins | whole file injected |
+| Recall latency | **p50 2.33 ms · p95 6.18 ms** | — | p50 ~0.88–1.09 s (vendor paper, cloud) | grows with vault size | grows with file size |
+| Recall model calls | **0** (BM25 only) | 0 for keyword; 1 embedding call when semantic is on | 1 embedding call + optional LLM rerank | 0 | 0 |
+| Model calls per write | 1 when auto-capture runs (can be off) | 0 by default (synthetic compression); LLM optional | ≥1 LLM call per add | 0 | 0 |
+| Token ledger (measured usefulness) | ✅ | — | platform usage dashboard | — | — |
+| Multi-agent | DSH + MCP + hooks + TUI + browser | MCP + REST: Claude Code, Codex, Cursor, DSH, … | Python/TS SDK, self-hosted server, cloud | no native agent interface | loaded per tool |
+| License | MIT | Apache-2.0 | Apache-2.0 | proprietary (free for all use) | n/a |
 
-**We are not the biggest here.** 灵枢 has more stars and downloads; SAG-Wiki retrieves over your own documents better than we do. What we do differently is the *write path*: a human gate, a three-store separation, and an audit trail you can point at — plus a token ledger so you can check whether recall is worth its cost.
+**We are not the biggest here.** mem0 has a funded team, a research paper and a managed service; agentmemory's automatic capture covers more coding agents than we do; Obsidian is where many people already keep their notes. What we do differently is the *write path*: a human gate, a three-store separation, and an audit trail you can point at — plus a token ledger so you can check whether recall is worth its cost.
 
 Reproduce our numbers on your own vault:
 
