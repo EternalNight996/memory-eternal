@@ -4,6 +4,13 @@
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/cover-zh.png" width="900" alt="记忆核心 memory-eternal：给 AI 一个不会忘、可审核、可量化的长期记忆" />
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph-en.png" width="31%" alt="Knowledge graph: clusters by kind, tag edges" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-en.png" width="31%" alt="Review inbox: type bar, queue and verdict pane" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status-en.png" width="31%" alt="Runtime status: database, backups, capture, version" />
+</p>
+<p align="center"><sub>▲ Knowledge graph · review inbox · runtime status</sub></p>
+
 **记忆核心（memory-eternal）** —— 给 AI 一个不会忘、可审核、可量化的长期记忆。本地优先 · 审核闸门 · 记忆账本 · 一个库接入 DSH / Claude Code / Codex / Cursor 与任意 MCP 客户端。
 
 [![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
@@ -12,11 +19,6 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **English (default)** · [简体中文](README.zh-CN.md)
-
-<p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/demo.gif" width="900" alt="memory-eternal 20-second tour: review queue, token ledger, knowledge graph" /></a>
-</p>
-<p align="center"><sub>▲ 20-second tour — review queue · token ledger · knowledge graph · <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo</a></sub></p>
 
 > **Your AI forgets every session. Give it a memory it can trust.**
 >
@@ -228,11 +230,10 @@ Not everything should be injected into every session. Core memory is the small, 
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph-en.png" width="32%" alt="Knowledge graph: clusters by kind, tag edges" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-en.png" width="32%" alt="Review inbox: type bar, queue and verdict pane" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status-en.png" width="32%" alt="Runtime status: database, backups, capture, version" />
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/demo.gif" width="900" alt="memory-eternal 20-second tour: review queue, token ledger, knowledge graph" /></a>
 </p>
-<p align="center"><sub>▲ Knowledge graph · review inbox · runtime status</sub></p>
+<p align="center"><sub>▲ 20-second tour — review queue · token ledger · knowledge graph · <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo</a></sub></p>
+
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-audit.png" width="49%" alt="Native terminal audit: select-all, batch approve/reject" />

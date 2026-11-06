@@ -4,6 +4,13 @@
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/cover-zh.png" width="900" alt="记忆核心 memory-eternal：给 AI 一个不会忘、可审核、可量化的长期记忆" />
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="31%" alt="知识星图：按类型分簇、标签连边" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="31%" alt="审核中心：类型条、队列与判词栏" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status.png" width="31%" alt="运行状态：库、备份、自动沉淀与版本" />
+</p>
+<p align="center"><sub>▲ 知识星图 · 审核中心 · 运行状态</sub></p>
+
 **记忆核心（memory-eternal）** —— 给 AI 一个不会忘、可审核、可量化的长期记忆。本地优先 · 审核闸门 · 记忆账本 · 一个库接入 DSH / Claude Code / Codex / Cursor 与任意 MCP 客户端。
 
 [![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
@@ -12,11 +19,6 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [English (default)](README.md) · **简体中文（镜像）**
-
-<p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/demo.gif" width="900" alt="memory-eternal 20 秒演示：审核队列、记忆账本、知识星图" /></a>
-</p>
-<p align="center"><sub>▲ 20 秒演示 —— 审核队列 · 记忆账本 · 知识星图 · <a href="https://eternalnight996.github.io/memory-eternal/demo/">在线 Demo</a></sub></p>
 
 > **你的 AI 每次会话都失忆。给它一个可信的记忆库。**
 >
@@ -228,11 +230,10 @@ dsh-memory ledger --days 30 --json        # 召回注入 / 沉淀调用 / 有用
 ## 📸 截图
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph.png" width="32%" alt="知识星图：按类型分簇、标签连边" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit.png" width="32%" alt="审核中心：类型条、队列与判词栏" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status.png" width="32%" alt="运行状态：库、备份、自动沉淀与版本" />
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/demo.gif" width="900" alt="memory-eternal 20 秒演示：审核队列、记忆账本、知识星图" /></a>
 </p>
-<p align="center"><sub>▲ 知识星图 · 审核中心 · 运行状态</sub></p>
+<p align="center"><sub>▲ 20 秒演示 —— 审核队列 · 记忆账本 · 知识星图 · <a href="https://eternalnight996.github.io/memory-eternal/demo/">在线 Demo</a></sub></p>
+
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-audit.png" width="49%" alt="终端原生审核：全选、批量批准/驳回" />
