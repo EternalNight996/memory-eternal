@@ -54,6 +54,75 @@ dsh-memory open              # http://127.0.0.1:7999
 npx -y -p memory-eternal dsh-memory tui   # live queue in the terminal
 ```
 
+## 🧬 How memory actually flows
+
+One SQLite vault, one write gate, two read paths. Nothing enters recall without passing the gate.
+
+```mermaid
+flowchart TD
+  subgraph S1["① Input"]
+    A1["Conversation + tool events<br/>captured when a turn ends"]
+    A2["Installed skills<br/>scanned from the host"]
+    A3["News follows<br/>RSS · GitHub · HN · arXiv · DSH plugins"]
+    A4["Manual cards / imports"]
+  end
+  subgraph S2["② Distill — the only LLM step"]
+    B1["LLM distills the session<br/>on failure: raw card, nothing lost"]
+    B2["Dedup: lexical Jaccard<br/>optional LLM merge decision"]
+    B3["Kind classification"]
+  end
+  subgraph S3["③ Review gate — human only"]
+    C1[("Quarantine<br/>pending / rejected")]
+    C2{"approve / reject"}
+    C3[("Main store<br/>approved only")]
+  end
+  subgraph S4["④ Storage"]
+    D1[("SQLite: cards + FTS5 index")]
+    D2["Markdown mirror<br/>git-able"]
+    D3["audit_log + token ledger"]
+  end
+  subgraph S5["⑤ Recall — every session"]
+    E1["Core memory → system prompt"]
+    E2["memory_recall → FTS5 + BM25"]
+    E3["memory_revise → pending revision"]
+  end
+  A1 --> B1 --> B2 --> B3 --> C1
+  A2 --> B2
+  A3 --> C1
+  A4 --> B2
+  C1 --> C2
+  C2 -->|approve| C3
+  C2 -->|reject| C1
+  C3 --> D1
+  D1 --> D2
+  C3 --> D3
+  C3 --> E1
+  C3 --> E2
+  E2 -->|hits + chars| D3
+  E3 --> C1
+```
+
+The diagram is only true because three invariants are enforced in code, not by convention:
+
+| Invariant | Enforced by |
+|---|---|
+| The main store **only** ever contains approved cards | Two physical tables; every read path queries the main one |
+| An agent can never approve its own memory | Agent writes land in quarantine; approve/reject is a human action in the UI / TUI / CLI |
+| Recall costs **zero model calls** | FTS5 + BM25; the LLM runs only while distilling |
+
+## 🔌 How agents talk to the memory
+
+| Channel | Direction | When | Gate | Cost |
+|---|---|---|---|---|
+| `memory_recall` | agent → memory | on demand | approved only | **0 model calls** (p50 2.3 ms) |
+| Core memory | memory → agent | every session, automatic | approved only | ~0.2k chars |
+| Session capture / `memory_write` | conversation → memory | turn end | **queued for review** | 1 LLM call |
+| `memory_revise` | agent → memory | on demand | **queued as a revision** | 0 |
+| Review (Web UI · TUI · CLI) | human → memory | manual | — | 0 |
+| Hooks (Claude Code / Codex / Cursor) | host → memory | session end | **queued** | 1 LLM call |
+| MCP server | any MCP client | on demand | same gate | same |
+| News follows | web → memory | interval / 24h | isolated from cards | network only |
+
 ## 🧾 Does it actually save tokens?
 
 Most memory products <em>say</em> they save tokens. We think you should check. The plugin ships a built-in **memory ledger** (Runtime status → Memory ledger) that records:
@@ -76,6 +145,42 @@ net benefit ≈ avoided context cost − (injected characters + distillation cal
 | One-off question, low hit rate | recall injection | usually nothing |
 
 > Illustrative numbers, not a benchmark — measure your own with the ledger. If recall usefulness stays below ~60%, tune it down (fewer results, shorter summaries) or turn memory off.
+
+## 📊 How it compares — measured on a real vault
+
+Snapshot **2026-11-07**. Our figures are measured on a real **2,321-card vault** on Windows (not a toy corpus); competitor figures come from their public README / npm / GitHub on the same date. `—` means *not advertised or not verifiable*, not "absent".
+
+| Capability | **memory-eternal v0.24.0** | 灵枢 dsh-memory v0.9.23 | SAG-Wiki v0.2.7 | CLAUDE.md / AGENTS.md |
+|---|---|---|---|---|
+| Storage | SQLite + Markdown mirror | Markdown cognitive graph | SQLite FTS5 over your files | flat file(s) |
+| Write gate | **human review queue** (3 stores) | deterministic rules | none — index is truth | none |
+| Immutable audit log | ✅ enforced at the SQLite layer | ✅ claimed | — | — |
+| Retrieval | FTS5 + **BM25/IDF**, column weights | rule-based graph walk | BM25 → JEV (LLM judge) | whole file injected |
+| Recall latency | **p50 2.33 ms · p95 6.18 ms** | — | — | grows with file size |
+| Recall model calls | **0** | 0 | 1–2 per query | 0 |
+| Token ledger (measured usefulness) | ✅ | — | — | — |
+| Multi-agent | DSH + MCP + hooks + TUI + browser | DSH + MCP | CLI + skill | per tool |
+| npm downloads / month | 14,370 | **31,421** | 119 | n/a |
+| GitHub stars | 147 | **612** | 124 | n/a |
+| License | MIT | MIT | MIT | n/a |
+
+**We are not the biggest here.** 灵枢 has more stars and downloads; SAG-Wiki retrieves over your own documents better than we do. What we do differently is the *write path*: a human gate, a three-store separation, and an audit trail you can point at — plus a token ledger so you can check whether recall is worth its cost.
+
+Reproduce our numbers on your own vault:
+
+```bash
+node scripts/bench-search.mjs --rebuild   # rebuild time + p50/p95/max latency
+dsh-memory ledger --days 30 --json        # recall injection / capture / usefulness
+```
+
+| Our measured baseline | Value |
+|---|---|
+| Cards indexed | 2,321 |
+| Index rebuild (cold) | 869 ms |
+| Recall p50 / p95 / max | 2.33 / 6.18 / 7.60 ms |
+| Recall throughput | ~431 queries/s |
+| Recall model calls | 0 |
+| Injection per recall (60-day ledger) | ~1,394 chars |
 
 ## 🛡️ Review first, prove later
 
