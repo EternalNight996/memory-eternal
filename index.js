@@ -58,6 +58,11 @@ export const Config = z.object({
   coreMemoryEnabled: z.boolean().default(true),
   coreMemoryLimit: z.number().min(1).max(20).default(6),
   coreMemoryMaxChars: z.number().min(200).max(10000).default(2000),
+  // 关注摘要推送：开启后按间隔抓取「新闻关注」，有新内容时注入 systemPrompt，
+  // 让 Agent 在下一轮主动告诉用户。**默认关闭** —— 这是会打扰人的功能，必须用户显式开启。
+  newsDigestEnabled: z.boolean().default(false),
+  newsDigestIntervalMinutes: z.number().min(30).max(10080).default(720),
+  newsDigestMaxItems: z.number().min(1).max(10).default(5),
   // 技能卡（kind=skill）：从「本机实际安装/可用的技能」生成卡，强制待审。
   // 不由 agent 对话沉淀（见 lib/capture.js AGENT_CARD_KINDS 不含 skill）；
   // 默认开：宿主启动 / 技能安装变化时后台同步，新技能自动进审核中心。
@@ -1082,6 +1087,75 @@ export function apply(ctx, config) {
     }
   }, 'memory-eternal: core memory section')
 
+  // -- 2c. 关注摘要：默认关闭；开启后按间隔抓取，只把「还没送过」的那一份推一轮 ----
+  // 送达方式与核心记忆一致：systemPrompt 分段。不新增宿主能力，也不往会话里插消息。
+  ctx.effect(() => {
+    let disposeSection = null
+    let timer = null
+    let alive = true
+    let lastText = ''
+    const clearSection = () => {
+      if (!disposeSection) return
+      const dispose = disposeSection
+      disposeSection = null
+      dispose()
+    }
+    const render = async () => {
+      try {
+        const cfg = settings.get() ?? {}
+        if (cfg.enabled === false || cfg.newsDigestEnabled !== true) { clearSection(); lastText = ''; return }
+        const { readDigest, digestPrompt } = await import('./lib/news-digest.js')
+        const d = await readDigest(vaultDir())
+        if (!alive) return
+        // 没有新内容、或这一份已经被某一轮消费过 → 不注入（宁可不提，也不反复念旧闻）
+        if (!d || !Array.isArray(d.items) || !d.items.length || Number(d.consumedAt) >= Number(d.generatedAt)) {
+          clearSection(); lastText = ''
+          return
+        }
+        const text = digestPrompt(d, { maxItems: Number(cfg.newsDigestMaxItems) || 5 })
+        if (!text) { clearSection(); lastText = ''; return }
+        if (text === lastText) return
+        lastText = text
+        clearSection()
+        disposeSection = ctx.systemPrompt.section({ name: 'memory-eternal: news-digest', order: 130, text })
+      } catch { /* 摘要失败绝不能影响正常对话 */ }
+    }
+    const tick = async () => {
+      const cfg = settings.get() ?? {}
+      if (cfg.enabled === false || cfg.newsDigestEnabled !== true) { await render(); return }
+      try {
+        const { readDigest, buildDigest } = await import('./lib/news-digest.js')
+        const d = await readDigest(vaultDir())
+        const intervalMs = Math.max(30, Number(cfg.newsDigestIntervalMinutes) || 720) * 60000
+        if (!d || Date.now() - (Number(d.generatedAt) || 0) >= intervalMs) {
+          await buildDigest(vaultDir(), {
+            windowHours: Math.max(1, Math.round(intervalMs / 3600000)),
+            maxItems: Number(cfg.newsDigestMaxItems) || 5,
+          })
+        }
+      } catch { /* 抓取失败就等下一个周期，不打扰用户 */ }
+      await render()
+    }
+    tick()
+    timer = setInterval(tick, 60000)
+    if (timer && typeof timer.unref === 'function') timer.unref()
+    // 一轮会话开始 = 这份摘要已经进过 systemPrompt，标记消费，下一轮不再重复。
+    const onClaim = async () => {
+      try {
+        const { readDigest, consumeDigest } = await import('./lib/news-digest.js')
+        const d = await readDigest(vaultDir())
+        if (d && Number(d.generatedAt) > Number(d.consumedAt || 0)) await consumeDigest(vaultDir(), d.generatedAt)
+      } catch { /* ignore */ }
+    }
+    if (typeof ctx.on === 'function') ctx.on('agent/inbox/claimed', onClaim)
+    return () => {
+      alive = false
+      if (timer) clearInterval(timer)
+      if (typeof ctx.off === 'function') { try { ctx.off('agent/inbox/claimed', onClaim) } catch { /* 已卸载 */ } }
+      clearSection()
+    }
+  }, 'memory-eternal: news digest section')
+
   const tools = ctx.get('tools')
   if (tools !== undefined) {
     tools.register(defineTool({
@@ -1360,6 +1434,10 @@ export function apply(ctx, config) {
                 recallEmbedding: cfg.recallEmbedding || '',
                 sessionBudgetChars: cfg.sessionBudgetChars ?? 80000,
                 skillCardsAutoSync: cfg.skillCardsAutoSync !== false,
+                // 关注摘要推送（默认关；覆盖测试要求每个 Config 字段都能被 /config 读出）
+                newsDigestEnabled: cfg.newsDigestEnabled === true,
+                newsDigestIntervalMinutes: cfg.newsDigestIntervalMinutes ?? 720,
+                newsDigestMaxItems: cfg.newsDigestMaxItems ?? 5,
               }
               const descriptor = (ctx.get('settings') ?? {}).describe?.({ redactSecrets: true }) ?? []
               const me = descriptor.find((d) => d.ns === 'memory-eternal')

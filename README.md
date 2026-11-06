@@ -156,3 +156,30 @@ Not everything should be injected into every session. Core memory is the small, 
 ## 📄 License
 
 MIT — use it, self-host it, build on it.
+
+## 🖋 Author's Quotes
+
+_Verses from 《蛊真人》(Reverend Insanity). Kept in the original Chinese — a translation would lose the meter. Also rotating at the bottom of the panel's left rail._
+
+> 落魄谷中寒风吹，春秋蝉鸣少年归。<br>
+> 荡魂山处石人泪，定仙游走魔向北。<br>
+> 逆流河上万仙退，爱情不敌坚持泪。<br>
+> 宿命天成命中败，仙尊悔而我不悔。
+
+> 早岁已知世事艰，仍许飞鸿荡云间。
+
+> 男儿不展凌云志，空负天生八尺躯。
+
+> 千古地仙随风逝，昔日三王归青冢。<br>
+> 阳莽悍陨谁无败？卷土重来再称王。
+
+> 天河一挂淘龙鱼，逆天独行顾八荒。<br>
+> 今朝暂且展翼去，明朝飞仙笞凤凰！
+
+> 独帜入渊深未知，身似浮萍命难持。<br>
+> 千舟皆朝归海处，一苇青拨戏浪巅。<br>
+> 惊鸿四散鱼逃尽，唯有残帆傲此间。<br>
+> 待到天开云雾散，负手直望笑苍天。
+
+<p align="right"><sub>——《蛊真人》· 大爱仙尊</sub></p>
+

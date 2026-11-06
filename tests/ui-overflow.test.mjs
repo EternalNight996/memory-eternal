@@ -54,3 +54,22 @@ test('版本探针必须自动复查（否则重启窗口里的一次失败会�
 test('大标题 modal 的 h2 不横向溢出（长标题省略号）', () => {
   assert.match(src, /\.me-modal-title h2 \{[^}]*min-width: 0;[^}]*text-overflow: ellipsis/)
 })
+
+test('多选下拉：checkbox 不得被 .mc-field 的「占满一行」规则命中（下拉框 BUG）', () => {
+  // 现场：免审智能体/免审类型的下拉里，复选框被撑成整行宽，选项文字挤到最右缘逐字换行。
+  // 根因是一条通用规则 .mc-field input { width: 100% } 把 checkbox 也算成了输入框。
+  assert.match(
+    src,
+    /\.mc-field input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\), \.mc-field select \{ width: 100%/,
+    '占满一行的规则必须排除 checkbox / radio'
+  )
+  assert.doesNotMatch(
+    src,
+    /\.mc-field input, \.mc-field select \{ width: 100%/,
+    '旧的无差别规则不许回潮'
+  )
+  assert.match(src, /\.mc-field input\[type="checkbox"\]/, '复选框要有独立的固定尺寸规则')
+  assert.match(src, /\.mc-dd-opt \{[^}]*white-space: nowrap/, '选项行不换行')
+  // 外层容器是 div 而非 label：里面每个选项都是自带宽 input 的 label，嵌套 label 不合法
+  assert.match(src, /<div className="mc-field">\s*\n\s*<span className="mc-field-label">\{label\}<\/span>/, 'MultiDD 外层必须是 div')
+})

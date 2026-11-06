@@ -37,6 +37,19 @@ import { mergeLocalOverlay } from './config-merge.js'
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
 
+// 《蛊真人》作者语录：左侧栏底部轮播，README 底部同源。
+// 原始粘贴里有两段互相覆盖的串行（同一句被接了两遍），这里按完整诗节归并为 6 首，去重后保留原标点。
+const QUOTES = [
+  '落魄谷中寒风吹，春秋蝉鸣少年归。荡魂山处石人泪，定仙游走魔向北。逆流河上万仙退，爱情不敌坚持泪。宿命天成命中败，仙尊悔而我不悔。',
+  '早岁已知世事艰，仍许飞鸿荡云间。',
+  '男儿不展凌云志，空负天生八尺躯。',
+  '千古地仙随风逝，昔日三王归青冢。阳莽悍陨谁无败？卷土重来再称王。',
+  '天河一挂淘龙鱼，逆天独行顾八荒。今朝暂且展翼去，明朝飞仙笞凤凰！',
+  '独帜入渊深未知，身似浮萍命难持。千舟皆朝归海处，一苇青拨戏浪巅。惊鸿四散鱼逃尽，唯有残帆傲此间。待到天开云雾散，负手直望笑苍天。',
+]
+// 语录出处：书名 + 尊号
+const QUOTE_SOURCE = '《蛊真人》· 大爱仙尊'
+
 async function openExternal(url) {
   try {
     const r = await fetch(`${API}/open-external?url=${encodeURIComponent(url)}`, { method: 'POST' })
@@ -134,6 +147,29 @@ export const ZH = {
   newsLoadingHint: '首次加载会抓取多个中文资讯源，可能需要几秒…',
   newsRetry: '重试',
   newsSearchGo: '搜索',
+  newsFollow: '关注',
+  newsFollowPreview: '我这样理解，要关注吗？',
+  newsFollowConfirm: '开始关注',
+  newsFollowAdded: '已关注',
+  newsFollowExists: '已经在关注了',
+  newsFollowRemoved: '已取消关注',
+  newsFollowFail: '关注失败',
+  newsFollowNoQuery: '先输入一个主题词',
+  newsFollowDomains: '在这些来源里找',
+  newsFollowEmpty: '还没有关注任何主题。搜一个词后点「关注」，以后它自己会更新。',
+  newsIntentHint: '这看起来是一句指令 —— 点「＋ 关注」让它持续去对应来源里找；下面的列表不再按字面过滤。',
+  newsFollowing: '关注动态',
+  newsDigest: '关注摘要推送',
+  newsDigestHint: '开启后，宿主按间隔抓取「新闻关注」，只有出现「新」内容时才会让 Agent 在下一轮提一句。默认关闭；关掉就不打扰。',
+  newsDigestEnabled: '启用推送',
+  newsDigestInterval: '抓取间隔（分钟）',
+  newsDigestMaxItems: '每条摘要最多几条',
+  newsDigestNow: '立即生成并预览',
+  newsDigestNowHint: '开启前可以先点它，看看到底会推送什么。',
+  newsDigestBuilding: '生成中…',
+  newsDigestDone: '摘要已生成',
+  newsDigestEmpty: '当前没有新的关注内容',
+  newsDigestFail: '生成摘要失败',
   newsSortRec: '为你推荐',
   newsSortTime: '最新',
   newsPersonalized: '已按你的喜爱定制排序',
@@ -537,6 +573,8 @@ export const ZH = {
   navWorkspace: '工作区',
   navSystem: '系统',
   navSupport: '支持',
+  navQuotes: '作者语录',
+  quoteHint: '点击换一句',
   v5Local: '本地运行',
   v5Star: '去 GitHub 点 Star',
   runtimeTitle: '运行状态',
@@ -586,6 +624,10 @@ export const ZH = {
   actionRunning: '处理中…',
   recycleEmptyHint: '回收站为空：删掉的卡片会先放到这里，保留 {days} 天后自动清理。',
   recyclePurgeAll: '清空回收站',
+  recyclePurgeAllConfirm: '永久删除回收站里的全部 {n} 张卡片？此操作不可恢复。',
+  toastPurgeAll: '已永久删除 {n} 张',
+  bucketDeleted: '已删除',
+  restoreToQueue: '退回审核',
   fbCopyManual: '自动复制被浏览器拦截，已把内容放在下面：点「全选」再按 Ctrl+C',
   vcPage: '页面脚本',
   vcPageStale: '⚠ 当前页面仍在运行旧版脚本（页面 v{page} / 磁盘 v{disk}）：按 Ctrl+F5 刷新页面即生效；若「运行中」仍是旧版号，则还需重启桌面版 / DSH',
@@ -854,6 +896,29 @@ export const EN = {
   newsLoadingHint: 'First load fetches several Chinese sources; this can take a few seconds.',
   newsRetry: 'Retry',
   newsSearchGo: 'Search',
+  newsFollow: 'Follow',
+  newsFollowPreview: 'Here is what I understood — follow it?',
+  newsFollowConfirm: 'Start following',
+  newsFollowAdded: 'Following',
+  newsFollowExists: 'Already following',
+  newsFollowRemoved: 'Unfollowed',
+  newsFollowFail: 'Follow failed',
+  newsFollowNoQuery: 'Type a topic first',
+  newsFollowDomains: 'Search in these sources',
+  newsFollowEmpty: 'No topics followed yet. Search for something, then hit "Follow".',
+  newsIntentHint: 'That looks like an instruction — hit "＋ Follow" to keep pulling it from the right sources; the list below is no longer filtered literally.',
+  newsFollowing: 'From your follows',
+  newsDigest: 'Follow digest push',
+  newsDigestHint: 'When on, the host refreshes your news follows on an interval and lets the agent surface NEW items on the next turn. Off by default.',
+  newsDigestEnabled: 'Enable push',
+  newsDigestInterval: 'Interval (minutes)',
+  newsDigestMaxItems: 'Max items per digest',
+  newsDigestNow: 'Generate & preview now',
+  newsDigestNowHint: 'Try it before enabling — see exactly what would be pushed.',
+  newsDigestBuilding: 'Generating…',
+  newsDigestDone: 'Digest generated',
+  newsDigestEmpty: 'No new items from your follows',
+  newsDigestFail: 'Failed to generate digest',
   newsSortRec: 'For you',
   newsSortTime: 'Latest',
   newsPersonalized: 'Ordered by your taste',
@@ -1257,6 +1322,8 @@ export const EN = {
   navWorkspace: 'Workspace',
   navSystem: 'System',
   navSupport: 'Support',
+  navQuotes: "Author's Quotes",
+  quoteHint: 'Click for the next verse',
   v5Local: 'Local',
   v5Star: 'Star on GitHub',
   runtimeTitle: 'Runtime status',
@@ -1308,6 +1375,10 @@ export const EN = {
   actionRunning: 'Working…',
   recycleEmptyHint: 'Recycle bin is empty: deleted cards land here first and are purged automatically after {days} days.',
   recyclePurgeAll: 'Empty recycle bin',
+  recyclePurgeAllConfirm: 'Permanently delete all {n} cards in the recycle bin? This cannot be undone.',
+  toastPurgeAll: 'Permanently deleted {n}',
+  bucketDeleted: 'Deleted',
+  restoreToQueue: 'Back to review',
   fbCopyManual: 'Auto-copy was blocked by the browser — the text is below: click Select all, then Ctrl+C',
   vcLoaded: 'running (process serving this page)',
   vcResident: 'resident instance',
@@ -1562,9 +1633,19 @@ const CSS = `
 .mc-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 12px; }
 .mc-field-label { font-size: 11.5px; opacity: .62; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
 .mc-field-hint { font-size: 10.5px; opacity: .45; line-height: 1.4; }
-.mc-field input, .mc-field select { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font-size: 12px; transition: border-color .15s, box-shadow .15s; }
-.mc-field input:focus, .mc-field select:focus { outline: none; border-color: var(--dsw-alias-brand-primary, #3b82f6); box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
-.mc-field input:disabled, .mc-field select:disabled { opacity: .55; cursor: not-allowed; }
+/* 只有「真正填内容」的控件才占满一行。多选下拉里的 checkbox 一旦被这条命中，
+   会被撑成整行宽 —— 选项文字被挤到最右缘、逐字换行（用户截图里的下拉框 BUG）。 */
+.mc-field input:not([type="checkbox"]):not([type="radio"]), .mc-field select { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font-size: 12px; transition: border-color .15s, box-shadow .15s; }
+.mc-field input:not([type="checkbox"]):not([type="radio"]):focus, .mc-field select:focus { outline: none; border-color: var(--dsw-alias-brand-primary, #3b82f6); box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
+.mc-field input:not([type="checkbox"]):not([type="radio"]):disabled, .mc-field select:disabled { opacity: .55; cursor: not-allowed; }
+/* 复选框：固定尺寸、不参与拉伸，并跟随主题强调色 */
+.mc-field input[type="checkbox"], .mc-field input[type="radio"] { width: 15px; height: 15px; flex: none; margin: 0; padding: 0; accent-color: #ff7a45; cursor: pointer; }
+/* 多选下拉的选项行：一行一个，不换行，hover 有反馈 */
+.mc-dd-opt { display: flex; align-items: center; gap: 8px; padding: 7px 9px; cursor: pointer; white-space: nowrap; min-width: 0; }
+.mc-dd-opt:hover { background: rgba(127,127,127,.10); }
+.mc-dd-opt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* 深色主题下让原生复选框走深色渲染（默认是白底方块，在黑卡上非常刺眼） */
+.me-v5 .mc-dd-opt input[type="checkbox"] { color-scheme: dark; }
 .mc-switch { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; font-size: 12px; line-height: 1.5; min-width: 0; }
 .mc-switch input { appearance: none; -webkit-appearance: none; flex: none; width: 34px; height: 20px; margin: 1px 0 0; border-radius: 999px; background: var(--dsw-alias-border-l2, #cbd5e1); position: relative; cursor: pointer; transition: background .16s; }
 .mc-switch input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28); transition: transform .16s; }
@@ -1612,6 +1693,35 @@ const CSS = `
 .mc-rail:not(.open) .mc-railbtn .mc-rail-label, .mc-rail:not(.open) .mc-rail-collapse { position: relative; }
 .mc-railbtn:hover { border-color: var(--dsw-alias-brand-primary, #3b82f6); color: var(--dsw-alias-label-primary, #111); background: var(--dsw-alias-bg-layer-1, #fff); }
 .mc-railbtn.active { background: #3b82f6; border-color: transparent; color: #fff; box-shadow: 0 6px 18px rgba(59,130,246,0.35); }
+/* ---- 作者语录（左侧栏底部，margin-top:auto 贴底）----
+   按钮语义：整块可点，点一次换下一句；折叠态与窄屏隐藏，避免挤坏图标栏。 */
+/* 作者语录：做成一张「题词卡」，不是又一块 UI 面板。
+   三条设计理由：
+   ① 诗句用衬线（宋体族）——黑体读诗像公告栏，横细竖粗才有古意；
+   ② 纸感暖白 + 右下角 13% 透明度的引号水印 —— 卡片只有 ~200px 宽，纯文字容易糊成一块，
+      一个水印 + 一点留白就能把它压成"题词"而不是"卡片"；
+   ③ 层次靠颜色区分而不是字号堆叠：眉标用琥珀色、诗句用墨色、出处用褪色的褐。 */
+.mc-quote { position: relative; margin-top: auto; flex: none; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 7px; padding: 12px 13px 11px; text-align: left; font: inherit; cursor: pointer; overflow: hidden; border: 1px solid rgba(120, 105, 85, .16); border-radius: 13px; background: linear-gradient(158deg, #fffdf9 0%, #f6f1e7 100%); color: #4a443c; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease; }
+.mc-quote::before { content: '❝'; position: absolute; top: 3px; right: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 30px; line-height: 1; color: rgba(180, 83, 9, .13); pointer-events: none; }
+.mc-quote:hover { border-color: rgba(180, 83, 9, .42); background: linear-gradient(158deg, #fffefb 0%, #f8f2e6 100%); box-shadow: 0 6px 18px rgba(120, 90, 50, .10); transform: translateY(-1px); }
+.mc-quote-tag { position: relative; font-size: 9px; font-weight: 700; letter-spacing: .16em; color: #b45309; opacity: .9; }
+.mc-quote-text { position: relative; font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', 'SimSun', serif; font-size: 12px; line-height: 1.95; letter-spacing: .015em; color: #3f3a33; word-break: break-word; }
+.mc-quote-src { position: relative; align-self: flex-end; font-size: 9.5px; letter-spacing: .04em; color: #a08b6b; }
+.mc-quote-src::before { content: '— '; opacity: .7; }
+@keyframes me-quote-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+.mc-quote-text { animation: me-quote-in .26s ease both; }
+.mc-rail:not(.open) .mc-quote { display: none; }
+@media (max-width: 720px) { .mc-quote { display: none; } }
+/* 深色主题：暖墨底 + 琥珀色描边。诗句用 #ece6dc 而不是继承的 #b0b7c1 ——
+   后者是"说明文字"的灰度，读诗会显得脏且发青。 */
+.me-v5 .mc-quote { border-color: rgba(255, 122, 69, .16); background: linear-gradient(158deg, #262a31 0%, #1d2127 100%); color: #b0b7c1; }
+.me-v5 .mc-quote::before { color: rgba(255, 122, 69, .14); }
+.me-v5 .mc-quote:hover { border-color: rgba(255, 122, 69, .45); background: linear-gradient(158deg, #2b3038 0%, #22262d 100%); box-shadow: 0 8px 22px rgba(0, 0, 0, .35); }
+.me-v5 .mc-quote-tag { color: #ff9d6e; }
+.me-v5 .mc-quote-text { color: #ece6dc; }
+.me-v5 .mc-quote-src { color: rgba(255, 157, 110, .62); }
+@media (max-width: 1100px) { .me-v5 .mc-quote { display: none; } }
+@container (max-width: 1100px) { .me-v5 .mc-quote { display: none; } }
 .mc-main { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; }
 .mc-tab.active { background: var(--dsw-alias-bg-layer-1, #fff); opacity: 1; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
 .mc-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -1795,6 +1905,35 @@ const CSS = `
 .mc-news-hero-go { flex: none; padding: 9px 18px; border: 0; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 650; color: #04101f; background: linear-gradient(120deg, #67e8f9, #38bdf8 45%, #a78bfa); box-shadow: 0 8px 20px -10px rgba(56,189,248,.9); transition: transform .18s ease, filter .2s ease; }
 .mc-news-hero-go:hover { transform: translateY(-1px); filter: brightness(1.06); }
 .mc-news-hero-go:active { transform: scale(.98); }
+/* ---- 关注（Follow）：hero 里的订阅入口 + 预览卡 + 关注 chips ---- */
+.mc-news-hero-follow { flex: none; padding: 9px 15px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 650; color: inherit; background: var(--dsw-alias-bg-layer-1, #fff); transition: all .16s ease; }
+.mc-news-hero-follow:hover { border-color: var(--dsw-alias-brand-primary, #3b82f6); color: var(--dsw-alias-brand-primary, #3b82f6); transform: translateY(-1px); }
+.mc-news-hero-follow:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+/* 预览卡：落库前的「我理解对了吗」。留白大一点，让人真的读一遍再点确认。 */
+.mc-news-follow-draft { margin: 0 0 12px; padding: 12px 13px; border-radius: 12px; border: 1px solid rgba(59,130,246,.35); background: rgba(59,130,246,.06); font-size: 12px; display: flex; flex-direction: column; gap: 9px; }
+.mc-news-follow-draft .draft-head { font-size: 11px; font-weight: 700; letter-spacing: .04em; opacity: .8; }
+.mc-news-follow-draft .draft-q { opacity: .75; margin-left: 4px; }
+.mc-news-follow-draft .draft-doms { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mc-news-follow-draft .draft-lbl { font-size: 10.5px; opacity: .6; }
+.mc-news-follow-draft .draft-opt { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; white-space: nowrap; }
+.mc-news-follow-draft .draft-opt input { width: 14px; height: 14px; margin: 0; accent-color: #3b82f6; }
+.mc-news-follow-draft .draft-note { font-size: 10.5px; line-height: 1.7; opacity: .68; }
+.mc-news-follow-draft .draft-actions { display: flex; gap: 8px; justify-content: flex-end; }
+/* 关注 chips：点主体 = 只看这个主题；点 ✕ = 取消关注 */
+.mc-news-follows { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin: 0 0 10px; }
+.mc-news-follow-chip { display: inline-flex; align-items: center; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); border-radius: 999px; overflow: hidden; font-size: 11.5px; background: var(--dsw-alias-bg-layer-1, #fff); }
+.mc-news-follow-chip.on { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,.10); }
+.mc-news-follow-chip .chip-main { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 5px 9px; font-family: inherit; font-size: inherit; }
+.mc-news-follow-chip .chip-main i { font-style: normal; opacity: .55; margin-left: 5px; }
+.mc-news-follow-chip .chip-x { border: 0; border-left: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: transparent; color: inherit; cursor: pointer; padding: 5px 8px; font-size: 10px; opacity: .5; }
+.mc-news-follow-chip .chip-x:hover { opacity: 1; color: #ef4444; }
+.mc-news-tile-follow { font-size: 9.5px; padding: 1px 6px; border-radius: 999px; background: rgba(59,130,246,.12); color: #3b82f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+/* 关注专区：单独一栏，不和新闻抢新鲜度排序 */
+.mc-news-follow-sec { margin: 0 0 14px; padding: 10px 11px 12px; border-radius: 13px; border: 1px solid rgba(59,130,246,.22); background: rgba(59,130,246,.045); }
+.mc-news-follow-sec-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 9px; font-size: 11px; font-weight: 700; letter-spacing: .03em; color: var(--dsw-alias-brand-primary, #3b82f6); }
+.mc-news-follow-sec-head em { font-style: normal; font-size: 10px; padding: 1px 7px; border-radius: 999px; background: rgba(59,130,246,.14); }
+/* 摘要预览：让用户在开启推送前先看清「会推什么」 */
+.mc-digest-preview { margin: 0; padding: 10px 12px; border-radius: 9px; background: var(--dsw-alias-bg-base, #f3f4f6); color: inherit; font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
 .mc-news-hero-clear { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: rgba(127,127,127,.08); color: var(--dsw-alias-label-secondary, #6b7280); font-size: 11px; line-height: 1; cursor: pointer; transition: all .2s ease; }
 .mc-news-hero-clear:hover { color: var(--dsw-alias-label-primary, #111827); border-color: var(--dsw-alias-border-l2, #d1d5db); }
 .mc-news-hero-hint { margin-top: 8px; font-size: 10.5px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #6b7280); }
@@ -2754,12 +2893,16 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     } catch { /* 隐私模式不弹 */ }
   }, [view])
   const [railOpen, setRailOpen] = useState(true)
+  // 作者语录轮播下标（不持久化：每次打开从头开始，避免“上次停在哪”成为隐形状态）
+  const [quoteIdx, setQuoteIdx] = useState(0)
   const [newCard, setNewCard] = useState(null)
   const [dataVer, setDataVer] = useState(0)
   const bump = useCallback(() => setDataVer((v) => v + 1), [])
   // 两套存储：隔离区计数（审核中心 / 回收中心徽标）。overview.quarantine 由服务端给出。
   const quarantinePending = overview?.quarantine?.pending ?? 0
-  const quarantineDeleted = overview?.quarantine?.deleted ?? 0
+  // issue #57：回收中心现在同时收「已删除」与「已驳回」，徽标必须一起算 ——
+  // 否则面板里列着 5 张驳回卡、左边却显示 0，用户依旧找不到入口。
+  const quarantineDeleted = (overview?.quarantine?.deleted ?? 0) + (overview?.quarantine?.rejected ?? 0)
   const searchTimer = useRef(null)
   const [cardTotal, setCardTotal] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -3170,6 +3313,19 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             <span className="mc-rail-ico">🐞</span>
             {railOpen && <span className="mc-rail-label">{t('fbNav')}</span>}
           </button>
+          {/* 作者语录：贴左栏底部（CSS margin-top:auto），点击换一句；折叠/窄屏由 CSS 隐藏。 */}
+          {railOpen && (
+            <button
+              type="button"
+              className="mc-quote"
+              onClick={() => setQuoteIdx((i) => (i + 1) % QUOTES.length)}
+              title={`${QUOTES[quoteIdx]}\n${QUOTE_SOURCE}\n${t('quoteHint')}`}
+            >
+              <span className="mc-quote-tag">{t('navQuotes')} · {quoteIdx + 1}/{QUOTES.length}</span>
+              <span className="mc-quote-text" key={quoteIdx}>{QUOTES[quoteIdx]}</span>
+              <span className="mc-quote-src">{QUOTE_SOURCE}</span>
+            </button>
+          )}
         </div>
         <div className="mc-main" ref={mainRef}>
         {/* 库不可写（#33）：跨标签明示一次，并说清"配置仍可保存"，避免用户以为整个插件坏了。
@@ -3295,10 +3451,10 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           {visited.has('stats') && <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} />}
         </div>
         <div style={{ display: view === 'audit' ? 'contents' : 'none' }}>
-          {visited.has('audit') && <AuditPanel t={t} onReload={() => loadAll()} version={dataVer} />}
+          {visited.has('audit') && <AuditPanel t={t} onReload={() => { loadAll(); bump() }} version={dataVer} />}
         </div>
         <div style={{ display: view === 'optimize' ? 'contents' : 'none' }}>
-          {visited.has('optimize') && <RecoverPanel t={t} onReload={() => loadAll()} version={dataVer} />}
+          {visited.has('optimize') && <RecoverPanel t={t} onReload={() => { loadAll(); bump() }} version={dataVer} />}
         </div>
 
         {feedbackOpen && <FeedbackModal t={t} onClose={() => setFeedbackOpen(false)} />}
@@ -3405,6 +3561,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState('')
   const [saved, setSaved] = useState('')
+  // 关注摘要：开启前的预览（null = 还没生成过）
+  const [digestPreview, setDigestPreview] = useState(null)
   // issue #42 ①：可选的 provider / model（动态拉取；取不到就回退文本输入）
   const [routes, setRoutes] = useState(null)
   const [vc, setVc] = useState(null)   // 版本跟踪：运行中 / 磁盘 / npm 最新
@@ -3902,6 +4060,30 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   } catch (e) { notify(t('skillsSyncFail'), false) } finally { setBusy('') }
                 }}>{busy === 'skills' ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</button>
               </div>
+            </CfgSection>
+            {/* 关注摘要：默认关闭，开启后由宿主按间隔抓取并注入 systemPrompt */}
+            <CfgSection icon="📬" title={t('newsDigest')} sub={t('newsDigestHint')}>
+              <div className="mc-cfg-grid">
+                <Bool k="newsDigestEnabled" label={t('newsDigestEnabled')} />
+                <F k="newsDigestIntervalMinutes" label={t('newsDigestInterval')} type="number" />
+                <F k="newsDigestMaxItems" label={t('newsDigestMaxItems')} type="number" />
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => {
+                  setBusy('digest')
+                  try {
+                    const r = await fetch(API + '/news/digest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).then((x) => x.json()).catch(() => null)
+                    if (r && r.ok) {
+                      setDigestPreview(r.text || '')
+                      notify((r.digest && r.digest.items && r.digest.items.length) ? t('newsDigestDone') : t('newsDigestEmpty'), true)
+                    } else notify((r && r.error) || t('newsDigestFail'), false)
+                  } catch (e) { notify(t('newsDigestFail'), false) } finally { setBusy('') }
+                }}>{busy === 'digest' ? '⏳ ' + t('newsDigestBuilding') : '📬 ' + t('newsDigestNow')}</button>
+                <span className="mc-field-hint">{t('newsDigestNowHint')}</span>
+              </div>
+              {digestPreview !== null ? (
+                <pre className="mc-digest-preview">{digestPreview || t('newsDigestEmpty')}</pre>
+              ) : null}
             </CfgSection>
             {/* 布局大小：只影响界面显示 */}
             <CfgSection icon="🔠" title={t('uiLayout')} sub={t('uiLayoutHint')}>
@@ -4465,6 +4647,20 @@ function newsMonogram(source) {
   }
   return s.slice(0, 1)
 }
+/**
+ * 这句话是「指令」还是「关键词」？
+ *
+ * 现场：「帮我推送github最新热门」被当成搜索词做字面过滤 → 列表显示 0 条命中，
+ * 而用户其实是在下指令。指令应该走「关注」，不该影响下面的列表。
+ * 判据刻意保守：命中指令词，或者像句子（>=4 个词），才按指令处理。
+ */
+const NEWS_INTENT_RE = /(帮我|请|麻烦|推送|订阅|关注|跟踪|每天|每日|定时|最新|热门|看看|给我|关于|相关)/
+function newsLooksLikeIntent(q) {
+  const s = String(q || '').trim()
+  if (!s) return false
+  return NEWS_INTENT_RE.test(s) || s.split(/\s+/).length >= 4
+}
+
 /** 推荐打分：新鲜度 + 口味权重 + 搜索命中。 */
 function newsScore(item, prefs, applied) {
   const ageHours = Math.max(0, (Date.now() - Number(item.publishedAt || 0)) / 3600000)
@@ -4482,6 +4678,10 @@ function newsScore(item, prefs, applied) {
       else if (hay.includes(term)) score += 8
     }
   }
+  // 关注命中的条目适度前置：用户主动订阅的东西，如果被通用排序压到第 50 条，
+  // 等于"关注了个寂寞"（现场：40 条 GitHub 热门全排在中文资讯之后）。
+  // 只加 10 分：能浮到前排，但不会把整屏变成订阅流。
+  if (item.followId) score += 10
   return score
 }
 
@@ -4501,6 +4701,12 @@ function NewsFeedPanel({ t, mode, version }) {
   const [sort, setSort] = useState(() => (newsReadView().sort === 'time' ? 'time' : 'rec'))
   const [prefs, setPrefs] = useState(newsReadPrefs)
   const [swapping, setSwapping] = useState(false)
+  // 关注：draft=解析预览（未落库），follows=已关注列表，followFilter=按关注筛选
+  const [follows, setFollows] = useState([])
+  const [domainEnum, setDomainEnum] = useState([])
+  const [followDraft, setFollowDraft] = useState(null)
+  const [followBusy, setFollowBusy] = useState(false)
+  const [followFilter, setFollowFilter] = useState('')
   const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3200) }
 
   // 首次挂载恢复的搜索词只「应用」不「加权」：touched / lastQuery 用 ref 标记。
@@ -4539,9 +4745,12 @@ function NewsFeedPanel({ t, mode, version }) {
       // 只在首次挂载 / 手动刷新 / 切换榜单时拉一次，且固定 lang=all（一次拿全中英条目）；
       // 分类 / 搜索 / 语言 / 排序全部本地完成，切语言不会重新请求。
       const qs = new URLSearchParams({ period: mode === 'month' ? 'month' : 'today', lang: 'all' })
+      // follows=1：把关注命中并进主 feed（服务端 30 分钟 TTL，不会每次打外网）
+      qs.set('follows', '1')
       const r = await fetch(API + '/news/feed?' + qs.toString()).then((x) => x.json())
       if (!r || !r.ok) throw new Error((r && r.error) || t('newsFeedError'))
       setItems(r.items || [])
+      if (Array.isArray(r.follows)) setFollows(r.follows)
       setTypes(r.types || [])
       setFetchedAt(Number(r.fetchedAt) || 0)
       setErrors(r.errors || [])
@@ -4555,6 +4764,15 @@ function NewsFeedPanel({ t, mode, version }) {
   }, [mode, t])
 
   useEffect(() => { load() }, [version, load])
+
+  // 关注列表 + 域枚举单独拉：feed 只负责条目，关注元数据不该混在条目响应里。
+  const loadFollows = useCallback(async () => {
+    try {
+      const r = await fetch(API + '/news/follows').then((x) => x.json())
+      if (r && r.ok) { setFollows(r.follows || []); setDomainEnum(r.domains || []) }
+    } catch { /* 关注列表拉不到不影响主 feed */ }
+  }, [])
+  useEffect(() => { loadFollows() }, [version, loadFollows])
 
   const refresh = async () => {
     setLoading(true)
@@ -4572,18 +4790,23 @@ function NewsFeedPanel({ t, mode, version }) {
   }
 
   const typeLabelOf = (id) => (types.find((x) => x.id === id) || {}).label || t('all')
-  const base = (items || []).filter((x) => !lang || x.lang === lang)
+  // 关注命中的条目**不受语言筛选影响**：你主动关注了「GitHub 热门」，
+  // 它回来的必然是英文仓库；因为默认视图是"中文优先"就把它全藏起来，等于关注了个寂寞。
+  const base = (items || []).filter((x) => !lang || x.lang === lang || x.followId)
   const typeCounts = {}
   for (const x of base) typeCounts[x.type] = (typeCounts[x.type] || 0) + 1
 
   let visible = type ? base.filter((x) => x.type === type) : base
-  if (applied) {
+  const appliedIsIntent = newsLooksLikeIntent(applied)
+  if (applied && !appliedIsIntent) {
     const terms = applied.toLowerCase().split(/\s+/).filter(Boolean)
     visible = visible.filter((x) => {
       const hay = [x.title, x.summary, x.source, typeLabelOf(x.type)].join(' ').toLowerCase()
       return terms.every((k) => hay.includes(k))
     })
   }
+  // 点击关注 chip = 只看这个主题命中的条目（本地筛选，不再发请求）
+  if (followFilter) visible = visible.filter((x) => x.followId === followFilter)
   // 月榜排名只看真实热度数据（HN points/comments），不看请求语言：
   // 「本月 + 英文」有排名徽标与热度；「本月 + 中文」没有热度分数 → 归档视图，不伪造排名。
   const newsHeatOf = (item) => (Number(item.points) || 0) + (Number(item.comments) || 0) * 2
@@ -4638,6 +4861,111 @@ function NewsFeedPanel({ t, mode, version }) {
     setApplied('')
   }
 
+  // —— 关注（Follow）——
+  // 流程刻意分成「预览 → 确认」两步：用户能看到系统把他的话理解成了什么，
+  // 尤其是「搜人物但只有 AI 资讯域」这种覆盖不到的情况，必须在落库前说清楚。
+  const previewFollow = async () => {
+    const text = query.trim()
+    if (!text) { notify(t('newsFollowNoQuery'), false); return }
+    setFollowBusy(true)
+    try {
+      const r = await fetch(API + '/news/follows/preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+      }).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || t('newsFollowFail'))
+      setDomainEnum(r.domainsEnum || domainEnum)
+      setFollowDraft({ text, query: r.parsed.query, label: r.parsed.label, domains: r.parsed.domains, sourceIds: r.parsed.sourceIds || [], notes: r.parsed.notes || [] })
+    } catch (e) { notify(String((e && e.message) || e), false) } finally { setFollowBusy(false) }
+  }
+  const toggleDraftDomain = (id, on) => setFollowDraft((d) => {
+    if (!d) return d
+    const set = new Set(d.domains)
+    if (on) set.add(id); else set.delete(id)
+    return { ...d, domains: [...set] }
+  })
+  const confirmFollow = async () => {
+    if (!followDraft) return
+    setFollowBusy(true)
+    try {
+      const r = await fetch(API + '/news/follows', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: followDraft.query, domains: followDraft.domains, label: followDraft.label, sourceIds: followDraft.sourceIds || [] }),
+      }).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || t('newsFollowFail'))
+      const label = followDraft.label
+      setFollowDraft(null)
+      notify((r.duplicate ? t('newsFollowExists') : t('newsFollowAdded')) + '：' + label)
+      await loadFollows(); await load()
+    } catch (e) { notify(String((e && e.message) || e), false) } finally { setFollowBusy(false) }
+  }
+  const dropFollow = async (id) => {
+    try {
+      const r = await fetch(API + '/news/follows?id=' + encodeURIComponent(id), { method: 'DELETE' }).then((x) => x.json())
+      if (!r || !r.ok) throw new Error((r && r.error) || t('newsFollowFail'))
+      if (followFilter === id) setFollowFilter('')
+      notify(t('newsFollowRemoved'))
+      await loadFollows(); await load()
+    } catch (e) { notify(String((e && e.message) || e), false) }
+  }
+
+  // 卡片渲染抽出来：主网格和「关注」区块共用同一套 DOM，避免两处样式漂移。
+  const renderTile = (item, index) => {
+    const link = safeNewsUrl(item.url)
+    const typeLabel = typeLabelOf(item.type)
+    const cover = safeNewsUrl(item.image)
+    const rankNo = showHeat ? (rankOf.get(item.id || item.url || item.title) || 0) : 0
+    // 只有「本月 + 有真实热度分数」时才用热徽标；归档/今日视图一律只显示类型胶囊。
+    const hot = showHeat && rankNo > 0 && rankNo <= 3
+    return (
+      <a
+        key={item.id || item.url || item.title}
+        className="mc-news-tile"
+        style={{ '--i': Math.min(index, 14) }}
+        href={link || undefined}
+        target={link ? '_blank' : undefined}
+        rel="noopener noreferrer"
+        onClick={() => remember(item)}
+      >
+        <span className="mc-news-tile-cover">
+          {cover ? (
+            <img
+              className="mc-news-tile-img"
+              src={cover}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={(e) => { const img = e.currentTarget; img.style.display = 'none'; if (img.nextElementSibling) img.nextElementSibling.style.display = 'grid' }}
+            />
+          ) : null}
+          <span className="mc-news-tile-gen" style={{ '--hue': newsHue(item.title), display: cover ? 'none' : 'grid' }}>
+            <b>{NEWS_TYPE_GLYPH[item.type] || '讯'}</b>
+            <small>{typeLabel}</small>
+            <em><i>{newsMonogram(item.source)}</i>{item.source}</em>
+          </span>
+          <span className={'mc-news-tile-badge' + (hot ? ' hot' : '')}>{rankNo ? '#' + rankNo : typeLabel}</span>
+          <span className="mc-news-tile-time">{newsRelTime(item.publishedAt, t)}</span>
+        </span>
+        <span className="mc-news-tile-body">
+          <span className="mc-news-tile-title">{item.title}</span>
+          {item.summary ? <span className="mc-news-tile-summary">{item.summary}</span> : null}
+          <span className="mc-news-tile-foot">
+            <i className="mc-news-tile-dot" />
+            <span>{item.source}</span>
+            {item.followLabel ? <span className="mc-news-tile-follow">🔔 {item.followLabel}</span> : null}
+            {rankNo ? <span>· 🔥 {t('newsHeat')} {newsHeatOf(item)}</span> : null}
+            <span className="mc-news-tile-open">{t('newsOriginal')} ↗</span>
+          </span>
+        </span>
+      </a>
+    )
+  }
+
+  // 关注条目单独成区：它们的"时间"不是新闻发布时间（GitHub 是仓库创建时间），
+  // 混进新鲜度排序必然吃亏。与其给假时间调分，不如分成两栏各用各的口径。
+  const followVisible = visible.filter((x) => x.followId)
+  const followTop = followVisible.slice(0, 4)
+  const gridItems = followFilter ? visible : (followTop.length ? visible.filter((x) => !x.followId) : visible)
+
   return (
     <div className="mc-news">
       <InlineToast toast={toast} />
@@ -4655,9 +4983,49 @@ function NewsFeedPanel({ t, mode, version }) {
           />
           {query ? <button type="button" className="mc-news-hero-clear" title={t('cancel')} onClick={() => { setQuery(''); useSearch('') }}>✕</button> : null}
           <button type="button" className="mc-news-hero-go" onClick={() => useSearch(query)}>{t('newsSearchGo')}</button>
+          {query.trim() ? (
+            <button type="button" className="mc-news-hero-follow" disabled={followBusy} onClick={previewFollow} title={t('newsFollowPreview')}>
+              ＋ {t('newsFollow')}
+            </button>
+          ) : null}
         </div>
-        <div className="mc-news-hero-hint">{t('newsHeroHint')}</div>
+        <div className="mc-news-hero-hint">{appliedIsIntent ? t('newsIntentHint') : t('newsHeroHint')}</div>
       </div>
+      {followDraft ? (
+        <div className="mc-news-follow-draft">
+          <div className="draft-head">🔔 {t('newsFollowPreview')}</div>
+          <div className="draft-body">
+            <b>{followDraft.label}</b>
+            {followDraft.query ? <span className="draft-q">· 「{followDraft.query}」</span> : null}
+            <div className="draft-doms">
+              <span className="draft-lbl">{t('newsFollowDomains')}</span>
+              {domainEnum.map((d) => (
+                <label key={d.id} className="draft-opt" title={d.hint || ''}>
+                  <input type="checkbox" checked={followDraft.domains.includes(d.id)} onChange={(e) => toggleDraftDomain(d.id, e.target.checked)} />
+                  <span>{d.label}</span>
+                </label>
+              ))}
+            </div>
+            {followDraft.notes.map((n, i) => <div key={i} className="draft-note">· {n}</div>)}
+          </div>
+          <div className="draft-actions">
+            <button type="button" className="mc-btn" onClick={() => setFollowDraft(null)}>{t('cancel')}</button>
+            <button type="button" className="mc-btn me-on" disabled={followBusy || !followDraft.domains.length} onClick={confirmFollow}>{t('newsFollowConfirm')}</button>
+          </div>
+        </div>
+      ) : null}
+      {follows.length > 0 ? (
+        <div className="mc-news-follows">
+          {follows.map((f) => (
+            <span key={f.id} className={'mc-news-follow-chip' + (followFilter === f.id ? ' on' : '')}>
+              <button type="button" className="chip-main" onClick={() => setFollowFilter((v) => (v === f.id ? '' : f.id))} title={(f.domains || []).join(' / ')}>
+                🔔 {f.label}<i>{f.count || 0}</i>
+              </button>
+              <button type="button" className="chip-x" title={t('delete')} aria-label={t('delete')} onClick={() => dropFollow(f.id)}>✕</button>
+            </span>
+          ))}
+        </div>
+      ) : null}
       {personalized ? (
         <div className="mc-news-pref">
           <span>🎯 {t('newsPersonalized')}</span>
@@ -4719,57 +5087,22 @@ function NewsFeedPanel({ t, mode, version }) {
           <button type="button" className="mc-btn me-on" style={{ marginTop: 10 }} onClick={clearFilters}>{t('newsClearFilters')}</button>
         </div>
       ) : (
+        <>
+          {!followFilter && followTop.length > 0 ? (
+            <div className="mc-news-follow-sec">
+              <div className="mc-news-follow-sec-head">
+                <span>🔔 {t('newsFollowing')}</span>
+                <em>{followVisible.length}</em>
+              </div>
+              <div className={'mc-news-grid' + (swapping ? ' is-swapping' : '')}>
+                {followTop.map((item, index) => renderTile(item, index))}
+              </div>
+            </div>
+          ) : null}
         <div className={'mc-news-grid' + (swapping ? ' is-swapping' : '')}>
-          {visible.map((item, index) => {
-            const link = safeNewsUrl(item.url)
-            const typeLabel = typeLabelOf(item.type)
-            const cover = safeNewsUrl(item.image)
-            const rankNo = showHeat ? (rankOf.get(item.id || item.url || item.title) || 0) : 0
-            // 只有「本月 + 有真实热度分数」时才用热徽标；归档/今日视图一律只显示类型胶囊。
-            const hot = showHeat && rankNo > 0 && rankNo <= 3
-            return (
-              <a
-                key={item.id || item.url || item.title}
-                className="mc-news-tile"
-                style={{ '--i': Math.min(index, 14) }}
-                href={link || undefined}
-                target={link ? '_blank' : undefined}
-                rel="noopener noreferrer"
-                onClick={() => remember(item)}
-              >
-                <span className="mc-news-tile-cover">
-                  {cover ? (
-                    <img
-                      className="mc-news-tile-img"
-                      src={cover}
-                      alt=""
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => { const img = e.currentTarget; img.style.display = 'none'; if (img.nextElementSibling) img.nextElementSibling.style.display = 'grid' }}
-                    />
-                  ) : null}
-                  <span className="mc-news-tile-gen" style={{ '--hue': newsHue(item.title), display: cover ? 'none' : 'grid' }}>
-                    <b>{NEWS_TYPE_GLYPH[item.type] || '讯'}</b>
-                    <small>{typeLabel}</small>
-                    <em><i>{newsMonogram(item.source)}</i>{item.source}</em>
-                  </span>
-                  <span className={'mc-news-tile-badge' + (hot ? ' hot' : '')}>{rankNo ? '#' + rankNo : typeLabel}</span>
-                  <span className="mc-news-tile-time">{newsRelTime(item.publishedAt, t)}</span>
-                </span>
-                <span className="mc-news-tile-body">
-                  <span className="mc-news-tile-title">{item.title}</span>
-                  {item.summary ? <span className="mc-news-tile-summary">{item.summary}</span> : null}
-                  <span className="mc-news-tile-foot">
-                    <i className="mc-news-tile-dot" />
-                    <span>{item.source}</span>
-                    {rankNo ? <span>· 🔥 {t('newsHeat')} {newsHeatOf(item)}</span> : null}
-                    <span className="mc-news-tile-open">{t('newsOriginal')} ↗</span>
-                  </span>
-                </span>
-              </a>
-            )
-          })}
+          {gridItems.map((item, index) => renderTile(item, index))}
         </div>
+        </>
       )}
     </div>
   )
@@ -5087,7 +5420,23 @@ function RecoverPanel({ t, onReload, version }) {
             <p>{t('recyclePageSub')}</p>
           </div>
           <span className="mc-v5-pagecount">{items.length}</span>
-          <button type="button" className="mc-btn" disabled={!!busy || items.length === 0} title={items.length ? '' : t('emptyRecycle')} onClick={async () => { setBusy('purgeAll'); try { const r = await fetch(API + '/recycle/purge-expired?days=0'); const d = await r.json().catch(() => null); await load(); notify(r.ok ? t('toastPurgedExpired') + (d && d.purged != null ? '（' + d.purged + '）' : '') : t('toastFailed'), r.ok) } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') } }}>🗑 {t('emptyRecycle')}</button>
+          {/* issue #57：这里过去有三个叠加缺陷 ——
+              ① 文案取错 key（emptyRecycle＝「回收站为空」），按钮本身就在说"空的"；
+              ② 调的是 purge-expired?days=0，而服务端 `|| 30` 把 0 吞成 30，只清过期项；
+              ③ 无二次确认，也从不显示清掉了几张。
+              现在改成显式 purge-all + 确认 + 回显数量。 */}
+          <button type="button" className="mc-btn mc-danger" disabled={!!busy || items.length === 0} title={items.length ? t('recyclePurgeAllConfirm').split('{n}').join(String(items.length)) : t('emptyRecycle')} onClick={async () => {
+            if (!items.length) return
+            if (!window.confirm(t('recyclePurgeAllConfirm').split('{n}').join(String(items.length)))) return
+            setBusy('purgeAll')
+            try {
+              const r = await fetch(API + '/recycle/purge-all', { method: 'POST' })
+              const d = await r.json().catch(() => null)
+              await load(); if (onReload) onReload()
+              if (r.ok && (!d || d.ok !== false)) notify(t('toastPurgeAll').split('{n}').join(String(d && d.purged != null ? d.purged : items.length)), true)
+              else notify(t('toastFailed') + '：' + ((d && d.error) || ('HTTP ' + r.status)), false)
+            } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') }
+          }}>🗑 {t('recyclePurgeAll')}{items.length ? '（' + items.length + '）' : ''}</button>
         </div>
         <div className="mc-v5-recycle-hint">{t('recycleHint')}</div>
         {items.length ? (
@@ -5099,10 +5448,10 @@ function RecoverPanel({ t, onReload, version }) {
                   <span className="mc-v5-recycle-tile" style={{ color, background: color + '18', borderColor: color + '38' }}>{KIND_EMOJI[c.kind] || '📎'}</span>
                   <div className="mc-v5-recycle-copy">
                     <b>{c.title}</b>
-                    <span>{t(KIND_LABELS[c.kind] || 'kindKnowledge')} · {t('deletedAt')} {localDateKey(c.deletedAt) || '-'}</span>
+                    <span>{t(KIND_LABELS[c.kind] || 'kindKnowledge')} · {c.status === 'rejected' ? t('rejected') : t('bucketDeleted')} · {localDateKey(c.deletedAt || c.updated) || '-'}</span>
                   </div>
                   <div className="mc-v5-recycle-actions">
-                    <button type="button" className="mc-btn" disabled={!!busy} onClick={() => action('restore', c.path)}>{t('restore')}</button>
+                    <button type="button" className="mc-btn" disabled={!!busy} title={c.status === 'rejected' ? t('restoreToQueue') : t('restore')} onClick={() => action('restore', c.path)}>{c.status === 'rejected' ? t('restoreToQueue') : t('restore')}</button>
                     <button type="button" className="mc-btn mc-danger" disabled={!!busy} onClick={() => { if (window.confirm(t('purgeConfirm'))) action('purge', c.path) }}>{t('purge')}</button>
                   </div>
                 </div>
@@ -7912,7 +8261,9 @@ function MultiDD({ label, value = [], options, onChange, placeholder, z = 20 }) 
   const allOpt = options.find((o) => o.value === '__all__')
   const normalOpts = options.filter((o) => o.value !== '__all__')
   return (
-    <label className="mc-field">
+    // 用 div 而不是 label：里面还有一组「勾选型」label（每个自带宽 input），
+    // 嵌套 label 既不合法，也会让外层点击落到第一个可关联控件上（误触发第一个复选框）。
+    <div className="mc-field">
       <span className="mc-field-label">{label}</span>
       <div ref={boxRef} style={{ position: 'relative', minWidth: 0 }}>
         <button type="button" onClick={() => setOpen((o) => !o)} style={{ width: '100%', textAlign: 'left', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
@@ -7922,13 +8273,13 @@ function MultiDD({ label, value = [], options, onChange, placeholder, z = 20 }) 
         {open && (
           <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: z, marginTop: 2, borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', boxShadow: '0 6px 20px rgba(0,0,0,0.14)', maxHeight: 180, overflow: 'auto' }}>
             {allOpt && (
-              <label onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', cursor: 'pointer', borderBottom: '1px solid rgba(127,127,127,0.12)' }}>
+              <label onClick={(e) => e.stopPropagation()} className="mc-dd-opt" style={{ borderBottom: '1px solid rgba(127,127,127,0.12)' }}>
                 <input type="checkbox" checked={hasAll} onChange={(e) => setSelected(allOpt, e.target.checked)} />
                 <span>{allOpt.label}</span>
               </label>
             )}
             {normalOpts.map((o) => (
-              <label key={o.value} onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', cursor: 'pointer' }}>
+              <label key={o.value} onClick={(e) => e.stopPropagation()} className="mc-dd-opt">
                 <input type="checkbox" checked={val.includes(o.value)} onChange={(e) => setSelected(o, e.target.checked)} />
                 <span>{o.label}</span>
               </label>
@@ -7936,7 +8287,7 @@ function MultiDD({ label, value = [], options, onChange, placeholder, z = 20 }) 
           </div>
         )}
       </div>
-    </label>
+    </div>
   )
 }
 
