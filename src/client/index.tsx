@@ -29,7 +29,6 @@ import { stepSimulation, forceParamsFor, QUIET_TICKS } from './graph-force.js'
 import {
   LEVEL_TIMEOUT_MS, LEVEL_MAX_ITEMS, LEVEL_PAYLOAD_LIMIT, PLANET_MIN_RADIUS,
   pathKey, segmentsOf, urlForLevel, levelItemToNode, planetLayerParams,
-  planetMoat, orbitPlanets, assignOrbitRandom,
   describeLevelError, createLevelCache, createResourceTracker, validateLevelPayload, formatCount,
 } from './graph-planet.js'
 // 保存后不闪烁：宿主 volatile 回流滞后期间，用本地叠加层顶住输入框的值
@@ -7342,14 +7341,12 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       // 注意：必须从**原始图元**（带 label）构节点 —— 归一化域对象用的是 title/name。
       nodes: drawItems.map((it) => levelItemToNode(it, { degree: deg[it.id] || 0, maxDegree: maxDeg })),
       // 每颗大球拿到自己的方向/速度/相位：不能整盘同向，否则又变成刚体旋转
-      // （assignOrbitRandom 会保证正反各半并打乱顺序）。
       // 层内边统一成 {source,target}：保留宿主的聚合权重（星球层 = 共享标签数），
       // 渲染时用它区分粗细 —— 旧版图谱的「关系强弱」视觉不能少。
       edges: edges.map((e) => ({ sourceNodeId: e.source, targetNodeId: e.target, weight: Math.max(1, Number(e.weight) || 1) })),
       panX: 0, panY: 0, zoom: 1, running: true, raf: 0, tickCount: 0, quietTicks: 0, dragNode: null, selectedId: null, mouseX: 0, mouseY: 0, w: 0, h: 0, dpr, ctx, multi: [], marquee: null,
       planetLayer, levelId,
     }
-    if (planetLayer) assignOrbitRandom(sim.nodes.filter((n) => n.planet))
     sim.domain = nodes
     sim.domainById = nodes.reduce((m, n) => (m[n.id] = n, m), {})
     // 边弹簧每 tick 都要按 id 找两端：预先把边转成节点下标（Int32Array），
@@ -7911,7 +7908,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         }
       }
       for (const p of planets) {
-        const moat = planetMoat(p.r)
+        const moat = 12
         for (const c of sim.nodes) {
           if (c.planet || c === sim.dragNode) continue
           const dx = c.x - p.x
@@ -7949,12 +7946,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     const tick = () => {
       const t0 = performance.now()
       const result = stepSimulation(sim, { params: sim.forceParams, alphaFloor: sim.drift ? 1 : 0, damping: sim.drift ? 0.8 : undefined })
-      // 大球公转：预热结束（布局摊开）后就开始，不等「漂移」判定 ——
       // 大球是否在动不能依赖 quietTicks（护城河会持续给小球速度，可能永远等不到静置）。
-      if (planetLayer && sim.orbitOn) {
-        orbitPlanets(sim.nodes, { speed: 0.0024, tick: sim.tickCount, skip: (p) => sim.dragNode === p })
-        sim.orbitTicks = (sim.orbitTicks | 0) + 1
-      }
       separateCollisions()
       sim.lastTickMs = performance.now() - t0
       sim.lastRms = result.rms
@@ -7986,16 +7978,13 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       // 用户要的是「跟改造前一样 散乱会动」，一张静止的图体验很差。
       // 掉帧由自适应画质降档处理，而不是降低更新频率（30fps 在大球移动时看起来会发顿）。
       // 触发常驻漂移：正常是「连续静置」；但护城河会持续推动小球，rms 可能永远降不到阈值，
-      // 所以加一个「冷却结束（alpha 到 0）后重开」的兜底 —— 否则大球公转/漂移都不会启动。
       if (!sim.drift && (sim.quietTicks > QUIET_TICKS || (sim.alpha === 0 && sim.tickCount > 120))) {
         sim.quietTicks = 0
         sim.drift = true
         sim.alpha = Math.max(sim.alpha || 0, 1)
-        sim.orbitOn = true
         sim.motionUntil = 0 // 常驻运动也保留完整细节（标签/曲线边）
         if (!sim.userTouched) fit()
       }
-      // 不再做「漂移期每两帧算一次」的 30fps 降帧：大球公转/小球漂移在任何缩放下都保持
       // 60fps；真的跑不动由上面的自适应画质降档，而不是靠降低更新频率（那会明显发顿）。
       try {
         // 帧预算：拖拽时必须跟手（每帧 1 tick）；自组织阶段在 18ms 内多跑几步，
@@ -8029,8 +8018,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       lastRenderMs: Math.round((sim.lastRenderMs || 0) * 100) / 100,
       rms: Math.round((sim.lastRms || 0) * 1000) / 1000,
       alpha: Math.round((sim.alpha || 0) * 1000) / 1000,
-      drift: !!sim.drift,
-      orbitTicks: sim.orbitTicks | 0,
+      drift: !!sim.drift,
       frames: sim.renderFrames | 0,
       quality: sim.quality | 0,
       frameEma: Math.round((sim.frameEma || 0) * 10) / 10,
@@ -8054,8 +8042,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         panX: Math.round(sim.panX), panY: Math.round(sim.panY),
         selected: sim.selectedId || null,
         multi: Array.isArray(sim.multi) ? sim.multi.length : 0,
-        drift: !!sim.drift,
-        orbitTicks: sim.orbitTicks | 0,
+        drift: !!sim.drift,
         frames: sim.renderFrames | 0,
         resources: tracker.snapshot(),
         screen: sim.nodes.map((n) => ({
@@ -8224,7 +8211,6 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       }
       sim.warmRaf = 0
       if (!sim.userTouched) fit()
-      sim.orbitOn = true // 首屏布局已摊开：大球从这一刻开始公转
       try { render() } catch (e) { warnGraphDrawError(e, 'warm-final') }
       setWarming(null)
       wake()
@@ -8233,7 +8219,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     fit()
     try { render() } catch (e) { warnGraphDrawError(e, 'first-frame') }
     if (warmLeft > 0) sim.warmRaf = tracker.raf(warmStep)
-    else { sim.orbitOn = true; setWarming(0); wake() }
+    else { setWarming(0); wake() }
 
     const onDocMouseDown = () => setFilterOpen(false)
     tracker.listen(window, 'mousedown', onDocMouseDown)
