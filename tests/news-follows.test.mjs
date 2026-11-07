@@ -13,6 +13,7 @@ import path from 'node:path'
 import {
   FOLLOW_DOMAINS, parseFollowIntent, cleanFollowQuery,
   listFollows, saveFollow, removeFollow, followItems, runFollow, pickDshPlugins, normalizeDshRegistry,
+  ensureDefaultFollow, parseTrending,
 } from '../lib/news-follows.js'
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'mc-news-follows-'))
@@ -96,7 +97,8 @@ test('意图解析：DSH 插件域（中文不用 \\b，单独输入「插件」
   assert.deepEqual(a.domains, ['dsh'])
   assert.equal(a.query, '')
   assert.equal(a.label, 'DSH 最新插件')
-  assert.deepEqual(parseFollowIntent('插件').domains, ['dsh'])
+  // 注意：「插件」单独出现现在是 Agent 插件域；只有提到 dsh / 插件市场才归 DSH
+  assert.deepEqual(parseFollowIntent('插件').domains, ['plugins'])
   assert.deepEqual(parseFollowIntent('帮我推送一些 dsh 插件').domains, ['dsh'])
   assert.ok(parseFollowIntent('dsh 最新插件').notes.some((n) => n.includes('快照')), '必须说明是本机快照')
 })
@@ -142,4 +144,49 @@ test('最新排序：added 越新越靠前（线上清单的真实语义）', ()
     { full_name: 'x/new', name: 'new', updated_at: '2026-11-05T00:00:00.000Z', stargazers_count: 0 },
   ]
   assert.deepEqual(pickDshPlugins(repos, { maxItems: 2 }).map((r) => r.name), ['new', 'old'])
+})
+
+test('意图解析：agent 技能 / claude 插件 落到生态域', () => {
+  assert.deepEqual(parseFollowIntent('看看最近的 agent 技能').domains, ['skills'])
+  assert.deepEqual(parseFollowIntent('claude 插件 最新').domains, ['plugins'])
+  assert.deepEqual(parseFollowIntent('mcp server 有什么新的').domains, ['plugins'])
+  // 「dsh 插件」仍然优先归 DSH，不被生态域抢走
+  assert.deepEqual(parseFollowIntent('dsh 插件').domains, ['dsh'])
+})
+
+test('域枚举包含新增的 skills / plugins', () => {
+  const ids = FOLLOW_DOMAINS.map((d) => d.id)
+  for (const id of ['github', 'skills', 'plugins']) assert.ok(ids.includes(id), id + ' 缺失')
+})
+
+test('ensureDefaultFollow：首次创建「生态速览」，删掉后不会再生', async () => {
+  const root = await fresh('default-follow')
+  const first = await ensureDefaultFollow(root)
+  assert.equal(first.length, 1)
+  assert.equal(first[0].label, '生态速览')
+  assert.deepEqual(first[0].domains, ['github', 'skills', 'plugins'])
+
+  // 再调一次：不重复创建
+  const second = await ensureDefaultFollow(root)
+  assert.equal(second.length, 1)
+
+  // 用户删掉后：不应该被塞回来
+  await removeFollow(root, first[0].id)
+  const third = await ensureDefaultFollow(root)
+  assert.equal(third.length, 0, '删掉后不该重新播种子')
+})
+
+test('parseTrending：从榜单 HTML 里解出 repo / 描述 / 今日 star', () => {
+  const html = [
+    '<h2 class="h3 lh-condensed">',
+    '<a href="/anthropics/skills">x</a>',
+    '<p class="col-9 color-fg-muted my-1 tmp-pr-4"> Public repository for Agent Skills </p>',
+    '<span itemprop="programmingLanguage">Python</span>',
+    '<svg></svg> 622 stars today',
+  ].join('')
+  const out = parseTrending(html)
+  assert.equal(out.length, 1)
+  assert.equal(out[0].repo, 'anthropics/skills')
+  assert.equal(out[0].desc, 'Public repository for Agent Skills')
+  assert.equal(out[0].today, 622)
 })
