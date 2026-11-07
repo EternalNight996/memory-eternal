@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.EternalNight996/memory-eternal",
+  "title": "Memory Eternal",
+  "description": "Local-first long-term memory with a human review gate. Approved-only recall over SQLite FTS5/BM25 with zero model calls; immutable audit log; one vault for DSH, Claude Code, Codex, Cursor and any MCP client.",
+  "repository": {
+    "url": "https://github.com/EternalNight996/memory-eternal",
+    "source": "github"
+  },
+  "version": "0.27.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "memory-eternal",
+      "version": "0.27.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "valueHint": "subcommand"
+        }
+      ]
+    }
+  ]
+}
