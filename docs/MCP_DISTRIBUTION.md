@@ -11,6 +11,15 @@
 | Cline MCP Marketplace | ★796 | Issue open | https://github.com/cline/mcp-marketplace/issues/3603 |
 | Docker MCP Registry | ★581 | PR open | https://github.com/docker/mcp-registry/pull/6738 |
 
+## Claude Code 生态
+
+| 目录 | 规模 | 状态 | 链接 |
+|---|---|---|---|
+| awesome-claude-code | ★57k | Issue 推荐（人工审核） | https://github.com/hesreallyhim/awesome-claude-code/issues/3524 |
+| awesome-claude-code-toolkit | ★2.8k | PR open | https://github.com/rohitg00/awesome-claude-code-toolkit/pull/919 |
+| Claude 官方插件目录 | ★46k | **仅网页表单**，需人工 | https://clau.de/plugin-directory-submission |
+| ccplugins/awesome-claude-code-plugins | ★1k | **仓库关闭了 PR**（`has_pull_requests=false`），无法自动提交 | — |
+
 ## 待手动完成（需要登录）
 
 ### 1. 官方 MCP Registry
