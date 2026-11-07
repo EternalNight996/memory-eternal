@@ -1,0 +1,10 @@
+# Smithery 本地（stdio）服务器配置
+# 文档：https://smithery.ai/docs/build/project-config/smithery.yaml
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties: {}
+    required: []
+  commandFunction: |-
+    (config) => ({ command: "npx", args: ["-y", "-p", "memory-eternal", "dsh-memory", "mcp"] })
