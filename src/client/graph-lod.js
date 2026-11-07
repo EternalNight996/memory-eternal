@@ -26,18 +26,21 @@ export function inRect(x, y, r, rect) {
  * 标签预算随节点数收敛：小图全画；大图只画焦点/悬停/搜索命中 + 度数最高的若干。
  * @returns {number} Infinity 表示不限制
  */
-export function labelBudget(nodeCount) {
+export function labelBudget(nodeCount, quality = 0) {
   const n = Number(nodeCount) || 0
-  if (n <= 120) return Infinity
-  if (n <= 300) return 160
-  if (n <= 600) return 90
-  return 60
+  const q = Number(quality) || 0
+  if (n <= 60) return Infinity
+  // 160 条标签在放大时每帧都要 measureText + 圆角矩形 + fillText，是「放大后卡顿」的一半原因。
+  // 收到 64：悬停/选中/搜索命中必留，其余按度数优先，够读且帧率稳。
+  const base = n <= 600 ? 64 : 48
+  // 自适应画质降到最低档（仍在掉帧）时，标签再减半：文字光栅化在弱 GPU 上很贵。
+  return q >= 3 ? Math.min(base, 32) : base
 }
 
 /**
  * 挑出允许画标签的节点 id 集合。
  * @param {Array<{id:string}>} nodes
- * @param {{limit?:number, focusId?:string|null, hoverId?:string|null, searchHits?:Iterable<string>|null, degree?:Record<string,number>|null}} opts
+ * @param {{limit?:number, focusId?:string|null, hoverId?:string|null, searchHits?:Iterable<string>|null, degree?:Record<string,number>|null, order?:string[]|null}} opts
  * @returns {Set<string>}
  */
 export function pickLabelIds(nodes, opts = {}) {
@@ -49,9 +52,15 @@ export function pickLabelIds(nodes, opts = {}) {
   if (opts.searchHits) for (const id of opts.searchHits) { if (out.size >= limit) break; out.add(id) }
   const degree = opts.degree || {}
   const deg = (id) => Number(degree[id]) || 0
-  const rest = []
-  for (const n of Array.isArray(nodes) ? nodes : []) if (n && n.id && !out.has(n.id)) rest.push(n)
-  rest.sort((a, b) => deg(b.id) - deg(a.id))
-  for (const n of rest) { if (out.size >= limit) break; out.add(n.id) }
+  const present = new Set()
+  for (const n of Array.isArray(nodes) ? nodes : []) if (n && n.id) present.add(n.id)
+  // order：调用方预先按度数排好的 id 列表（每帧省一次 O(n log n) 排序 + 一次数组分配）。
+  const order = Array.isArray(opts.order) && opts.order.length
+    ? opts.order
+    : (Array.isArray(nodes) ? nodes : []).slice().sort((a, b) => deg(b.id) - deg(a.id)).map((n) => n.id)
+  for (const id of order) {
+    if (out.size >= limit) break
+    if (id && present.has(id) && !out.has(id)) out.add(id)
+  }
   return out
 }

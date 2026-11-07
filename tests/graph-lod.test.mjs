@@ -26,12 +26,14 @@ test('inRect：相交/不相交与半径余量', () => {
   assert.equal(inRect(200, 200, 5, null), true, '无 rect 视为全部可见')
 })
 
-test('labelBudget：随节点数收敛', () => {
+test('labelBudget：随节点数收敛（最低画质档再减半）', () => {
   assert.equal(labelBudget(50), Infinity)
-  assert.equal(labelBudget(120), Infinity)
-  assert.equal(labelBudget(300), 160)
-  assert.equal(labelBudget(589), 90)
-  assert.equal(labelBudget(2000), 60)
+  assert.equal(labelBudget(120), 64)
+  assert.equal(labelBudget(300), 64)
+  assert.equal(labelBudget(589), 64)
+  assert.equal(labelBudget(2000), 48)
+  assert.equal(labelBudget(120, 3), 32)
+  assert.equal(labelBudget(2000, 3), 32)
 })
 
 test('pickLabelIds：焦点必留、数量受预算限制、按度数优先', () => {
@@ -48,4 +50,14 @@ test('pickLabelIds：焦点必留、数量受预算限制、按度数优先', ()
   assert.equal(hits.size, 5)
   const all = pickLabelIds([{ id: 'a' }, { id: 'b' }], { limit: Infinity })
   assert.equal(all.size, 2, 'Infinity 预算 = 全画')
+})
+
+test('pickLabelIds：传入预排序 order 时不重新排序，仍按度数优先', () => {
+  const nodes = Array.from({ length: 300 }, (_, i) => ({ id: 'n' + i }))
+  // 默认度数排序会先给 n299；order 才是权威顺序
+  const degree = Object.fromEntries(nodes.map((n, i) => [n.id, i]))
+  const order = nodes.map((n) => n.id) // n0 最先
+  const ids = pickLabelIds(nodes, { limit: 3, degree, order })
+  assert.equal(ids.size, 3)
+  assert.ok(ids.has('n0') && ids.has('n1') && ids.has('n2'), [...ids].join(','))
 })

@@ -7562,7 +7562,14 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         return ids
       })()
       const quality = sim.quality | 0
-      const labelIds = pickLabelIds(sim.nodes, { limit: labelBudget(sim.nodes.length, quality), focusId, hoverId: sim.hoverId, searchHits, degree: deg })
+      // 度数排序缓存：pickLabelIds 原来每帧都对全部节点排序（2049 节点 = 每帧一次 O(n log n) + 数组分配）。
+      if (!sim.labelOrder || sim.labelOrder.src !== sim.nodes) {
+        sim.labelOrder = {
+          src: sim.nodes,
+          ids: sim.nodes.slice().sort((a, b) => (Number(deg[b.id]) || 0) - (Number(deg[a.id]) || 0)).map((n) => n.id),
+        }
+      }
+      const labelIds = pickLabelIds(sim.nodes, { limit: labelBudget(sim.nodes.length, quality), focusId, hoverId: sim.hoverId, searchHits, degree: deg, order: sim.labelOrder.ids })
       // 文本宽度缓存：原来每帧每个标签都要 measureText（589 个标签时是大头）
       const measureCache = new Map()
       const measureText = (font, text) => {
