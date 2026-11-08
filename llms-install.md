@@ -43,3 +43,8 @@ A fresh vault reports `total: 0`; that is a successful start.
 - Requires Node.js >= 22.
 - Optional: DSH users can instead install the plugin (`dsh plugin --profile desktop add memory-eternal`) to get the review UI.
 - Write paths go through a review queue by design; `memory_recall` only returns approved cards.
+
+## Other agents (MengBot / OpenClaw / Hermes / any MCP client)
+
+memory-eternal is a standard MCP stdio server: `npx -y memory-eternal@0.30.0 mcp`.
+Client-specific config (Hermes `mcp_servers`, OpenClaw `mcp.servers`, MengBot per-bot stdio spec) is documented in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
