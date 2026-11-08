@@ -47,3 +47,10 @@ test('分发材料齐全：llms-install.md / Dockerfile / 400px logo', () => {
     assert.ok(existsSync(path.join(root, f)), '缺少分发材料：' + f)
   }
 })
+
+test('第三方接入文档覆盖 MengBot / OpenClaw / Hermes，且命令是 mcp 子命令', () => {
+  const doc = read('docs/INTEGRATIONS.md')
+  for (const name of ['MengBot', 'OpenClaw', 'Hermes']) assert.ok(doc.includes(name), '文档缺少 ' + name)
+  assert.ok(doc.includes('memory-eternal@' + pkg.version) || doc.includes('dsh-memory mcp'), '文档必须给出可执行命令')
+  assert.ok(doc.includes('mcp'), '必须声明是 MCP stdio server')
+})

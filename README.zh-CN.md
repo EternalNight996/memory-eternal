@@ -49,7 +49,7 @@ npm i -g memory-eternal
 dsh-memory connect claude    # 或：codex / cursor
 ```
 
-**任意 MCP 客户端**
+**任意 MCP 客户端**（MengBot / OpenClaw / Hermes 的配置见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)）
 
 ```bash
 npx -y -p memory-eternal dsh-memory mcp

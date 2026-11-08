@@ -49,7 +49,7 @@ npm i -g memory-eternal
 dsh-memory connect claude    # or: codex / cursor
 ```
 
-**Any MCP client**
+**Any MCP client**（MengBot / OpenClaw / Hermes 见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)）
 
 ```bash
 npx -y -p memory-eternal dsh-memory mcp
