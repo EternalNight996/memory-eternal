@@ -64,7 +64,7 @@ npx -y @smithery/cli publish EternalNight996/memory-eternal
 描述：本地优先的长期记忆 MCP 服务。对话沉淀成知识卡，**人工审核通过后**才可被召回；召回走 SQLite FTS5/BM25，零模型调用（实测 2,321 张卡下 p50 2.3ms）；不可变审计日志；一个库同时供 DSH / Claude Code / Codex / Cursor 使用。
 ```
 
-Glama 当前尚未收录（`glama.ai/mcp/servers/EternalNight996/memory-eternal` 返回 404），提交后其会生成评分徽章，届时可回填到 awesome-mcp-servers 条目。
+Glama **暂停提交**（2026-11-09 决定：先不做）。必要的准备已完成——仓库根已有 `glama.json`（`maintainers: EternalNight996`）、Dockerfile、MCP introspection 本地验证通过；将来要提交只需在 glama.ai 用 GitHub 登录认领 `EternalNight996/memory-eternal`，再回填评分徽章到 awesome-mcp-servers 条目。
 
 ## 发版后需要同步的版本号
 
