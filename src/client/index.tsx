@@ -286,6 +286,10 @@ export const ZH = {
   graphItems: '图元',
   graphCardsUnit: '卡',
   graphPlanetCards: '{n} 张卡',
+  graphToFlat: '平铺卡片图',
+  graphToPlanet: '星球分层视图',
+  graphFlatAll: '显示全部',
+  graphFlatOnly: '只看主要',
   graphEnter: '进入该层',
   graphLevelLoading: '正在加载层级…',
   graphLevelTimeout: '层加载超时（{ms}ms）· 已保留当前层',
@@ -1003,6 +1007,10 @@ export const EN = {
   graphItems: 'items',
   graphCardsUnit: 'cards',
   graphPlanetCards: '{n} cards',
+  graphToFlat: 'Flat cards',
+  graphToPlanet: 'Planet layers',
+  graphFlatAll: 'Show all',
+  graphFlatOnly: 'Top only',
   graphEnter: 'Open this level',
   graphLevelLoading: 'Loading level…',
   graphLevelTimeout: 'Level load timed out ({ms}ms) · current level kept',
@@ -6939,6 +6947,17 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
   const [data, setData] = useState(null) // 宿主返回的当前层（{path,crumbs,level,stats}）
   const [error, setError] = useState(null) // { timeout, message }：显式失败，不吞
   const [loading, setLoading] = useState(false)
+  // ---- 平铺卡片图（v0.29 实验）：不折叠星球，卡片直接力导向铺开 ----
+  // 默认开启：用户反馈「大星球嵌套后不丝滑」，先给一版扁平的、能停下来的图做体验对比。
+  // v0.29：星球分层被判定「太丑」，固定为平铺卡片图。
+  // 星球代码暂时保留（诊断/回滚用），但界面上不再提供入口。
+  const flatMode = true
+  const [flatLevel, setFlatLevel] = useState(null)
+  // 默认只画「连接数最高的 800 张」：2450 张全量 = tick 6ms + render 10ms（~25fps），
+  // 800 张能稳在 50fps 以上且仍能看清热区；要看全部时点「显示全部」。
+  const [flatAll, setFlatAll] = useState(false)
+  const [flatLoading, setFlatLoading] = useState(false)
+  const [flatError, setFlatError] = useState(null)
   const fitTrigger = useRef(0)
   const cacheRef = useRef(null)
   if (!cacheRef.current) cacheRef.current = createLevelCache(96)
@@ -7044,6 +7063,44 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
     return load(segRef.current, { force: true })
   }, [load])
 
+  // 平铺图：一次性拉 /graph（全量卡片 + wikilink/共享标签边），交给同一个 GraphCanvas 渲染。
+  // 与分层视图的区别只有一个：没有 type=planet 的折叠节点 → 不跑星球护城河/公转。
+  const loadFlat = useCallback(async () => {
+    setFlatLoading(true); setFlatError(null)
+    try {
+      const r = await fetch(`${API}/graph?${all ? 'all=1&' : ''}limit=${flatAll ? 0 : 800}`)
+      const d = await r.json().catch(() => null)
+      if (!r.ok || !d || !d.ok) throw new Error((d && d.error) || ('HTTP ' + r.status))
+      const allNodes = Array.isArray(d.nodes) ? d.nodes : []
+      const allEdges = Array.isArray(d.edges) ? d.edges : []
+      // 新宿主会直接回裁剪后的子图（shown/total）；老宿主没有这两个字段 → 客户端兜底裁剪。
+      const serverLimited = typeof d.shown === 'number'
+      const degree = new Map()
+      for (const e of allEdges) {
+        degree.set(e.source, (degree.get(e.source) || 0) + 1)
+        degree.set(e.target, (degree.get(e.target) || 0) + 1)
+      }
+      const FLAT_LIMIT = 800
+      const picked = (flatAll || serverLimited) ? allNodes : allNodes.slice().sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0)).slice(0, FLAT_LIMIT)
+      const keep = new Set(picked.map((n) => n.id))
+      const items = picked.map((n) => ({
+        id: n.id,
+        label: n.label || n.title || n.id,
+        kind: n.kind || 'other',
+        tags: Array.isArray(n.tags) ? n.tags : [],
+        updated: n.updated || n.updated_at || '',
+        count: 0,
+        type: 'card',
+      }))
+      const edges = flatAll ? allEdges : allEdges.filter((e) => keep.has(e.source) && keep.has(e.target))
+      setFlatLevel({ id: 'flat', mode: 'flat', total: Number(d.total) || allNodes.length, shown: Number(d.shown) || items.length, items, edges })
+    } catch (e) {
+      setFlatError({ message: String((e && e.message) || e) })
+    } finally { setFlatLoading(false) }
+  }, [all, flatAll])
+
+  useEffect(() => { loadFlat() }, [loadFlat])
+
   const del = useCallback(async (path) => {
     try {
       const r = await fetch(`${API}/delete?path=${encodeURIComponent(path)}`)
@@ -7094,10 +7151,14 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
     }
   }, [data, loading, error])
 
-  const level = data && data.level ? data.level : null
+  const level = flatMode ? flatLevel : (data && data.level ? data.level : null)
   const itemCount = level ? level.items.length : 0
   const cardTotal = level ? level.total : 0
   const edgeCount = level ? level.edges.length : 0
+  // 平铺模式下不显示层级加载/错误；它有自己的 loading/error
+  const showLoading = flatMode ? flatLoading : (!data && !error)
+  const showError = flatMode ? flatError : (!data && error)
+  const viewError = flatMode ? flatError : (data ? error : null)
 
   return (
     <div className="me-graph me-v5-graph">
@@ -7108,28 +7169,33 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
           <h1>{t('graphTab')}</h1>
           <p>{t('graphHint')}</p>
         </div>
-        <span className="mc-v5-pagecount">{data ? `${itemCount} ${t('graphItems')} · ${cardTotal} ${t('graphCardsUnit')} · ${edgeCount} ${t('edges')}` : ''}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button type="button" className="mc-btn" onClick={() => setFlatAll((v) => !v)}>
+            {flatAll ? t('graphFlatOnly') : t('graphFlatAll')}
+          </button>
+          <span className="mc-v5-pagecount">{(flatMode ? flatLevel : data) ? `${itemCount} ${t('graphItems')} · ${cardTotal} ${t('graphCardsUnit')} · ${edgeCount} ${t('edges')}` : ''}</span>
+        </div>
       </div>
-      {!data && !error && <LoadingNote text={t('loadingGraph')} />}
-      {!data && error && (
+      {showLoading && <LoadingNote text={t('loadingGraph')} />}
+      {showError && (
         <div className="mc-empty" style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-          <span>{error.timeout ? t('graphLevelTimeout').replace('{ms}', String(LEVEL_TIMEOUT_MS)) : t('graphLevelError')}：{error.message}</span>
-          <button type="button" className="mc-btn" onClick={retry}>{t('graphRetry')}</button>
+          <span>{viewError && viewError.timeout ? t('graphLevelTimeout').replace('{ms}', String(LEVEL_TIMEOUT_MS)) : t('graphLevelError')}：{viewError && viewError.message}</span>
+          <button type="button" className="mc-btn" onClick={flatMode ? loadFlat : retry}>{t('graphRetry')}</button>
         </div>
       )}
-      {data && itemCount === 0 && <div className="mc-empty">{t('graphEmptyLevel')}</div>}
-      {data && itemCount > 0 && (
+      {(flatMode ? flatLevel : data) && itemCount === 0 && <div className="mc-empty">{t('graphEmptyLevel')}</div>}
+      {level && itemCount > 0 && (
         <GraphCanvas
           level={level}
-          crumbs={data.crumbs || []}
+          crumbs={flatMode ? [] : (data && data.crumbs ? data.crumbs : [])}
           onOpen={onOpen}
           onDelete={del}
           onMerge={merge}
-          onDrill={drill}
+          onDrill={flatMode ? () => {} : drill}
           onNavigate={navigate}
-          onRetry={retry}
-          error={data ? error : null}
-          loading={loading}
+          onRetry={flatMode ? loadFlat : retry}
+          error={viewError}
+          loading={flatMode ? flatLoading : loading}
           t={t}
           all={all}
           onAllChange={onAllChange}
@@ -7570,6 +7636,11 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         }
       }
       const labelIds = pickLabelIds(sim.nodes, { limit: labelBudget(sim.nodes.length, quality), focusId, hoverId: sim.hoverId, searchHits, degree: deg, order: sim.labelOrder.ids })
+      // 全景时给「度数最高的 12 个」也画标签：否则整图只是一盘圆点，认不出是什么。
+      // 只有 12 个，measureText/fillText 的开销可以忽略。
+      const overviewLabelIds = sim.zoom <= labelThreshold
+        ? new Set((sim.labelOrder && sim.labelOrder.ids ? sim.labelOrder.ids : []).slice(0, 12))
+        : null
       // 文本宽度缓存：原来每帧每个标签都要 measureText（589 个标签时是大头）
       const measureCache = new Map()
       const measureText = (font, text) => {
@@ -7612,7 +7683,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         const cpx = (s.x + t.x) / 2 + ox, cpy = (s.y + t.y) / 2 + oy
         const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other'] || KG.colors.other
         // 连线比旧版更暗更细：星图的「关系」应该是底噪，不是彩色意面。
-        const alpha = focusId ? (focused ? 0.72 : 0.06) : (sim.planetLayer ? 0.22 : (dense ? 0.12 : 0.17))
+        const alpha = focusId ? (focused ? 0.72 : 0.06) : (sim.planetLayer ? 0.22 : (dense ? 0.16 : 0.2))
         const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
         const w = Math.max(1, Number(e.weight) || 1)
         // 线宽量化到 0.5：减少 Path2D 分桶数量（每多一个桶就多一次 stroke）
@@ -7683,7 +7754,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         ctx.save()
         ctx.translate(n.x, n.y)
         // 放大观察时跳过整块径向光晕：几颗大球的渐变填充占掉大量像素，是小视野下掉帧的主因之一。
-        if (!closeUp) {
+        if (!closeUp && (sim.quality | 0) < 2) {
           ctx.fillStyle = glow
           ctx.beginPath(); ctx.arc(0, 0, n.r * 1.24, 0, Math.PI * 2); ctx.fill()
         }
@@ -7729,7 +7800,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           const big = screenR >= 30
           ctx.save()
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-          ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5 * zi
+          ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = (sim.quality | 0) >= 2 ? 0 : 5 * zi
           if (big) {
             ctx.font = '600 ' + (fs * 0.48).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
             ctx.fillStyle = 'rgba(255,255,255,0.72)'
@@ -7805,7 +7876,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         // 标签预算：大图只画「焦点/悬停/搜索命中/度数最高」的若干节点。
         // 原来 zoom > labelThreshold 时上千个标签全画（每个都要 measureText + 圆角矩形 + fillText），
         // 这正是「放大后卡顿、缩小正常」的原因。
-        const showLab = (isSel || isHov || (!motion && ((labelIds.has(n.id) && sim.zoom > labelThreshold) || (!dense && sim.zoom > 0.6)))) && kindOk && tagOk
+        const showLab = (isSel || isHov || (!motion && ((labelIds.has(n.id) && sim.zoom > labelThreshold) || (!dense && sim.zoom > 0.6) || (overviewLabelIds && overviewLabelIds.has(n.id))))) && kindOk && tagOk
         if (showLab) drawLabelPill(n, { force: isSel || isHov })
       })
       // 星球最后画（球压卡片）。名字/卡数都排在球内，不再需要额外的标签层，
@@ -7851,6 +7922,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     let renderRaf = 0
     let motionTimer = 0
     const markMotion = () => {
+      sim.lastInputAt = performance.now()
       sim.motionUntil = performance.now() + 140
       if (motionTimer) tracker.clearTimeout(motionTimer)
       motionTimer = tracker.setTimeout(() => {
@@ -7887,8 +7959,13 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     //      越大的球推得越远 —— 用户原话「小的球数量多紧贴着大的丑」就是这里来的。
     const separateCollisions = () => {
       if (!planetLayer) return
-      const planets = sim.nodes.filter((n) => n.planet)
-      if (!planets.length) return
+      // 缓存星球列表：原来每 tick 都 filter 一遍全部节点（60fps 下是纯浪费）
+      if (sim.planetsSrc !== sim.nodes) {
+        sim.planets = sim.nodes.filter((n) => n.planet)
+        sim.planetsSrc = sim.nodes
+      }
+      const planets = sim.planets
+      if (!planets || !planets.length) return
       for (let a = 0; a < planets.length; a++) {
         for (let b = a + 1; b < planets.length; b++) {
           const pa = planets[a]
@@ -7980,6 +8057,30 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           sim.perfBad = 0
           sim.frameEma = 16.7
         }
+        // 反向恢复：连续 4s 跑得很稳就回升一档。
+        // 没有这条，一次瞬时卡顿会把画质永久钉在低档（并连带触发静置停车），
+        // 用户看到的就是「明明不卡了却一直很糙/不动」。
+        if (sim.frameEma && sim.frameEma < 13.5) sim.goodMs = (sim.goodMs || 0) + dt
+        else sim.goodMs = 0
+        if ((sim.goodMs || 0) > 4000 && (sim.quality | 0) > 0) {
+          sim.quality = (sim.quality | 0) - 1
+          sim.goodMs = 0
+        }
+      }
+      // 性能不够时，别让「常驻自移动」把机器烧满：
+      // 画质已降到 1 档以上、且 1.2s 没有输入 → 停车（跑满帧也救不回来，不如把 CPU 还给用户）。
+      // 任何交互都会走 wake() 重新点火。
+      const idleMs = performance.now() - (sim.lastInputAt || 0)
+      // 两种停车条件：
+      //   ① 画质已降档（机器本来就吃力）→ 1.2s 无输入就停；
+      //   ② 即使跑得动 → 静置 4s 也停。常驻漂移会让整张图一直在轻微抖动，
+      //      帧率再高也显得「不丝滑」，而且平白占用 CPU/GPU。
+      // 任何交互都会 wake() 重新点火。
+      if (sim.drift && (idleMs > 4000 || ((sim.quality | 0) >= 1 && idleMs > 1200))) {
+        sim.drift = false
+        sim.running = false
+        sim.raf = 0
+        return
       }
       // 常驻自移动：预热结束后不再彻底停车，而是进入 60fps 的低速漂移 ——
       // 用户要的是「跟改造前一样 散乱会动」，一张静止的图体验很差。
@@ -8170,10 +8271,9 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       sim.panY = clamp(sim.panY + wy * (sim.zoom - newZoom), -1e5, 1e5)
       sim.zoom = newZoom
       sim.userTouched = true
-      // 每次缩放都重新校准画质：放大后先按最高画质跑，真掉帧再降档
-      sim.quality = 0
-      sim.perfBad = 0
-      sim.frameEma = 16.7
+      // 不再每次滚轮都把画质重置为 0：一次缩放是连续几十个 wheel 事件，
+      // 重置等于「整个手势期间强制最高画质」——这正是缩放/放大时掉帧的主因之一。
+      // 画质改为运行期只降不升；进入新层级时由初始化重置。
       markMotion()
       requestRender()
     }
