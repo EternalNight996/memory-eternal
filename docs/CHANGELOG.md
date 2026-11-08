@@ -11,6 +11,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.30.2** | 2026-11-09 | **修复 npm 包缺少接入文档**：`docs/` 不在 `package.json` 的 `files` 白名单里，导致 0.30.1 里 README 的 `docs/INTEGRATIONS.md` 链接在安装包里失效。现把 `docs/INTEGRATIONS.md` 与 `llms-install.md` 加入 `files`（仅这两个文件，不扩大包体）。无运行时行为变更。 |
 | **v0.30.1** | 2026-11-09 | **文档与接入面发布**（无行为变更）。① 新增 `docs/INTEGRATIONS.md`：MengBot / OpenClaw / Hermes 的 MCP 配置（Hermes `mcp_servers`、OpenClaw `mcp.servers` + `openclaw mcp doctor`、MengBot bot 级 stdio spec），含 `npx -y memory-eternal@0.30.1 mcp` 验证方式与多库隔离说明；② README 中英与 `llms-install.md` 加接入入口；③ 仓库描述/Topics 更新（新增 `mcp-server` / `openclaw` / `hermes-agent` / `mengbot`）；④ Glama 暂停提交，前置准备（`glama.json` + Dockerfile + 握手验证）保留；⑤ 新增 1 项文档守卫测试，`npm test` 共 **633 项**。 |
 | **v0.30.0** | 2026-11-08 | **知识星图改版（平铺卡片图）+ 支付宝赞助**。① 星球分层「太丑」被移除入口，默认并固定为**平铺卡片图**；② 默认只画**度数最高的 800 张**（2,450 张全量 tick 6.5ms + render 10ms → 800 张 2.3ms + 3.8ms），新增 `/graph?limit=N` 服务端按度数裁剪子图（10k 卡不再传 3MB+ JSON），全量仍可点「显示全部」；③ 全景时给度数最高的 12 个节点画标签，避免「一盘散点」；④ 连线透明度提升、静置 3.5s 完全停帧、画质可回升、滚轮不再重置画质；⑤ 赞助入口补上**支付宝**（README 双语 / SPONSOR.md / 客户端赞助面板 / 站点演示页），资产为 `assets/support/alipay.jpg`。 |
 | **v0.28.2** | 2026-11-08 | **知识星图改版：平铺卡片图取代星球分层**（用户判定星球“太丑”、且常驻漂移导致体感卡顿）。① 默认平铺：卡片直接力导向铺开，仅保留「显示全部」开关；② 默认只画**度数最高的 800 张**（2,450 张全量实测 tick 6.5ms + render 10ms，800 张 2ms + 3ms），`/graph?limit=N` 支持服务端裁剪子图（不再全量传 JSON）；③ 全景时给度数最高的 12 个节点画标签，避免“一盘散点”；④ 静置 4s 完全停帧、画质可回升、滚轮不再重置画质；⑤ 星球代码保留但界面不再提供入口。 |
