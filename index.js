@@ -1191,8 +1191,10 @@ export function apply(ctx, config) {
     }
   }, 'memory-eternal: news digest section')
 
-  const tools = ctx.get('tools')
-  if (tools !== undefined) {
+  let toolsRegistered = false
+  const registerMemoryTools = (tools) => {
+    if (toolsRegistered || !tools || typeof tools.register !== 'function') return
+    toolsRegistered = true
     tools.register(defineTool({
       name: 'memory_recall',
       description:
@@ -1316,6 +1318,21 @@ export function apply(ctx, config) {
           + '。注意：这是草稿，不会进入记忆库。'
       },
     }))
+    logCapture('system', 'boot', '记忆工具已注册（memory_recall / memory_note）')
+  }
+
+  // tools 服务在部分宿主版本（如 DSH 0.1.7-rc.2）可能晚于插件 apply 挂载（#54）：
+  // 先走同步快路径，若尚未就绪则通过 ctx.inject(['tools']) 在服务就绪时补注册。
+  const tools = ctx.get('tools')
+  if (tools !== undefined) {
+    registerMemoryTools(tools)
+  } else if (typeof ctx.inject === 'function') {
+    ctx.inject(['tools'], (child) => {
+      const lateTools = child.get('tools')
+      if (lateTools !== undefined) registerMemoryTools(lateTools)
+    })
+  } else {
+    logCapture('system', 'warn', '未检测到 tools 服务，memory_recall / memory_note 未注册')
   }
 
   // 沉淀停滞探测：只有「有轮次在跑」且「管线 15 分钟一个活口都没有」才报（真死才报）。
@@ -1429,7 +1446,7 @@ export function apply(ctx, config) {
         name: 'deepseek-harness',
         label: 'DeepSeek Harness（当前宿主）',
         installed: true,
-        memoryRecallTool: !!ctx.get('tools'),
+        memoryRecallTool: toolsRegistered,
         autoCapture: (settings.get() ?? {}).autoCapture !== false,
         autoRecall: (settings.get() ?? {}).autoRecall !== false,
         vaultDir: vaultDir(),
@@ -1538,7 +1555,7 @@ export function apply(ctx, config) {
                 name: 'deepseek-harness',
                 label: 'DeepSeek Harness（当前宿主）',
                 installed: true,
-                memoryRecallTool: !!ctx.get('tools'),
+                memoryRecallTool: toolsRegistered,
                 autoCapture: cfg.autoCapture !== false,
                 autoRecall: cfg.autoRecall !== false,
                 vaultDir: vaultDir(),
@@ -1900,3 +1917,4 @@ export function apply(ctx, config) {
     ensureVault(root).catch((error) => console.error('[memory-eternal] ensureVault failed:', error))
   }, 'memory-eternal: ensure vault')
 }
+
