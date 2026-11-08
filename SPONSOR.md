@@ -10,13 +10,17 @@
 
 <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="320" alt="微信赞赏码" />
 
+## 支付宝
+
+<img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/alipay.jpg" width="320" alt="支付宝收款码" />
+
 ---
 
 ## 为什么仓库页的 Sponsor 按钮只显示文字链接？
 
 GitHub 的 `.github/FUNDING.yml` **只接受链接，不支持嵌入图片**——`custom` 里的每一项在「Sponsor this project」下拉中必然渲染成一行文字链接（这是 GitHub 的限制，不是配置写法问题）。
 
-这里的做法是把两个码集中到本页：**点 Sponsor → 选 custom 里的这一项 → 落到本页直接扫码**。
+这里的做法是把微信 / 支付宝的码集中到本页：**点 Sponsor → 选 custom 里的这一项 → 落到本页直接扫码**。
 
 如果希望赞助入口本身就带图/带档位，只能加入 [GitHub Sponsors](https://github.com/sponsors)（需要 Stripe 或银行账户），在自己的 Sponsors 主页里放置图片与档位描述。
 
