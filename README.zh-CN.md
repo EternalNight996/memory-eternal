@@ -15,7 +15,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
 [![npm](https://img.shields.io/npm/v/memory-eternal)](https://www.npmjs.com/package/memory-eternal)
-[![release](https://img.shields.io/badge/release-v0.28.2-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
+[![release](https://img.shields.io/badge/release-v0.30.0-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [English (default)](README.md) · **简体中文（镜像）**
@@ -257,11 +257,11 @@ dsh-memory ledger --days 30 --json        # 召回注入 / 沉淀调用 / 有用
 |:---:|:---:|
 | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ 群二维码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.jpg" width="240" alt="微信群二维码" /> |
 
-**如果这个插件帮你省了时间，可以请作者喝杯咖啡（两个码任选其一）：**
+**如果这个插件帮你省了时间，可以请作者喝杯咖啡（微信 / 支付宝任选其一）：**
 
-| 微信收款码 | 微信赞赏码 |
-|:---:|:---:|
-| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg" width="200" alt="微信收款码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="200" alt="微信赞赏码" /> |
+| 微信收款码 | 微信赞赏码 | 支付宝 |
+|:---:|:---:|:---:|
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg" width="200" alt="微信收款码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="200" alt="微信赞赏码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/alipay.jpg" width="200" alt="支付宝收款码" /> |
 
 > 打赏完全自愿，不影响任何功能；插件本体始终开源免费（MIT）。详见 [SPONSOR.md](SPONSOR.md)。
 

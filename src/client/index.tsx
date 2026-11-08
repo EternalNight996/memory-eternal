@@ -573,6 +573,7 @@ export const ZH = {
   clickToZoom: '点击放大',
   supportGroupHint: '扫码进交流群（QQ / 微信），遇到问题可以直接问。',
   supportSponsorHint: '如果这个插件帮你省了时间，可以请作者喝杯咖啡。完全自愿，不影响任何功能。',
+  supportAlipay: '支付宝',
   supportLegacyTitle: '旧程序（dsh-desktop）已停止维护',
   supportLegacyBody: '作者自研的 dsh-desktop 已停止维护，官方 DeepSeek Harness 桌面版已覆盖同样能力，建议迁移。旧 profile 里如果还钉着已撤下的 dsh-desktop-shell@0.3.0，先删掉那套依赖，否则 pnpm install 会失败。',
   supportReadme: '打开 README',
@@ -1350,6 +1351,7 @@ export const EN = {
   clickToZoom: 'Click to enlarge',
   supportGroupHint: 'Scan to join the QQ or WeChat community; ask questions directly.',
   supportSponsorHint: 'If this plugin saved you time, you can buy the author a coffee. Completely optional.',
+  supportAlipay: 'Alipay',
   supportLegacyTitle: 'Legacy app (dsh-desktop) is discontinued',
   supportLegacyBody: 'The author’s dsh-desktop is discontinued; the official DeepSeek Harness desktop build covers the same capabilities. If an old profile still pins the withdrawn dsh-desktop-shell@0.3.0, remove that dependency or pnpm install will fail.',
   supportReadme: 'Open README',
@@ -6612,6 +6614,7 @@ function SupportModal({ t, tab, onTab, onClose, onFeedback, onReplay }) {
               <div className="me-support-qr">
                 {qr('support/wechat-pay.jpg', '微信收款码')}
                 {qr('support/wechat-reward.jpg', '微信赞赏码')}
+                {qr('support/alipay.jpg', t('supportAlipay'))}
               </div>
               <p className="me-support-note" style={{ marginTop: 12 }}>打赏完全自愿，不影响任何功能；插件本体始终开源免费（MIT）。<br /><a className="me-support-link" href="https://github.com/EternalNight996/memory-eternal/blob/main/SPONSOR.md" target="_blank" rel="noreferrer">SPONSOR.md ↗</a></p>
             </>

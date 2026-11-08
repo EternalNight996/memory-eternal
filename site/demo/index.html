@@ -34,6 +34,7 @@
     --k-tool: #67e8f9;
     --k-prompt: #fbbf24;
     --k-business: #ff7a45;
+    --k-skill: #8b5cf6;
     --font: "Inter", "SF Pro Text", "Segoe UI", "MiSans", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     --mono: "SFMono-Regular", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
     --radius: 13px;
@@ -774,7 +775,7 @@
         <div class="rh-top"><span class="pulse"></span>自动沉淀正常</div>
         <div class="rh-note" id="railLast">最近写卡 21:05 · deepseek-flash</div>
       </div>
-      <div class="rail-version"><span class="mono">v0.16.0</span><span>· 本地运行</span></div>
+      <div class="rail-version"><span class="mono">v0.19.0</span><span>· 本地运行</span></div>
     </div>
   </aside>
 
@@ -854,9 +855,10 @@
     prompt: { label: '提示词', color: 'var(--k-prompt)' },
     business: { label: '业务', color: 'var(--k-business)' },
     tool: { label: '工具', color: 'var(--k-tool)' },
-    mistake: { label: '教训', color: 'var(--k-mistake)' }
+    mistake: { label: '教训', color: 'var(--k-mistake)' },
+    skill: { label: '技能', color: 'var(--k-skill)' }
   };
-  var KIND_ORDER = ['project', 'knowledge', 'mistake', 'content', 'tool', 'prompt', 'business'];
+  var KIND_ORDER = ['project', 'knowledge', 'skill', 'mistake', 'content', 'tool', 'prompt', 'business'];
   var VIEW_NAMES = { library: '记忆库', graph: '知识星图', audit: '待审', status: '运行状态' };
 
   var ICO = {
@@ -890,12 +892,13 @@
   }
 
   var KIND_HEX = {
-    project: '#7aa2ff', knowledge: '#b79cff', content: '#f472b6', prompt: '#fbbf24',
+    project: '#7aa2ff', knowledge: '#b79cff', skill: '#8b5cf6', content: '#f472b6', prompt: '#fbbf24',
     business: '#ff7a45', tool: '#67e8f9', mistake: '#fb7185'
   };
   var KIND_PATH = {
     project: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     knowledge: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20"/>',
+    skill: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9z"/>',
     mistake: '<path d="M12 3 2.8 20h18.4L12 3z"/><path d="M12 9v5M12 17.2v.1"/>',
     content: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/>',
     tool: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5 2.5-2.5z"/>',
@@ -2439,7 +2442,7 @@
         '<div class="status-card"><div class="sc-head">' + icon('db') + '知识库<span class="ok"></span></div><div class="sc-value">可写 · WAL</div><div class="sc-note">897 张卡 · 1,987 个标签 · 10:19 检查</div></div>' +
         '<div class="status-card"><div class="sc-head">' + icon('backup') + '备份<span class="ok"></span></div><div class="sc-value">7 份</div><div class="sc-note">最新 10-20 03:07 · 保留 7 天</div></div>' +
         '<div class="status-card"><div class="sc-head">' + icon('zap') + '自动沉淀<span class="ok"></span></div><div class="sc-value">正常</div><div class="sc-note">最近成功 ' + esc(lastOk) + ' · deepseek-flash</div></div>' +
-        '<div class="status-card"><div class="sc-head">' + icon('shield') + '版本<span class="ok"></span></div><div class="sc-value">v' + esc(D.version || '0.16.0') + '</div><div class="sc-note">宿主 / 常驻 / npm 一致</div></div>' +
+        '<div class="status-card"><div class="sc-head">' + icon('shield') + '版本<span class="ok"></span></div><div class="sc-value">v' + esc(D.version || '0.19.0') + '</div><div class="sc-note">宿主 / 常驻 / npm 一致</div></div>' +
       '</div>' +
       ledgerHtml +
       '<div class="status-cols">' +
@@ -2523,7 +2526,8 @@
     } else if (state.supportTab === 'sponsor') {
       body = '<p class="support-note">如果这个插件帮你省了时间，可以请作者喝杯咖啡。完全自愿，不影响任何功能。</p>' +
         '<div class="support-qr"><figure><img src="' + SUP + 'wechat-pay.jpg" alt="微信收款码"><figcaption>微信收款码</figcaption></figure>' +
-        '<figure><img src="' + SUP + 'wechat-reward.jpg" alt="微信赞赏码"><figcaption>微信赞赏码</figcaption></figure></div>' +
+        '<figure><img src="' + SUP + 'wechat-reward.jpg" alt="微信赞赏码"><figcaption>微信赞赏码</figcaption></figure>' +
+        '<figure><img src="' + SUP + 'alipay.jpg" alt="支付宝收款码"><figcaption>支付宝</figcaption></figure></div>' +
         '<p class="support-note" style="margin-top:14px">插件本体始终开源免费（MIT）。<br><a class="support-link" href="https://github.com/EternalNight996/memory-eternal/blob/main/SPONSOR.md" target="_blank" rel="noreferrer">SPONSOR.md ↗</a></p>';
     } else if (state.supportTab === 'legacy') {
       body = '<h3 style="margin:0 0 8px;font-size:14px">旧程序（dsh-desktop）已停止维护</h3>' +
