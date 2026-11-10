@@ -213,6 +213,21 @@ export function describeDistillFailure(primary, all = []) {
   return `${head}（另有 ${rest.length} 个兜底候选失败：${summary}）`
 }
 
+/** 蒸馏失败里属于「凭证/鉴权」的判定（issue #59：AUTH 失败时只报“蒸馏失败”，用户不知道要换 Key）。 */
+export function isAuthFailure(failure) {
+  const text = `${(failure && failure.code) || ''} ${(failure && failure.message) || ''}`
+  return /AUTH|401|403|invalid[ _-]?(api[ _-]?key|token)|unauthori[sz]ed|authentication/i.test(text)
+}
+
+/** 把蒸馏失败翻成用户能直接照做的提示：凭证类失败给出续命路径，其余保持原样。 */
+export function humanizeDistillFailure(failure) {
+  const base = `蒸馏失败（${failure && failure.provider ? failure.provider + '：' : ''}${(failure && failure.code) || ''} ${(failure && failure.message) || ''}`
+  if (!isAuthFailure(failure)) return base
+  return base +
+    ' —— 这是凭证/鉴权失败：请在「设置→记忆→高级」更新该 provider 的 API Key，' +
+    '或改用其它蒸馏模型，或关闭「蒸馏知识卡」只存原文卡（内容不会丢）'
+}
+
 const API_PREFIX = '/memory-eternal/api'
 
 // DSH 宿主自动沉淀卡的署名：用可读名而非 agent 会话 id，便于在智能体筛选中归组。
@@ -879,7 +894,7 @@ export function apply(ctx, config) {
         })
       } catch { /* 账本失败不影响沉淀主流程 */ }
       // 真失败要亮红并进提示段：此前只有笼统的「蒸馏无输出」，真实原因（如缺凭证）完全不可见。
-      if (failure) { health.fail(`蒸馏失败（${failure.provider}）：${failure.code} ${failure.message}`); touchPrompt() }
+      if (failure) { health.fail(humanizeDistillFailure(failure)); touchPrompt() }
       // 主因 + 兜底候选失败汇总：卡片 reason 与 created 日志都用这个，避免把排查者引向错误方向。
       const why = failure ? describeDistillFailure(failure, failures) : '无可用产出'
       if (!result) {
@@ -1033,7 +1048,7 @@ export function apply(ctx, config) {
         '',
         '⚠ 自动沉淀异常（记忆核心 memory-eternal）——' + h.reason,
         '（发生时间：' + new Date(h.since).toLocaleString() + '。请在回复第一句提醒用户：自动沉淀异常 + 上述原因；'
-          + '并可提示用户打开 设置→记忆→用量/今日 查看「自动沉淀日志」；若原因是接口/版本不匹配，需更新 memory-eternal 插件。）',
+          + '并可提示用户打开 设置→记忆→用量/今日 查看「自动沉淀日志」；若原因含 AUTH/401 等鉴权失败，请更新对应 provider 的 Key 或换模型；若明确是接口/版本不匹配，再更新 memory-eternal 插件。）',
       ].join('\n')
       disposeSection = ctx.systemPrompt.section({
         name: 'memory-eternal: auto-recall',
