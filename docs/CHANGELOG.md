@@ -11,6 +11,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.30.4** | 2026-11-10 | **记忆设置弹窗重做：4 类分页 + 胶囊导航 + 卡片分组**。设置页从长表单改为「通用 / 记忆 / 高级 / 服务」四页：顶部四段胶囊导航（选中橙色渐变）、每页页头（渐变图标 + 一句说明）、配置组圆角卡片、iOS 式开关行；一键推荐改行式选项；版本/常驻实例与 MCP 挂载折叠进「服务」页；独立网页的宽屏两栏布局保留。无运行时行为变更。 |
 | **v0.30.3** | 2026-11-10 | **修复 #54：`tools` 服务晚挂载时 `memory_recall` / `memory_note` 不注册**。保留同步快路径，新增 `ctx.inject(['tools'])` 晚到兜底；`toolsRegistered` 只在注册成功后置真，注册抛错时 `/diagnostics` 保持 `Tools (memory_recall): MISSING` 并写 fail 日志；新增 `tests/issue-54-late-tools.test.mjs`（快路径 / 晚到 / 抛错 3 例，已入 `npm test`，全量 636 项）。另修 `tests/skill-cards.test.mjs` 过期色值断言（0.30 配色改版后不再锁死 `#8B5CF6`），README 底部新增贡献者栏（收录 #58）。 |
 | **v0.30.2** | 2026-11-09 | **修复 npm 包缺少接入文档**：`docs/` 不在 `package.json` 的 `files` 白名单里，导致 0.30.1 里 README 的 `docs/INTEGRATIONS.md` 链接在安装包里失效。现把 `docs/INTEGRATIONS.md` 与 `llms-install.md` 加入 `files`（仅这两个文件，不扩大包体）。无运行时行为变更。 |
 | **v0.30.1** | 2026-11-09 | **文档与接入面发布**（无行为变更）。① 新增 `docs/INTEGRATIONS.md`：MengBot / OpenClaw / Hermes 的 MCP 配置（Hermes `mcp_servers`、OpenClaw `mcp.servers` + `openclaw mcp doctor`、MengBot bot 级 stdio spec），含 `npx -y memory-eternal@0.30.1 mcp` 验证方式与多库隔离说明；② README 中英与 `llms-install.md` 加接入入口；③ 仓库描述/Topics 更新（新增 `mcp-server` / `openclaw` / `hermes-agent` / `mengbot`）；④ Glama 暂停提交，前置准备（`glama.json` + Dockerfile + 握手验证）保留；⑤ 新增 1 项文档守卫测试，`npm test` 共 **633 项**。 |
