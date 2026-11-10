@@ -632,6 +632,8 @@ export const ZH = {
   captureTitle: '自动沉淀',
   versionTitle: '版本',
   cardsUnit: '张卡',
+  cardsSectionTitle: '知识卡片',
+  cardsSectionHint: '按更新时间',
   links: '连接',
   todayReview: '今日回看',
   openArrow: '打开 →',
@@ -1429,6 +1431,8 @@ export const EN = {
   captureTitle: 'Auto capture',
   versionTitle: 'Version',
   cardsUnit: 'cards',
+  cardsSectionTitle: 'Knowledge cards',
+  cardsSectionHint: 'Newest first',
   links: 'links',
   todayReview: "Today's resurface",
   openArrow: 'Open →',
@@ -3116,6 +3120,30 @@ const CSS = `
 [data-skin="pop"] .mc-news-hero-go { background: var(--pop-teal) !important; color: #fff8e8 !important; box-shadow: 3px 3px 0 var(--pop-red); }
 [data-skin="pop"] .mc-theme-card.on { background: #fff1dc; box-shadow: 3px 3px 0 var(--pop-teal); }
 [data-skin="pop"] .mc-rail, [data-skin="pop"] .mc-v5-feature, [data-skin="pop"] .mc-v5-pagehead h1 { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+/* —— 知识卡片区：区块标题 + 卡面品类强调条 + 标题字号 —— */
+.mc-v5-card { position: relative; }
+.mc-v5-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--card-accent, #ff7a45); border-radius: 12px 12px 0 0; pointer-events: none; }
+.mc-cards-head { display: flex; align-items: center; gap: 8px; margin: 8px 2px 10px; }
+.mc-cards-head-ico { font-size: 14px; opacity: .75; }
+.mc-cards-head h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.mc-cards-head-count { padding: 1px 8px; border-radius: 999px; background: rgba(127,127,127,.14); font-size: 10.5px; font-weight: 600; }
+.mc-cards-head-hint { margin-left: auto; font-size: 10.5px; opacity: .5; }
+.mc-v5-card-title { font-size: 15px; font-weight: 650; }
+.mc-cardrow:hover .mc-v5-card-title { color: var(--dsw-alias-brand-primary, #ff7a45); }
+.mc-v5-feature h3 { font-size: 22px; }
+@media (max-width: 720px) { .mc-v5-feature h3 { font-size: 18px; } .mc-cards-head h2 { font-size: 14px; } }
+[data-skin="pop"] .mc-cards-head { border-bottom: 2px solid var(--pop-ink); padding-bottom: 8px; }
+[data-skin="pop"] .mc-cards-head h2 { font-family: 'Arial Black', 'Arial Bold', 'Noto Sans SC', sans-serif; font-size: 16px; font-weight: 900; }
+[data-skin="pop"] .mc-cards-head-count { background: var(--pop-yellow); border: 2px solid var(--pop-ink); color: var(--pop-ink); box-shadow: 2px 2px 0 var(--pop-ink); }
+[data-skin="pop"] .mc-cards-head-hint { color: #6b5f4e; opacity: 1; }
+[data-skin="pop"] .mc-v5-card::before { height: 4px; border-radius: 2px 2px 0 0; }
+[data-skin="pop"] .mc-v5-card-title { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+[data-skin="pop"] .mc-cardrow:hover .mc-v5-card-title { color: var(--pop-red); }
+[data-skin="light"] .mc-cards-head h2 { font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif; font-size: 18px; font-weight: 700; }
+[data-skin="light"] .mc-cards-head-count { background: #f1ece2; color: #6b5f4e; }
+[data-skin="light"] .mc-cards-head-hint { color: #8a7f70; opacity: 1; }
+[data-skin="light"] .mc-v5-card-title { font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif; font-size: 15.5px; }
+[data-skin="light"] .mc-v5-card::before { height: 3px; border-radius: 11px 11px 0 0; }
 `
 
 export function apply(ctx) {
@@ -4177,7 +4205,14 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
               ? <div className="mc-empty">{t('error')}：{error} <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('retry')}</button></div>
             : cards.length === 0
               ? <div className="mc-empty">{t('empty')}</div>
-              : <>{showFeature && (
+              : <>{/* 卡片区标题：让「知识卡片」成为独立区块，而不是直接铺网格 */}
+                <div className="mc-cards-head">
+                  <span className="mc-cards-head-ico" aria-hidden="true">🗂️</span>
+                  <h2>{t('cardsSectionTitle')}</h2>
+                  <span className="mc-cards-head-count">{sortedCards.length} {t('cardsUnit')}</span>
+                  <span className="mc-cards-head-hint">{t('cardsSectionHint')}</span>
+                </div>
+                {showFeature && (
                 <div className="mc-v5-feature" onClick={() => openCard(featuredCard)}>
                   <div className="mc-v5-feature-copy">
                     <div className="mc-v5-eyebrow">{t('todayReview')}</div>
@@ -6427,7 +6462,7 @@ const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, 
   const linkCount = Number(links ?? card.links ?? card.weight ?? 0)
   const tags = tagsOf(card)
   return (
-    <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}${card.kind === 'core' ? ' core' : ''}`} onClick={() => onOpen(card)}>
+    <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}${card.kind === 'core' ? ' core' : ''}`} style={{ '--card-accent': color }} onClick={() => onOpen(card)}>
       <div className="mc-v5-card-top">
         <span className="mc-v5-card-tile" style={{ color, background: color + '18', borderColor: color + '38' }}>{KIND_EMOJI[card.kind] || '📎'}</span>
         <span className="mc-v5-card-kind-name">{card.kind === 'core' ? '⭐ ' + t('kindCore') : t(KIND_LABELS[card.kind] || 'kindKnowledge')}</span>
