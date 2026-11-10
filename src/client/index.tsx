@@ -1929,6 +1929,24 @@ const CSS = `
   .mc-vault-head { display: none; }
   .mc-vault-row { grid-template-columns: 1fr auto; }
 }
+@media (max-width: 900px) {
+  .me-audit-main { flex-direction: column; }
+  .me-audit-preview:not(.drawer-open) { display: none; }
+  .me-audit-bulk { flex-wrap: wrap; }
+}
+@media (max-width: 520px) {
+  .mc-audit-batchcard { grid-template-columns: minmax(0, 1fr) !important; }
+  .mc-audit-batchcard > .mc-btn { width: 100%; }
+}
+@media (max-width: 720px) {
+  .me-v5 .mc-v5-pagehead { flex-wrap: wrap; align-items: flex-start; }
+  .me-health-row { flex-wrap: wrap; }
+  .me-health-row > b { min-width: 56px; }
+  .me-health-row > div:last-child, .me-health-row > span:last-of-type { flex: 0 1 auto; width: 100%; padding-left: 22px; }
+  .mc-term-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .mc-term-guide { padding: 14px 12px 24px !important; }
+  .me-v5 .mc-rail, .me-v5 .mc-rail.open { width: 50px; padding: 8px 5px; }
+}
 .mc-tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--dsw-alias-bg-base, #f3f4f6); border-radius: 999px; }
 .mc-tab { border: 0; background: transparent; color: inherit; border-radius: 999px; padding: 5px 14px; font-size: 12px; cursor: pointer; opacity: 0.7; }
 .mc-viewbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -2968,14 +2986,14 @@ function TerminalGuide({ t }) {
   const code = { margin: '10px 0 0', padding: '12px 14px', borderRadius: 10, background: '#171a1f', border: '1px solid #333943', color: '#f3f5f8', fontSize: 12.5, lineHeight: 1.7, overflowX: 'auto', fontFamily: 'ui-monospace, Consolas, monospace' }
   const button = { marginTop: 10, border: '1px solid #4a515c', background: 'transparent', color: '#ffb08a', borderRadius: 9, padding: '7px 12px', fontSize: 12, cursor: 'pointer' }
   return (
-    <div style={{ padding: '22px 26px 34px', maxWidth: 1040, color: '#f3f5f8' }}>
+    <div className="mc-term-guide" style={{ padding: '22px 26px 34px', maxWidth: 1040, color: '#f3f5f8' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 24, letterSpacing: '-.02em' }}>{t('terminalTitle')}</h2>
         <span style={{ color: '#99a1ac', fontSize: 12 }}>TUI · LIVE · dsh-tui</span>
       </div>
       <p style={{ margin: '9px 0 20px', color: '#aeb5bf', fontSize: 13.5, lineHeight: 1.8 }}>{t('terminalIntro')}</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, .9fr)', gap: 14 }}>
+      <div className="mc-term-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, .9fr)', gap: 14 }}>
         <div style={card}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>▸ {t('terminalRun')}</div>
           <pre style={code}>{runCmd}</pre>
@@ -4311,7 +4329,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
           <div style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600, marginBottom: 6 }}>⚠ {err}</div>
           <button type="button" className="mc-btn" onClick={load}>↻ {t('retry')}</button>
         </div>}
-        {viaPending && <div className="mc-card" style={{ borderLeft: '4px solid #3b82f6', background: 'rgba(59,130,246,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#1d4ed8', lineHeight: 1.7 }}>ℹ {t('pendingSyncNote')}</div>}
         {readonly && <div className="mc-card" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#b45309' }}>ℹ️ {t('configNeedsDsh')} —— {t('editInSetting')}</div>}
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
         {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
@@ -6335,7 +6352,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   return (
                     <div style={{ marginTop: 6 }}>
                       {rows.map((r) => (
-                        <div key={r.label} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12, padding: '3px 0', borderTop: '1px solid rgba(127,127,127,0.10)' }}>
+                        <div key={r.label} className="me-health-row" style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12, padding: '3px 0', borderTop: '1px solid rgba(127,127,127,0.10)' }}>
                           <span style={{ width: 14, flex: '0 0 auto', color: ICO[r.level][1] }}>{ICO[r.level][0]}</span>
                           <b style={{ minWidth: 62, flex: '0 0 auto', opacity: 0.85 }}>{r.label}</b>
                           <span style={{ opacity: 0.82, wordBreak: 'break-word' }}>{r.text}</span>
