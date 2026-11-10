@@ -295,3 +295,16 @@ _Verses from 《蛊真人》(Reverend Insanity). Kept in the original Chinese �
 
 <p align="right"><sub>——《蛊真人》· 大爱仙尊</sub></p>
 
+---
+
+## 🌟 Contributors
+
+Thanks to everyone who helped memory-eternal get better.
+
+| Contributor | Contribution |
+| --- | --- |
+| [@aloneangel45](https://github.com/aloneangel45) | Found and fixed [#54](https://github.com/EternalNight996/memory-eternal/issues/54) — `memory_recall` / `memory_note` were never registered when the `tools` service mounted late ([#58](https://github.com/EternalNight996/memory-eternal/pull/58)) |
+| [@EternalNight996](https://github.com/EternalNight996) | Author and maintainer |
+
+Have a fix worth landing? Open an issue or a pull request — accepted contributions are listed here.
+
