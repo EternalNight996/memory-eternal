@@ -5164,7 +5164,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
         {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
         {page === 'service' && (cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
-          <details className="mc-card mc-env mc-env-fold" open={!sheet}>
+          <details className="mc-card mc-env mc-env-fold" open>
             <summary className="mc-env-top">
               <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
               <span style={{ fontSize: 12, opacity: 0.7 }}>{t('dshHostLabel')}</span>
