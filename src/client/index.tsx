@@ -449,12 +449,14 @@ export const ZH = {
   configPageSub: '写入、路由、审核与服务的本地配置',
   paneGeneral: '通用',
   paneMemory: '记忆',
-  paneCore: '核心',
-  paneVaults: '多库',
-  paneCost: '成本',
-  paneAudit: '审核',
+  paneAdvanced: '高级',
   paneService: '服务',
-  paneStatus: '状态',
+  paneGeneralSub: '一键方案、基础开关与日常偏好',
+  paneMemorySub: '库目录、召回与核心记忆',
+  paneAdvancedSub: '成本控制与自动审核',
+  paneServiceSub: '服务守护、版本与 MCP 挂载',
+  basicSwitches: '基础开关',
+  basicSwitchesHint: '记忆核心的总开关与自动沉淀 / 召回',
   tabAudit: '待审',
   statusApproved: '已审核',
   statusPending: '待审核',
@@ -1235,12 +1237,14 @@ export const EN = {
   configPageSub: 'Local write, routing, audit and service settings',
   paneGeneral: 'General',
   paneMemory: 'Memory',
-  paneCore: 'Core',
-  paneVaults: 'Vaults',
-  paneCost: 'Cost',
-  paneAudit: 'Audit',
+  paneAdvanced: 'Advanced',
   paneService: 'Service',
-  paneStatus: 'Status',
+  paneGeneralSub: 'Presets, core switches and daily preferences',
+  paneMemorySub: 'Vault, recall and core memory',
+  paneAdvancedSub: 'Cost control and auto-audit',
+  paneServiceSub: 'Service watchdog, version and MCP status',
+  basicSwitches: 'Core switches',
+  basicSwitchesHint: 'Master switch plus auto-capture / auto-recall',
   tabAudit: 'Review',
   statusApproved: 'Approved',
   statusPending: 'Pending',
@@ -1771,37 +1775,47 @@ const CSS = `
   .mc-cfg-layout { grid-template-columns: minmax(0, 1fr); }
   .mc-cfg-toc { display: none; }
 }
-/* 弹窗分页导航（通用 / 记忆 / 核心 / …），粘在顶部，横向可滚 */
-.mc-pagenav { position: sticky; top: 0; z-index: 23; display: flex; gap: 4px; overflow-x: auto; padding: 6px 2px 8px; margin: 0 0 2px; background: var(--dsw-alias-bg-layer-1, #fff); border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); scrollbar-width: none; }
-.mc-pagenav::-webkit-scrollbar { display: none; }
-.mc-pagebtn { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; opacity: .62; white-space: nowrap; }
-.mc-pagebtn:hover { background: rgba(127,127,127,.10); opacity: 1; }
-.mc-pagebtn.on { background: rgba(255,122,69,.14); opacity: 1; font-weight: 600; }
+/* 弹窗分页：四段式胶囊导航 + 页头 + 卡片分组 */
+.mc-pagenav { position: sticky; top: 0; z-index: 23; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; margin: 0 0 12px; border-radius: 12px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: rgba(127,127,127,.06); }
+.mc-pagebtn { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 7px 4px; border: 0; border-radius: 9px; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; opacity: .66; white-space: nowrap; }
+.mc-pagebtn:hover { opacity: 1; background: rgba(127,127,127,.10); }
+.mc-pagebtn.on { opacity: 1; font-weight: 650; color: #fff; background: linear-gradient(135deg, #ff8a4d, #ff6a2b); box-shadow: 0 4px 14px rgba(255,106,43,.35); }
+.mc-pagebtn.on:hover { background: linear-gradient(135deg, #ff8a4d, #ff6a2b); }
 .mc-pagebtn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #3b82f6); outline-offset: 1px; }
 .mc-pagebtn-ico { font-size: 13px; }
-.me-v5 .mc-embed .mc-pagenav { background: #21252c; border-color: #333943; }
-/* 嵌入式（DSH 设置弹窗）：无卡片边框，连续表单，像一个原生设置页 */
+.mc-panehead { display: flex; align-items: center; gap: 12px; padding: 2px 4px 14px; }
+.mc-panehead-ico { flex: none; width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; background: linear-gradient(135deg, rgba(255,122,69,.30), rgba(255,122,69,.07)); border: 1px solid rgba(255,122,69,.24); }
+.mc-panehead-title { font-size: 15.5px; font-weight: 700; letter-spacing: .2px; }
+.mc-panehead-sub { font-size: 11.5px; opacity: .55; margin-top: 3px; line-height: 1.5; }
+.me-v5 .mc-embed .mc-pagenav { background: rgba(33,37,44,.92); border-color: #333943; }
+/* 嵌入式（DSH 设置弹窗）：卡片分组 + 细线开关行 */
 .mc-embed .mc-cfg-page { max-width: 760px; }
 .mc-embed .mc-cfg-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.mc-embed .mc-cfg-sec { border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 0; background: transparent; padding: 0 !important; margin: 0 !important; }
-.mc-embed .mc-cfg-sec-head { padding: 13px 2px; margin: 0; }
-.mc-embed .mc-cfg-sec-body { padding: 0 2px 18px; }
+.mc-embed .mc-cfg-sec { border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 14px; background: rgba(127,127,127,.045); padding: 14px 16px !important; margin: 0 0 12px !important; }
+.me-v5 .mc-embed .mc-cfg-sec { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.09); }
+.mc-embed .mc-cfg-sec-head { padding: 0; margin-bottom: 12px; }
+.mc-embed .mc-cfg-sec-body { padding: 0; }
 .mc-embed .mc-cfg-switches { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.mc-embed .mc-cfg-switches .mc-switch { border: 0; border-bottom: 1px solid rgba(127,127,127,.10); border-radius: 0; background: transparent; padding: 10px 2px; }
+.mc-embed .mc-cfg-switches .mc-switch { border: 0; border-bottom: 1px solid rgba(127,127,127,.10); border-radius: 0; background: transparent; padding: 9px 2px; }
 .mc-embed .mc-cfg-switches .mc-switch:last-child { border-bottom: 0; }
 .mc-env-fold > summary { list-style: none; cursor: pointer; }
 .mc-env-fold > summary::-webkit-details-marker { display: none; }
 .mc-env-fold[open] > summary .mc-fold-caret { transform: rotate(180deg); }
 .mc-env-rest { padding-top: 2px; }
-.mc-embed .mc-env-fold { padding: 8px 2px !important; }
-.mc-embed .mc-cfg-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px 16px; }
-.mc-embed .mc-env { border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 0; background: transparent; padding: 8px 2px !important; margin-bottom: 0 !important; }
-.mc-embed .mc-fold { border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 0; margin-bottom: 0 !important; }
-.mc-embed .mc-fold > summary { padding: 12px 2px; }
-.mc-embed .mc-fold-body { padding: 0 2px 16px; }
-.mc-embed .mc-cfg-actions { margin: 0; border-radius: 12px 12px 0 0; }
+.mc-embed .mc-env, .mc-embed .mc-env-fold { border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 14px; background: rgba(127,127,127,.045); padding: 12px 16px !important; margin-bottom: 12px !important; }
+.me-v5 .mc-embed .mc-env, .me-v5 .mc-embed .mc-env-fold { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.09); }
+.mc-embed .mc-fold { border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 14px; background: rgba(127,127,127,.045); margin-bottom: 12px !important; }
+.me-v5 .mc-embed .mc-fold { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.09); }
+.mc-embed .mc-fold > summary { padding: 13px 16px; }
+.mc-embed .mc-fold-body { padding: 0 16px 14px; }
+.mc-embed .mc-cfg-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 16px; }
+.mc-embed .mc-plan-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.mc-embed .mc-plan { flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; }
+.mc-embed .mc-plan b { flex: none; }
+.mc-embed .mc-plan span { flex: 1; min-width: 0; text-align: left; }
+.mc-embed .mc-cfg-actions { margin: 2px 0 0; border-radius: 12px; }
 .mc-embed .mc-plan-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-.me-v5.mc-embed, .mc-embed { max-width: 860px; margin: 0 auto; }
+.mc-embed { max-width: 800px; margin: 0 auto; }
 .mc-cfg-sec { margin-bottom: 14px; padding: 18px 20px !important; border-radius: 14px; }
 .mc-cfg-sec-head { margin-bottom: 16px; }
 .mc-cfg-sec-body { display: flex; flex-direction: column; gap: 16px; }
@@ -3865,23 +3879,21 @@ function CfgSection({ icon, title, sub, id, children, hidden }) {
 
 function ConfigPanel({ t, onReload, version, compact, embedded }) {
   const sheet = embedded === true
-  // 弹窗形态：分页导航（通用 / 记忆 / 核心 / 多库 / 成本 / 审核 / 服务 / 状态）
+  // 弹窗形态：分页导航（只保留 4 个核心分类）
   const [page, setPage] = useState('general')
   const PAGE_OF = {
-    'sec-preset': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
-    'sec-memory': 'memory', 'sec-core': 'core', 'sec-vault': 'vault',
-    'sec-cost': 'cost', 'sec-audit': 'audit', 'sec-service': 'service',
+    'sec-preset': 'general', 'sec-basic': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
+    'sec-memory': 'memory', 'sec-core': 'memory', 'sec-vault': 'memory',
+    'sec-cost': 'advanced', 'sec-audit': 'advanced',
+    'sec-service': 'service',
   }
   const PAGES = [
-    ['general', t('paneGeneral'), '⚙️'],
-    ['memory', t('paneMemory'), '🧠'],
-    ['core', t('paneCore'), '⭐'],
-    ['vault', t('paneVaults'), '🗂️'],
-    ['cost', t('paneCost'), '💰'],
-    ['audit', t('paneAudit'), '🛡️'],
-    ['service', t('paneService'), '🛠'],
-    ['status', t('paneStatus'), '📦'],
+    ['general', t('paneGeneral'), t('paneGeneralSub'), '⚙️'],
+    ['memory', t('paneMemory'), t('paneMemorySub'), '🧠'],
+    ['advanced', t('paneAdvanced'), t('paneAdvancedSub'), '✨'],
+    ['service', t('paneService'), t('paneServiceSub'), '🛠'],
   ]
+  const curPage = PAGES.find((x) => x[0] === page) || PAGES[0]
   const gotoPage = (p) => {
     setPage(p)
     if (scrollRef.current) scrollRef.current.scrollTop = 0
@@ -4244,12 +4256,21 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
           <div className="mc-cfg-main">
         {sheet && (
           <div className="mc-pagenav" role="tablist" aria-label={t('tabConfig')}>
-            {PAGES.map(([p, label, ico]) => (
+            {PAGES.map(([p, label, , ico]) => (
               <button key={p} type="button" role="tab" data-page={p} aria-selected={page === p} className={'mc-pagebtn' + (page === p ? ' on' : '')} onClick={() => gotoPage(p)}>
                 <span className="mc-pagebtn-ico" aria-hidden="true">{ico}</span>
                 <span>{label}</span>
               </button>
             ))}
+          </div>
+        )}
+        {sheet && (
+          <div className="mc-panehead">
+            <div className="mc-panehead-ico" aria-hidden="true">{curPage[3]}</div>
+            <div style={{ minWidth: 0 }}>
+              <div className="mc-panehead-title">{curPage[1]}</div>
+              <div className="mc-panehead-sub">{curPage[2]}</div>
+            </div>
           </div>
         )}
         {!compact && !sheet && (
@@ -4270,7 +4291,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
         {readonly && <div className="mc-card" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#b45309' }}>ℹ️ {t('configNeedsDsh')} —— {t('editInSetting')}</div>}
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
         {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
-        {(!sheet || page === 'status') && (cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
+        {(!sheet || page === 'service') && (cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
           <details className="mc-card mc-env mc-env-fold" open={!sheet}>
             <summary className="mc-env-top">
               <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
@@ -4336,7 +4357,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
           </details>
         )}
         {/* 环境与 MCP 挂载：默认折叠，让页面主体只留配置 */}
-        {(!sheet || page === 'status') && setupStatus && setupStatus.agents && (
+        {(!sheet || page === 'service') && setupStatus && setupStatus.agents && (
           <details className="mc-card mc-cfg-sec mc-fold" style={{ marginBottom: 10 }}>
             <summary className="mc-cfg-sec-head">
               <div className="mc-cfg-sec-ico">🔌</div>
@@ -4423,12 +4444,17 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
                 <div style={{ fontSize: 11, color: '#10b981' }}>✅ {tf('planApplied', { plan: PLANS[appliedPlan].label })}</div>
               ) : null}
             </CfgSection>
-            {/* DSH 记忆配置 */}
-            <CfgSection {...secProps('sec-memory')} id="sec-memory" icon="🧠" title={t('dshMemoryConfig')} sub={t('cfgSubCore')}>
+            {/* 基础开关（总开关 / 自动沉淀 / 自动召回） */}
+            <CfgSection {...secProps('sec-basic')} id="sec-basic" icon="⚡" title={t('basicSwitches')} sub={t('basicSwitchesHint')}>
               <div className="mc-cfg-switches">
                 <Bool k="enabled" label={t('enabledLabel')} />
                 <Bool k="autoCapture" label={t('autoCapture')} />
                 <Bool k="autoRecall" label={t('autoRecall')} />
+              </div>
+            </CfgSection>
+            {/* DSH 记忆配置 */}
+            <CfgSection {...secProps('sec-memory')} id="sec-memory" icon="🧠" title={t('dshMemoryConfig')} sub={t('cfgSubCore')}>
+              <div className="mc-cfg-switches is-single">
                 <Bool k="recallIncludeBody" label={t('recallBody')} />
               </div>
               <div className="mc-cfg-grid">
@@ -4653,7 +4679,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
                 <F k="webMaxRestart" label={t('webMaxRestart')} hint={t('unitTimes')} type="number" />
               </div>
             </CfgSection>
-            {(!sheet || page !== 'status') && (<div className="mc-cfg-actions">
+            <div className="mc-cfg-actions">
               {dirty ? <span className="mc-cfg-dirty">{t('cfgDirty')}</span> : <span className="mc-cfg-clean">✓ {t('cfgClean')}</span>}
               <span className="mc-cfg-spacer" />
               {busy === 'save' && <span style={{ fontSize: 11.5, opacity: 0.75 }}>⏳ {t('saving')}</span>}
@@ -4670,7 +4696,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
               >
                 {busy === 'save' ? '⏳ ' + t('saving') : (readonly ? '🔒 ' + t('readonlyBtn') : '💾 ' + t('saveConfig'))}
               </button>
-            </div>)}
+            </div>
           </div>
         ) : <div style={{ fontSize: 12, opacity: 0.6 }}>{t('loading')}</div>}
           </div>
