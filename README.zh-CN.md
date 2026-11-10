@@ -295,3 +295,16 @@ _「大爱」二字，是全篇最大的反讽。面板左栏底部同步轮播�
 
 <p align="right"><sub>——《蛊真人》· 大爱仙尊</sub></p>
 
+---
+
+## 🌟 贡献者
+
+感谢每一位让记忆核心更好用的人。
+
+| 贡献者 | 贡献 |
+| --- | --- |
+| [@aloneangel45](https://github.com/aloneangel45) | 发现并修复 [#54](https://github.com/EternalNight996/memory-eternal/issues/54) —— `tools` 服务晚挂载时 `memory_recall` / `memory_note` 从未注册（[#58](https://github.com/EternalNight996/memory-eternal/pull/58)） |
+| [@EternalNight996](https://github.com/EternalNight996) | 作者与维护者 |
+
+有想落地的修复？欢迎开 issue 或 PR —— 每个被合并的贡献都会出现在这里。
+
