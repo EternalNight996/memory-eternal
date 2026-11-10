@@ -14,6 +14,7 @@ import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import brandIcon from '../../assets/icon.png'
 import residentThemeArt from '../../assets/theme/resident.jpg'
 import spiderThemeArt from '../../assets/theme/spider.jpg'
+import clawThemeArt from '../../assets/theme/claw.jpg'
 import { snippetAround } from './snippet.js'
 import { auditMatches } from './audit-filter.js'
 import { versionCardState } from './version-state.js'
@@ -1719,6 +1720,35 @@ const CAPTURE_ACTIONS = {
 const ZOMBIE_ART = residentThemeArt
 
 const SPIDER_ART = spiderThemeArt
+const CLAW_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 620 340'>
+<g fill='#050806' stroke='#3d6b45' stroke-width='2' stroke-linejoin='round'>
+<path d='M470 250 Q330 235 200 160 Q150 128 120 100 Q165 165 255 225 Q365 295 470 300 Z'/>
+<path d='M450 200 Q330 170 210 108 Q165 84 140 62 Q180 128 260 170 Q365 225 450 235 Z'/>
+<path d='M420 155 Q330 125 245 78 Q205 55 185 38 Q215 100 275 135 Q355 180 420 192 Z'/>
+<path d='M390 118 Q315 90 255 45 Q230 25 215 12 Q235 70 285 102 Q345 142 390 150 Z'/>
+<path d='M470 250 Q540 255 620 300 L620 340 L420 340 Z'/>
+</g>
+<g fill='#7cff3f' opacity='.45'>
+<path d='M120 100 Q140 118 165 132 L150 140 Q130 126 120 100 Z'/>
+<path d='M140 62 Q158 80 178 94 L165 100 Q150 86 140 62 Z'/>
+<path d='M185 38 Q200 56 218 70 L206 76 Q194 60 185 38 Z'/>
+<path d='M215 12 Q226 30 240 42 L230 48 Q220 32 215 12 Z'/>
+</g>
+<g stroke='#b32424' stroke-width='3' opacity='.6' stroke-linecap='round'><path d='M320 250 L290 300'/><path d='M380 265 L360 320'/></g>
+</svg>`)
+const CHARM_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 150'>
+<path d='M40 0 V66' stroke='#0b0b0f' stroke-width='2'/>
+<g transform='translate(40,96) rotate(-7)'>
+<ellipse cx='0' cy='12' rx='10' ry='14' fill='#e62429' stroke='#0b0b0f' stroke-width='2'/>
+<circle cx='0' cy='-6' r='8' fill='#1b3b8b' stroke='#0b0b0f' stroke-width='2'/>
+<g stroke='#0b0b0f' stroke-width='2' fill='none' stroke-linecap='round'>
+<path d='M-8 6 Q-24 -2 -31 7'/><path d='M-9 14 Q-27 14 -33 24'/><path d='M-7 24 Q-23 30 -27 42'/>
+<path d='M8 6 Q24 -2 31 7'/><path d='M9 14 Q27 14 33 24'/><path d='M7 24 Q23 30 27 42'/>
+</g>
+<path d='M-6 12 Q0 18 6 12' stroke='#fff' stroke-width='2' fill='none' opacity='.8'/>
+<circle cx='-3' cy='10' r='1.4' fill='#fff'/><circle cx='3' cy='10' r='1.4' fill='#fff'/>
+</g>
+</svg>`)
 
 const CSS = `
 .memory-eternal-root { font-family: inherit; color: var(--dsw-alias-label-primary, #1f2937); }
@@ -3557,16 +3587,21 @@ const CSS = `
 }
 [data-skin="resident"] .mc-v5-pagehead::before {
   content: ''; position: absolute; right: 0; top: 0; width: 56%; height: 100%;
-  background: url("${ZOMBIE_ART}") center 28% / cover no-repeat;
+  background-image: url("${CLAW_ART}"), url("${clawThemeArt}"), url("${ZOMBIE_ART}");
+  background-size: 62%, 64%, cover;
+  background-position: right -2% bottom -8%, right -4% bottom -12%, center 28%;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-blend-mode: normal, screen, normal;
   opacity: .95; filter: brightness(1.35) contrast(1.1) saturate(1.1);
   -webkit-mask-image: linear-gradient(to left, #000 52%, transparent 100%);
   mask-image: linear-gradient(to left, #000 52%, transparent 100%);
   pointer-events: none; z-index: 0;
 }
 [data-skin="resident"] .mc-v5-pagehead::after {
-  content: '☣ CONTAINMENT BREACH // LEVEL 4';
+  content: '☣ CONTAINMENT BREACH // T-002 TYRANT';
   position: absolute; inset: 0; z-index: 1; padding: 16px 20px;
   background:
+    repeating-linear-gradient(90deg, rgba(226,58,58,.9) 0 34px, rgba(24,6,6,.9) 34px 40px) left bottom / 100% 7px no-repeat,
     linear-gradient(90deg, rgba(5,8,6,.97) 0 40%, rgba(5,8,6,.55) 62%, transparent 88%),
     repeating-linear-gradient(180deg, rgba(124,255,63,.05) 0 1px, transparent 1px 4px),
     radial-gradient(circle at 88% 16%, rgba(226,58,58,.28), transparent 48%);
@@ -3600,8 +3635,8 @@ const CSS = `
   background: #f4f1e8; box-shadow: 8px 8px 0 var(--sp-red);
 }
 [data-skin="spider"] .mc-v5-pagehead::before {
-  content: ''; position: absolute; right: 0; top: 0; width: 52%; height: 100%;
-  background: url("${SPIDER_ART}") center 20% / cover no-repeat;
+  content: ''; position: absolute; right: 0; top: 0; width: 64%; height: 100%;
+  background: url("${SPIDER_ART}") center 52% / cover no-repeat;
   opacity: 1; filter: saturate(1.05) contrast(1.02);
   -webkit-mask-image: linear-gradient(to left, #000 48%, transparent 100%);
   mask-image: linear-gradient(to left, #000 48%, transparent 100%);
@@ -3613,6 +3648,17 @@ const CSS = `
 [data-skin="spider"] .mc-v5-pagehead p { max-width: 46%; }
 [data-skin="spider"] .mc-v5-pagecount { position: absolute; right: 16px; top: 14px; z-index: 3; }
 [data-skin="spider"] .mc-v5-feature::before { z-index: 2; }
+[data-skin="spider"] .mc-theme-charm {
+  display: block; position: fixed; top: 58px; right: 150px; width: 64px; height: 128px;
+  background: url("${CHARM_ART}") center top / contain no-repeat;
+  pointer-events: none; z-index: 45; filter: drop-shadow(0 8px 12px rgba(0,0,0,.28));
+}
+.mc-theme-charm { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-skin="spider"] .mc-theme-charm { animation: charm-swing 5.5s ease-in-out infinite; transform-origin: 50% 0; }
+}
+@keyframes charm-swing { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@media (max-width: 720px) { .mc-theme-charm { display: none !important; } }
 @media (prefers-reduced-motion: no-preference) {
   [data-skin="resident"] .mc-v5-pagehead::before { animation: re-alert 6s ease-in-out infinite; }
   [data-skin="spider"] .mc-v5-pagehead::before { animation: sp-hero-breath 7s ease-in-out infinite; }
@@ -4481,6 +4527,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       }}
     >
       <style>{CSS}</style>
+      <div className="mc-theme-charm" aria-hidden="true" />
       {!inModal && (
         <div className={`mc-v5-top${inHost ? ' in-host' : ''}`}>
           <img className="mc-v5-logo" src={brandIcon} alt="" />
