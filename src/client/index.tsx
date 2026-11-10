@@ -522,6 +522,15 @@ export const ZH = {
   coreShort: '核心',
   setCoreShort: '设核心',
   uiLayout: '布局大小',
+  themeSkin: '主题皮肤',
+  themeSkinHint: '一键切换整个记忆界面（含设置页），点选即生效并保存',
+  themeDefault: '默认暗色',
+  themeDefaultDesc: '原版深色界面',
+  themePop: '波普 Pop',
+  themePopDesc: '高饱和撞色 + 粗黑描边',
+  themeLight: '明亮',
+  themeLightDesc: '浅色纸面，白天更清晰',
+  themeApplied: '主题已切换',
   uiLayoutHint: '调整记忆界面整体大小（只影响显示，不影响记忆数据）',
   uiCompact: '紧凑',
   uiNormal: '标准',
@@ -1310,6 +1319,15 @@ export const EN = {
   coreShort: 'Core',
   setCoreShort: 'Set core',
   uiLayout: 'Layout size',
+  themeSkin: 'Theme',
+  themeSkinHint: 'Switch the whole memory UI (settings included) — applies and saves on click',
+  themeDefault: 'Default dark',
+  themeDefaultDesc: 'Original dark interface',
+  themePop: 'Pop',
+  themePopDesc: 'Bold colors + thick black outlines',
+  themeLight: 'Light',
+  themeLightDesc: 'Paper-like light surface for daytime',
+  themeApplied: 'Theme applied',
   uiLayoutHint: 'Scale the memory UI only; memory data is unchanged',
   uiCompact: 'Compact',
   uiNormal: 'Normal',
@@ -2801,6 +2819,149 @@ const CSS = `
   .mc-audit-batchcard > .mc-btn { width: 100%; }
   .mc-audit-batchcard > div[style*="flex: 1"] { display: none; }
 }
+/* ================= 主题皮肤框架（data-skin） =================
+   新增皮肤：① Config 的 theme union 加 id；② 这里加 [data-skin="id"] 变量 + 少量表面覆盖；
+   ③ client 的 SKINS 列表加一项（name/desc/三色预览）。所有页面共用同一套变量。 */
+.memory-eternal-root[data-skin="pop"], .mc-admin[data-skin="pop"] {
+  --dsw-alias-bg-base: #fff6e5;
+  --dsw-alias-bg-layer-1: #fffdf7;
+  --dsw-alias-bg-layer-2: #ffefc4;
+  --dsw-alias-border-l1: #111111;
+  --dsw-alias-border-l2: #111111;
+  --dsw-alias-label-primary: #141414;
+  --dsw-alias-label-secondary: #4c4c4c;
+  --dsw-alias-accent: #ff2e63;
+  --dsw-alias-brand-primary: #ff2e63;
+}
+.memory-eternal-root[data-skin="pop"] { background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); }
+.mc-admin[data-skin="pop"] { background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); }
+[data-skin="pop"] .mc-main {
+  background-color: #fff6e5;
+  background-image: radial-gradient(rgba(17,17,17,.10) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+  color: #141414;
+}
+[data-skin="pop"] .mc-rail { background: #ffd83d; border-right: 3px solid #111; }
+[data-skin="pop"] .mc-v5-top { background: #fffdf7; border-bottom: 3px solid #111; color: #111; }
+[data-skin="pop"] .mc-v5-crumb, [data-skin="pop"] .mc-v5-crumb b, [data-skin="pop"] .mc-v5-sys,
+[data-skin="pop"] .mc-v5-ver, [data-skin="pop"] .mc-v5-star, [data-skin="pop"] .mc-v5-railbrand b { color: #111; }
+[data-skin="pop"] .mc-railbtn { color: #111; border-radius: 6px; }
+[data-skin="pop"] .mc-railbtn:hover { background: #fff; border: 2px solid #111; box-shadow: 3px 3px 0 #111; color: #111; }
+[data-skin="pop"] .mc-railbtn.active { background: var(--dsw-alias-accent); border: 2px solid #111; color: #fff; box-shadow: 3px 3px 0 #111; }
+[data-skin="pop"] .mc-v5-sys, [data-skin="pop"] .mc-v5-ver, [data-skin="pop"] .mc-v5-star { background: #fff; border: 2px solid #111; border-radius: 999px; }
+[data-skin="pop"] .mc-card { background: #fffdf7; border: 2px solid #111; border-radius: 8px; box-shadow: 4px 4px 0 #111; }
+[data-skin="pop"] .mc-btn { background: #ffd83d !important; border: 2px solid #111 !important; border-radius: 6px; color: #111 !important; box-shadow: 2px 2px 0 #111; font-weight: 700; }
+[data-skin="pop"] .mc-btn:hover { opacity: 1; transform: translate(-1px,-1px); box-shadow: 4px 4px 0 #111; }
+[data-skin="pop"] .mc-btn.me-on { background: var(--dsw-alias-accent) !important; color: #fff !important; border-color: #111 !important; }
+[data-skin="pop"] .mc-toolbar input[type=text], [data-skin="pop"] .mc-news-search,
+[data-skin="pop"] .mc-field input:not([type="checkbox"]):not([type="radio"]), [data-skin="pop"] .mc-field select {
+  background: #fff; border: 2px solid #111; border-radius: 6px; color: #111;
+}
+[data-skin="pop"] .mc-field input:focus, [data-skin="pop"] .mc-field select:focus { border-color: #111; box-shadow: 0 0 0 3px rgba(255,46,99,.28); }
+[data-skin="pop"] .mc-chip { background: #fff; border: 2px solid #111; color: #111; }
+[data-skin="pop"] .mc-chip.active { background: var(--dsw-alias-accent); color: #fff; }
+[data-skin="pop"] .mc-v5-pagehead h1 { color: #111; font-weight: 900; letter-spacing: -.03em; text-shadow: 3px 3px 0 #ffd83d; }
+[data-skin="pop"] .mc-v5-pagehead p, [data-skin="pop"] .mc-v5-eyebrow, [data-skin="pop"] .mc-v5-pagecount { color: #111; opacity: .78; }
+[data-skin="pop"] .mc-quote { background: #fff; border-top: 2px solid #111; color: #111; }
+[data-skin="pop"] .mc-pagenav { background: #fff; border: 2px solid #111; border-radius: 8px; }
+[data-skin="pop"] .mc-pagebtn.on { background: var(--dsw-alias-accent); color: #fff; box-shadow: 3px 3px 0 #111; }
+[data-skin="pop"] .mc-panehead-ico { background: #ffd83d; border: 2px solid #111; }
+[data-skin="pop"] .mc-cfg-sec, [data-skin="pop"] .mc-env, [data-skin="pop"] .mc-env-fold,
+[data-skin="pop"] .mc-fold, [data-skin="pop"] .mc-cfg-actions { background: #fffdf7; border: 2px solid #111; border-radius: 8px; box-shadow: 4px 4px 0 #111; }
+[data-skin="pop"] .mc-cfg-sec-ico { background: #ffd83d; border: 1px solid #111; }
+[data-skin="pop"] .mc-cfg-switches .mc-switch { border-bottom-color: rgba(17,17,17,.18); }
+[data-skin="pop"] .mc-seg button.on { background: #ffd83d; color: #111; }
+[data-skin="pop"] .mc-plan:hover { border-color: #111; transform: none; }
+[data-skin="pop"] .mc-plan.on { background: #ffe1ea; border-color: #111; box-shadow: 3px 3px 0 #111; }
+[data-skin="pop"] .mc-news-hero, [data-skin="pop"] .mc-news-card, [data-skin="pop"] .mc-news-tile,
+[data-skin="pop"] .mc-news-feed-card, [data-skin="pop"] .mc-news-reader { border: 2px solid #111; box-shadow: 4px 4px 0 #111; border-radius: 8px; }
+[data-skin="pop"] .me-audit-kinds, [data-skin="pop"] .me-audit-preview, [data-skin="pop"] .me-audit-bulk { border: 2px solid #111; border-radius: 8px; box-shadow: 4px 4px 0 #111; }
+[data-skin="pop"] .mc-toolbar input::placeholder, [data-skin="pop"] .mc-news-search::placeholder { color: #777; }
+[data-skin="pop"] :is(.mc-v5-crumb, .mc-v5-crumb b, .mc-v5-pagehead h1, .mc-v5-pagehead p, .mc-v5-eyebrow,
+  .mc-v5-pagecount, .mc-v5-pagehead-stats span, .mc-v5-pagehead-stats b,
+  .mc-v5-card-title, .mc-v5-card-lead, .mc-v5-card-kind-name, .mc-v5-card-time, .mc-v5-card-foot,
+  .mc-v5-author, .mc-v5-conn, .mc-v5-conn b,
+  .mc-v5-feature h3, .mc-v5-feature p, .mc-v5-feature-meta, .mc-v5-feature-side span,
+  .me-audit-row-title, .me-audit-row-kind, .me-audit-row-time, .me-audit-row-meta,
+  .me-audit-row-reason, .mc-v5-graph-legend, .mc-v5-graph-legend-row b, .md-doc, .md-doc h1, .md-doc h2, .md-doc h3) { color: #141414; }
+[data-skin="pop"] .mc-v5-feature { background: #fff; border: 2px solid #111; box-shadow: 4px 4px 0 #111; }
+[data-skin="pop"] .mc-v5-feature-side b { color: #ff2e63; }
+[data-skin="pop"] .mc-v5-feature-open { color: #ff2e63 !important; }
+[data-skin="pop"] .mc-news-hero { background: #fff !important; border: 2px solid #111; box-shadow: 4px 4px 0 #111; }
+[data-skin="pop"] .mc-news-hero-hint { color: #444 !important; }
+[data-skin="pop"] .mc-tag { background: #fff !important; border: 1.5px solid #111; color: #141414 !important; }
+[data-skin="pop"] .mc-tag.more { background: #ffd83d !important; }
+[data-skin="pop"] .mc-quote-text { color: #141414; }
+[data-skin="pop"] .mc-quote-src { color: #8a6a2f; }
+
+/* 明亮皮肤：浅纸面 + 橙色强调 */
+.memory-eternal-root[data-skin="light"], .mc-admin[data-skin="light"] {
+  --dsw-alias-bg-base: #f4f4f1;
+  --dsw-alias-bg-layer-1: #ffffff;
+  --dsw-alias-bg-layer-2: #ececea;
+  --dsw-alias-border-l1: #dcdcd8;
+  --dsw-alias-border-l2: #cfcfca;
+  --dsw-alias-label-primary: #1c1c1e;
+  --dsw-alias-label-secondary: #6b6b70;
+  --dsw-alias-accent: #ff7a45;
+  --dsw-alias-brand-primary: #ff7a45;
+}
+.memory-eternal-root[data-skin="light"] { background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); }
+.mc-admin[data-skin="light"] { background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); }
+[data-skin="light"] .mc-main { background: #f4f4f1; color: #1c1c1e; }
+[data-skin="light"] .mc-rail { background: #ffffff; border-right: 1px solid #dcdcd8; }
+[data-skin="light"] .mc-v5-top { background: #ffffff; border-bottom: 1px solid #dcdcd8; color: #1c1c1e; }
+[data-skin="light"] .mc-v5-crumb, [data-skin="light"] .mc-v5-crumb b, [data-skin="light"] .mc-v5-sys,
+[data-skin="light"] .mc-v5-ver, [data-skin="light"] .mc-v5-star, [data-skin="light"] .mc-v5-railbrand b { color: #1c1c1e; }
+[data-skin="light"] .mc-railbtn { color: #333; }
+[data-skin="light"] .mc-railbtn:hover { background: #f0f0ec; color: #111; }
+[data-skin="light"] .mc-railbtn.active { background: #ffe3d5; color: #b8410f; }
+[data-skin="light"] .mc-v5-sys, [data-skin="light"] .mc-v5-ver, [data-skin="light"] .mc-v5-star { background: #f4f4f1; border-color: #dcdcd8; }
+[data-skin="light"] .mc-card { background: #ffffff; border-color: #dcdcd8; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+[data-skin="light"] .mc-btn { background: #fff !important; border-color: #cfcfca !important; color: #1c1c1e !important; }
+[data-skin="light"] .mc-btn.me-on { background: #ff7a45 !important; color: #fff !important; }
+[data-skin="light"] .mc-toolbar input[type=text], [data-skin="light"] .mc-news-search,
+[data-skin="light"] .mc-field input:not([type="checkbox"]):not([type="radio"]), [data-skin="light"] .mc-field select { background: #fff; border-color: #cfcfca; color: #1c1c1e; }
+[data-skin="light"] .mc-chip { background: #fff; border-color: #dcdcd8; color: #333; }
+[data-skin="light"] .mc-chip.active { background: #ffe3d5; border-color: #ff7a45; color: #b8410f; }
+[data-skin="light"] .mc-v5-pagehead h1 { color: #1c1c1e; }
+[data-skin="light"] .mc-v5-pagehead p, [data-skin="light"] .mc-v5-eyebrow, [data-skin="light"] .mc-v5-pagecount { color: #555; }
+[data-skin="light"] .mc-quote { background: #fff; border-color: #dcdcd8; color: #444; }
+[data-skin="light"] .mc-pagenav { background: #fff; border-color: #dcdcd8; }
+[data-skin="light"] .mc-pagebtn.on { background: #ff7a45; color: #fff; box-shadow: 0 4px 12px rgba(255,122,69,.28); }
+[data-skin="light"] .mc-panehead-ico { background: #ffe3d5; border-color: #ffc4a8; }
+[data-skin="light"] .mc-cfg-sec, [data-skin="light"] .mc-env, [data-skin="light"] .mc-env-fold,
+[data-skin="light"] .mc-fold, [data-skin="light"] .mc-cfg-actions { background: #ffffff; border-color: #dcdcd8; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+[data-skin="light"] .mc-cfg-sec-ico { background: #ffe3d5; }
+[data-skin="light"] .mc-seg button.on { background: #fff; color: #1c1c1e; }
+[data-skin="light"] .mc-plan.on { background: #fff4ee; border-color: #ff7a45; }
+[data-skin="light"] .mc-news-hero, [data-skin="light"] .mc-news-card, [data-skin="light"] .mc-news-tile,
+[data-skin="light"] .mc-news-feed-card, [data-skin="light"] .mc-news-reader { border-color: #dcdcd8; }
+[data-skin="light"] :is(.mc-v5-crumb, .mc-v5-crumb b, .mc-v5-pagehead h1, .mc-v5-pagehead p, .mc-v5-eyebrow,
+  .mc-v5-pagecount, .mc-v5-pagehead-stats span, .mc-v5-pagehead-stats b,
+  .mc-v5-card-title, .mc-v5-card-lead, .mc-v5-card-kind-name, .mc-v5-card-time, .mc-v5-card-foot,
+  .mc-v5-author, .mc-v5-conn, .mc-v5-conn b,
+  .mc-v5-feature h3, .mc-v5-feature p, .mc-v5-feature-meta, .mc-v5-feature-side span,
+  .me-audit-row-title, .me-audit-row-kind, .me-audit-row-time, .me-audit-row-meta,
+  .me-audit-row-reason, .mc-v5-graph-legend, .mc-v5-graph-legend-row b, .md-doc, .md-doc h1, .md-doc h2, .md-doc h3) { color: #1c1c1e; }
+[data-skin="light"] .mc-v5-feature { background: #fff; border-color: #ffd3bd; }
+[data-skin="light"] .mc-v5-feature-side b { color: #ff7a45; }
+[data-skin="light"] .mc-news-hero { background: #fff !important; }
+[data-skin="light"] .mc-tag { background: #f0f0ec !important; color: #1c1c1e !important; }
+[data-skin="light"] .mc-quote-text { color: #3f3a33; }
+/* 主题选择卡 */
+.mc-theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.mc-theme-card { display: flex; flex-direction: column; gap: 6px; text-align: left; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 10px; padding: 10px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.mc-theme-card:hover { border-color: var(--dsw-alias-brand-primary, #ff7a45); }
+.mc-theme-card.on { border-color: var(--dsw-alias-brand-primary, #ff7a45); box-shadow: 0 0 0 1px var(--dsw-alias-brand-primary, #ff7a45) inset; }
+.mc-theme-card b { font-size: 12.5px; }
+.mc-theme-card > span:last-child { font-size: 10.5px; opacity: .55; line-height: 1.45; }
+.mc-theme-swatch { display: flex; height: 40px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(127,127,127,.25); }
+.mc-theme-swatch i { flex: 1; }
+.mc-theme-swatch i:first-child { flex: 1.45; }
+[data-skin="pop"] .mc-theme-card { background: #fff; border: 2px solid #111; }
+[data-skin="pop"] .mc-theme-card.on { background: #ffe1ea; box-shadow: 3px 3px 0 #111; }
+[data-skin="light"] .mc-theme-card { background: #fff; }
 `
 
 export function apply(ctx) {
@@ -3161,6 +3322,14 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       return ['compact', 'normal', 'large'].includes(v) ? v : 'normal'
     } catch { return 'normal' }
   })
+  // 主题皮肤：宿主配置 theme + 本地即时事件；切换在「设置 → 通用 → 主题皮肤」。
+  const SKIN_IDS = ['default', 'pop', 'light']
+  const [skin, setSkin] = useState(() => {
+    try {
+      const v = localStorage.getItem('me-skin')
+      return SKIN_IDS.includes(v) ? v : 'default'
+    } catch { return 'default' }
+  })
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
   const [capHealth, setCapHealth] = useState(null)
@@ -3251,6 +3420,17 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     }
     window.addEventListener('me-ui-scale', onScale)
     return () => window.removeEventListener('me-ui-scale', onScale)
+  }, [])
+  // 皮肤切换：设置页点一下 → 全界面即时换肤（保存配置后持久）。
+  useEffect(() => {
+    const onSkin = (e) => {
+      const v = e && e.detail
+      if (!SKIN_IDS.includes(v)) return
+      setSkin(v)
+      try { localStorage.setItem('me-skin', v) } catch { /* ignore */ }
+    }
+    window.addEventListener('me-skin', onSkin)
+    return () => window.removeEventListener('me-skin', onSkin)
   }, [])
   const finishOnboard = useCallback(() => {
     setOnboardOpen(false)
@@ -3357,6 +3537,13 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       if (['compact', 'normal', 'large'].includes(nextScale)) {
         setUiScale(nextScale)
         try { localStorage.setItem('me-ui-scale', nextScale) } catch { /* ignore */ }
+      }
+      const nextSkin = cfgRes && cfgRes.ok && cfgRes.config && cfgRes.config.theme
+      // 默认值不覆盖本机已选皮肤：独立服务直写共享配置时 getSettings 可能还是旧值，
+      // 让显式选过的非默认皮肤（localStorage）优先，避免刷新后跳回默认。
+      if (SKIN_IDS.includes(nextSkin) && (nextSkin !== 'default' || !localStorage.getItem('me-skin'))) {
+        setSkin(nextSkin)
+        try { localStorage.setItem('me-skin', nextSkin) } catch { /* ignore */ }
       }
       setCapHealth(capRes && capRes.ok && capRes.available ? (capRes.health || null) : null)
     } catch (e) {
@@ -3602,6 +3789,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     <div
       className="memory-eternal-root me-v5"
       data-ui-scale={uiScale}
+      data-skin={skin}
       style={{
         height: '100%',
         width: '100%',
@@ -3953,6 +4141,42 @@ function Bool({ k, label }) {
   )
 }
 
+// 主题皮肤注册表：新增皮肤时在这里加一项（id 必须与 Config.theme 的 union、CSS 的 [data-skin="id"] 对齐）。
+const SKINS = [
+  ['default', 'themeDefault', 'themeDefaultDesc', ['#1e2228', '#ff7a45', '#f3f5f8']],
+  ['pop', 'themePop', 'themePopDesc', ['#fff6e5', '#ff2e63', '#111111']],
+  ['light', 'themeLight', 'themeLightDesc', ['#f4f4f1', '#ff7a45', '#1c1c1e']],
+]
+function ThemePicker({ t }) {
+  const { form, set, applyTheme } = useContext(CfgFormContext)
+  const cur = (form && form.theme) || 'default'
+  const pick = (id) => {
+    if (applyTheme) { applyTheme(id); return }
+    set('theme', id)
+    try { window.dispatchEvent(new CustomEvent('me-skin', { detail: id })) } catch { /* ignore */ }
+  }
+  return (
+    <div className="mc-theme-grid">
+      {SKINS.map(([id, nameKey, descKey, sw]) => (
+        <button
+          key={id}
+          type="button"
+          className={'mc-theme-card' + (cur === id ? ' on' : '')}
+          aria-pressed={cur === id}
+          onClick={() => pick(id)}
+        >
+          <span className="mc-theme-swatch" style={{ background: sw[0] }} aria-hidden="true">
+            <i style={{ background: sw[1] }} />
+            <i style={{ background: sw[2] }} />
+          </span>
+          <b>{t(nameKey)}</b>
+          <span>{t(descKey)}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function CfgSection({ icon, title, sub, id, children, hidden }) {
   return (
     <section className="mc-card mc-cfg-sec" id={id} data-cfg-sec={id || ''} hidden={hidden || undefined}>
@@ -3972,7 +4196,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 弹窗形态：分页导航（只保留 4 个核心分类）
   const [page, setPage] = useState('general')
   const PAGE_OF = {
-    'sec-preset': 'general', 'sec-basic': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
+    'sec-preset': 'general', 'sec-theme': 'general', 'sec-basic': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
     'sec-memory': 'memory', 'sec-core': 'memory', 'sec-vault': 'memory',
     'sec-cost': 'advanced', 'sec-audit': 'advanced',
     'sec-service': 'service',
@@ -4245,6 +4469,34 @@ function ConfigPanel({ t, onReload, version, compact }) {
     finally { setBusy('') }
   }
   const resetForm = () => { savedOverlayRef.current = {}; setForm({ ...(cfg?.config ?? {}) }); setAppliedPlan(''); setDirty(false); setSaved('') }
+  // 主题皮肤「一键切换」：本地即时换肤 + 只提交 theme 一个字段（不碰其他未保存项）。
+  const applyTheme = async (id) => {
+    if (!['default', 'pop', 'light'].includes(id)) return
+    set('theme', id)
+    try { window.dispatchEvent(new CustomEvent('me-skin', { detail: id })) } catch { /* ignore */ }
+    if (readonly) return
+    try {
+      const r = await fetch(`${API}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patch: { theme: id }, expectedRevision: revision }),
+      })
+      const d = await r.json().catch(() => null)
+      if (d && d.ok) {
+        savedOverlayRef.current = { ...savedOverlayRef.current, theme: id }
+        // 只改了主题时不要再挂着「有未保存的更改」
+        try {
+          const base = (cfg && cfg.config) || {}
+          const restClean = Object.keys(form || {}).every((k) => k === 'theme' || JSON.stringify(form[k]) === JSON.stringify(base[k]))
+          if (restClean) setDirty(false)
+        } catch { /* ignore */ }
+        setSaved(t('themeApplied'))
+        notify(t('themeApplied'), true)
+      } else {
+        notify((d && d.error) || t('saveFail'), false)
+      }
+    } catch { notify(t('saveFail'), false) }
+  }
   // -- 多库（#10）：vaultProfiles / activeVault 的可视化编辑 --
   const VAULT_SRC_KEYS = { env: 'vaultSrcEnv', profile: 'vaultSrcProfile', workspace: 'vaultSrcWorkspace', vaultDir: 'vaultSrcVaultDir', default: 'vaultSrcDefault' }
   const profilesOf = (f) => (Array.isArray(f?.vaultProfiles) ? f.vaultProfiles : [])
@@ -4299,8 +4551,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const mcpMounted = mcpList.filter((a) => a.mcpConfigured && !a.isDsh).length
   const mcpHasServerData = mcpList.some((a) => Array.isArray(a.servers))
   return (
-    <CfgFormContext.Provider value={{ form, set }}>
-    <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
+    <CfgFormContext.Provider value={{ form, set, applyTheme }}>
+    <div className="mc-admin" data-skin={(form && form.theme) || 'default'} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
       <style>{CSS}</style>
       {toast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (toast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: toast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{toast.ok ? '✓' : '✕'}</span><span style={{ wordBreak: 'break-all' }}>{toast.msg}</span></div>}
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', scrollbarGutter: 'stable', padding: 4 }}>
@@ -4484,6 +4736,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {appliedPlan ? (
                 <div style={{ fontSize: 11, color: '#10b981' }}>✅ {tf('planApplied', { plan: PLANS[appliedPlan].label })}</div>
               ) : null}
+            </CfgSection>
+            {/* 主题皮肤：一键切换整个记忆界面 */}
+            <CfgSection {...secProps('sec-theme')} id="sec-theme" icon="🎨" title={t('themeSkin')} sub={t('themeSkinHint')}>
+              <ThemePicker t={t} />
             </CfgSection>
             {/* 基础开关（总开关 / 自动沉淀 / 自动召回） */}
             <CfgSection {...secProps('sec-basic')} id="sec-basic" icon="⚡" title={t('basicSwitches')} sub={t('basicSwitchesHint')}>

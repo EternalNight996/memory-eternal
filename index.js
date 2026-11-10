@@ -73,6 +73,8 @@ export const Config = z.object({
   skillCardsAutoSync: z.boolean().default(true),
   // 记忆界面整体布局大小：compact / normal / large（只影响 UI，不影响召回）
   uiScale: z.union([z.const('compact'), z.const('normal'), z.const('large')]).default('normal'),
+  // 主题皮肤：一键切换整个记忆界面（含设置页）。新增皮肤时在这里登记 id，并在 src/client 的 CSS 里加 [data-skin="id"] 块。
+  theme: z.union([z.const('default'), z.const('pop'), z.const('light')]).default('default'),
   vaultDir: z.string().default(''),
   dedupThreshold: z.number().min(0).max(1).default(0.62),
   captureMinChars: z.number().default(200),
@@ -1554,7 +1556,7 @@ export function apply(ctx, config) {
               const cfg = settings.get() ?? {}
               // 只暴露可安全展示/回填的字段
               const safe = {
-                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, coreMemoryEnabled: cfg.coreMemoryEnabled, workingMemoryEnabled: cfg.workingMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
+                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, coreMemoryEnabled: cfg.coreMemoryEnabled, workingMemoryEnabled: cfg.workingMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, theme: cfg.theme, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
                 captureMinChars: cfg.captureMinChars, captureCooldownMs: cfg.captureCooldownMs, dedupThreshold: cfg.dedupThreshold, maxCardsPerDay: cfg.maxCardsPerDay,
                 distillEnabled: cfg.distillEnabled, dedupByLLM: cfg.dedupByLLM, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
                 autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,
