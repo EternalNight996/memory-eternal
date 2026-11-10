@@ -3546,13 +3546,37 @@ const CSS = `
 /* ===== 角色与氛围：丧尸剪影 / 蜘蛛侠悬丝 ===== */
 [data-skin="resident"] .mc-v5-pagehead { position: relative; }
 [data-skin="resident"] .mc-v5-pagehead > * { position: relative; z-index: 1; }
-[data-skin="resident"] .mc-v5-pagehead::before {
-  content: ''; position: absolute; left: -22px; top: -4px; width: 330px; height: 118px;
-  background:
-    radial-gradient(ellipse at 18% 42%, rgba(226,58,58,.20), transparent 64%),
-    radial-gradient(ellipse at 62% 82%, rgba(226,58,58,.10), transparent 70%);
-  filter: blur(2px); pointer-events: none; z-index: 0;
+/* ===== 主题头图：整块电影 / 漫画 Banner ===== */
+[data-skin="resident"] .mc-v5-pagehead {
+  position: relative; display: flex; align-items: flex-end;
+  min-height: 196px; margin: 8px 0 14px; padding: 20px 26px 18px;
+  border: 1px solid #244a2c; border-bottom: 6px solid #e23a3a;
+  border-radius: 6px; overflow: hidden;
+  background: linear-gradient(90deg, #040705 0%, #07110a 52%, #0b1a0f 100%);
+  box-shadow: inset 0 0 70px rgba(124,255,63,.05);
 }
+[data-skin="resident"] .mc-v5-pagehead::before {
+  content: ''; position: absolute; right: 0; top: 0; width: 56%; height: 100%;
+  background: url("${ZOMBIE_ART}") center 28% / cover no-repeat;
+  opacity: .95; filter: brightness(1.35) contrast(1.1) saturate(1.1);
+  -webkit-mask-image: linear-gradient(to left, #000 52%, transparent 100%);
+  mask-image: linear-gradient(to left, #000 52%, transparent 100%);
+  pointer-events: none; z-index: 0;
+}
+[data-skin="resident"] .mc-v5-pagehead::after {
+  content: '☣ CONTAINMENT BREACH // LEVEL 4';
+  position: absolute; inset: 0; z-index: 1; padding: 16px 20px;
+  background:
+    linear-gradient(90deg, rgba(5,8,6,.97) 0 40%, rgba(5,8,6,.55) 62%, transparent 88%),
+    repeating-linear-gradient(180deg, rgba(124,255,63,.05) 0 1px, transparent 1px 4px),
+    radial-gradient(circle at 88% 16%, rgba(226,58,58,.28), transparent 48%);
+  color: #ff8a8a; font: 9px Consolas, 'Courier New', monospace; letter-spacing: .16em;
+  pointer-events: none;
+}
+[data-skin="resident"] .mc-v5-pagehead > * { position: relative; z-index: 2; }
+[data-skin="resident"] .mc-v5-pagehead h1 { font-size: 34px; line-height: 1.15; }
+[data-skin="resident"] .mc-v5-pagehead p { max-width: 46%; }
+[data-skin="resident"] .mc-v5-pagecount { position: absolute; right: 16px; top: 14px; z-index: 3; }
 [data-skin="resident"] .mc-v5-feature {
   background-image:
     linear-gradient(90deg, rgba(226,58,58,.85) 0 61%, rgba(226,58,58,.16) 61% 100%),
@@ -3560,24 +3584,6 @@ const CSS = `
   background-size: 100% 5px, 100% 100%;
   background-position: left bottom, center;
   background-repeat: no-repeat;
-}
-[data-skin="spider"] .mc-v5-pagehead::before {
-  content: '';
-  position: absolute; right: 140px; top: -6px; width: 190px; height: 185px;
-  background: url("${SPIDER_ART}") center / cover no-repeat;
-  border: 3px solid var(--sp-ink); border-radius: 4px; overflow: hidden;
-  box-shadow: 6px 6px 0 var(--sp-red);
-  opacity: .98; filter: saturate(1.05) contrast(1.02);
-  pointer-events: none; z-index: 0;
-}
-[data-skin="resident"] .mc-v5-pagehead::after {
-  content: '';
-  position: absolute; right: 145px; top: 2px; width: 190px; height: 185px;
-  background: url("${ZOMBIE_ART}") center / cover no-repeat;
-  border: 2px solid #3d6b45; border-bottom: 6px solid #7a2a2a; border-radius: 10px; overflow: hidden;
-  opacity: .96; filter: brightness(1.42) contrast(1.12) saturate(1.15);
-  box-shadow: 0 0 0 2px rgba(226,58,58,.28), 0 20px 42px rgba(0,0,0,.55), 0 0 30px rgba(124,255,63,.18);
-  pointer-events: none; z-index: 0;
 }
 [data-skin="resident"] .mc-v5-feature::before {
   content: 'B.O.W. // LEVEL 4';
@@ -3587,28 +3593,39 @@ const CSS = `
   font: 9px Consolas, 'Courier New', monospace; letter-spacing: .14em;
   transform: rotate(-2deg);
 }
-[data-skin="spider"] .mc-v5-pagehead { position: relative; }
-[data-skin="spider"] .mc-v5-pagehead > * { position: relative; z-index: 1; }
+[data-skin="spider"] .mc-v5-pagehead {
+  position: relative; display: flex; align-items: flex-end;
+  min-height: 196px; margin: 8px 0 14px; padding: 20px 26px 18px;
+  border: 3px solid var(--sp-ink); border-radius: 6px; overflow: hidden;
+  background: #f4f1e8; box-shadow: 8px 8px 0 var(--sp-red);
+}
 [data-skin="spider"] .mc-v5-pagehead::before {
-  content: '';
-  position: absolute; right: 148px; top: -18px; width: 140px; height: 192px;
-  background: url("${SPIDER_ART}") center / contain no-repeat;
-  opacity: .95; filter: drop-shadow(0 4px 10px rgba(11,11,15,.25));
+  content: ''; position: absolute; right: 0; top: 0; width: 52%; height: 100%;
+  background: url("${SPIDER_ART}") center 20% / cover no-repeat;
+  opacity: 1; filter: saturate(1.05) contrast(1.02);
+  -webkit-mask-image: linear-gradient(to left, #000 48%, transparent 100%);
+  mask-image: linear-gradient(to left, #000 48%, transparent 100%);
   pointer-events: none; z-index: 0;
 }
+[data-skin="spider"] .mc-v5-pagehead > * { position: relative; z-index: 2; }
+[data-skin="spider"] .mc-v5-pagehead h1 { font-size: 38px; line-height: 1.1; }
+[data-skin="spider"] .mc-v5-pagehead h1::after { content: '!'; color: var(--sp-yellow); -webkit-text-stroke: 2px var(--sp-ink); margin-left: 2px; }
+[data-skin="spider"] .mc-v5-pagehead p { max-width: 46%; }
+[data-skin="spider"] .mc-v5-pagecount { position: absolute; right: 16px; top: 14px; z-index: 3; }
 [data-skin="spider"] .mc-v5-feature::before { z-index: 2; }
 @media (prefers-reduced-motion: no-preference) {
-  [data-skin="resident"] .mc-v5-pagehead::after { animation: re-zombie 7s ease-in-out infinite; }
-  [data-skin="spider"] .mc-v5-pagehead::before { animation: sp-swing 6s ease-in-out infinite; transform-origin: 62% 0; }
+  [data-skin="resident"] .mc-v5-pagehead::before { animation: re-alert 6s ease-in-out infinite; }
+  [data-skin="spider"] .mc-v5-pagehead::before { animation: sp-hero-breath 7s ease-in-out infinite; }
   [data-skin="resident"] .mc-cardrow:hover { animation: re-glitch .38s steps(2) 1; }
 }
-@keyframes re-zombie {
-  0%, 100% { transform: translateY(2px) rotate(-1deg); opacity: .42; }
-  50% { transform: translateY(0) rotate(1deg); opacity: .62; }
+@keyframes re-alert {
+  0%, 100% { filter: brightness(1.35) contrast(1.1) saturate(1.1); }
+  48% { filter: brightness(1.52) contrast(1.15) saturate(1.2); }
+  50% { filter: brightness(1.08) contrast(1.05) saturate(1); }
 }
-@keyframes sp-swing {
-  0%, 100% { transform: rotate(-2.2deg); }
-  50% { transform: rotate(2.2deg); }
+@keyframes sp-hero-breath {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.015); }
 }
 @keyframes re-glitch {
   0%, 100% { filter: none; }
@@ -3616,9 +3633,15 @@ const CSS = `
   60% { filter: brightness(.96); }
 }
 @media (max-width: 720px) {
-  [data-skin="resident"] .mc-v5-pagehead::after,
+  [data-skin="resident"] .mc-v5-pagehead, [data-skin="spider"] .mc-v5-pagehead { min-height: 0; padding: 14px 16px; display: block; }
+  [data-skin="resident"] .mc-v5-pagehead::before,
   [data-skin="spider"] .mc-v5-pagehead::before { display: none; }
+  [data-skin="resident"] .mc-v5-pagehead h1,
+  [data-skin="spider"] .mc-v5-pagehead h1 { font-size: 24px; }
+  [data-skin="resident"] .mc-v5-pagehead p,
+  [data-skin="spider"] .mc-v5-pagehead p { max-width: none; }
 }
+
 `
 
 export function apply(ctx) {
