@@ -1737,6 +1737,65 @@ const CSS = `
 .me-v5 .mc-plan:hover { border-color: rgba(255,122,69,.6); }
 .me-v5 .mc-plan.on { border-color: #ff7a45; box-shadow: 0 0 0 1px #ff7a45 inset, 0 6px 18px rgba(255,122,69,.16); background: rgba(255,122,69,.1); }
 .me-v5 .mc-cfg-actions { background: linear-gradient(to top, #21252c 72%, rgba(0,0,0,0)); }
+/* ---- 记忆配置页 v2：统一列宽 + 开关成组 + 折叠次要面板 ---- */
+.mc-cfg-page { width: 100%; max-width: 1280px; margin: 0 auto; }
+.mc-cfg-layout { display: grid; grid-template-columns: 196px minmax(0, 1fr); gap: 22px; align-items: start; width: 100%; }
+.mc-cfg-toc { position: sticky; top: 6px; display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 14px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: var(--dsw-alias-bg-layer-1, #fff); }
+.mc-cfg-toc-title { font-size: 10px; letter-spacing: .1em; opacity: .42; padding: 6px 10px 8px; text-transform: uppercase; }
+.mc-cfg-toc button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border: 0; background: transparent; color: inherit; border-radius: 9px; font-size: 12px; cursor: pointer; text-align: left; opacity: .7; }
+.mc-cfg-toc button:hover { background: rgba(127,127,127,.10); opacity: 1; }
+.mc-cfg-toc button.on { background: rgba(255,122,69,.14); opacity: 1; font-weight: 600; }
+.mc-cfg-toc-ico { flex: none; width: 18px; text-align: center; }
+.mc-cfg-main { min-width: 0; }
+.mc-cfg-layout.compact { grid-template-columns: minmax(0, 1fr); }
+.mc-cfg-sec { scroll-margin-top: 10px; }
+.me-v5 .mc-cfg-toc { background: #21252c; border-color: #333943; }
+.me-v5 .mc-cfg-toc button.on { background: rgba(255,122,69,.18); }
+@media (max-width: 1100px) {
+  .mc-cfg-layout { grid-template-columns: minmax(0, 1fr); }
+  .mc-cfg-toc { display: none; }
+}
+.mc-cfg { max-width: none; }
+.mc-cfg-sec { margin-bottom: 14px; padding: 18px 20px !important; border-radius: 14px; }
+.mc-cfg-sec-head { margin-bottom: 16px; }
+.mc-cfg-sec-body { display: flex; flex-direction: column; gap: 16px; }
+.mc-cfg-switches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mc-cfg-switches .mc-switch { flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 12px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 10px; background: rgba(127,127,127,.04); }
+.mc-cfg-switches .mc-switch input { margin-top: 0; }
+.mc-cfg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.mc-field-wide { grid-column: 1 / -1; }
+.mc-field { gap: 6px; }
+.mc-field input:not([type="checkbox"]):not([type="radio"]), .mc-field select { height: 34px; padding: 0 10px; border-radius: 9px; }
+.mc-field input[type="number"] { max-width: 220px; }
+.mc-cfg-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mc-cfg-switches.is-single { grid-template-columns: minmax(0, 1fr); }
+.mc-cfg-actions { position: sticky; bottom: 0; z-index: 24; margin: 16px 0 0; padding: 10px 14px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); box-shadow: 0 12px 32px rgba(0,0,0,.22); }
+.me-v5 .mc-cfg-actions { background: #21252c; border-color: #333943; }
+.mc-fold { padding: 0 !important; }
+.mc-fold > summary { list-style: none; cursor: pointer; padding: 16px 20px; margin: 0; }
+.mc-fold > summary::-webkit-details-marker { display: none; }
+.mc-fold-body { padding: 0 20px 18px; display: flex; flex-direction: column; gap: 10px; }
+.mc-fold-caret { font-size: 11px; opacity: .5; transition: transform .15s; }
+.mc-fold[open] .mc-fold-caret { transform: rotate(90deg); }
+.mc-seg { display: inline-flex; gap: 4px; padding: 4px; width: fit-content; border-radius: 10px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: rgba(127,127,127,.06); }
+.mc-seg button { border: 0; background: transparent; color: inherit; padding: 6px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; opacity: .68; }
+.mc-seg button.on { opacity: 1; font-weight: 600; background: var(--dsw-alias-bg-layer-1, #fff); box-shadow: 0 1px 4px rgba(0,0,0,.14); }
+.me-v5 .mc-seg button.on { background: #2b3038; }
+.mc-vault-head, .mc-vault-row { display: grid; grid-template-columns: 1fr 1.6fr 1.5fr auto; gap: 8px; align-items: center; }
+.mc-vault-head { font-size: 10.5px; opacity: .45; padding: 0 2px; }
+.mc-vault-row { margin-bottom: 8px; }
+.mc-vault-row input { width: 100%; box-sizing: border-box; }
+.mc-env { padding: 12px 16px !important; }
+.mc-env-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mc-env-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 860px) {
+  .mc-cfg-switches, .mc-cfg-grid { grid-template-columns: minmax(0, 1fr); }
+  .mc-cfg-sec { padding: 14px !important; }
+  .mc-fold > summary { padding: 14px; }
+  .mc-fold-body { padding: 0 14px 14px; }
+  .mc-vault-head { display: none; }
+  .mc-vault-row { grid-template-columns: 1fr auto; }
+}
 .mc-tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--dsw-alias-bg-base, #f3f4f6); border-radius: 999px; }
 .mc-tab { border: 0; background: transparent; color: inherit; border-radius: 999px; padding: 5px 14px; font-size: 12px; cursor: pointer; opacity: 0.7; }
 .mc-viewbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -3712,10 +3771,10 @@ const BOOL_DEFAULT_ON = new Set(['autoRestartOnDrift', 'coreMemoryEnabled', 'ski
 
 /** 配置字段：必须在模块顶层定义。放在 ConfigPanel 里会在每次输入重渲染时换组件类型，
  *  React 于是整棵表单卸载重建 —— 输入框失焦、滚动条回跳（用户反馈根因）。 */
-function F({ k, label, hint, type = 'text', step, min, max }) {
+function F({ k, label, hint, type = 'text', step, min, max, wide }) {
   const { form, set } = useContext(CfgFormContext)
   return (
-    <label className="mc-field">
+    <label className={'mc-field' + (wide ? ' mc-field-wide' : '')}>
       <span className="mc-field-label">{label || k}</span>
       <input
         type={type}
@@ -3743,9 +3802,9 @@ function Bool({ k, label }) {
   )
 }
 
-function CfgSection({ icon, title, sub, children }) {
+function CfgSection({ icon, title, sub, id, children }) {
   return (
-    <div className="mc-card mc-cfg-sec">
+    <section className="mc-card mc-cfg-sec" id={id} data-cfg-sec={id || ''}>
       <div className="mc-cfg-sec-head">
         <div className="mc-cfg-sec-ico">{icon}</div>
         <div style={{ minWidth: 0 }}>
@@ -3753,8 +3812,8 @@ function CfgSection({ icon, title, sub, children }) {
           {sub ? <div className="mc-cfg-sec-sub">{sub}</div> : null}
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>{children}</div>
-    </div>
+      <div className="mc-cfg-sec-body">{children}</div>
+    </section>
   )
 }
 
@@ -3808,7 +3867,21 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 配置页滚动位置：编辑/保存/按钮触发的重渲染不能把视图弹回顶部。
   const scrollRef = useRef(null)
   const scrollTopRef = useRef(0)
-  const onScroll = (e) => { scrollTopRef.current = e.currentTarget.scrollTop }
+  const [activeSec, setActiveSec] = useState('')
+  const onScroll = (e) => {
+    scrollTopRef.current = e.currentTarget.scrollTop
+    // 左侧分区导航：按滚动位置高亮当前区块（配置页很长，需要「我在哪」）
+    const box = e.currentTarget
+    let cur = ''
+    for (const sec of box.querySelectorAll('[data-cfg-sec]')) {
+      if (sec.offsetTop - box.offsetTop <= box.scrollTop + 90) cur = sec.getAttribute('data-cfg-sec')
+    }
+    if (cur) setActiveSec((prev) => (prev === cur ? prev : cur))
+  }
+  const gotoSection = (id) => {
+    const el = scrollRef.current && scrollRef.current.querySelector('#' + id)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -4066,12 +4139,38 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const mcpServersAll = [...new Set(mcpInstalled.flatMap((a) => (Array.isArray(a.servers) ? a.servers : [])))]
   const mcpMounted = mcpList.filter((a) => a.mcpConfigured && !a.isDsh).length
   const mcpHasServerData = mcpList.some((a) => Array.isArray(a.servers))
+  const CFG_TOC = [
+    ['sec-preset', '🎯', t('presetConfig')],
+    ['sec-memory', '🧠', t('dshMemoryConfig')],
+    ['sec-core', '⭐', t('coreMemory')],
+    ['sec-skills', '🧩', t('skillCards')],
+    ['sec-digest', '📬', t('newsDigest')],
+    ['sec-ui', '🔠', t('uiLayout')],
+    ['sec-vault', '🗂️', t('vaultMulti')],
+    ['sec-cost', '💰', t('costControl')],
+    ['sec-audit', '🛡️', t('auditConfig')],
+    ['sec-service', '🛠', t('serviceConfig')],
+  ]
   return (
     <CfgFormContext.Provider value={{ form, set }}>
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
       <style>{CSS}</style>
       {toast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (toast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: toast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{toast.ok ? '✓' : '✕'}</span><span style={{ wordBreak: 'break-all' }}>{toast.msg}</span></div>}
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', scrollbarGutter: 'stable', padding: 4 }}>
+        <div className="mc-cfg-page">
+        <div className={'mc-cfg-layout' + (compact ? ' compact' : '')}>
+          {!compact && (
+            <aside className="mc-cfg-toc" aria-label={t('tabConfig')}>
+              <div className="mc-cfg-toc-title">{t('tabConfig')}</div>
+              {CFG_TOC.map(([id, ico, label]) => (
+                <button key={id} type="button" className={activeSec === id ? 'on' : ''} onClick={() => gotoSection(id)}>
+                  <span className="mc-cfg-toc-ico">{ico}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </aside>
+          )}
+          <div className="mc-cfg-main">
         {!compact && (
           <div className="mc-v5-pagehead">
             <div>
@@ -4091,8 +4190,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
         {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
         {(cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
-          <div className="mc-card" style={{ marginBottom: 10, padding: '10px 14px' }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="mc-card mc-env" style={{ marginBottom: 10 }}>
+            <div className="mc-env-top">
               <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
               <span style={{ fontSize: 12, opacity: 0.7 }}>{t('dshHostLabel')}</span>
               {cfg.version && <code style={vcChip}>{t('vcLoaded')} v{cfg.version}</code>}
@@ -4150,20 +4249,26 @@ function ConfigPanel({ t, onReload, version, compact }) {
             {vc && vc.checkError && <div style={{ marginTop: 8, fontSize: 11.5, color: '#b91c1c' }}>{t('vcCheckFail')}：{vc.checkError}</div>}
           </div>
         )}
-        {/* DSH / Agent 状态面板：自动识别本机 Agent 与其已配置的 MCP（含 DSH 宿主行） */}
+        {/* 环境与 MCP 挂载：默认折叠，让页面主体只留配置 */}
         {setupStatus && setupStatus.agents && (
-          <div className="mc-card mc-cfg-sec">
-            <div className="mc-cfg-sec-head">
+          <details className="mc-card mc-cfg-sec mc-fold" style={{ marginBottom: 10 }}>
+            <summary className="mc-cfg-sec-head">
               <div className="mc-cfg-sec-ico">🔌</div>
               <div style={{ minWidth: 0 }}>
                 <div className="mc-cfg-sec-title">{t('mcpSetupStatus')}</div>
-                <div className="mc-cfg-sec-sub">{t('mcpAutoHint')}</div>
+                <div className="mc-cfg-sec-sub">
+                  {mcpHasServerData ? tf('mcpSummary', { agents: mcpInstalled.length, servers: mcpServersAll.length, mounted: mcpMounted }) + ' · ' : ''}{t('mcpAutoHint')}
+                </div>
               </div>
               <span className="mc-cfg-spacer" />
-              <button type="button" className="mc-btn" style={{ padding: '2px 8px', flex: 'none' }} onClick={refreshSetup}>{t('mcpRefresh')}</button>
-            </div>
-            {mcpHasServerData ? <div className="mc-mcp-summary">{tf('mcpSummary', { agents: mcpInstalled.length, servers: mcpServersAll.length, mounted: mcpMounted })}</div> : null}
-            {mcpList.map((a) => {
+              <span className="mc-fold-caret">▾</span>
+            </summary>
+            <div className="mc-fold-body">
+              <div className="mc-cfg-tools">
+                <button type="button" className="mc-btn" style={{ padding: '2px 8px', flex: 'none' }} onClick={refreshSetup}>{t('mcpRefresh')}</button>
+                {runSetup && <code style={{ padding: '2px 6px', background: 'var(--dsw-alias-bg-layer-2, #f3f4f6)', borderRadius: 4, fontSize: 11 }}>{runSetup}</code>}
+              </div>
+              {mcpList.map((a) => {
               const hasServers = Array.isArray(a.servers)
               const servers = hasServers ? a.servers : []
               const title = a.isDsh ? t('dshHostLabel') : (a.label || a.name)
@@ -4204,15 +4309,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 </div>
               )
             })}
-            <div style={{ fontSize: 11, opacity: 0.55, marginTop: 6 }}>{t('mcpSetupHint')}</div>
-            {runSetup && <div style={{ fontSize: 11, marginTop: 6 }}><code style={{ padding: '2px 6px', background: 'var(--dsw-alias-bg-layer-2, #f3f4f6)', borderRadius: 4 }}>{runSetup}</code></div>}
-          </div>
+              <div style={{ fontSize: 11, opacity: 0.55 }}>{t('mcpSetupHint')}</div>
+            </div>
+          </details>
         )}
         {/* 可编辑配置表单 */}
         {form ? (
           <div className="mc-cfg">
             {/* 一键推荐配置：三方案填充 */}
-            <CfgSection icon="🎯" title={t('presetConfig')} sub={t('presetHint')}>
+            <CfgSection id="sec-preset" icon="🎯" title={t('presetConfig')} sub={t('presetHint')}>
               <div className="mc-plan-grid">
                 {['A', 'B', 'C'].map((k) => (
                   <button
@@ -4233,38 +4338,42 @@ function ConfigPanel({ t, onReload, version, compact }) {
               ) : null}
             </CfgSection>
             {/* DSH 记忆配置 */}
-            <CfgSection icon="🧠" title={t('dshMemoryConfig')} sub={t('cfgSubCore')}>
-              <div className="mc-cfg-grid">
+            <CfgSection id="sec-memory" icon="🧠" title={t('dshMemoryConfig')} sub={t('cfgSubCore')}>
+              <div className="mc-cfg-switches">
                 <Bool k="enabled" label={t('enabledLabel')} />
                 <Bool k="autoCapture" label={t('autoCapture')} />
                 <Bool k="autoRecall" label={t('autoRecall')} />
-                <F k="vaultDir" label={t('vaultDirLabel')} />
+                <Bool k="recallIncludeBody" label={t('recallBody')} />
+              </div>
+              <div className="mc-cfg-grid">
+                <F k="vaultDir" label={t('vaultDirLabel')} wide />
+                <F k="recallLimit" label={t('recallLimit')} type="number" />
+                <F k="recallSummaryLen" label={t('recallSummaryLen')} hint={t('unitChars')} type="number" />
                 <F k="captureMinChars" label={t('captureMinChars')} hint={t('unitChars')} type="number" />
                 <F k="maxCardsPerDay" label={t('maxCardsPerDay')} hint={t('unitPerDay')} type="number" />
                 <F k="dedupThreshold" label={t('dedupThreshold')} type="number" step="0.01" min="0" max="1" />
-                <F k="recallLimit" label={t('recallLimit')} type="number" />
-                <F k="recallSummaryLen" label={t('recallSummaryLen')} hint={t('unitChars')} type="number" />
-                <Bool k="recallIncludeBody" label={t('recallBody')} />
                 {/* 凭证取用提示：一句自己写的约定，会被注入到每个会话的 systemPrompt（触发 agent 去查目录卡） */}
-                <F k="secretHint" label={t('secretHint')} />
-                <F k="recallEmbedding" label={t('recallEmbedding')} />
+                <F k="secretHint" label={t('secretHint')} wide />
+                <F k="recallEmbedding" label={t('recallEmbedding')} wide />
               </div>
             </CfgSection>
             {/* 核心记忆（前置强制注入） */}
-            <CfgSection icon="⭐" title={t('coreMemory')} sub={t('coreMemoryHint')}>
-              <div className="mc-cfg-grid">
+            <CfgSection id="sec-core" icon="⭐" title={t('coreMemory')} sub={t('coreMemoryHint')}>
+              <div className="mc-cfg-switches">
                 <Bool k="coreMemoryEnabled" label={t('coreMemoryEnabled')} />
-              <Bool k="workingMemoryEnabled" label={t('workingMemoryEnabled')} />
+                <Bool k="workingMemoryEnabled" label={t('workingMemoryEnabled')} />
+              </div>
+              <div className="mc-cfg-grid">
                 <F k="coreMemoryLimit" label={t('coreMemoryLimit')} type="number" />
                 <F k="coreMemoryMaxChars" label={t('coreMemoryMaxChars')} type="number" />
               </div>
             </CfgSection>
             {/* 技能卡（从实际技能生成，强制待审；不由 agent 沉淀） */}
-            <CfgSection icon="🧩" title={t('skillCards')} sub={t('skillCardsHint')}>
-              <div className="mc-cfg-grid">
+            <CfgSection id="sec-skills" icon="🧩" title={t('skillCards')} sub={t('skillCardsHint')}>
+              <div className="mc-cfg-switches is-single">
                 <Bool k="skillCardsAutoSync" label={t('skillAutoSync')} />
               </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="mc-cfg-tools">
                 <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => {
                   setBusy('skills')
                   try {
@@ -4277,13 +4386,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 关注摘要：默认关闭，开启后由宿主按间隔抓取并注入 systemPrompt */}
-            <CfgSection icon="📬" title={t('newsDigest')} sub={t('newsDigestHint')}>
-              <div className="mc-cfg-grid">
+            <CfgSection id="sec-digest" icon="📬" title={t('newsDigest')} sub={t('newsDigestHint')}>
+              <div className="mc-cfg-switches is-single">
                 <Bool k="newsDigestEnabled" label={t('newsDigestEnabled')} />
+              </div>
+              <div className="mc-cfg-grid">
                 <F k="newsDigestIntervalMinutes" label={t('newsDigestInterval')} type="number" />
                 <F k="newsDigestMaxItems" label={t('newsDigestMaxItems')} type="number" />
               </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="mc-cfg-tools">
                 <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => {
                   setBusy('digest')
                   try {
@@ -4301,42 +4412,48 @@ function ConfigPanel({ t, onReload, version, compact }) {
               ) : null}
             </CfgSection>
             {/* 布局大小：只影响界面显示 */}
-            <CfgSection icon="🔠" title={t('uiLayout')} sub={t('uiLayoutHint')}>
-              <div className="mc-cfg-grid">
-                <label className="mc-field">
-                  <span className="mc-field-label">{t('uiLayout')}</span>
-                  <select
-                    value={(form && form.uiScale) || 'normal'}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      set('uiScale', v)
-                      try { window.dispatchEvent(new CustomEvent('me-ui-scale', { detail: v })) } catch { /* ignore */ }
-                    }}
-                  >
-                    <option value="compact">{t('uiCompact')}</option>
-                    <option value="normal">{t('uiNormal')}</option>
-                    <option value="large">{t('uiLarge')}</option>
-                  </select>
-                </label>
+            <CfgSection id="sec-ui" icon="🔠" title={t('uiLayout')} sub={t('uiLayoutHint')}>
+              <div className="mc-field">
+                <div className="mc-seg">
+                  {[['compact', t('uiCompact')], ['normal', t('uiNormal')], ['large', t('uiLarge')]].map(([v, label]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={((form && form.uiScale) || 'normal') === v ? 'on' : ''}
+                      onClick={() => {
+                        set('uiScale', v)
+                        try { window.dispatchEvent(new CustomEvent('me-ui-scale', { detail: v })) } catch { /* ignore */ }
+                      }}
+                    >{label}</button>
+                  ))}
+                </div>
               </div>
             </CfgSection>
             {/* 多库（按项目隔离记忆）—— #10 */}
-            <CfgSection icon="🗂️" title={t('vaultMulti')} sub={t('cfgSubMulti')}>
+            <CfgSection id="sec-vault" icon="🗂️" title={t('vaultMulti')} sub={t('cfgSubMulti')}>
               <div style={{ fontSize: 11.5, opacity: 0.85, marginBottom: 8, lineHeight: 1.7 }}>
                 {t('vaultNow')}：<code>{dsh?.vaultDir || '—'}</code>
                 {dsh?.vaultName ? `（${dsh.vaultName}）` : ''}
                 {' · '}{t('vaultSource')}：{t(VAULT_SRC_KEYS[dsh?.vaultSource] || 'vaultSrcDefault')}
                 {dsh?.workspace ? <><br />{t('vaultWorkspace')}：<code>{dsh.workspace}</code></> : null}
               </div>
+              {profilesOf(form).length ? (
+                <div className="mc-vault-head">
+                  <span>{t('vaultNamePh')}</span>
+                  <span>{t('vaultPathPh')}</span>
+                  <span>{t('vaultMatchPh')}</span>
+                  <span />
+                </div>
+              ) : null}
               {profilesOf(form).map((p, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 1.5fr auto', gap: 6, marginBottom: 6 }}>
+                <div key={i} className="mc-vault-row">
                   <input value={p.name || ''} placeholder={t('vaultNamePh')} onChange={(e) => updateProfile(i, 'name', e.target.value)} style={vaultInput} disabled={readonly} />
                   <input value={p.path || ''} placeholder={t('vaultPathPh')} onChange={(e) => updateProfile(i, 'path', e.target.value)} style={vaultInput} disabled={readonly} />
                   <input value={(p.match && p.match.workspace) || ''} placeholder={t('vaultMatchPh')} onChange={(e) => updateProfile(i, 'match', e.target.value)} style={vaultInput} disabled={readonly} />
                   <button type="button" className="mc-btn" onClick={() => removeProfile(i)} disabled={readonly} title={t('delete')}>✕</button>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+              <div className="mc-cfg-tools" style={{ marginTop: 4 }}>
                 <button type="button" className="mc-btn" onClick={addProfile} disabled={readonly}>＋ {t('vaultAdd')}</button>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                   <span style={{ opacity: 0.6 }}>{t('vaultActive')}</span>
@@ -4348,10 +4465,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 成本控制（省钱、控 LLM 消耗） */}
-            <CfgSection icon="💰" title={t('costControl')} sub={t('costHint')}>
-              <div className="mc-cfg-grid">
+            <CfgSection id="sec-cost" icon="💰" title={t('costControl')} sub={t('costHint')}>
+              <div className="mc-cfg-switches">
                 <Bool k="distillEnabled" label={t('distillEnabled')} />
                 <Bool k="dedupByLLM" label={t('dedupByLLM')} />
+                <Bool k="captureFollowSession" label={t('captureFollowSession')} />
+                <Bool k="captureFirstOnly" label={t('captureFirstOnly')} />
+              </div>
+              <div className="mc-cfg-grid">
                 <F k="captureMaxTokens" label={t('captureMaxTokens')} type="number" />
                 <F k="captureTimeoutMs" label={t('captureTimeoutMs')} type="number" />
                 <F k="recallMinScore" label={t('recallMinScore')} type="number" />
@@ -4385,11 +4506,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <F k="captureModel" label={t('captureModel')} />
                   </>
                 )}
-                <Bool k="captureFollowSession" label={t('captureFollowSession')} />
-                <Bool k="captureFirstOnly" label={t('captureFirstOnly')} />
                 <F k="sessionBudgetChars" label={t('sessionBudgetChars')} type="number" />
-                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                  <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => {
+              </div>
+              <div className="mc-cfg-tools">
+                <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => {
                     setBusy('llmtest')
                     try {
                       const r = await fetch(API + '/llm-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: form.captureProvider || '', model: form.captureModel || '', firstOnly: form.captureFirstOnly === true }) }).then((x) => x.json())
@@ -4397,12 +4517,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       else notify(t('llmTestFail') + '：' + ((r && (r.failure ? (r.failure.code + ' ' + r.failure.message) : r.error)) || '?'), false)
                     } catch (e) { notify(t('llmTestFail') + '：' + String((e && e.message) || e), false) }
                     finally { setBusy('') }
-                  }}>{busy === 'llmtest' ? t('exporting') : '🔌 ' + t('llmTest')}</button>
-                </div>
+                }}>{busy === 'llmtest' ? t('exporting') : '🔌 ' + t('llmTest')}</button>
               </div>
             </CfgSection>
             {/* 自动审核配置 */}
-            <CfgSection icon="🛡️" title={t('auditConfig')} sub={t('auditHint')}>
+            <CfgSection id="sec-audit" icon="🛡️" title={t('auditConfig')} sub={t('auditHint')}>
               <div className="mc-cfg-grid">
                 <label className="mc-field">
                   <span className="mc-field-label">{t('auditMode')}</span>
@@ -4427,9 +4546,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 服务自管理配置 */}
-            <CfgSection icon="🛠" title={t('serviceConfig')} sub={t('cfgSubService')}>
-              <div className="mc-cfg-grid">
+            <CfgSection id="sec-service" icon="🛠" title={t('serviceConfig')} sub={t('cfgSubService')}>
+              <div className="mc-cfg-switches">
                 <Bool k="autoWeb" label={t('autoWeb')} />
+                <Bool k="watchdogAutoSpawn" label={t('watchdogAutoSpawn')} />
+                <Bool k="autoRestartOnDrift" label={t('autoRestartOnDrift')} />
+                <Bool k="autoMcpSetup" label={t('autoMcpSetup')} />
+              </div>
+              <div className="mc-cfg-grid">
                 <label className="mc-field">
                   <span className="mc-field-label">{t('autoWebMode')}</span>
                   <select value={form.autoWebMode ?? 'init'} onChange={(e) => set('autoWebMode', e.target.value)}>
@@ -4441,9 +4565,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="webPort" label={t('webPort')} type="number" />
                 <F k="webCheckIntervalMs" label={t('webCheckIntervalMs')} type="number" />
                 <F k="webMaxRestart" label={t('webMaxRestart')} hint={t('unitTimes')} type="number" />
-                <Bool k="watchdogAutoSpawn" label={t('watchdogAutoSpawn')} />
-                <Bool k="autoRestartOnDrift" label={t('autoRestartOnDrift')} />
-                <Bool k="autoMcpSetup" label={t('autoMcpSetup')} />
               </div>
             </CfgSection>
             <div className="mc-cfg-actions">
@@ -4466,6 +4587,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
             </div>
           </div>
         ) : <div style={{ fontSize: 12, opacity: 0.6 }}>{t('loading')}</div>}
+          </div>
+        </div>
+        </div>
       </div>
     </div>
     </CfgFormContext.Provider>
@@ -8129,7 +8253,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       lastRenderMs: Math.round((sim.lastRenderMs || 0) * 100) / 100,
       rms: Math.round((sim.lastRms || 0) * 1000) / 1000,
       alpha: Math.round((sim.alpha || 0) * 1000) / 1000,
-      drift: !!sim.drift,
+      drift: !!sim.drift,
       frames: sim.renderFrames | 0,
       quality: sim.quality | 0,
       frameEma: Math.round((sim.frameEma || 0) * 10) / 10,
@@ -8153,7 +8277,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         panX: Math.round(sim.panX), panY: Math.round(sim.panY),
         selected: sim.selectedId || null,
         multi: Array.isArray(sim.multi) ? sim.multi.length : 0,
-        drift: !!sim.drift,
+        drift: !!sim.drift,
         frames: sim.renderFrames | 0,
         resources: tracker.snapshot(),
         screen: sim.nodes.map((n) => ({
