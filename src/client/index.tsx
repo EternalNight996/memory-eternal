@@ -14,7 +14,6 @@ import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import brandIcon from '../../assets/icon.png'
 import residentThemeArt from '../../assets/theme/resident.jpg'
 import spiderThemeArt from '../../assets/theme/spider.jpg'
-import clawThemeArt from '../../assets/theme/claw.jpg'
 import { snippetAround } from './snippet.js'
 import { auditMatches } from './audit-filter.js'
 import { versionCardState } from './version-state.js'
@@ -1720,21 +1719,34 @@ const CAPTURE_ACTIONS = {
 const ZOMBIE_ART = residentThemeArt
 
 const SPIDER_ART = spiderThemeArt
-const CLAW_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 620 340'>
-<g fill='#050806' stroke='#3d6b45' stroke-width='2' stroke-linejoin='round'>
-<path d='M470 250 Q330 235 200 160 Q150 128 120 100 Q165 165 255 225 Q365 295 470 300 Z'/>
-<path d='M450 200 Q330 170 210 108 Q165 84 140 62 Q180 128 260 170 Q365 225 450 235 Z'/>
-<path d='M420 155 Q330 125 245 78 Q205 55 185 38 Q215 100 275 135 Q355 180 420 192 Z'/>
-<path d='M390 118 Q315 90 255 45 Q230 25 215 12 Q235 70 285 102 Q345 142 390 150 Z'/>
-<path d='M470 250 Q540 255 620 300 L620 340 L420 340 Z'/>
+const GRIP_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 340'>
+<g fill='#030604' stroke='#3d6b45' stroke-width='3' stroke-linejoin='round' stroke-linecap='round'>
+<path d='M520 20 L520 230 Q480 245 450 220 L410 180 Q380 150 390 110 Q398 75 440 60 Z'/>
+<path d='M390 110 Q340 80 295 105 Q255 130 250 175 Q246 220 280 250 Q320 285 370 262 Q410 244 420 200 L440 60 Q420 82 390 110 Z'/>
+<path d='M292 122 Q262 160 258 208 Q255 252 272 286 Q286 302 298 288 Q282 252 292 210 Q302 170 322 140 Z'/>
+<path d='M324 142 Q300 182 296 228 Q294 270 310 306 Q324 320 334 304 Q318 268 326 230 Q336 188 356 160 Z'/>
+<path d='M356 160 Q336 198 334 240 Q332 280 348 312 Q362 326 371 310 Q356 276 364 242 Q374 206 390 182 Z'/>
+<path d='M390 182 Q374 216 374 252 Q374 288 389 318 Q403 332 411 315 Q396 282 402 250 Q410 218 422 198 Z'/>
+<path d='M272 286 Q268 312 278 332 Q288 312 286 292 Z'/>
+<path d='M310 306 Q306 330 316 340 Q326 320 324 308 Z'/>
+<path d='M348 312 Q346 334 356 340 Q366 322 362 312 Z'/>
+<path d='M389 318 Q390 336 400 340 Q408 326 404 316 Z'/>
 </g>
-<g fill='#7cff3f' opacity='.45'>
-<path d='M120 100 Q140 118 165 132 L150 140 Q130 126 120 100 Z'/>
-<path d='M140 62 Q158 80 178 94 L165 100 Q150 86 140 62 Z'/>
-<path d='M185 38 Q200 56 218 70 L206 76 Q194 60 185 38 Z'/>
-<path d='M215 12 Q226 30 240 42 L230 48 Q220 32 215 12 Z'/>
+<g fill='none' stroke='#7cff3f' stroke-width='2' opacity='.45'>
+<path d='M390 110 Q340 80 295 105'/>
+<path d='M292 122 Q262 160 258 208'/>
+<path d='M324 142 Q300 182 296 228'/>
+<path d='M356 160 Q336 198 334 240'/>
+<path d='M390 182 Q374 216 374 252'/>
 </g>
-<g stroke='#b32424' stroke-width='3' opacity='.6' stroke-linecap='round'><path d='M320 250 L290 300'/><path d='M380 265 L360 320'/></g>
+<g fill='#7cff3f' opacity='.30'>
+<path d='M300 120 Q320 138 322 162 Q310 148 300 120 Z'/>
+<path d='M332 140 Q352 160 354 184 Q342 168 332 140 Z'/>
+<path d='M364 158 Q382 180 384 204 Q372 186 364 158 Z'/>
+</g>
+<g stroke='#b32424' stroke-width='4' opacity='.7' stroke-linecap='round'>
+<path d='M278 300 L270 330'/><path d='M316 318 L312 340'/><path d='M356 324 L352 340'/>
+</g>
 </svg>`)
 const CHARM_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 150'>
 <path d='M40 0 V66' stroke='#0b0b0f' stroke-width='2'/>
@@ -3581,32 +3593,35 @@ const CSS = `
   position: relative; display: flex; align-items: flex-end;
   min-height: 196px; margin: 8px 0 14px; padding: 20px 26px 18px;
   border: 1px solid #244a2c; border-bottom: 6px solid #e23a3a;
-  border-radius: 6px; overflow: hidden;
+  border-radius: 6px; overflow: visible;
   background: linear-gradient(90deg, #040705 0%, #07110a 52%, #0b1a0f 100%);
   box-shadow: inset 0 0 70px rgba(124,255,63,.05);
 }
 [data-skin="resident"] .mc-v5-pagehead::before {
   content: ''; position: absolute; right: 0; top: 0; width: 56%; height: 100%;
-  background-image: url("${CLAW_ART}"), url("${clawThemeArt}"), url("${ZOMBIE_ART}");
-  background-size: 62%, 64%, cover;
-  background-position: right -2% bottom -8%, right -4% bottom -12%, center 28%;
-  background-repeat: no-repeat, no-repeat, no-repeat;
-  background-blend-mode: normal, screen, normal;
+  background-image:
+    linear-gradient(90deg, rgba(5,8,6,.97) 0 40%, rgba(5,8,6,.55) 62%, transparent 88%),
+    repeating-linear-gradient(180deg, rgba(124,255,63,.05) 0 1px, transparent 1px 4px),
+    radial-gradient(circle at 88% 16%, rgba(226,58,58,.28), transparent 48%),
+    url("${ZOMBIE_ART}");
+  background-size: 100% 100%, auto, auto, cover;
+  background-position: 0 0, 0 0, 0 0, center 28%;
+  background-repeat: no-repeat;
   opacity: .95; filter: brightness(1.35) contrast(1.1) saturate(1.1);
   -webkit-mask-image: linear-gradient(to left, #000 52%, transparent 100%);
   mask-image: linear-gradient(to left, #000 52%, transparent 100%);
+  clip-path: inset(0 round 6px);
   pointer-events: none; z-index: 0;
 }
 [data-skin="resident"] .mc-v5-pagehead::after {
   content: '☣ CONTAINMENT BREACH // T-002 TYRANT';
-  position: absolute; inset: 0; z-index: 1; padding: 16px 20px;
+  position: absolute; left: 0; right: 0; top: 0; bottom: -52px; z-index: 3; padding: 16px 20px;
   background:
-    repeating-linear-gradient(90deg, rgba(226,58,58,.9) 0 34px, rgba(24,6,6,.9) 34px 40px) left bottom / 100% 7px no-repeat,
-    linear-gradient(90deg, rgba(5,8,6,.97) 0 40%, rgba(5,8,6,.55) 62%, transparent 88%),
-    repeating-linear-gradient(180deg, rgba(124,255,63,.05) 0 1px, transparent 1px 4px),
-    radial-gradient(circle at 88% 16%, rgba(226,58,58,.28), transparent 48%);
+    linear-gradient(180deg, #2f5f37 0 2px, #0a120b 2px 9px, #e23a3a 9px 12px) left bottom 48px / 100% 12px no-repeat,
+    radial-gradient(ellipse at 80% 0, rgba(124,255,63,.18), transparent 70%) right bottom 40px / 420px 160px no-repeat,
+    url("${GRIP_ART}") right 8px bottom 0 / 420px auto no-repeat;
   color: #ff8a8a; font: 9px Consolas, 'Courier New', monospace; letter-spacing: .16em;
-  pointer-events: none;
+  pointer-events: none; filter: drop-shadow(0 18px 18px rgba(0,0,0,.55));
 }
 [data-skin="resident"] .mc-v5-pagehead > * { position: relative; z-index: 2; }
 [data-skin="resident"] .mc-v5-pagehead h1 { font-size: 34px; line-height: 1.15; }
@@ -3649,7 +3664,7 @@ const CSS = `
 [data-skin="spider"] .mc-v5-pagecount { position: absolute; right: 16px; top: 14px; z-index: 3; }
 [data-skin="spider"] .mc-v5-feature::before { z-index: 2; }
 [data-skin="spider"] .mc-theme-charm {
-  display: block; position: fixed; top: 58px; right: 150px; width: 64px; height: 128px;
+  display: block; position: fixed; top: 58px; left: 190px; width: 64px; height: 128px;
   background: url("${CHARM_ART}") center top / contain no-repeat;
   pointer-events: none; z-index: 45; filter: drop-shadow(0 8px 12px rgba(0,0,0,.28));
 }
@@ -3686,6 +3701,7 @@ const CSS = `
   [data-skin="spider"] .mc-v5-pagehead h1 { font-size: 24px; }
   [data-skin="resident"] .mc-v5-pagehead p,
   [data-skin="spider"] .mc-v5-pagehead p { max-width: none; }
+  [data-skin="resident"] .mc-v5-pagehead::after { background-image: none; bottom: 0; filter: none; }
 }
 
 `
