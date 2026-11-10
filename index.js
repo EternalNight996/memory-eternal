@@ -74,7 +74,7 @@ export const Config = z.object({
   // 记忆界面整体布局大小：compact / normal / large（只影响 UI，不影响召回）
   uiScale: z.union([z.const('compact'), z.const('normal'), z.const('large')]).default('normal'),
   // 主题皮肤：一键切换整个记忆界面（含设置页）。新增皮肤时在这里登记 id，并在 src/client 的 CSS 里加 [data-skin="id"] 块。
-  theme: z.union([z.const('default'), z.const('pop'), z.const('light')]).default('default'),
+  theme: z.union([z.const('default'), z.const('pop'), z.const('light'), z.const('resident'), z.const('spider')]).default('default'),
   vaultDir: z.string().default(''),
   dedupThreshold: z.number().min(0).max(1).default(0.62),
   captureMinChars: z.number().default(200),
