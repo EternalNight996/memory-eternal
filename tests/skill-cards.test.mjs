@@ -232,7 +232,9 @@ test('UI：技能类型在筛选 / 新建卡 / 统计 / 图谱里都有入口', 
 test('UI：知识星图识别技能类型（颜色 / 形状 / 筛选 / 图例）', () => {
   const src = fs.readFileSync(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
   const kg = src.slice(src.indexOf('const KG = {'), src.indexOf('function warnGraphDrawError'))
-  assert.match(kg, /skill:'#8B5CF6'/, '星图配色必须包含 skill')
+  // 只约束「skill 有自己的图配色」，不锁死具体色值 —— 0.26 起星图配色按 v5 皮肤重挑，
+  // 把 #8B5CF6 写死会让纯视觉调整变成测试回归（颜色不是行为契约）。
+  assert.match(kg, /skill:'#[0-9A-Fa-f]{6}'/, '星图配色必须包含 skill')
   assert.match(kg, /skill:'hexagon'/, '星图节点形状必须包含 skill')
   assert.match(src, /Object\.keys\(KIND_COLORS\)\.map/, '星图类型筛选必须来自统一颜色表（含 skill）')
   assert.match(src, /Object\.keys\(KG\.colors\)\.filter/, '星图图例必须来自统一配色表（含 skill）')
