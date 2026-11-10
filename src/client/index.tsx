@@ -12,6 +12,8 @@ import React, { createContext, useCallback, useContext, useEffect, useLayoutEffe
 import { createPortal } from 'react-dom'
 import { renderMd, splitFrontmatter, parseTags } from './markdown.js'
 import brandIcon from '../../assets/icon.png'
+import residentThemeArt from '../../assets/theme/resident.jpg'
+import spiderThemeArt from '../../assets/theme/spider.jpg'
 import { snippetAround } from './snippet.js'
 import { auditMatches } from './audit-filter.js'
 import { versionCardState } from './version-state.js'
@@ -1714,37 +1716,9 @@ const CAPTURE_ACTIONS = {
   fail: ['❌', '#ef4444'],
 }
 
-const ZOMBIE_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 260'>
-<g fill='#0b160f' stroke='#2f5f37' stroke-width='2' stroke-linejoin='round'>
-<circle cx='110' cy='52' r='30'/>
-<path d='M70 84 Q110 66 150 84 L164 166 Q110 188 56 166 Z'/>
-<path d='M64 104 L8 132 L16 146 L72 122 Z'/>
-<path d='M156 104 L212 118 L208 133 L150 122 Z'/>
-<path d='M86 168 L68 252 L94 252 L106 184 Z'/>
-<path d='M134 168 L152 252 L126 252 L114 184 Z'/>
-</g>
-<path d='M82 34 L102 22 M120 22 L142 36' stroke='#e23a3a' stroke-width='2' opacity='.7'/>
-<g fill='#7cff3f'><circle cx='96' cy='48' r='5'/><circle cx='124' cy='48' r='5'/></g>
-<path d='M96 66 Q110 76 124 66' stroke='#e23a3a' stroke-width='3' fill='none'/>
-</svg>`)
-const SPIDER_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 300'>
-<path d='M44 208 Q-10 100 40 0' stroke='#0b0b0f' stroke-width='2' fill='none'/>
-<path d='M40 0 L150 60' stroke='#0b0b0f' stroke-width='1.5' opacity='.7'/>
-<g fill='#e62429' stroke='#0b0b0f' stroke-width='3' stroke-linejoin='round'>
-<ellipse cx='130' cy='104' rx='29' ry='35'/>
-<path d='M106 136 Q130 166 154 136 L166 214 Q130 234 94 214 Z'/>
-<path d='M94 214 L72 290 L98 290 L112 222 Z'/>
-<path d='M166 214 L188 290 L162 290 L148 222 Z'/>
-<path d='M106 154 L42 186 L46 199 L110 172 Z'/>
-</g>
-<path d='M106 164 Q130 194 154 164 L160 218 Q130 232 100 218 Z' fill='#1b3b8b' stroke='#0b0b0f' stroke-width='2'/>
-<path d='M110 96 Q120 88 128 96 Q121 108 112 103 Z' fill='#fff' stroke='#0b0b0f' stroke-width='2'/>
-<path d='M132 96 Q142 88 150 96 Q143 108 134 103 Z' fill='#fff' stroke='#0b0b0f' stroke-width='2'/>
-<g stroke='#0b0b0f' stroke-width='1' opacity='.55'>
-<path d='M102 74 L158 130 M130 68 L130 140 M102 132 L158 80'/>
-</g>
-<g fill='#0b0b0f'><ellipse cx='130' cy='176' rx='7' ry='11'/><path d='M123 166 L117 156 M137 166 L143 156 M123 186 L117 196 M137 186 L143 196' stroke='#0b0b0f' stroke-width='2'/></g>
-</svg>`)
+const ZOMBIE_ART = residentThemeArt
+
+const SPIDER_ART = spiderThemeArt
 
 const CSS = `
 .memory-eternal-root { font-family: inherit; color: var(--dsw-alias-label-primary, #1f2937); }
@@ -3514,6 +3488,7 @@ const CSS = `
 [data-skin="spider"] .mc-cfg-sec-ico { background: var(--sp-yellow); border: 2px solid var(--sp-ink); }
 [data-skin="spider"] .mc-quote { background: #fff; border: 2px solid var(--sp-ink); color: var(--sp-ink); }
 [data-skin="spider"] .mc-quote-tag { color: var(--sp-red); }
+[data-skin="spider"] .mc-quote-text { color: var(--sp-ink); }
 [data-skin="spider"] .mc-quote-src { color: var(--sp-blue); }
 [data-skin="spider"] .me-graph-canvas { background: #fffdf7; border: 2px solid var(--sp-ink); box-shadow: 5px 5px 0 var(--sp-blue); }
 [data-skin="spider"] .me-graph-tip { color: #5b5b66; }
@@ -3588,16 +3563,20 @@ const CSS = `
 }
 [data-skin="spider"] .mc-v5-pagehead::before {
   content: '';
-  position: absolute; right: 148px; top: -18px; width: 140px; height: 192px;
-  background: url("${SPIDER_ART}") center / contain no-repeat;
-  opacity: .95; filter: drop-shadow(0 4px 10px rgba(11,11,15,.25));
+  position: absolute; right: 140px; top: -6px; width: 190px; height: 185px;
+  background: url("${SPIDER_ART}") center / cover no-repeat;
+  border: 3px solid var(--sp-ink); border-radius: 4px; overflow: hidden;
+  box-shadow: 6px 6px 0 var(--sp-red);
+  opacity: .98; filter: saturate(1.05) contrast(1.02);
   pointer-events: none; z-index: 0;
 }
 [data-skin="resident"] .mc-v5-pagehead::after {
   content: '';
-  position: absolute; right: 150px; bottom: -18px; width: 150px; height: 182px;
-  background: url("${ZOMBIE_ART}") center / contain no-repeat;
-  opacity: .55; filter: drop-shadow(0 0 16px rgba(124,255,63,.18));
+  position: absolute; right: 145px; top: 2px; width: 190px; height: 185px;
+  background: url("${ZOMBIE_ART}") center / cover no-repeat;
+  border: 2px solid #3d6b45; border-bottom: 6px solid #7a2a2a; border-radius: 10px; overflow: hidden;
+  opacity: .96; filter: brightness(1.42) contrast(1.12) saturate(1.15);
+  box-shadow: 0 0 0 2px rgba(226,58,58,.28), 0 20px 42px rgba(0,0,0,.55), 0 0 30px rgba(124,255,63,.18);
   pointer-events: none; z-index: 0;
 }
 [data-skin="resident"] .mc-v5-feature::before {
