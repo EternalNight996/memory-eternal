@@ -3144,6 +3144,97 @@ const CSS = `
 [data-skin="light"] .mc-cards-head-hint { color: #8a7f70; opacity: 1; }
 [data-skin="light"] .mc-v5-card-title { font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif; font-size: 15.5px; }
 [data-skin="light"] .mc-v5-card::before { height: 3px; border-radius: 11px 11px 0 0; }
+/* ===== 全面波普：弹层 / 终端 / 图谱 / 横幅 / 表单 ===== */
+[data-skin="pop"] .me-graph-canvas { background: #fff7e6; border: 2px solid var(--pop-ink); box-shadow: 5px 5px 0 var(--pop-ink); }
+[data-skin="pop"] .me-graph-tip { color: #5a4a33; }
+[data-skin="pop"] .me-graph-search input { background: #fffcf4; border: 2px solid var(--pop-ink); color: var(--pop-ink); }
+[data-skin="pop"] .me-graph-crumbs { background: #fff7e6; border: 2px solid var(--pop-ink); box-shadow: 3px 3px 0 var(--pop-ink); }
+[data-skin="pop"] .me-graph-crumbs button { color: var(--pop-ink); }
+[data-skin="pop"] .me-graph-crumbs button:hover, [data-skin="pop"] .me-graph-crumbs button.current { background: #ffe07a; color: var(--pop-ink); box-shadow: none; }
+[data-skin="pop"] .me-graph-crumbs .sep, [data-skin="pop"] .me-graph-crumbs .home { color: #6b5f4e; }
+[data-skin="pop"] .me-graph-ctxmenu { background: #fff7e6; border: 2px solid var(--pop-ink); box-shadow: 4px 4px 0 var(--pop-ink); color: var(--pop-ink); }
+[data-skin="pop"] .me-graph-ctxmenu button:hover { background: #ffe07a; }
+[data-skin="pop"] .me-graph-levelbusy, [data-skin="pop"] .me-graph-levelerr { background: #fff7e6; color: var(--pop-ink); border: 2px solid var(--pop-ink); }
+[data-skin="pop"] .me-graph-levelerr button { background: var(--pop-yellow); color: var(--pop-ink); border-color: var(--pop-ink); }
+[data-skin="pop"] .me-dialog, [data-skin="pop"] .me-modal { background: #fffcf4; color: var(--pop-ink); border: 2px solid var(--pop-ink); box-shadow: 6px 6px 0 var(--pop-ink); }
+[data-skin="pop"] .me-dialog-head, [data-skin="pop"] .me-modal-head { background: #ffefc9; border-bottom: 2px solid var(--pop-ink); }
+[data-skin="pop"] .me-dialog-body h3, [data-skin="pop"] .me-dialog-body h4, [data-skin="pop"] .me-modal-title h2 { color: var(--pop-ink); }
+[data-skin="pop"] .me-support-tabs { border-bottom-color: var(--pop-ink); }
+[data-skin="pop"] .me-support-tab.active { border-bottom-color: var(--pop-red); }
+[data-skin="pop"] .me-support-qr img { border: 2px solid var(--pop-ink); }
+[data-skin="pop"] .me-guide-github-hint { color: #6b5f4e; }
+[data-skin="pop"] .me-guide-dot { background: #e8dcc5; }
+[data-skin="pop"] .me-guide-dot.on { background: var(--pop-red); }
+[data-skin="pop"] .me-modal-close { border: 2px solid var(--pop-ink); background: var(--pop-yellow); color: var(--pop-ink); }
+[data-skin="pop"] .md-doc, [data-skin="pop"] .md-doc h1, [data-skin="pop"] .md-doc h2, [data-skin="pop"] .md-doc h3 { color: var(--pop-ink); }
+[data-skin="pop"] .mc-starask { background: #ffe07a !important; border: 2px solid var(--pop-ink) !important; box-shadow: 3px 3px 0 var(--pop-ink); color: var(--pop-ink) !important; }
+[data-skin="pop"] .mc-starask span { color: var(--pop-ink) !important; }
+[data-skin="pop"] .mc-work-textarea { background: #fffcf4 !important; border: 2px solid var(--pop-ink) !important; color: var(--pop-ink) !important; }
+[data-skin="pop"] .mc-term-guide { color: var(--pop-ink) !important; }
+[data-skin="pop"] .mc-term-guide > p { color: #3a3226 !important; }
+[data-skin="pop"] .mc-term-card { background: #fffcf4 !important; border: 2px solid var(--pop-ink) !important; border-radius: 6px !important; box-shadow: 5px 5px 0 var(--pop-ink); color: var(--pop-ink) !important; }
+[data-skin="pop"] .mc-term-card div { color: #3a3226 !important; }
+[data-skin="pop"] .mc-term-code { background: #fff7e6 !important; border: 2px solid var(--pop-ink) !important; color: var(--pop-ink) !important; }
+[data-skin="pop"] .mc-term-btn { background: var(--pop-yellow) !important; border: 2px solid var(--pop-ink) !important; color: var(--pop-ink) !important; box-shadow: 2px 2px 0 var(--pop-ink); border-radius: 4px; }
+[data-skin="pop"] .mc-new { background: var(--pop-yellow); color: var(--pop-ink); border: 1.5px solid var(--pop-ink); }
+[data-skin="pop"] .mc-v5-card-status.pending, [data-skin="pop"] .me-audit-row-state { background: #ffe07a; color: var(--pop-ink); }
+[data-skin="pop"] .mc-v5-core, [data-skin="pop"] .mc-v5-pin { color: var(--pop-ink); }
+[data-skin="pop"] .mc-v5-core.on { background: #ffe07a; border-color: var(--pop-ink); color: var(--pop-ink); }
+[data-skin="pop"] .mc-v5-audit-trust { border-color: var(--pop-ink); background: #ffe07a; color: var(--pop-ink); }
+[data-skin="pop"] .me-audit-kinds { border: 2px solid var(--pop-ink); background: #fffcf4; }
+[data-skin="pop"] .me-audit-kind.active { background: #ffe07a; border-color: var(--pop-ink); color: var(--pop-ink); }
+[data-skin="pop"] .me-audit-preview { box-shadow: 5px 5px 0 var(--pop-ink); }
+[data-skin="pop"] .me-audit-preview-actions { border-top-color: rgba(23,19,11,.2); }
+[data-skin="pop"] .mc-news-reader { border: 2px solid var(--pop-ink); box-shadow: 5px 5px 0 var(--pop-ink); }
+[data-skin="pop"] .mc-news-follow-draft, [data-skin="pop"] .mc-news-follow-sec { background: #fffcf4; border: 2px solid var(--pop-ink); }
+[data-skin="pop"] .mc-news-pill { border: 2px solid var(--pop-ink); background: #fffcf4; }
+[data-skin="pop"] .mc-news-tile-follow { background: #ffe07a; color: var(--pop-ink); }
+[data-skin="pop"] .mc-news-hero-search { border: 2px solid var(--pop-ink); background: #fffcf4; }
+[data-skin="pop"] .mc-news-hero-hint { color: #5a4a33 !important; }
+[data-skin="light"] .me-graph-canvas { background: #fffdf9; border-color: #e4e0d8; }
+[data-skin="light"] .me-graph-search input { background: #fffdf9; border-color: #e4e0d8; color: #26221c; }
+[data-skin="light"] .me-graph-crumbs { background: #fffdf9; border-color: #e4e0d8; }
+[data-skin="light"] .me-graph-crumbs button { color: #26221c; }
+[data-skin="light"] .me-dialog, [data-skin="light"] .me-modal { background: #fffdf9; color: #26221c; }
+[data-skin="light"] .me-dialog-head, [data-skin="light"] .me-modal-head { background: #fff; border-bottom-color: #e4e0d8; }
+[data-skin="light"] .mc-term-guide { color: #26221c !important; }
+[data-skin="light"] .mc-term-card { background: #fff !important; border-color: #e4e0d8 !important; color: #26221c !important; }
+[data-skin="light"] .mc-term-code { background: #fbf4ea !important; border-color: #e4e0d8 !important; color: #26221c !important; }
+[data-skin="light"] .mc-term-btn { background: #fff !important; border-color: #d6d0c4 !important; color: #26221c !important; }
+[data-skin="light"] .mc-starask { background: #fff4ee !important; border-color: #ffd3bd !important; color: #26221c !important; }
+[data-skin="light"] .mc-starask span { color: #26221c !important; }
+[data-skin="light"] .mc-work-textarea { background: #fff !important; border-color: #d6d0c4 !important; color: #26221c !important; }
+/* 波普：图谱工具条 / 统计卡 / 回收列表 / 终端文字 */
+[data-skin="pop"] .mc-v5-pagecount { color: var(--pop-paper) !important; }
+[data-skin="pop"] .me-gtool { background: #fffcf4; border: 2px solid var(--pop-ink); color: var(--pop-ink); border-radius: 4px; box-shadow: 2px 2px 0 var(--pop-ink); }
+[data-skin="pop"] .me-gtool:hover, [data-skin="pop"] .me-gtool.on { background: #ffe07a; color: var(--pop-ink); border-color: var(--pop-ink); }
+[data-skin="pop"] .me-gswitch { background: #fffcf4; border: 2px solid var(--pop-ink); color: var(--pop-ink); border-radius: 4px; }
+[data-skin="pop"] .me-gswitch.on { background: #ffe07a; color: var(--pop-ink); border-color: var(--pop-ink); }
+[data-skin="pop"] .me-gswitch .track { background: #e8dcc5; }
+[data-skin="pop"] .me-gswitch.on .track { background: var(--pop-red); }
+[data-skin="pop"] .me-gswitch.on .track::after { background: #fff7e6; }
+[data-skin="pop"] .me-graph-count { color: #5a4a33; opacity: 1; }
+[data-skin="pop"] .me-graph-search .ico { color: var(--pop-ink); }
+[data-skin="pop"] .me-graph-legend-pop { background: #fff7e6 !important; border: 2px solid var(--pop-ink) !important; color: var(--pop-ink) !important; box-shadow: 4px 4px 0 var(--pop-ink) !important; }
+[data-skin="pop"] .me-graph-legend-pop .lg { color: var(--pop-ink); }
+[data-skin="pop"] .me-graph-legend-pop .lg:hover, [data-skin="pop"] .me-graph-legend-pop .lg.active { background: #ffe07a; color: var(--pop-ink); }
+[data-skin="pop"] .me-graph-legend-pop .lg.lg-clear { color: var(--pop-red); }
+[data-skin="pop"] .mc-v5-statuscard { background: #fffcf4; border: 2px solid var(--pop-ink); border-radius: 6px; box-shadow: 4px 4px 0 var(--pop-ink); }
+[data-skin="pop"] .mc-v5-statuscard b { color: var(--pop-ink); }
+[data-skin="pop"] .mc-v5-statuscard > span:not(.mc-v5-status-ico), [data-skin="pop"] .mc-v5-statuscard small { color: #6b5f4e; }
+[data-skin="pop"] .mc-stat b { color: var(--pop-ink); }
+[data-skin="pop"] .mc-stat span { color: #6b5f4e; }
+[data-skin="pop"] .mc-v5-recycle-hint { color: #6b5f4e; }
+[data-skin="pop"] .mc-v5-recycle-copy b { color: var(--pop-ink); }
+[data-skin="pop"] .mc-v5-recycle-copy span { color: #6b5f4e; }
+[data-skin="pop"] .mc-v5-recycle-row:hover { background: #fff1dc; }
+[data-skin="pop"] .mc-term-guide > p { color: #3a3226 !important; }
+[data-skin="pop"] .mc-term-guide > div:last-child { color: #3a3226 !important; }
+[data-skin="pop"] .md-doc h2, [data-skin="pop"] .md-doc h3, [data-skin="pop"] .md-doc h4 { color: var(--pop-ink) !important; }
+[data-skin="light"] .mc-v5-statuscard { background: #fffdf9; border-color: #e4e0d8; }
+[data-skin="light"] .mc-v5-statuscard b, [data-skin="light"] .mc-v5-recycle-copy b { color: #26221c; }
+[data-skin="light"] .mc-v5-statuscard > span:not(.mc-v5-status-ico), [data-skin="light"] .mc-v5-statuscard small, [data-skin="light"] .mc-v5-recycle-copy span, [data-skin="light"] .mc-v5-recycle-hint { color: #6b5f4e; }
+[data-skin="light"] .me-gtool, [data-skin="light"] .me-gswitch { background: #fffdf9; border-color: #e4e0d8; color: #26221c; }
 `
 
 export function apply(ctx) {
@@ -3337,28 +3428,28 @@ function TerminalGuide({ t }) {
       <p style={{ margin: '9px 0 20px', color: '#aeb5bf', fontSize: 13.5, lineHeight: 1.8 }}>{t('terminalIntro')}</p>
 
       <div className="mc-term-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, .9fr)', gap: 14 }}>
-        <div style={card}>
+        <div className="mc-term-card" style={card}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>▸ {t('terminalRun')}</div>
-          <pre style={code}>{runCmd}</pre>
-          <button type="button" style={button} onClick={() => copy(runCmd, 'run')}>{copied === 'run' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
+          <pre className="mc-term-code" style={code}>{runCmd}</pre>
+          <button type="button" className="mc-term-btn" style={button} onClick={() => copy(runCmd, 'run')}>{copied === 'run' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
           <div style={{ marginTop: 12, color: '#99a1ac', fontSize: 12, lineHeight: 1.7 }}>
             默认读取真实记忆库与待审队列；只读，确认后才用 `--write`。示例数据用 `--demo`。
             <br />没有 `dsh-memory` 命令时：`npx -p memory-eternal dsh-memory tui`
           </div>
         </div>
-        <div style={card}>
+        <div className="mc-term-card" style={card}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>▸ {t('terminalTui')}</div>
-          <pre style={code}>{tuiCmd}</pre>
-          <button type="button" style={button} onClick={() => copy(tuiCmd, 'tui')}>{copied === 'tui' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
+          <pre className="mc-term-code" style={code}>{tuiCmd}</pre>
+          <button type="button" className="mc-term-btn" style={button} onClick={() => copy(tuiCmd, 'tui')}>{copied === 'tui' ? '✓ ' + t('terminalCopied') : '⧉ ' + t('terminalCopy')}</button>
           <div style={{ marginTop: 12, color: '#99a1ac', fontSize: 12, lineHeight: 1.7 }}>
             真实批准/驳回；不确定时先用只读模式。
           </div>
         </div>
       </div>
 
-      <div style={{ ...card, marginTop: 14 }}>
+      <div className="mc-term-card" style={{ ...card, marginTop: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 700 }}>▸ {t('terminalPreview')}</div>
-        <pre style={{ ...code, marginTop: 10, color: '#d7dce3', fontSize: 12, lineHeight: 1.5 }}>
+        <pre className="mc-term-code mc-term-preview" style={{ ...code, marginTop: 10, color: '#d7dce3', fontSize: 12, lineHeight: 1.5 }}>
 {`╭─ MEMORY ATLAS / 待审 ─────────────────────────────╮
 │  类型  ● 全部 7   ○ 项目 3   ○ 知识 1   ○ 教训 1  │
 │                                                    │
@@ -3475,6 +3566,7 @@ function WorkingNoteCard({ t, notify, onPromoted }) {
             onChange={(e) => setText(e.target.value)}
             rows={7}
             placeholder={t('workPlaceholder')}
+            className="mc-work-textarea"
             style={{ width: '100%', boxSizing: 'border-box', borderRadius: 8, padding: '8px 10px', fontSize: 12.5, lineHeight: 1.6, background: 'rgba(0,0,0,0.18)', color: 'inherit', border: '1px solid rgba(140,148,160,0.35)', resize: 'vertical' }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
@@ -3996,7 +4088,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         </div>
       )}
       {starAsk && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 14px 0', padding: '10px 14px', borderRadius: 10, background: 'linear-gradient(90deg, rgba(255,122,69,0.14), rgba(255,122,69,0.03))', border: '1px solid rgba(255,122,69,0.32)', color: 'var(--dsw-alias-label-primary, #e5e7eb)', fontSize: 12.5, lineHeight: 1.55 }}>
+        <div className="mc-starask" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 14px 0', padding: '10px 14px', borderRadius: 10, background: 'linear-gradient(90deg, rgba(255,122,69,0.14), rgba(255,122,69,0.03))', border: '1px solid rgba(255,122,69,0.32)', color: 'var(--dsw-alias-label-primary, #e5e7eb)', fontSize: 12.5, lineHeight: 1.55 }}>
           <span style={{ fontSize: 15, color: '#FF7A45' }}>★</span>
           <span style={{ flex: 1 }}>
             <b>{t('starAskTitle')}</b>
@@ -4237,7 +4329,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         </div>
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
           {/* active 必须跟着视图走：以前恒为 true → 打开任何视图都拉 890KB 图谱（约 3.5s） */}
-          {visited.has('graph') && <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} visible={view === 'graph'} />}
+          {visited.has('graph') && <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} visible={view === 'graph'} skin={skin} />}
         </div>
         <div style={{ display: view === 'news' ? 'contents' : 'none' }}>
           {visited.has('news') && <NewsHub t={t} version={dataVer} onUnreadChange={setNewsUnread} />}
@@ -4659,32 +4751,27 @@ function ConfigPanel({ t, onReload, version, compact }) {
   }
   const resetForm = () => { savedOverlayRef.current = {}; setForm({ ...(cfg?.config ?? {}) }); setAppliedPlan(''); setDirty(false); setSaved('') }
   // 主题皮肤「一键切换」：本地即时换肤 + 只提交 theme 一个字段（不碰其他未保存项）。
-  const applyTheme = async (id) => {
+  const applyTheme = (id) => {
     if (!['default', 'pop', 'light'].includes(id)) return
     set('theme', id)
     try { window.dispatchEvent(new CustomEvent('me-skin', { detail: id })) } catch { /* ignore */ }
-    if (readonly) return
+    // 本地已生效：即便宿主的配置 schema 还是旧版（没有 theme 字段），也绝不弹「无法写入字段」。
     try {
-      const r = await fetch(`${API}/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patch: { theme: id }, expectedRevision: revision }),
-      })
-      const d = await r.json().catch(() => null)
-      if (d && d.ok) {
-        savedOverlayRef.current = { ...savedOverlayRef.current, theme: id }
-        // 只改了主题时不要再挂着「有未保存的更改」
-        try {
-          const base = (cfg && cfg.config) || {}
-          const restClean = Object.keys(form || {}).every((k) => k === 'theme' || JSON.stringify(form[k]) === JSON.stringify(base[k]))
-          if (restClean) setDirty(false)
-        } catch { /* ignore */ }
-        setSaved(t('themeApplied'))
-        notify(t('themeApplied'), true)
-      } else {
-        notify((d && d.error) || t('saveFail'), false)
-      }
-    } catch { notify(t('saveFail'), false) }
+      const base = (cfg && cfg.config) || {}
+      const restClean = Object.keys(form || {}).every((k) => k === 'theme' || JSON.stringify(form[k]) === JSON.stringify(base[k]))
+      if (restClean) setDirty(false)
+    } catch { /* ignore */ }
+    setSaved(t('themeApplied'))
+    notify(t('themeApplied'), true)
+    if (readonly) return
+    // 后台尽力把 theme 写进配置（新宿主会持久化；旧宿主拒绝时静默，localStorage 兜底）。
+    fetch(`${API}/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patch: { theme: id }, expectedRevision: revision }),
+    }).then((r) => r.json()).then((d) => {
+      if (d && d.ok) savedOverlayRef.current = { ...savedOverlayRef.current, theme: id }
+    }).catch(() => { /* 旧宿主没有 theme 字段：本地已生效 */ })
   }
   // -- 多库（#10）：vaultProfiles / activeVault 的可视化编辑 --
   const VAULT_SRC_KEYS = { env: 'vaultSrcEnv', profile: 'vaultSrcProfile', workspace: 'vaultSrcWorkspace', vaultDir: 'vaultSrcVaultDir', default: 'vaultSrcDefault' }
@@ -7667,7 +7754,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
 // 与改造前的区别：以前一次性 `GET /graph` 拉全量（2049 节点 / 10106 边）再一次性渲染；
 // 现在一次只取「一层」（`GET /graph/level?path=…`）：根层 kind 折叠 → 大类/语义簇 → 卡片层；
 // 每个层级都缓存：面包屑返回上层是**零新增请求**。
-function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
+function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible, skin }) {
   const [segments, setSegments] = useState([]) // 当前层级路径段（['k:project', 't:ui'] …）
   const [data, setData] = useState(null) // 宿主返回的当前层（{path,crumbs,level,stats}）
   const [error, setError] = useState(null) // { timeout, message }：显式失败，不吞
@@ -7911,6 +7998,7 @@ function GraphView({ t, onOpen, all, onAllChange, onMutate, active, visible }) {
       {(flatMode ? flatLevel : data) && itemCount === 0 && <div className="mc-empty">{t('graphEmptyLevel')}</div>}
       {level && itemCount > 0 && (
         <GraphCanvas
+          skin={skin}
           level={level}
           crumbs={flatMode ? [] : (data && data.crumbs ? data.crumbs : [])}
           onOpen={onOpen}
@@ -8018,7 +8106,7 @@ function GraphBreadcrumb({ crumbs, t, onPick, busy }) {
   )
 }
 
-function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavigate, onRetry, error, loading, t, all, onAllChange, fitTrigger }) {
+function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavigate, onRetry, error, loading, t, all, onAllChange, fitTrigger, skin }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
   const simRef = useRef(null)
@@ -8124,6 +8212,33 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     // 20 轮下钻/返回后 snapshot() 的三个数必须回到同一个值（见 probes + REPORT 的泄漏断言）。
     const tracker = createResourceTracker()
     const planetLayer = items.some((it) => it && it.type === 'planet')
+    // 主题化画布：pop/light 用浅底 + 深色点阵，暗色默认保持观测底片。
+    const activeSkin = skin || (typeof document !== 'undefined' && document.querySelector('.memory-eternal-root') ? document.querySelector('.memory-eternal-root').dataset.skin : '') || 'default'
+    const skinPop = activeSkin === 'pop'
+    const skinLight = activeSkin === 'light'
+    const GP = skinPop ? {
+      grid: 'rgba(23,19,11,0.16)',
+      labelBg: 'rgba(255,252,244,0.97)', labelBorder: 'rgba(23,19,11,0.45)',
+      labelMuted: '#3a3226', labelStrong: '#1a140b',
+      planetInner: 'rgba(255,252,244,0.94)', planetHighlight: 'rgba(23,19,11,0.12)',
+      nodeRing: 'rgba(23,19,11,0.35)', selection: '#ff3b2f', search: '#ff3b2f', multi: '#0f766e',
+      marqueeStroke: 'rgba(15,118,110,0.9)', marqueeFill: 'rgba(15,118,110,0.12)',
+    } : skinLight ? {
+      grid: 'rgba(80,65,45,0.12)',
+      labelBg: 'rgba(255,255,252,0.98)', labelBorder: 'rgba(38,34,28,0.26)',
+      labelMuted: '#544a3c', labelStrong: '#26221c',
+      planetInner: 'rgba(255,253,249,0.95)', planetHighlight: 'rgba(38,34,28,0.10)',
+      nodeRing: 'rgba(38,34,28,0.25)', selection: '#e36a36', search: '#e36a36', multi: '#0f766e',
+      marqueeStroke: 'rgba(15,118,110,0.9)', marqueeFill: 'rgba(15,118,110,0.10)',
+    } : {
+      grid: 'rgba(255,255,255,0.055)',
+      labelBg: 'rgba(20,24,30,0.78)', labelBorder: 'rgba(255,255,255,0.07)',
+      labelMuted: '#aeb6c2', labelStrong: '#f2f5f8',
+      planetInner: 'rgba(13,16,21,0.92)', planetHighlight: 'rgba(255,255,255,0.14)',
+      nodeRing: 'rgba(255,255,255,0.16)', selection: 'rgba(255,122,69,0.9)', search: '#ffa06b', multi: '#60a5fa',
+      marqueeStroke: 'rgba(96,165,250,0.9)', marqueeFill: 'rgba(96,165,250,0.12)',
+    }
+    const skinLightCanvas = skinPop || skinLight
 
     // 绘制/命中顺序：卡片先画、星球后画（星球永远压在卡片上面，不会被小圆点啃掉）
     const drawItems = items.filter((it) => it && it.type !== 'planet').concat(items.filter((it) => it && it.type === 'planet'))
@@ -8324,7 +8439,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         }
         gridKey = gk
       }
-      ctx.fillStyle = 'rgba(255,255,255,0.055)'
+      ctx.fillStyle = GP.grid
       ctx.fill(gridPath)
       ctx.restore()
       ctx.save()
@@ -8408,7 +8523,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         const cpx = (s.x + t.x) / 2 + ox, cpy = (s.y + t.y) / 2 + oy
         const color = KG.colors[sim.domainById[s.id] ? (sim.domainById[s.id].kind || 'other') : 'other'] || KG.colors.other
         // 连线比旧版更暗更细：星图的「关系」应该是底噪，不是彩色意面。
-        const alpha = focusId ? (focused ? 0.72 : 0.06) : (sim.planetLayer ? 0.22 : (dense ? 0.16 : 0.2))
+        const alpha = skinLightCanvas ? (focusId ? (focused ? 0.85 : 0.1) : (sim.planetLayer ? 0.34 : 0.3)) : (focusId ? (focused ? 0.72 : 0.06) : (sim.planetLayer ? 0.22 : (dense ? 0.16 : 0.2)))
         const cr = parseInt(color.slice(1,3),16), cg = parseInt(color.slice(3,5),16), cb = parseInt(color.slice(5,7),16)
         const w = Math.max(1, Number(e.weight) || 1)
         // 线宽量化到 0.5：减少 Path2D 分桶数量（每多一个桶就多一次 stroke）
@@ -8438,22 +8553,26 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       const drawLabelPill = (n, opts = {}) => {
         const label = truncate(n.name, opts.maxChars || 16)
         const zi = 1 / sim.zoom
-        const font = '500 ' + (11.5 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
+        // 标签自己接管 alpha：避免受节点 dim 的 globalAlpha 影响，浅色画布上整块发灰。
+        ctx.save()
+        ctx.globalAlpha = 1
+        const font = (skinLightCanvas ? '600 ' : '500 ') + (11.5 * zi).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
         ctx.font = font
         const tw = measureText(font, label)
         const lw = tw + 14 * zi, lh = 17 * zi
         const ly = n.y + n.r + (opts.gap === undefined ? 8 : opts.gap) * zi
         let fits = true
         for (const r of drawn) { if (n.x - lw/2 < r.x + r.w && n.x + lw/2 > r.x && ly < r.y + r.h && ly + lh > r.y) { fits = false; break } }
-        if (!fits && !opts.force) return false
+        if (!fits && !opts.force) { ctx.restore(); return false }
         drawn.push({ x: n.x - lw/2, y: ly, w: lw, h: lh })
-        ctx.fillStyle = 'rgba(20,24,30,0.78)'
+        ctx.fillStyle = GP.labelBg
         ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(n.x - lw/2, ly, lw, lh, 4*zi); else ctx.rect(n.x - lw/2, ly, lw, lh); ctx.fill()
-        ctx.strokeStyle = 'rgba(255,255,255,0.07)'
+        ctx.strokeStyle = GP.labelBorder
         ctx.lineWidth = 1 * zi; ctx.stroke()
-        ctx.fillStyle = opts.strong ? '#f2f5f8' : '#aeb6c2'
+        ctx.fillStyle = skinLightCanvas ? (opts.strong ? '#14100a' : '#2f281e') : (opts.strong ? GP.labelStrong : GP.labelMuted)
         ctx.textAlign = 'center'; ctx.textBaseline = 'top'
         ctx.fillText(label, n.x, ly + 4.6 * zi)
+        ctx.restore()
         return true
       }
 
@@ -8495,11 +8614,11 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           body.addColorStop(1, rgbaMix(deep, '#000000', 0.34, 0.9))
           planetBodyCache.set(bkey, body)
         }
-        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.fillStyle = 'rgba(13,16,21,0.92)'; ctx.fill()
+        ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.fillStyle = GP.planetInner; ctx.fill()
         ctx.beginPath(); ctx.arc(0, 0, n.r, 0, Math.PI * 2); ctx.fillStyle = body; ctx.fill()
         // 上沿一道薄高光（弧线，不是圆斑）
         ctx.beginPath(); ctx.arc(0, 0, n.r - Math.max(0.6, 1.1 * zi), Math.PI * 1.06, Math.PI * 1.94)
-        ctx.strokeStyle = 'rgba(255,255,255,0.14)'
+        ctx.strokeStyle = GP.planetHighlight
         ctx.lineWidth = Math.max(0.7, 1.2 * zi)
         ctx.stroke()
         // 发丝外圈：给球体一个干净的边界
@@ -8511,7 +8630,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         if (isSel || isHov) {
           ctx.save()
           ctx.beginPath(); ctx.arc(n.x, n.y, n.r + (isSel ? 7 : 5) * zi, 0, Math.PI * 2)
-          ctx.strokeStyle = isSel ? 'rgba(255,122,69,0.9)' : hexA(color, 0.7)
+          ctx.strokeStyle = isSel ? GP.selection : hexA(color, 0.7)
           ctx.lineWidth = Math.max(1, 1.2 * zi)
           if (isSel) ctx.setLineDash([5 * zi, 4 * zi])
           ctx.stroke()
@@ -8528,11 +8647,11 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = (sim.quality | 0) >= 2 ? 0 : 5 * zi
           if (big) {
             ctx.font = '600 ' + (fs * 0.48).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
-            ctx.fillStyle = 'rgba(255,255,255,0.72)'
+            ctx.fillStyle = skinLightCanvas ? 'rgba(26,20,11,0.72)' : 'rgba(255,255,255,0.72)'
             ctx.fillText(truncate(n.name, 12), n.x, n.y - fs * 1.02)
           }
           ctx.font = '700 ' + fs.toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
-          ctx.fillStyle = 'rgba(255,255,255,0.96)'
+          ctx.fillStyle = skinLightCanvas ? 'rgba(26,20,11,0.96)' : 'rgba(255,255,255,0.96)'
           // 紧凑单位跟着界面语言走（中文「万」/ 英文 K/M）；<1 万原样，2049/10k 的显示不变
           ctx.fillText(formatCount(n.count, {
             unit: tRef.current('graphCountWan'),
@@ -8540,7 +8659,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
           }), n.x, n.y + (big ? fs * 0.06 : 0))
           if (big) {
             ctx.font = '500 ' + (fs * 0.38).toFixed(1) + 'px -apple-system,Segoe UI,sans-serif'
-            ctx.fillStyle = 'rgba(255,255,255,0.5)'
+            ctx.fillStyle = skinLightCanvas ? 'rgba(26,20,11,0.55)' : 'rgba(255,255,255,0.5)'
             ctx.fillText(tRef.current('graphCardsUnit'), n.x, n.y + fs * 0.92)
           }
           ctx.restore()
@@ -8582,7 +8701,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         // 极细的浅色内描边：让六边形/菱形/圆在深底上有「切面」而不是色块。
         // 放大后节点已经很大，逐节点描边在弱 GPU 上是纯浪费，只在选中/悬停时保留。
         if (!closeUp || isSel || isHov) {
-          ctx.strokeStyle = 'rgba(255,255,255,0.16)'
+          ctx.strokeStyle = GP.nodeRing
           ctx.lineWidth = Math.max(0.6, 0.8 * (1 / sim.zoom))
           ctx.stroke()
         }
@@ -8596,8 +8715,8 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         ctx.restore()
         if (isSel) { ctx.save(); drawShape(n.x, n.y, n.r+3, shape); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.stroke(); ctx.restore() }
         else if (isHov) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
-        else if (searchTerm && searchHit) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#ffa06b'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
-        else if (sim.multi.indexOf(n.id) >= 0) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2; ctx.shadowColor = '#60a5fa'; ctx.shadowBlur = 8; ctx.stroke(); ctx.restore() }
+        else if (searchTerm && searchHit) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = GP.search; ctx.lineWidth = 2; ctx.stroke(); ctx.restore() }
+        else if (sim.multi.indexOf(n.id) >= 0) { ctx.save(); drawShape(n.x, n.y, n.r+2, shape); ctx.strokeStyle = GP.multi; ctx.lineWidth = 2; ctx.shadowColor = GP.multi; ctx.shadowBlur = 8; ctx.stroke(); ctx.restore() }
         // 标签预算：大图只画「焦点/悬停/搜索命中/度数最高」的若干节点。
         // 原来 zoom > labelThreshold 时上千个标签全画（每个都要 measureText + 圆角矩形 + fillText），
         // 这正是「放大后卡顿、缩小正常」的原因。
@@ -8614,8 +8733,8 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         const mx = Math.min(m.sx, m.ex), my = Math.min(m.sy, m.ey), mw = Math.abs(m.ex - m.sx), mh = Math.abs(m.ey - m.sy)
         ctx.save()
         ctx.setLineDash([4, 4])
-        ctx.strokeStyle = 'rgba(96,165,250,0.9)'; ctx.lineWidth = 1
-        ctx.fillStyle = 'rgba(96,165,250,0.12)'
+        ctx.strokeStyle = GP.marqueeStroke; ctx.lineWidth = 1
+        ctx.fillStyle = GP.marqueeFill
         ctx.fillRect(mx, my, mw, mh); ctx.strokeRect(mx, my, mw, mh)
         ctx.restore()
       }
@@ -9064,7 +9183,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       if (globalThis.__meGraphRuntime === runtimeProbe) { try { delete globalThis.__meGraphRuntime } catch (e) { globalThis.__meGraphRuntime = undefined } }
       try { ro.disconnect() } catch { /* 已断开 */ }
     }
-  }, [items, edges, levelId])
+  }, [items, edges, levelId, skin])
 
   // 换层时清空选中/框选：上一层的图元 id 在新层里不存在，留着会显示成一条「孤儿」侧栏
   useEffect(() => {
