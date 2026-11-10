@@ -1856,6 +1856,79 @@ const CSS = `
   .mc-vault-head { display: none; }
   .mc-vault-row { grid-template-columns: 1fr auto; }
 }
+/* ===== 记忆配置：H5 / PC / DSH 弹窗三端响应式（页面导航 + 卡片 + 粘性保存） ===== */
+.mc-cfg-page { width: 100%; max-width: 820px; margin: 0 auto; padding: 4px 2px 0; box-sizing: border-box; }
+.mc-cfg-layout { display: block; width: 100%; }
+.mc-cfg-main { min-width: 0; }
+.mc-pagenav { position: sticky; top: 0; z-index: 23; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; margin: 0 0 12px; border-radius: 12px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: rgba(127,127,127,.06); }
+.mc-pagebtn { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 8px 4px; border: 0; border-radius: 9px; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; opacity: .66; white-space: nowrap; }
+.mc-pagebtn:hover { opacity: 1; background: rgba(127,127,127,.10); }
+.mc-pagebtn.on { opacity: 1; font-weight: 650; color: #fff; background: linear-gradient(135deg, #ff8a4d, #ff6a2b); box-shadow: 0 4px 14px rgba(255,106,43,.35); }
+.mc-pagebtn.on:hover { background: linear-gradient(135deg, #ff8a4d, #ff6a2b); }
+.mc-pagebtn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #3b82f6); outline-offset: 1px; }
+.mc-pagebtn-ico { font-size: 13px; flex: none; }
+.mc-pagebtn-txt { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.mc-pagebtn-sub { display: none; }
+.mc-panehead { display: flex; align-items: center; gap: 12px; padding: 2px 4px 14px; }
+.mc-panehead-ico { flex: none; width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; background: linear-gradient(135deg, rgba(255,122,69,.30), rgba(255,122,69,.07)); border: 1px solid rgba(255,122,69,.24); }
+.mc-panehead-title { font-size: 15.5px; font-weight: 700; letter-spacing: .2px; }
+.mc-panehead-sub { font-size: 11.5px; opacity: .55; margin-top: 3px; line-height: 1.5; }
+.mc-cfg-sec { border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 14px; background: rgba(127,127,127,.045); padding: 14px 16px !important; margin: 0 0 12px !important; }
+.me-v5 .mc-cfg-sec { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.09); }
+.mc-cfg-sec-head { padding: 0; margin-bottom: 12px; }
+.mc-cfg-sec-body { padding: 0; }
+.mc-cfg-switches { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.mc-cfg-switches .mc-switch { flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 12px; border: 0; border-bottom: 1px solid rgba(127,127,127,.10); border-radius: 0; background: transparent; padding: 10px 2px; }
+.mc-cfg-switches .mc-switch:last-child { border-bottom: 0; }
+.mc-cfg-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 16px; }
+.mc-env, .mc-env-fold { border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 14px; background: rgba(127,127,127,.045); padding: 12px 16px !important; margin-bottom: 12px !important; }
+.mc-fold { border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 14px; background: rgba(127,127,127,.045); margin-bottom: 12px !important; }
+.me-v5 .mc-env, .me-v5 .mc-env-fold, .me-v5 .mc-fold { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.09); }
+.mc-fold > summary { padding: 13px 16px; }
+.mc-fold-body { padding: 0 16px 14px; }
+.mc-cfg-actions { position: sticky; bottom: 0; z-index: 24; margin: 2px 0 0; border-radius: 12px; }
+.mc-plan-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.mc-plan { flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; }
+.mc-plan b { flex: none; }
+.mc-plan span { flex: 1; min-width: 0; text-align: left; }
+/* PC：左侧页面导航 + 更宽内容 */
+@media (min-width: 1100px) {
+  .mc-cfg-page { max-width: 1200px; padding-top: 6px; }
+  .mc-cfg-layout { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .mc-pagenav { position: sticky; top: 8px; display: flex; flex-direction: column; gap: 2px; padding: 8px; margin: 0; background: var(--dsw-alias-bg-layer-1, #fff); }
+  .me-v5 .mc-pagenav { background: #21252c; border-color: #333943; }
+  .mc-pagebtn { justify-content: flex-start; padding: 10px 12px; gap: 10px; text-align: left; }
+  .mc-pagebtn.on { background: rgba(255,122,69,.14); color: inherit; box-shadow: none; }
+  .me-v5 .mc-pagebtn.on { background: rgba(255,122,69,.18); }
+  .mc-pagebtn-txt { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .mc-pagebtn-sub { display: block; font-size: 10.5px; opacity: .55; line-height: 1.4; white-space: normal; }
+  .mc-cfg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mc-cfg-actions { margin-top: 4px; }
+}
+/* H5：紧凑内边距 + 触控尺寸 + 底部安全区 */
+@media (max-width: 720px) {
+  .mc-cfg-page { max-width: 100%; padding: 2px 2px 0; }
+  .mc-pagenav { margin-bottom: 10px; }
+  .mc-pagebtn { padding: 10px 2px; font-size: 12px; }
+  .mc-panehead { padding: 4px 2px 12px; }
+  .mc-panehead-ico { width: 38px; height: 38px; font-size: 18px; border-radius: 11px; }
+  .mc-panehead-title { font-size: 15px; }
+  .mc-cfg-sec { padding: 12px 12px !important; border-radius: 12px; margin-bottom: 10px !important; }
+  .mc-field input:not([type="checkbox"]):not([type="radio"]), .mc-field select { height: 42px; font-size: 13px; }
+  .mc-cfg-switches .mc-switch { padding: 12px 2px; font-size: 12.5px; }
+  .mc-cfg-switches .mc-switch input { width: 40px; height: 24px; }
+  .mc-cfg-switches .mc-switch input::after { width: 20px; height: 20px; }
+  .mc-cfg-switches .mc-switch input:checked::after { transform: translateX(16px); }
+  .mc-cfg-actions { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .mc-cfg-actions { flex-wrap: wrap; row-gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .mc-cfg-actions > .mc-cfg-clean, .mc-cfg-actions > .mc-cfg-dirty { flex: 0 1 auto; width: 100%; }
+  .mc-cfg-actions .mc-cfg-spacer { display: none; }
+  .mc-cfg-actions .mc-btn { flex: 1 1 0; justify-content: center; white-space: nowrap; padding: 9px 10px; }
+  .mc-cfg-actions > span { font-size: 11px; }
+  .mc-plan { padding: 11px 12px; }
+  .mc-vault-head { display: none; }
+  .mc-vault-row { grid-template-columns: 1fr auto; }
+}
 .mc-tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--dsw-alias-bg-base, #f3f4f6); border-radius: 999px; }
 .mc-tab { border: 0; background: transparent; color: inherit; border-radius: 999px; padding: 5px 14px; font-size: 12px; cursor: pointer; opacity: 0.7; }
 .mc-viewbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -2766,7 +2839,7 @@ function SettingSection({ t }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <style>{CSS}</style>
-      <ConfigPanel t={t} onReload={() => {}} version={0} embedded />
+      <ConfigPanel t={t} onReload={() => {}} version={0} />
     </div>
   )
 }
@@ -3778,7 +3851,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           {visited.has('terminal') && <TerminalGuide t={t} />}
         </div>
         <div style={{ display: view === 'config' ? 'contents' : 'none' }}>
-          {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} embedded={typeof location !== 'undefined' && new URLSearchParams(location.search).get('embed') === '1'} />}
+          {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />}
         </div>
         <div style={{ display: view === 'stats' ? 'contents' : 'none' }}>
           {visited.has('stats') && <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} />}
@@ -3877,8 +3950,7 @@ function CfgSection({ icon, title, sub, id, children, hidden }) {
   )
 }
 
-function ConfigPanel({ t, onReload, version, compact, embedded }) {
-  const sheet = embedded === true
+function ConfigPanel({ t, onReload, version, compact }) {
   // 弹窗形态：分页导航（只保留 4 个核心分类）
   const [page, setPage] = useState('general')
   const PAGE_OF = {
@@ -3900,7 +3972,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
     const btn = typeof document !== 'undefined' ? document.querySelector('.mc-pagebtn[data-page="' + p + '"]') : null
     if (btn) btn.scrollIntoView({ inline: 'center', block: 'nearest' })
   }
-  const secProps = (id) => (sheet ? { hidden: PAGE_OF[id] !== page } : {})
+  const secProps = (id) => ({ hidden: PAGE_OF[id] !== page })
   const [cfg, setCfg] = useState(null)
   const [revision, setRevision] = useState(0)
   const [schema, setSchema] = useState(null)
@@ -3950,21 +4022,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
   // 配置页滚动位置：编辑/保存/按钮触发的重渲染不能把视图弹回顶部。
   const scrollRef = useRef(null)
   const scrollTopRef = useRef(0)
-  const [activeSec, setActiveSec] = useState('')
-  const onScroll = (e) => {
-    scrollTopRef.current = e.currentTarget.scrollTop
-    // 左侧分区导航：按滚动位置高亮当前区块（配置页很长，需要「我在哪」）
-    const box = e.currentTarget
-    let cur = ''
-    for (const sec of box.querySelectorAll('[data-cfg-sec]')) {
-      if (sec.offsetTop - box.offsetTop <= box.scrollTop + 90) cur = sec.getAttribute('data-cfg-sec')
-    }
-    if (cur) setActiveSec((prev) => (prev === cur ? prev : cur))
-  }
-  const gotoSection = (id) => {
-    const el = scrollRef.current && scrollRef.current.querySelector('#' + id)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  const onScroll = (e) => { scrollTopRef.current = e.currentTarget.scrollTop }
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -4222,67 +4280,33 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
   const mcpServersAll = [...new Set(mcpInstalled.flatMap((a) => (Array.isArray(a.servers) ? a.servers : [])))]
   const mcpMounted = mcpList.filter((a) => a.mcpConfigured && !a.isDsh).length
   const mcpHasServerData = mcpList.some((a) => Array.isArray(a.servers))
-  const CFG_TOC = [
-    ['sec-preset', '🎯', t('presetConfig')],
-    ['sec-memory', '🧠', t('dshMemoryConfig')],
-    ['sec-core', '⭐', t('coreMemory')],
-    ['sec-skills', '🧩', t('skillCards')],
-    ['sec-digest', '📬', t('newsDigest')],
-    ['sec-ui', '🔠', t('uiLayout')],
-    ['sec-vault', '🗂️', t('vaultMulti')],
-    ['sec-cost', '💰', t('costControl')],
-    ['sec-audit', '🛡️', t('auditConfig')],
-    ['sec-service', '🛠', t('serviceConfig')],
-  ]
   return (
     <CfgFormContext.Provider value={{ form, set }}>
-    <div className={'mc-admin' + (sheet ? ' mc-embed' : '')} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
+    <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
       <style>{CSS}</style>
       {toast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (toast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: toast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{toast.ok ? '✓' : '✕'}</span><span style={{ wordBreak: 'break-all' }}>{toast.msg}</span></div>}
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', scrollbarGutter: 'stable', padding: 4 }}>
         <div className="mc-cfg-page">
-        <div className={'mc-cfg-layout' + (compact || sheet ? ' compact' : '')}>
-          {!compact && !sheet && (
-            <aside className="mc-cfg-toc" aria-label={t('tabConfig')}>
-              <div className="mc-cfg-toc-title">{t('tabConfig')}</div>
-              {CFG_TOC.map(([id, ico, label]) => (
-                <button key={id} type="button" className={activeSec === id ? 'on' : ''} onClick={() => gotoSection(id)}>
-                  <span className="mc-cfg-toc-ico">{ico}</span>
-                  <span>{label}</span>
+          <div className={'mc-cfg-layout' + (compact ? ' compact' : '')}>
+            <nav className="mc-pagenav" role="tablist" aria-label={t('tabConfig')}>
+              {PAGES.map(([p, label, sub, ico]) => (
+                <button key={p} type="button" role="tab" data-page={p} aria-selected={page === p} className={'mc-pagebtn' + (page === p ? ' on' : '')} onClick={() => gotoPage(p)}>
+                  <span className="mc-pagebtn-ico" aria-hidden="true">{ico}</span>
+                  <span className="mc-pagebtn-txt">
+                    <span>{label}</span>
+                    <span className="mc-pagebtn-sub">{sub}</span>
+                  </span>
                 </button>
               ))}
-            </aside>
-          )}
-          <div className="mc-cfg-main">
-        {sheet && (
-          <div className="mc-pagenav" role="tablist" aria-label={t('tabConfig')}>
-            {PAGES.map(([p, label, , ico]) => (
-              <button key={p} type="button" role="tab" data-page={p} aria-selected={page === p} className={'mc-pagebtn' + (page === p ? ' on' : '')} onClick={() => gotoPage(p)}>
-                <span className="mc-pagebtn-ico" aria-hidden="true">{ico}</span>
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {sheet && (
-          <div className="mc-panehead">
-            <div className="mc-panehead-ico" aria-hidden="true">{curPage[3]}</div>
-            <div style={{ minWidth: 0 }}>
-              <div className="mc-panehead-title">{curPage[1]}</div>
-              <div className="mc-panehead-sub">{curPage[2]}</div>
-            </div>
-          </div>
-        )}
-        {!compact && !sheet && (
-          <div className="mc-v5-pagehead">
-            <div>
-              <div className="mc-v5-eyebrow">MEMORY CONFIG</div>
-              <h1>{t('tabConfig')}</h1>
-              <p>{t('configPageSub')}</p>
-            </div>
-            <span className="mc-v5-audit-trust">🛡 {t('v5Local')}</span>
-          </div>
-        )}
+            </nav>
+            <div className="mc-cfg-main">
+              <div className="mc-panehead">
+                <div className="mc-panehead-ico" aria-hidden="true">{curPage[3]}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div className="mc-panehead-title">{curPage[1]}</div>
+                  <div className="mc-panehead-sub">{curPage[2]}</div>
+                </div>
+              </div>
         {err && <div className="mc-card" style={{ borderLeft: '4px solid #ef4444', background: 'rgba(239,68,68,0.08)', padding: '12px 14px', marginBottom: 10 }}>
           <div style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600, marginBottom: 6 }}>⚠ {err}</div>
           <button type="button" className="mc-btn" onClick={load}>↻ {t('retry')}</button>
@@ -4291,7 +4315,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
         {readonly && <div className="mc-card" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#b45309' }}>ℹ️ {t('configNeedsDsh')} —— {t('editInSetting')}</div>}
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
         {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
-        {(!sheet || page === 'service') && (cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
+        {page === 'service' && (cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
           <details className="mc-card mc-env mc-env-fold" open={!sheet}>
             <summary className="mc-env-top">
               <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
@@ -4357,7 +4381,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
           </details>
         )}
         {/* 环境与 MCP 挂载：默认折叠，让页面主体只留配置 */}
-        {(!sheet || page === 'service') && setupStatus && setupStatus.agents && (
+        {page === 'service' && setupStatus && setupStatus.agents && (
           <details className="mc-card mc-cfg-sec mc-fold" style={{ marginBottom: 10 }}>
             <summary className="mc-cfg-sec-head">
               <div className="mc-cfg-sec-ico">🔌</div>
