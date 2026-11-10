@@ -1755,7 +1755,37 @@ const CSS = `
   .mc-cfg-layout { grid-template-columns: minmax(0, 1fr); }
   .mc-cfg-toc { display: none; }
 }
-.mc-cfg { max-width: none; }
+/* 折叠分区（弹窗 / 嵌入式：一屏只展开一组，纵向留白更从容） */
+.mc-acc-head { width: 100%; display: flex; align-items: center; gap: 11px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.mc-acc-chev { flex: none; font-size: 14px; opacity: .4; transition: transform .18s ease; }
+.mc-cfg-acc.open .mc-acc-chev { transform: rotate(180deg); }
+.mc-acc-head:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #3b82f6); outline-offset: 2px; border-radius: 8px; }
+.mc-cfg-acc.open > .mc-acc-head { border-radius: 10px; }
+.mc-embed .mc-cfg-acc.open { background: rgba(127,127,127,.035); }
+.me-v5 .mc-embed .mc-cfg-acc.open { background: rgba(255,255,255,.025); }
+/* 嵌入式（DSH 设置弹窗）：无卡片边框，连续表单，像一个原生设置页 */
+.mc-embed .mc-cfg-page { max-width: 760px; }
+.mc-embed .mc-cfg-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.mc-embed .mc-cfg-sec { border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 0; background: transparent; padding: 0 !important; margin: 0 !important; }
+.mc-embed .mc-cfg-sec.mc-cfg-acc:last-child { border-bottom: 0; }
+.mc-embed .mc-cfg-sec-head { padding: 13px 2px; margin: 0; }
+.mc-embed .mc-cfg-sec-body { padding: 0 2px 18px; }
+.mc-embed .mc-cfg-switches { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.mc-embed .mc-cfg-switches .mc-switch { border: 0; border-bottom: 1px solid rgba(127,127,127,.10); border-radius: 0; background: transparent; padding: 10px 2px; }
+.mc-embed .mc-cfg-switches .mc-switch:last-child { border-bottom: 0; }
+.mc-env-fold > summary { list-style: none; cursor: pointer; }
+.mc-env-fold > summary::-webkit-details-marker { display: none; }
+.mc-env-fold[open] > summary .mc-fold-caret { transform: rotate(180deg); }
+.mc-env-rest { padding-top: 2px; }
+.mc-embed .mc-env-fold { padding: 8px 2px !important; }
+.mc-embed .mc-cfg-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px 16px; }
+.mc-embed .mc-env { border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 0; background: transparent; padding: 8px 2px !important; margin-bottom: 0 !important; }
+.mc-embed .mc-fold { border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 0; margin-bottom: 0 !important; }
+.mc-embed .mc-fold > summary { padding: 12px 2px; }
+.mc-embed .mc-fold-body { padding: 0 2px 16px; }
+.mc-embed .mc-cfg-actions { margin: 0; border-radius: 12px 12px 0 0; }
+.mc-embed .mc-plan-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.me-v5.mc-embed, .mc-embed { max-width: 860px; margin: 0 auto; }
 .mc-cfg-sec { margin-bottom: 14px; padding: 18px 20px !important; border-radius: 14px; }
 .mc-cfg-sec-head { margin-bottom: 16px; }
 .mc-cfg-sec-body { display: flex; flex-direction: column; gap: 16px; }
@@ -2706,7 +2736,7 @@ function SettingSection({ t }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <style>{CSS}</style>
-      <ConfigPanel t={t} onReload={() => {}} version={0} />
+      <ConfigPanel t={t} onReload={() => {}} version={0} embedded />
     </div>
   )
 }
@@ -3718,7 +3748,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           {visited.has('terminal') && <TerminalGuide t={t} />}
         </div>
         <div style={{ display: view === 'config' ? 'contents' : 'none' }}>
-          {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />}
+          {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} embedded={typeof location !== 'undefined' && new URLSearchParams(location.search).get('embed') === '1'} />}
         </div>
         <div style={{ display: view === 'stats' ? 'contents' : 'none' }}>
           {visited.has('stats') && <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} />}
@@ -3802,22 +3832,40 @@ function Bool({ k, label }) {
   )
 }
 
-function CfgSection({ icon, title, sub, id, children }) {
+function CfgSection({ icon, title, sub, id, children, collapsible, open, onToggle }) {
+  const head = (
+    <>
+      <div className="mc-cfg-sec-ico">{icon}</div>
+      <div style={{ minWidth: 0 }}>
+        <div className="mc-cfg-sec-title">{title}</div>
+        {sub ? <div className="mc-cfg-sec-sub">{sub}</div> : null}
+      </div>
+    </>
+  )
+  if (collapsible) {
+    return (
+      <section className={'mc-card mc-cfg-sec mc-cfg-acc' + (open ? ' open' : '')} id={id} data-cfg-sec={id || ''}>
+        <button type="button" className="mc-cfg-sec-head mc-acc-head" onClick={onToggle} aria-expanded={!!open}>
+          {head}
+          <span className="mc-cfg-spacer" />
+          <span className="mc-acc-chev" aria-hidden="true">⌄</span>
+        </button>
+        {open ? <div className="mc-cfg-sec-body">{children}</div> : null}
+      </section>
+    )
+  }
   return (
     <section className="mc-card mc-cfg-sec" id={id} data-cfg-sec={id || ''}>
-      <div className="mc-cfg-sec-head">
-        <div className="mc-cfg-sec-ico">{icon}</div>
-        <div style={{ minWidth: 0 }}>
-          <div className="mc-cfg-sec-title">{title}</div>
-          {sub ? <div className="mc-cfg-sec-sub">{sub}</div> : null}
-        </div>
-      </div>
+      <div className="mc-cfg-sec-head">{head}</div>
       <div className="mc-cfg-sec-body">{children}</div>
     </section>
   )
 }
 
-function ConfigPanel({ t, onReload, version, compact }) {
+function ConfigPanel({ t, onReload, version, compact, embedded }) {
+  const sheet = embedded === true
+  const [openSec, setOpenSec] = useState('sec-memory')
+  const secProps = (id) => (sheet ? { collapsible: true, open: openSec === id, onToggle: () => setOpenSec((prev) => (prev === id ? '' : id)) } : {})
   const [cfg, setCfg] = useState(null)
   const [revision, setRevision] = useState(0)
   const [schema, setSchema] = useState(null)
@@ -4153,13 +4201,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
   ]
   return (
     <CfgFormContext.Provider value={{ form, set }}>
-    <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
+    <div className={'mc-admin' + (sheet ? ' mc-embed' : '')} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: compact ? '0 0 auto' : 1, minHeight: 0, maxHeight: compact ? '52vh' : undefined }}>
       <style>{CSS}</style>
       {toast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (toast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: toast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{toast.ok ? '✓' : '✕'}</span><span style={{ wordBreak: 'break-all' }}>{toast.msg}</span></div>}
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', scrollbarGutter: 'stable', padding: 4 }}>
         <div className="mc-cfg-page">
-        <div className={'mc-cfg-layout' + (compact ? ' compact' : '')}>
-          {!compact && (
+        <div className={'mc-cfg-layout' + (compact || sheet ? ' compact' : '')}>
+          {!compact && !sheet && (
             <aside className="mc-cfg-toc" aria-label={t('tabConfig')}>
               <div className="mc-cfg-toc-title">{t('tabConfig')}</div>
               {CFG_TOC.map(([id, ico, label]) => (
@@ -4171,7 +4219,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
             </aside>
           )}
           <div className="mc-cfg-main">
-        {!compact && (
+        {!compact && !sheet && (
           <div className="mc-v5-pagehead">
             <div>
               <div className="mc-v5-eyebrow">MEMORY CONFIG</div>
@@ -4190,8 +4238,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
         {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
         {(cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
-          <div className="mc-card mc-env" style={{ marginBottom: 10 }}>
-            <div className="mc-env-top">
+          <details className="mc-card mc-env mc-env-fold" open={!sheet}>
+            <summary className="mc-env-top">
               <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
               <span style={{ fontSize: 12, opacity: 0.7 }}>{t('dshHostLabel')}</span>
               {cfg.version && <code style={vcChip}>{t('vcLoaded')} v{cfg.version}</code>}
@@ -4211,8 +4259,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {vc && vc.latest && <code style={vcChip}>{t('vcLatest')} v{vc.latest}</code>}
               {cfg.dsh?.vaultDir && <span style={{ fontSize: 11, opacity: 0.6 }}>📁 {cfg.dsh.vaultDir}</span>}
               <div style={{ flex: 1 }} />
-              <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
-            </div>
+              <span className="mc-fold-caret">▾</span>
+            </summary>
+            <div className="mc-env-rest">
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
+              </div>
             {/* 警告块：显示哪个 key 由 versionCardState 决定（组件不再手写状态链） */}
             {vc && vstate.warn && (
               <div style={{ marginTop: 8, fontSize: 11.5, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '6px 10px' }}>
@@ -4247,7 +4299,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
             )}
             {vc && vc.updateAvailable && <div style={{ marginTop: 8, fontSize: 11.5, opacity: 0.88 }}>⬆ {t('vcOutdated')} → <code>{vc.updateCommand}</code></div>}
             {vc && vc.checkError && <div style={{ marginTop: 8, fontSize: 11.5, color: '#b91c1c' }}>{t('vcCheckFail')}：{vc.checkError}</div>}
-          </div>
+            </div>
+          </details>
         )}
         {/* 环境与 MCP 挂载：默认折叠，让页面主体只留配置 */}
         {setupStatus && setupStatus.agents && (
@@ -4317,7 +4370,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
         {form ? (
           <div className="mc-cfg">
             {/* 一键推荐配置：三方案填充 */}
-            <CfgSection id="sec-preset" icon="🎯" title={t('presetConfig')} sub={t('presetHint')}>
+            <CfgSection {...secProps('sec-preset')} id="sec-preset" icon="🎯" title={t('presetConfig')} sub={t('presetHint')}>
               <div className="mc-plan-grid">
                 {['A', 'B', 'C'].map((k) => (
                   <button
@@ -4338,7 +4391,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               ) : null}
             </CfgSection>
             {/* DSH 记忆配置 */}
-            <CfgSection id="sec-memory" icon="🧠" title={t('dshMemoryConfig')} sub={t('cfgSubCore')}>
+            <CfgSection {...secProps('sec-memory')} id="sec-memory" icon="🧠" title={t('dshMemoryConfig')} sub={t('cfgSubCore')}>
               <div className="mc-cfg-switches">
                 <Bool k="enabled" label={t('enabledLabel')} />
                 <Bool k="autoCapture" label={t('autoCapture')} />
@@ -4358,7 +4411,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 核心记忆（前置强制注入） */}
-            <CfgSection id="sec-core" icon="⭐" title={t('coreMemory')} sub={t('coreMemoryHint')}>
+            <CfgSection {...secProps('sec-core')} id="sec-core" icon="⭐" title={t('coreMemory')} sub={t('coreMemoryHint')}>
               <div className="mc-cfg-switches">
                 <Bool k="coreMemoryEnabled" label={t('coreMemoryEnabled')} />
                 <Bool k="workingMemoryEnabled" label={t('workingMemoryEnabled')} />
@@ -4369,7 +4422,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 技能卡（从实际技能生成，强制待审；不由 agent 沉淀） */}
-            <CfgSection id="sec-skills" icon="🧩" title={t('skillCards')} sub={t('skillCardsHint')}>
+            <CfgSection {...secProps('sec-skills')} id="sec-skills" icon="🧩" title={t('skillCards')} sub={t('skillCardsHint')}>
               <div className="mc-cfg-switches is-single">
                 <Bool k="skillCardsAutoSync" label={t('skillAutoSync')} />
               </div>
@@ -4386,7 +4439,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 关注摘要：默认关闭，开启后由宿主按间隔抓取并注入 systemPrompt */}
-            <CfgSection id="sec-digest" icon="📬" title={t('newsDigest')} sub={t('newsDigestHint')}>
+            <CfgSection {...secProps('sec-digest')} id="sec-digest" icon="📬" title={t('newsDigest')} sub={t('newsDigestHint')}>
               <div className="mc-cfg-switches is-single">
                 <Bool k="newsDigestEnabled" label={t('newsDigestEnabled')} />
               </div>
@@ -4412,7 +4465,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               ) : null}
             </CfgSection>
             {/* 布局大小：只影响界面显示 */}
-            <CfgSection id="sec-ui" icon="🔠" title={t('uiLayout')} sub={t('uiLayoutHint')}>
+            <CfgSection {...secProps('sec-ui')} id="sec-ui" icon="🔠" title={t('uiLayout')} sub={t('uiLayoutHint')}>
               <div className="mc-field">
                 <div className="mc-seg">
                   {[['compact', t('uiCompact')], ['normal', t('uiNormal')], ['large', t('uiLarge')]].map(([v, label]) => (
@@ -4430,7 +4483,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 多库（按项目隔离记忆）—— #10 */}
-            <CfgSection id="sec-vault" icon="🗂️" title={t('vaultMulti')} sub={t('cfgSubMulti')}>
+            <CfgSection {...secProps('sec-vault')} id="sec-vault" icon="🗂️" title={t('vaultMulti')} sub={t('cfgSubMulti')}>
               <div style={{ fontSize: 11.5, opacity: 0.85, marginBottom: 8, lineHeight: 1.7 }}>
                 {t('vaultNow')}：<code>{dsh?.vaultDir || '—'}</code>
                 {dsh?.vaultName ? `（${dsh.vaultName}）` : ''}
@@ -4465,7 +4518,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 成本控制（省钱、控 LLM 消耗） */}
-            <CfgSection id="sec-cost" icon="💰" title={t('costControl')} sub={t('costHint')}>
+            <CfgSection {...secProps('sec-cost')} id="sec-cost" icon="💰" title={t('costControl')} sub={t('costHint')}>
               <div className="mc-cfg-switches">
                 <Bool k="distillEnabled" label={t('distillEnabled')} />
                 <Bool k="dedupByLLM" label={t('dedupByLLM')} />
@@ -4521,7 +4574,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 自动审核配置 */}
-            <CfgSection id="sec-audit" icon="🛡️" title={t('auditConfig')} sub={t('auditHint')}>
+            <CfgSection {...secProps('sec-audit')} id="sec-audit" icon="🛡️" title={t('auditConfig')} sub={t('auditHint')}>
               <div className="mc-cfg-grid">
                 <label className="mc-field">
                   <span className="mc-field-label">{t('auditMode')}</span>
@@ -4546,7 +4599,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
             </CfgSection>
             {/* 服务自管理配置 */}
-            <CfgSection id="sec-service" icon="🛠" title={t('serviceConfig')} sub={t('cfgSubService')}>
+            <CfgSection {...secProps('sec-service')} id="sec-service" icon="🛠" title={t('serviceConfig')} sub={t('cfgSubService')}>
               <div className="mc-cfg-switches">
                 <Bool k="autoWeb" label={t('autoWeb')} />
                 <Bool k="watchdogAutoSpawn" label={t('watchdogAutoSpawn')} />
