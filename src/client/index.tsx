@@ -1714,6 +1714,38 @@ const CAPTURE_ACTIONS = {
   fail: ['❌', '#ef4444'],
 }
 
+const ZOMBIE_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 260'>
+<g fill='#0b160f' stroke='#2f5f37' stroke-width='2' stroke-linejoin='round'>
+<circle cx='110' cy='52' r='30'/>
+<path d='M70 84 Q110 66 150 84 L164 166 Q110 188 56 166 Z'/>
+<path d='M64 104 L8 132 L16 146 L72 122 Z'/>
+<path d='M156 104 L212 118 L208 133 L150 122 Z'/>
+<path d='M86 168 L68 252 L94 252 L106 184 Z'/>
+<path d='M134 168 L152 252 L126 252 L114 184 Z'/>
+</g>
+<path d='M82 34 L102 22 M120 22 L142 36' stroke='#e23a3a' stroke-width='2' opacity='.7'/>
+<g fill='#7cff3f'><circle cx='96' cy='48' r='5'/><circle cx='124' cy='48' r='5'/></g>
+<path d='M96 66 Q110 76 124 66' stroke='#e23a3a' stroke-width='3' fill='none'/>
+</svg>`)
+const SPIDER_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 300'>
+<path d='M44 208 Q-10 100 40 0' stroke='#0b0b0f' stroke-width='2' fill='none'/>
+<path d='M40 0 L150 60' stroke='#0b0b0f' stroke-width='1.5' opacity='.7'/>
+<g fill='#e62429' stroke='#0b0b0f' stroke-width='3' stroke-linejoin='round'>
+<ellipse cx='130' cy='104' rx='29' ry='35'/>
+<path d='M106 136 Q130 166 154 136 L166 214 Q130 234 94 214 Z'/>
+<path d='M94 214 L72 290 L98 290 L112 222 Z'/>
+<path d='M166 214 L188 290 L162 290 L148 222 Z'/>
+<path d='M106 154 L42 186 L46 199 L110 172 Z'/>
+</g>
+<path d='M106 164 Q130 194 154 164 L160 218 Q130 232 100 218 Z' fill='#1b3b8b' stroke='#0b0b0f' stroke-width='2'/>
+<path d='M110 96 Q120 88 128 96 Q121 108 112 103 Z' fill='#fff' stroke='#0b0b0f' stroke-width='2'/>
+<path d='M132 96 Q142 88 150 96 Q143 108 134 103 Z' fill='#fff' stroke='#0b0b0f' stroke-width='2'/>
+<g stroke='#0b0b0f' stroke-width='1' opacity='.55'>
+<path d='M102 74 L158 130 M130 68 L130 140 M102 132 L158 80'/>
+</g>
+<g fill='#0b0b0f'><ellipse cx='130' cy='176' rx='7' ry='11'/><path d='M123 166 L117 156 M137 166 L143 156 M123 186 L117 196 M137 186 L143 196' stroke='#0b0b0f' stroke-width='2'/></g>
+</svg>`)
+
 const CSS = `
 .memory-eternal-root { font-family: inherit; color: var(--dsw-alias-label-primary, #1f2937); }
 .mc-card { background: var(--dsw-alias-bg-layer-1, #fff); border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; padding: 14px 16px; }
@@ -3536,6 +3568,78 @@ const CSS = `
 [data-skin="spider"] .me-audit-row.core { background: #fff6e0; border-left-color: var(--sp-red); }
 [data-skin="resident"] .me-audit-row-title { color: #d6ffd9; }
 [data-skin="resident"] .me-audit-row-kind, [data-skin="resident"] .me-audit-row-time, [data-skin="resident"] .me-audit-row-meta, [data-skin="resident"] .me-audit-row-reason { color: #7fa383; }
+/* ===== 角色与氛围：丧尸剪影 / 蜘蛛侠悬丝 ===== */
+[data-skin="resident"] .mc-v5-pagehead { position: relative; }
+[data-skin="resident"] .mc-v5-pagehead > * { position: relative; z-index: 1; }
+[data-skin="resident"] .mc-v5-pagehead::before {
+  content: ''; position: absolute; left: -22px; top: -4px; width: 330px; height: 118px;
+  background:
+    radial-gradient(ellipse at 18% 42%, rgba(226,58,58,.20), transparent 64%),
+    radial-gradient(ellipse at 62% 82%, rgba(226,58,58,.10), transparent 70%);
+  filter: blur(2px); pointer-events: none; z-index: 0;
+}
+[data-skin="resident"] .mc-v5-feature {
+  background-image:
+    linear-gradient(90deg, rgba(226,58,58,.85) 0 61%, rgba(226,58,58,.16) 61% 100%),
+    linear-gradient(135deg, #0c1a0f, #07110a);
+  background-size: 100% 5px, 100% 100%;
+  background-position: left bottom, center;
+  background-repeat: no-repeat;
+}
+[data-skin="spider"] .mc-v5-pagehead::before {
+  content: '';
+  position: absolute; right: 148px; top: -18px; width: 140px; height: 192px;
+  background: url("${SPIDER_ART}") center / contain no-repeat;
+  opacity: .95; filter: drop-shadow(0 4px 10px rgba(11,11,15,.25));
+  pointer-events: none; z-index: 0;
+}
+[data-skin="resident"] .mc-v5-pagehead::after {
+  content: '';
+  position: absolute; right: 150px; bottom: -18px; width: 150px; height: 182px;
+  background: url("${ZOMBIE_ART}") center / contain no-repeat;
+  opacity: .55; filter: drop-shadow(0 0 16px rgba(124,255,63,.18));
+  pointer-events: none; z-index: 0;
+}
+[data-skin="resident"] .mc-v5-feature::before {
+  content: 'B.O.W. // LEVEL 4';
+  position: absolute; top: 10px; right: 14px; z-index: 2;
+  padding: 2px 7px; border: 1px solid rgba(226,58,58,.8);
+  background: rgba(226,58,58,.08); color: #ff8a8a;
+  font: 9px Consolas, 'Courier New', monospace; letter-spacing: .14em;
+  transform: rotate(-2deg);
+}
+[data-skin="spider"] .mc-v5-pagehead { position: relative; }
+[data-skin="spider"] .mc-v5-pagehead > * { position: relative; z-index: 1; }
+[data-skin="spider"] .mc-v5-pagehead::before {
+  content: '';
+  position: absolute; right: 148px; top: -18px; width: 140px; height: 192px;
+  background: url("${SPIDER_ART}") center / contain no-repeat;
+  opacity: .95; filter: drop-shadow(0 4px 10px rgba(11,11,15,.25));
+  pointer-events: none; z-index: 0;
+}
+[data-skin="spider"] .mc-v5-feature::before { z-index: 2; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-skin="resident"] .mc-v5-pagehead::after { animation: re-zombie 7s ease-in-out infinite; }
+  [data-skin="spider"] .mc-v5-pagehead::before { animation: sp-swing 6s ease-in-out infinite; transform-origin: 62% 0; }
+  [data-skin="resident"] .mc-cardrow:hover { animation: re-glitch .38s steps(2) 1; }
+}
+@keyframes re-zombie {
+  0%, 100% { transform: translateY(2px) rotate(-1deg); opacity: .42; }
+  50% { transform: translateY(0) rotate(1deg); opacity: .62; }
+}
+@keyframes sp-swing {
+  0%, 100% { transform: rotate(-2.2deg); }
+  50% { transform: rotate(2.2deg); }
+}
+@keyframes re-glitch {
+  0%, 100% { filter: none; }
+  40% { filter: brightness(1.14) hue-rotate(-8deg); }
+  60% { filter: brightness(.96); }
+}
+@media (max-width: 720px) {
+  [data-skin="resident"] .mc-v5-pagehead::after,
+  [data-skin="spider"] .mc-v5-pagehead::before { display: none; }
+}
 `
 
 export function apply(ctx) {
