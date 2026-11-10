@@ -1191,10 +1191,12 @@ export function apply(ctx, config) {
     }
   }, 'memory-eternal: news digest section')
 
+  // toolsRegistered 只在**真的注册成功**后置真：/config 与 /diagnostics 都读它，不能把
+  // 「尝试过」当成「已注册」——注册抛错时用户看到 registered 却依然没有工具，比静默更难排查（#54）。
+  // toolsAttempted 只负责挡住重复尝试（晚到回调可能被重放）。
+  let toolsAttempted = false
   let toolsRegistered = false
-  const registerMemoryTools = (tools) => {
-    if (toolsRegistered || !tools || typeof tools.register !== 'function') return
-    toolsRegistered = true
+  const registerMemoryToolsNow = (tools) => {
     tools.register(defineTool({
       name: 'memory_recall',
       description:
@@ -1319,6 +1321,18 @@ export function apply(ctx, config) {
       },
     }))
     logCapture('system', 'boot', '记忆工具已注册（memory_recall / memory_note）')
+  }
+
+  const registerMemoryTools = (tools) => {
+    if (toolsAttempted || !tools || typeof tools.register !== 'function') return
+    toolsAttempted = true
+    try {
+      registerMemoryToolsNow(tools)
+      toolsRegistered = true
+    } catch (error) {
+      // 晚到回调里的异常不该打断宿主；失败必须留痕，别退回静默（#54）。
+      logCapture('system', 'fail', '记忆工具注册失败：' + (error?.message || error))
+    }
   }
 
   // tools 服务在部分宿主版本（如 DSH 0.1.7-rc.2）可能晚于插件 apply 挂载（#54）：
