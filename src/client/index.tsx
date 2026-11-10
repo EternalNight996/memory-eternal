@@ -447,6 +447,14 @@ export const ZH = {
   starAskNever: '不再提示',
   tabConfig: '记忆配置',
   configPageSub: '写入、路由、审核与服务的本地配置',
+  paneGeneral: '通用',
+  paneMemory: '记忆',
+  paneCore: '核心',
+  paneVaults: '多库',
+  paneCost: '成本',
+  paneAudit: '审核',
+  paneService: '服务',
+  paneStatus: '状态',
   tabAudit: '待审',
   statusApproved: '已审核',
   statusPending: '待审核',
@@ -1225,6 +1233,14 @@ export const EN = {
   starAskNever: "Don't ask again",
   tabConfig: 'Memory Config',
   configPageSub: 'Local write, routing, audit and service settings',
+  paneGeneral: 'General',
+  paneMemory: 'Memory',
+  paneCore: 'Core',
+  paneVaults: 'Vaults',
+  paneCost: 'Cost',
+  paneAudit: 'Audit',
+  paneService: 'Service',
+  paneStatus: 'Status',
   tabAudit: 'Review',
   statusApproved: 'Approved',
   statusPending: 'Pending',
@@ -1755,19 +1771,19 @@ const CSS = `
   .mc-cfg-layout { grid-template-columns: minmax(0, 1fr); }
   .mc-cfg-toc { display: none; }
 }
-/* 折叠分区（弹窗 / 嵌入式：一屏只展开一组，纵向留白更从容） */
-.mc-acc-head { width: 100%; display: flex; align-items: center; gap: 11px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.mc-acc-chev { flex: none; font-size: 14px; opacity: .4; transition: transform .18s ease; }
-.mc-cfg-acc.open .mc-acc-chev { transform: rotate(180deg); }
-.mc-acc-head:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #3b82f6); outline-offset: 2px; border-radius: 8px; }
-.mc-cfg-acc.open > .mc-acc-head { border-radius: 10px; }
-.mc-embed .mc-cfg-acc.open { background: rgba(127,127,127,.035); }
-.me-v5 .mc-embed .mc-cfg-acc.open { background: rgba(255,255,255,.025); }
+/* 弹窗分页导航（通用 / 记忆 / 核心 / …），粘在顶部，横向可滚 */
+.mc-pagenav { position: sticky; top: 0; z-index: 23; display: flex; gap: 4px; overflow-x: auto; padding: 6px 2px 8px; margin: 0 0 2px; background: var(--dsw-alias-bg-layer-1, #fff); border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); scrollbar-width: none; }
+.mc-pagenav::-webkit-scrollbar { display: none; }
+.mc-pagebtn { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; opacity: .62; white-space: nowrap; }
+.mc-pagebtn:hover { background: rgba(127,127,127,.10); opacity: 1; }
+.mc-pagebtn.on { background: rgba(255,122,69,.14); opacity: 1; font-weight: 600; }
+.mc-pagebtn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #3b82f6); outline-offset: 1px; }
+.mc-pagebtn-ico { font-size: 13px; }
+.me-v5 .mc-embed .mc-pagenav { background: #21252c; border-color: #333943; }
 /* 嵌入式（DSH 设置弹窗）：无卡片边框，连续表单，像一个原生设置页 */
 .mc-embed .mc-cfg-page { max-width: 760px; }
 .mc-embed .mc-cfg-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
 .mc-embed .mc-cfg-sec { border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 0; background: transparent; padding: 0 !important; margin: 0 !important; }
-.mc-embed .mc-cfg-sec.mc-cfg-acc:last-child { border-bottom: 0; }
 .mc-embed .mc-cfg-sec-head { padding: 13px 2px; margin: 0; }
 .mc-embed .mc-cfg-sec-body { padding: 0 2px 18px; }
 .mc-embed .mc-cfg-switches { grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -3832,31 +3848,16 @@ function Bool({ k, label }) {
   )
 }
 
-function CfgSection({ icon, title, sub, id, children, collapsible, open, onToggle }) {
-  const head = (
-    <>
-      <div className="mc-cfg-sec-ico">{icon}</div>
-      <div style={{ minWidth: 0 }}>
-        <div className="mc-cfg-sec-title">{title}</div>
-        {sub ? <div className="mc-cfg-sec-sub">{sub}</div> : null}
-      </div>
-    </>
-  )
-  if (collapsible) {
-    return (
-      <section className={'mc-card mc-cfg-sec mc-cfg-acc' + (open ? ' open' : '')} id={id} data-cfg-sec={id || ''}>
-        <button type="button" className="mc-cfg-sec-head mc-acc-head" onClick={onToggle} aria-expanded={!!open}>
-          {head}
-          <span className="mc-cfg-spacer" />
-          <span className="mc-acc-chev" aria-hidden="true">⌄</span>
-        </button>
-        {open ? <div className="mc-cfg-sec-body">{children}</div> : null}
-      </section>
-    )
-  }
+function CfgSection({ icon, title, sub, id, children, hidden }) {
   return (
-    <section className="mc-card mc-cfg-sec" id={id} data-cfg-sec={id || ''}>
-      <div className="mc-cfg-sec-head">{head}</div>
+    <section className="mc-card mc-cfg-sec" id={id} data-cfg-sec={id || ''} hidden={hidden || undefined}>
+      <div className="mc-cfg-sec-head">
+        <div className="mc-cfg-sec-ico">{icon}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="mc-cfg-sec-title">{title}</div>
+          {sub ? <div className="mc-cfg-sec-sub">{sub}</div> : null}
+        </div>
+      </div>
       <div className="mc-cfg-sec-body">{children}</div>
     </section>
   )
@@ -3864,8 +3865,30 @@ function CfgSection({ icon, title, sub, id, children, collapsible, open, onToggl
 
 function ConfigPanel({ t, onReload, version, compact, embedded }) {
   const sheet = embedded === true
-  const [openSec, setOpenSec] = useState('sec-memory')
-  const secProps = (id) => (sheet ? { collapsible: true, open: openSec === id, onToggle: () => setOpenSec((prev) => (prev === id ? '' : id)) } : {})
+  // 弹窗形态：分页导航（通用 / 记忆 / 核心 / 多库 / 成本 / 审核 / 服务 / 状态）
+  const [page, setPage] = useState('general')
+  const PAGE_OF = {
+    'sec-preset': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
+    'sec-memory': 'memory', 'sec-core': 'core', 'sec-vault': 'vault',
+    'sec-cost': 'cost', 'sec-audit': 'audit', 'sec-service': 'service',
+  }
+  const PAGES = [
+    ['general', t('paneGeneral'), '⚙️'],
+    ['memory', t('paneMemory'), '🧠'],
+    ['core', t('paneCore'), '⭐'],
+    ['vault', t('paneVaults'), '🗂️'],
+    ['cost', t('paneCost'), '💰'],
+    ['audit', t('paneAudit'), '🛡️'],
+    ['service', t('paneService'), '🛠'],
+    ['status', t('paneStatus'), '📦'],
+  ]
+  const gotoPage = (p) => {
+    setPage(p)
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    const btn = typeof document !== 'undefined' ? document.querySelector('.mc-pagebtn[data-page="' + p + '"]') : null
+    if (btn) btn.scrollIntoView({ inline: 'center', block: 'nearest' })
+  }
+  const secProps = (id) => (sheet ? { hidden: PAGE_OF[id] !== page } : {})
   const [cfg, setCfg] = useState(null)
   const [revision, setRevision] = useState(0)
   const [schema, setSchema] = useState(null)
@@ -4219,6 +4242,16 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
             </aside>
           )}
           <div className="mc-cfg-main">
+        {sheet && (
+          <div className="mc-pagenav" role="tablist" aria-label={t('tabConfig')}>
+            {PAGES.map(([p, label, ico]) => (
+              <button key={p} type="button" role="tab" data-page={p} aria-selected={page === p} className={'mc-pagebtn' + (page === p ? ' on' : '')} onClick={() => gotoPage(p)}>
+                <span className="mc-pagebtn-ico" aria-hidden="true">{ico}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {!compact && !sheet && (
           <div className="mc-v5-pagehead">
             <div>
@@ -4237,7 +4270,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
         {readonly && <div className="mc-card" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#b45309' }}>ℹ️ {t('configNeedsDsh')} —— {t('editInSetting')}</div>}
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
         {/* 插件信息：版本跟踪（运行中 / 磁盘 / npm 最新）+ 记忆库目录 */}
-        {(cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
+        {(!sheet || page === 'status') && (cfg && (cfg.version || cfg.dsh?.vaultDir)) && (
           <details className="mc-card mc-env mc-env-fold" open={!sheet}>
             <summary className="mc-env-top">
               <b style={{ fontSize: 12 }}>📦 {t('pluginInfo')}</b>
@@ -4303,7 +4336,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
           </details>
         )}
         {/* 环境与 MCP 挂载：默认折叠，让页面主体只留配置 */}
-        {setupStatus && setupStatus.agents && (
+        {(!sheet || page === 'status') && setupStatus && setupStatus.agents && (
           <details className="mc-card mc-cfg-sec mc-fold" style={{ marginBottom: 10 }}>
             <summary className="mc-cfg-sec-head">
               <div className="mc-cfg-sec-ico">🔌</div>
@@ -4620,7 +4653,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
                 <F k="webMaxRestart" label={t('webMaxRestart')} hint={t('unitTimes')} type="number" />
               </div>
             </CfgSection>
-            <div className="mc-cfg-actions">
+            {(!sheet || page !== 'status') && (<div className="mc-cfg-actions">
               {dirty ? <span className="mc-cfg-dirty">{t('cfgDirty')}</span> : <span className="mc-cfg-clean">✓ {t('cfgClean')}</span>}
               <span className="mc-cfg-spacer" />
               {busy === 'save' && <span style={{ fontSize: 11.5, opacity: 0.75 }}>⏳ {t('saving')}</span>}
@@ -4637,7 +4670,7 @@ function ConfigPanel({ t, onReload, version, compact, embedded }) {
               >
                 {busy === 'save' ? '⏳ ' + t('saving') : (readonly ? '🔒 ' + t('readonlyBtn') : '💾 ' + t('saveConfig'))}
               </button>
-            </div>
+            </div>)}
           </div>
         ) : <div style={{ fontSize: 12, opacity: 0.6 }}>{t('loading')}</div>}
           </div>
