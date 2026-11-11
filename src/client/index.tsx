@@ -3705,6 +3705,33 @@ const CSS = `
   [data-skin="spider"] .mc-v5-pagehead p { max-width: none; }
   [data-skin="resident"] .mc-v5-pagehead::after { background-image: none; bottom: 0; filter: none; }
 }
+/* ===== 全皮肤 hover / 次级文字对比度兜底 ===== */
+[data-skin="spider"] .mc-btn:not(.me-on):hover { color: var(--sp-ink); }
+[data-skin="light"] .mc-btn:not(.me-on):hover { color: #1c1c1e; }
+[data-skin="pop"] .mc-btn:not(.me-on):hover { color: var(--pop-ink); }
+[data-skin="spider"] .mc-btn.me-on:hover,
+[data-skin="light"] .mc-btn.me-on:hover,
+[data-skin="pop"] .mc-btn.me-on:hover { color: #fff; }
+[data-skin="spider"] .mc-pagebtn { opacity: .9; }
+[data-skin="pop"] .mc-pagebtn { opacity: .9; }
+[data-skin="light"] .mc-pagebtn { opacity: .9; }
+[data-skin="spider"] .mc-pagebtn-sub,
+[data-skin="pop"] .mc-pagebtn-sub,
+[data-skin="light"] .mc-pagebtn-sub { opacity: .75; }
+/* 危险操作按钮：浅色皮肤用更深的红，hover 也保持红色 */
+.mc-btn-danger { color: #f87171; }
+[data-skin="spider"] .mc-btn-danger { color: #b3121a; }
+[data-skin="light"] .mc-btn-danger { color: #b91c1c; }
+[data-skin="pop"] .mc-btn-danger { color: #991b1b; }
+[data-skin="resident"] .mc-btn-danger { color: #ff7b7b; }
+[data-skin="spider"] .mc-btn-danger:hover { color: #b3121a !important; }
+[data-skin="light"] .mc-btn-danger:hover { color: #b91c1c !important; }
+[data-skin="pop"] .mc-btn-danger:hover { color: #991b1b !important; }
+[data-skin="resident"] .mc-btn-danger:hover { color: #ff9a9a !important; }
+/* 顶栏 Star / 帮助按钮：浅色皮肤 hover 用深色强调，避免橙字发虚 */
+[data-skin="spider"] .mc-v5-star:hover, [data-skin="spider"] .mc-v5-help:hover { color: var(--sp-red); border-color: var(--sp-ink); }
+[data-skin="light"] .mc-v5-star:hover, [data-skin="light"] .mc-v5-help:hover { color: #b91c1c; border-color: #cfcfca; }
+[data-skin="pop"] .mc-v5-star:hover, [data-skin="pop"] .mc-v5-help:hover { color: var(--pop-red); border-color: var(--pop-ink); }
 
 `
 
@@ -5453,7 +5480,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       <button type="button" className="mc-btn me-on" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => mcpAction(a.name, 'install')}>{t('repairMcp')}</button>
                     )}
                     {!a.isDsh && !a.detectedOnly && a.installed && a.mcpConfigured === true && (
-                      <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('uninstallConfirm'))) mcpAction(a.name, 'uninstall') }}>{t('uninstallMcp')}</button>
+                      <button type="button" className="mc-btn mc-btn-danger" style={{ padding: '2px 8px' }} disabled={!!busy} onClick={() => { if (window.confirm(t('uninstallConfirm'))) mcpAction(a.name, 'uninstall') }}>{t('uninstallMcp')}</button>
                     )}
                   </div>
                 </div>
@@ -5912,8 +5939,8 @@ function AuditPanel({ t, onReload, version }) {
               {tab === 'pending' && <button type="button" className="mc-btn" disabled={!!busy} onClick={reclassify}>🔧 {t('reclassify')}</button>}
               <button type="button" className="mc-btn me-on" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</button>
               {tab === 'pending'
-                ? <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</button>
-                : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete')}</button>}
+                ? <button type="button" className="mc-btn mc-btn-danger" disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</button>
+                : <button type="button" className="mc-btn mc-btn-danger" disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete')}</button>}
               {toggled.length > 0 && <button type="button" className="mc-btn" onClick={clearSel}>{t('auditClearSelection')}</button>}
             </div>
             {items.length ? (
@@ -5944,12 +5971,12 @@ function AuditPanel({ t, onReload, version }) {
                           {tab === 'pending' ? (
                             <>
                               <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                              <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} onClick={() => applyStatus('rejected', [c.path])}>✕</button>
+                              <button type="button" className="mc-btn mc-btn-danger" style={{ padding: '2px 8px' }} onClick={() => applyStatus('rejected', [c.path])}>✕</button>
                             </>
                           ) : (
                             <>
                               <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('restore')} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                              <button type="button" className="mc-btn" style={{ padding: '2px 8px', color: '#f87171' }} title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
+                              <button type="button" className="mc-btn mc-btn-danger" style={{ padding: '2px 8px' }} title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
                             </>
                           )}
                         </div>
@@ -5994,8 +6021,8 @@ function AuditPanel({ t, onReload, version }) {
                       <button type="button" className="mc-btn" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'knowledge' })}>{t('approveAsNormal')}</button>
                     )}
                     {tab === 'pending'
-                      ? <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => applyStatus('rejected', [previewCard.path])}>✕ {t('reject')}</button>
-                      : <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>🗑 {t('restoreDelete')}</button>}
+                      ? <button type="button" className="mc-btn mc-btn-danger" disabled={!!busy} onClick={() => applyStatus('rejected', [previewCard.path])}>✕ {t('reject')}</button>
+                      : <button type="button" className="mc-btn mc-btn-danger" disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>🗑 {t('restoreDelete')}</button>}
                   </div>
                 </>
               ) : <div className="me-audit-preview-empty">{search ? t('auditNoMatch') : t('noAuditItems')}</div>}
@@ -6050,7 +6077,7 @@ function NewsCard({ item, t, active, onOpen, onEdit, onToggleRead, onDelete }) {
         <span className="mc-news-actions" onClick={(e) => e.stopPropagation()}>
           <button type="button" className="mc-btn" onClick={() => onToggleRead(item)}>{item.read ? t('newsMarkUnread') : t('newsMarkRead')}</button>
           <button type="button" className="mc-btn" onClick={() => onEdit(item)}>{t('newsEdit')}</button>
-          <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => onDelete(item)} title={t('delete')}>✕</button>
+          <button type="button" className="mc-btn mc-btn-danger" onClick={() => onDelete(item)} title={t('delete')}>✕</button>
         </span>
       </div>
     </article>
@@ -6844,7 +6871,7 @@ function MyNewsPanel({ t, version, onUnreadChange }) {
             <div className="mc-news-reader-actions">
               <button type="button" className="mc-btn" onClick={() => openEditor(detail)}>{t('newsEdit')}</button>
               <button type="button" className="mc-btn" onClick={() => setRead(detail.id, !detail.read)}>{detail.read ? t('newsMarkUnread') : t('newsMarkRead')}</button>
-              <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={busy === 'delete'} onClick={() => deleteItem(detail)}>{t('delete')}</button>
+              <button type="button" className="mc-btn mc-btn-danger" disabled={busy === 'delete'} onClick={() => deleteItem(detail)}>{t('delete')}</button>
             </div>
           </aside>
         )}
@@ -7575,7 +7602,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                     <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{t('staleCards')}（{opt.stale?.length || 0}）</div>
                     {opt.stale?.length > 0 && (
                       <div style={{ marginBottom: 6 }}>
-                        <button type="button" className="mc-btn" style={{ color: '#f87171' }} disabled={!!busy} onClick={async () => {
+                        <button type="button" className="mc-btn mc-btn-danger" disabled={!!busy} onClick={async () => {
                           if (!window.confirm(t('deleteConfirm'))) return
                           setBusy('clean')
                           let n = 0
@@ -8116,7 +8143,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
             <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button>
             <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbIrr')}</button>
             {long && <button type="button" className="mc-btn" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>{expanded ? t('collapse') : t('expand')}</button>}
-            <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => { if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>{t('delete')}</button>
+            <button type="button" className="mc-btn mc-btn-danger" onClick={() => { if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>{t('delete')}</button>
             {onKindChange && status === 'approved' && (kind === 'core'
               ? <button type="button" className="mc-btn" onClick={() => onKindChange(card.path, 'knowledge')}>{t('unsetCore')}</button>
               : <button type="button" className="mc-btn" onClick={() => onKindChange(card.path, 'core')}>⭐ {t('setCore')}</button>)}
@@ -9780,7 +9807,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
             <span style={{ fontWeight: 700 }}>{multi.length} {t('nodes')}</span>
             <button type="button" className="mc-btn" onClick={() => { const ns = multi.map((id) => nodeById[id]).filter(Boolean); const txt = ns.map((n) => n.title || n.name).join('\n'); const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'memory-selected.txt'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 1000); notify(multi.length + t('exportedSel')) }}>{t('exportSel')}</button>
             <button type="button" className="mc-btn" onClick={() => { if (multi.length < 2) { notify(t('mergeNeed'), false); return } const paths = multi.map((id) => (nodeById[id] ? nodeById[id].id : id)); if (!window.confirm(t('mergeConfirm'))) return; setMulti([]); const st = simRef.current; if (st) { st.multi = [] } fetch(`${API}/merge?paths=${encodeURIComponent(paths.join(','))}`).then((r) => r.json()).then((d) => { if (d && d.ok) { notify(t('merged')) } else { notify(t('mergeFail'), false) } }).catch(() => notify(t('mergeFail'), false)) }}>{t('merge')}</button>
-            <button type="button" className="mc-btn" style={{ color: '#f87171' }} onClick={() => { if (!window.confirm(t('deleteConfirm'))) return; const paths = multi.map((id) => (nodeById[id] ? nodeById[id].id : id)); setMulti([]); const s = simRef.current; if (s) { s.multi = [] } (async () => { let n = 0; for (const p of paths) { try { const ok = onDeleteRef.current ? await onDeleteRef.current(p) : false; if (ok) n++ } catch (e) {} } notify(n + t('deletedSelected'), n > 0) })() }}>{t('deleteSelected')}</button>
+            <button type="button" className="mc-btn mc-btn-danger" onClick={() => { if (!window.confirm(t('deleteConfirm'))) return; const paths = multi.map((id) => (nodeById[id] ? nodeById[id].id : id)); setMulti([]); const s = simRef.current; if (s) { s.multi = [] } (async () => { let n = 0; for (const p of paths) { try { const ok = onDeleteRef.current ? await onDeleteRef.current(p) : false; if (ok) n++ } catch (e) {} } notify(n + t('deletedSelected'), n > 0) })() }}>{t('deleteSelected')}</button>
             <button type="button" className="mc-btn" onClick={() => { const s = simRef.current; if (s) { s.multi = [] } setMulti([]); const s2 = simRef.current; if (s2 && s2.render) s2.render() }}>{t('clearSelection')}</button>
           </div>
         )}
