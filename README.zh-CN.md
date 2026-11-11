@@ -15,7 +15,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
 [![npm](https://img.shields.io/npm/v/memory-eternal)](https://www.npmjs.com/package/memory-eternal)
-[![release](https://img.shields.io/badge/release-v0.30.5-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
+[![release](https://img.shields.io/badge/release-v0.31.0-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [English (default)](README.md) · **简体中文（镜像）**
@@ -226,6 +226,22 @@ dsh-memory ledger --days 30 --json        # 召回注入 / 沉淀调用 / 有用
 | **任意 MCP 客户端** | <code>npx -y -p memory-eternal dsh-memory mcp</code> |
 | **终端** | <code>dsh-memory tui</code> —— 实时队列、全选、批量批/驳、长文读卡 |
 | **浏览器** | <code>dsh-memory open</code> → http://127.0.0.1:7999 |
+
+## 🎨 皮肤 / Skins
+
+五套皮肤，设置 → 通用 → 主题皮肤一键切换；选择会本地保存，刷新后保持。
+
+<p align="center">
+  <img src="assets/screen/skins-gallery.png" width="900" alt="五种主题皮肤：默认暗色、波普、明亮、生化危机、蜘蛛侠" />
+</p>
+
+| 皮肤 | 风格 |
+| --- | --- |
+| **默认暗色** | 深色底 + 琥珀强调，长时间阅读不刺眼 |
+| **波普 Pop** | 黄底黑框、硬阴影、半调与粗黑标题 |
+| **明亮 Light** | 暖纸面 + 衬线标题，适合白天 |
+| **生化危机** | Umbrella 实验室、毒绿扫描线、B.O.W. 头图与巨爪 |
+| **蜘蛛侠** | 红蓝漫画、蛛网、半调、横版动作头图与悬吊挂件 |
 
 ## 📸 截图
 

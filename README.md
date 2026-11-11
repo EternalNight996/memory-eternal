@@ -15,7 +15,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
 [![npm](https://img.shields.io/npm/v/memory-eternal)](https://www.npmjs.com/package/memory-eternal)
-[![release](https://img.shields.io/badge/release-v0.30.5-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
+[![release](https://img.shields.io/badge/release-v0.31.0-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **English (default)** · [简体中文](README.zh-CN.md)
@@ -226,6 +226,22 @@ Not everything should be injected into every session. Core memory is the small, 
 | **Any MCP client** | <code>npx -y -p memory-eternal dsh-memory mcp</code> |
 | **Terminal** | <code>dsh-memory tui</code> — live queue, select-all, batch approve/reject, long-form reader |
 | **Browser** | <code>dsh-memory open</code> → http://127.0.0.1:7999 |
+
+## 🎨 Skins
+
+Five skins, switch in Settings → General → Theme with one click. The choice is saved locally and survives reloads.
+
+<p align="center">
+  <img src="assets/screen/skins-gallery.png" width="900" alt="Five themes: Default, Pop, Light, Resident Evil and Spider-Man" />
+</p>
+
+| Skin | Style |
+| --- | --- |
+| **Default** | Dark base + amber accent, easy on the eyes |
+| **Pop** | Yellow paper, black frames, hard shadows and halftone |
+| **Light** | Warm paper + serif headings for daytime |
+| **Resident Evil** | Umbrella lab, toxic-green scanlines, B.O.W. banner and claw |
+| **Spider-Man** | Red/blue comic, webs, halftone, wide action banner and hanging charm |
 
 ## 📸 Screenshots
 
