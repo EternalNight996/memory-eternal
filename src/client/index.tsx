@@ -196,6 +196,10 @@ export const ZH = {
 
   skillCards: '技能卡',
   skillCardsHint: '从本机实际安装/可用的技能生成卡片，强制进入审核；不由 Agent 对话沉淀。',
+  skillCardLanguage: '技能卡语言',
+  skillCardLanguageHint: '英文模板可避免中英混排；技能正文原样保留',
+  captureLanguage: '自动沉淀语言',
+  captureLanguageHint: '固定英文/中文可避免同一内容生成中英两版',
   skillAutoSync: '自动同步技能卡',
   syncSkills: '同步技能',
   syncingSkills: '正在同步技能…',
@@ -672,6 +676,9 @@ export const ZH = {
   captureCooldownMs: '沉淀冷却 (ms)',
   captureProvider: '蒸馏 provider（留空自动）',
   routeAuto: '自动（按注册顺序）',
+  langAuto: '跟随对话',
+  langZh: '中文',
+  langEn: 'English',
   routeListFail: '取不到模型列表（{err}）→ 下面可直接手填 provider / model；桌面版弹窗会自动向宿主代理，若仍失败请从 DSH 设置页打开' ,
   captureFollowSession: '跟随当前会话（蒸馏用会话的 provider/model）',
   captureFirstOnly: '仅试首选（失败即停，不轮换兜底）',
@@ -1006,6 +1013,10 @@ export const EN = {
 
   skillCards: 'Skill cards',
   skillCardsHint: 'Generated from the skills actually installed/available on this machine; always reviewed. Never deposited by agent chat.',
+  skillCardLanguage: 'Skill-card language',
+  skillCardLanguageHint: 'English template avoids mixed-language cards; skill body is preserved',
+  captureLanguage: 'Capture language',
+  captureLanguageHint: 'Pin English/Chinese to avoid duplicate cards in both languages',
   skillAutoSync: 'Auto-sync skill cards',
   syncSkills: 'Sync skills',
   syncingSkills: 'Syncing skills…',
@@ -1482,6 +1493,9 @@ export const EN = {
   captureCooldownMs: 'Capture cooldown (ms)',
   captureProvider: 'Distill provider (auto if empty)',
   routeAuto: 'Auto (registration order)',
+  langAuto: 'Follow conversation',
+  langZh: 'Chinese',
+  langEn: 'English',
   routeListFail: 'Could not load the model list ({err}) — you can type provider / model below; the desktop popup proxies this to the host, so if it still fails open the settings from DSH',
   captureFollowSession: 'Follow current session (distill with the session provider/model)',
   captureFirstOnly: 'First candidate only (stop on failure, no fallback)',
@@ -5595,6 +5609,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="recallLimit" label={t('recallLimit')} type="number" />
                 <F k="recallSummaryLen" label={t('recallSummaryLen')} hint={t('unitChars')} type="number" />
                 <F k="captureMinChars" label={t('captureMinChars')} hint={t('unitChars')} type="number" />
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                  <span>{t('captureLanguage')}</span>
+                  <select value={form.captureLanguage || 'auto'} onChange={(e) => set('captureLanguage', e.target.value)} disabled={readonly} style={{ padding: '7px 9px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit' }}>
+                    <option value="auto">{t('langAuto')}</option>
+                    <option value="zh">{t('langZh')}</option>
+                    <option value="en">{t('langEn')}</option>
+                  </select>
+                  <span style={{ fontSize: 10.5, opacity: .6 }}>{t('captureLanguageHint')}</span>
+                </label>
                 <F k="maxCardsPerDay" label={t('maxCardsPerDay')} hint={t('unitPerDay')} type="number" />
                 <F k="dedupThreshold" label={t('dedupThreshold')} type="number" step="0.01" min="0" max="1" />
                 {/* 凭证取用提示：一句自己写的约定，会被注入到每个会话的 systemPrompt（触发 agent 去查目录卡） */}
@@ -5617,6 +5640,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
             <CfgSection {...secProps('sec-skills')} id="sec-skills" icon="🧩" title={t('skillCards')} sub={t('skillCardsHint')}>
               <div className="mc-cfg-switches is-single">
                 <Bool k="skillCardsAutoSync" label={t('skillAutoSync')} />
+              </div>
+              <div className="mc-cfg-grid">
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                  <span>{t('skillCardLanguage')}</span>
+                  <select value={form.skillCardLanguage || 'auto'} onChange={(e) => set('skillCardLanguage', e.target.value)} disabled={readonly} style={{ padding: '7px 9px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit' }}>
+                    <option value="auto">{t('langAuto')}</option>
+                    <option value="zh">{t('langZh')}</option>
+                    <option value="en">{t('langEn')}</option>
+                  </select>
+                  <span style={{ fontSize: 10.5, opacity: .6 }}>{t('skillCardLanguageHint')}</span>
+                </label>
               </div>
               <div className="mc-cfg-tools">
                 <button type="button" className="mc-btn" disabled={!!busy} onClick={async () => {
