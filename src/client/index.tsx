@@ -3601,33 +3601,29 @@ const CSS = `
   border: 1px solid #244a2c; border-bottom: 6px solid #e23a3a;
   border-radius: 6px; overflow: visible;
   background: linear-gradient(90deg, #040705 0%, #07110a 52%, #0b1a0f 100%);
-  box-shadow: inset 0 0 70px rgba(124,255,63,.05);
+  box-shadow: inset 0 0 70px rgba(124,255,63,.05), 0 14px 30px rgba(0,0,0,.45);
 }
 [data-skin="resident"] .mc-v5-pagehead::before {
-  content: ''; position: absolute; right: 0; top: 0; width: 56%; height: 100%;
+  content: ''; position: absolute; right: 0; top: 0; width: 64%; height: 100%;
   background-image:
-    linear-gradient(90deg, rgba(5,8,6,.97) 0 40%, rgba(5,8,6,.55) 62%, transparent 88%),
+    linear-gradient(90deg, rgba(5,8,6,.97) 0 32%, rgba(5,8,6,.16) 52%, transparent 72%),
     repeating-linear-gradient(180deg, rgba(124,255,63,.05) 0 1px, transparent 1px 4px),
-    radial-gradient(circle at 88% 16%, rgba(226,58,58,.28), transparent 48%),
+    radial-gradient(circle at 88% 16%, rgba(226,58,58,.12), transparent 48%),
     url("${ZOMBIE_ART}");
-  background-size: 100% 100%, auto, auto, cover;
-  background-position: 0 0, 0 0, 0 0, center 28%;
+  background-size: 100% 100%, auto, auto, 100% auto;
+  background-position: 0 0, 0 0, 0 0, center 30%;
   background-repeat: no-repeat;
-  opacity: .95; filter: brightness(1.35) contrast(1.1) saturate(1.1);
-  -webkit-mask-image: linear-gradient(to left, #000 52%, transparent 100%);
+  opacity: .99; filter: brightness(1.55) contrast(1.02) saturate(1);
+  -webkit-mask-image: linear-gradient(to left, #000 40%, transparent 100%);
   mask-image: linear-gradient(to left, #000 52%, transparent 100%);
   clip-path: inset(0 round 6px);
   pointer-events: none; z-index: 0;
 }
 [data-skin="resident"] .mc-v5-pagehead::after {
   content: '☣ CONTAINMENT BREACH // T-002 TYRANT';
-  position: absolute; left: 0; right: 0; top: 0; bottom: -52px; z-index: 3; padding: 16px 20px;
-  background:
-    linear-gradient(180deg, #2f5f37 0 2px, #0a120b 2px 9px, #e23a3a 9px 12px) left bottom 48px / 100% 12px no-repeat,
-    radial-gradient(ellipse at 80% 0, rgba(124,255,63,.18), transparent 70%) right bottom 40px / 420px 160px no-repeat,
-    url("${GRIP_ART}") right 8px bottom 0 / 420px auto no-repeat;
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 3; padding: 16px 20px;
   color: #ff8a8a; font: 9px Consolas, 'Courier New', monospace; letter-spacing: .16em;
-  pointer-events: none; filter: drop-shadow(0 18px 18px rgba(0,0,0,.55));
+  pointer-events: none;
 }
 [data-skin="resident"] .mc-v5-pagehead > * { position: relative; z-index: 2; }
 [data-skin="resident"] .mc-v5-pagehead h1 { font-size: 34px; line-height: 1.15; }
@@ -3656,8 +3652,8 @@ const CSS = `
   background: #f4f1e8; box-shadow: 8px 8px 0 var(--sp-red);
 }
 [data-skin="spider"] .mc-v5-pagehead::before {
-  content: ''; position: absolute; right: 0; top: 0; width: 64%; height: 100%;
-  background: url("${SPIDER_ART}") center 52% / cover no-repeat;
+  content: ''; position: absolute; right: 0; top: 0; width: 62%; height: 100%;
+  background: url("${SPIDER_ART}") center 24% / 100% auto no-repeat;
   opacity: 1; filter: saturate(1.05) contrast(1.02);
   -webkit-mask-image: linear-gradient(to left, #000 48%, transparent 100%);
   mask-image: linear-gradient(to left, #000 48%, transparent 100%);
