@@ -71,6 +71,10 @@ export const Config = z.object({
   // 不由 agent 对话沉淀（见 lib/capture.js AGENT_CARD_KINDS 不含 skill）；
   // 默认开：宿主启动 / 技能安装变化时后台同步，新技能自动进审核中心。
   skillCardsAutoSync: z.boolean().default(true),
+  // 技能卡生成语言：auto/zh 用中文模板，en 强制英文模板（技能正文原样保留）
+  skillCardLanguage: z.union([z.const('auto'), z.const('zh'), z.const('en')]).default('auto'),
+  // 自动沉淀输出语言：auto=跟随对话；zh/en=强制中文/英文，避免同一内容中英双版
+  captureLanguage: z.union([z.const('auto'), z.const('zh'), z.const('en')]).default('auto'),
   // 记忆界面整体布局大小：compact / normal / large（只影响 UI，不影响召回）
   uiScale: z.union([z.const('compact'), z.const('normal'), z.const('large')]).default('normal'),
   // 主题皮肤：一键切换整个记忆界面（含设置页）。新增皮肤时在这里登记 id，并在 src/client 的 CSS 里加 [data-skin="id"] 块。
@@ -425,6 +429,7 @@ export function apply(ctx, config) {
           env: process.env,
           packageRoot: PACKAGE_ROOT,
           force: opts.force === true,
+          language: cfg.skillCardLanguage || 'auto',
         })
       } catch (error) {
         return { ok: false, error: String((error && error.message) || error) }
@@ -843,7 +848,7 @@ export function apply(ctx, config) {
         const isTimeoutFailure = (x) => /ABORTED|TIMEOUT|ETIMEDOUT|aborted/i.test(String((x && (x.code + ' ' + x.message)) || ''))
         // issue #51：把真实会话 id 透传给 LLM（opencode-go 网关靠它注入 x-opencode-session，
         // 缺了首跳固定 400 MissingSessionID）。同一会话的蒸馏请求也因此能被网关按会话归并。
-        const attempt = (budget, ms) => { llmCalls++; return summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(ms), existing: neighbors, maxTokens: budget, sessionId }) }
+        const attempt = (budget, ms) => { llmCalls++; return summarizeTurnDetailed(llm, route, text, { signal: AbortSignal.timeout(ms), existing: neighbors, maxTokens: budget, sessionId, language: cfg.captureLanguage || 'auto' }) }
         let detailed = await attempt(maxTokens, baseTimeout)
         if (detailed.failure && isTimeoutFailure(detailed.failure)) {
           const longer = Math.min(Math.max(Math.round(baseTimeout * 2.5), baseTimeout + 30000), 180000)
@@ -1575,6 +1580,8 @@ export function apply(ctx, config) {
                 recallEmbedding: cfg.recallEmbedding || '',
                 sessionBudgetChars: cfg.sessionBudgetChars ?? 80000,
                 skillCardsAutoSync: cfg.skillCardsAutoSync !== false,
+                skillCardLanguage: cfg.skillCardLanguage || 'auto',
+                captureLanguage: cfg.captureLanguage || 'auto',
                 // 关注摘要推送（默认关；覆盖测试要求每个 Config 字段都能被 /config 读出）
                 newsDigestEnabled: cfg.newsDigestEnabled === true,
                 newsDigestIntervalMinutes: cfg.newsDigestIntervalMinutes ?? 720,

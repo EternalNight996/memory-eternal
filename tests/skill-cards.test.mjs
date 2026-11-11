@@ -267,6 +267,15 @@ test('同名技能多版本同时安装：选择 semver 最高的一份', () => 
   assert.match(dup[0].content, /new body/)
 })
 
+test('技能卡英文模板：固定英文元数据，正文原样保留', () => {
+  const built = buildSkillCardBody({ name: 'gamma', description: 'Gamma skill', version: '1.2.3', source: 'plugin', content: 'Use gamma.' }, { language: 'en' })
+  assert.match(built.body, /## Skill info/)
+  assert.match(built.body, /## Skill content/)
+  assert.match(built.body, /- Version: 1\.2\.3/)
+  assert.match(built.body, /Use gamma\./)
+  assert.doesNotMatch(built.body, /技能信息|技能说明|版本：/)
+})
+
 test('UI：技能类型在筛选 / 新建卡 / 统计 / 图谱里都有入口', () => {
   const src = fs.readFileSync(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
   assert.match(src, /const KIND_IDS = \[[^\]]*'skill'[^\]]*\]/, '类型筛选必须包含 skill')
