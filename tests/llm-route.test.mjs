@@ -47,7 +47,7 @@ test('② 会话路由探测：官方字段优先（requestHeader/agent.options�
 
 test('接线守卫：配置项 / 宿主选路 / API / 面板四处都要到位', () => {
   const index = read('index.js')
-  assert.match(index, /captureFollowSession: z\.boolean\(\)\.default\(false\)/, '配置要有「跟随当前会话」')
+  assert.match(index, /captureFollowSession: z\.boolean\(\)\.default\(true\)/, '跟随当前会话默认开，减少首次配置成本')
   assert.match(index, /captureFirstOnly: z\.boolean\(\)\.default\(false\)/, '配置要有「仅试首选」')
   assert.match(index, /sessionRouteFrom\(agent\)/, '宿主要从 agent 探测会话路由')
   assert.match(index, /firstOnly: cfg\.captureFirstOnly === true/, '选路要透传 firstOnly')

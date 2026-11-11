@@ -20,14 +20,14 @@ test('截断的 JSON 能被识别（括号/字符串未闭合）', () => {
 
 test('宿主：超时可配置 + 超时加时重试 + 截断走 token 阶梯（源码守卫）', () => {
   const idx = read('index.js')
-  assert.match(idx, /captureTimeoutMs: z\.number\(\)\.min\(5000\)\.max\(600000\)\.default\(45000\)/, '配置项')
-  assert.match(idx, /const baseTimeout = Math\.max\(5000, Number\(cfg\.captureTimeoutMs\) \|\| 45000\)/, '超时不再硬编码 45s')
+  assert.match(idx, /captureTimeoutMs: z\.number\(\)\.min\(5000\)\.max\(600000\)\.default\(60000\)/, '配置项')
+  assert.match(idx, /const baseTimeout = Math\.max\(5000, Number\(cfg\.captureTimeoutMs\) \|\| 60000\)/, '超时不再硬编码 45s')
   assert.match(idx, /isTimeoutFailure/, '要能识别超时失败')
   assert.match(idx, /可能是模型冷启动 → 以 .* 超时重试同一候选/, '超时要加时重试同一候选，并写清原因')
   assert.match(idx, /TRUNCATED_OUTPUT/, '截断要进同一阶梯')
-  assert.match(idx, /captureTimeoutMs: cfg\.captureTimeoutMs \?\? 45000/, '/config 要暴露新字段')
+  assert.match(idx, /captureTimeoutMs: cfg\.captureTimeoutMs \?\? 60000/, '/config 要暴露新字段')
   const api = read('lib/api.js')
-  assert.match(api, /captureTimeoutMs: cfg\.captureTimeoutMs \?\? 45000/)
+  assert.match(api, /captureTimeoutMs: cfg\.captureTimeoutMs \?\? 60000/)
   const cap = read('lib/capture.js')
   assert.match(cap, /code: 'TRUNCATED_OUTPUT'/, '截断给独立错误码')
   assert.match(cap, /num_predict/, '文案要点出本地模型的输出上限')
