@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { writeCard, listCards, setCardStatus, setCardKind } from '../lib/vault.js'
+import { writeCard, listCards, setCardStatus, setCardKind, readCard } from '../lib/vault.js'
 import { setAuditConfig } from '../lib/db.js'
 import { syncSkillCards, parseSkillFile, buildSkillCardBody, collectSkillFiles } from '../lib/skill-cards.js'
 import { parseCaptureJson, AGENT_CARD_KINDS, agentCardKind } from '../lib/capture.js'
@@ -16,8 +16,8 @@ import { callTool } from '../lib/mcp.js'
 
 const makeRoot = () => fs.mkdtempSync(path.join(os.tmpdir(), 'me-skill-'))
 
-function fakeRegistry(content = 'Use the alpha skill carefully.') {
-  const summaries = [{ name: 'alpha', description: 'Alpha skill', source: 'user-dsh', provider: 'filesystem', path: '/skills/alpha/SKILL.md', invocation: { modelInvocable: true, userInvocable: true } }]
+function fakeRegistry(content = 'Use the alpha skill carefully.', version = '') {
+  const summaries = [{ name: 'alpha', description: 'Alpha skill', version, source: 'user-dsh', provider: 'filesystem', path: '/skills/alpha/SKILL.md', invocation: { modelInvocable: true, userInvocable: true } }]
   return {
     list: async () => summaries,
     get: async (name) => ({ ...summaries[0], name, content }),
@@ -81,20 +81,38 @@ test('技能正文变化：待审卡原地刷新，不新增第二张', async ()
   assert.match(text, /第二版技能正文/)
 })
 
-test('已批准技能内容变化：新开一张「技能更新」待审卡，旧卡保持可用', async () => {
+test('已批准技能内容变化：生成待审修改，旧卡继续可用，批准后覆盖原卡', async () => {
   const root = makeRoot()
-  await syncSkillCards(root, { skills: fakeRegistry('第一版技能正文。'), includeFilesystem: false })
+  await syncSkillCards(root, { skills: fakeRegistry('第一版技能正文。', '1.0.0'), includeFilesystem: false })
   const [base] = await listCards(root, { status: ['pending'], kind: 'skill' })
   await setCardStatus(root, base.path, 'approved')
 
-  const second = await syncSkillCards(root, { skills: fakeRegistry('第二版技能正文，内容已经更新。'), includeFilesystem: false })
+  const second = await syncSkillCards(root, { skills: fakeRegistry('第二版技能正文，内容已经更新。', '1.1.0'), includeFilesystem: false })
   assert.equal(second.pendingUpdates, 1, JSON.stringify(second))
+  assert.equal(second.updates.length, 1)
+  assert.equal(second.updates[0].fromVersion, '1.0.0')
+  assert.equal(second.updates[0].toVersion, '1.1.0')
   const pending = await listCards(root, { status: ['pending'], kind: 'skill' })
   assert.equal(pending.length, 1)
-  assert.match(pending[0].title, /技能更新/)
+  assert.match(pending[0].path, /^99-Revisions\//, '更新必须是 revision，批准后覆盖原卡')
+  const pendingText = await readCard(root, pending[0].path, { allowUnapproved: true })
+  assert.match(pendingText.text, /第二版技能正文/)
   const approved = await listCards(root, { status: ['approved'], kind: 'skill' })
   assert.equal(approved.length, 1, '旧卡必须继续可用')
   assert.equal(approved[0].path, base.path)
+
+  // 审核通过后覆盖原卡：仍然只有一张技能卡，版本与正文都是新的。
+  await setCardStatus(root, pending[0].path, 'approved')
+  const after = await listCards(root, { status: ['approved'], kind: 'skill' })
+  assert.equal(after.length, 1, '批准更新后不能留下重复技能卡')
+  assert.equal(after[0].path, base.path)
+  const afterText = await readCard(root, base.path)
+  assert.match(afterText.text, /版本：1\.1\.0/)
+  assert.match(afterText.text, /第二版技能正文/)
+
+  const third = await syncSkillCards(root, { skills: fakeRegistry('第二版技能正文，内容已经更新。', '1.1.0'), includeFilesystem: false })
+  assert.equal(third.unchanged, 1, JSON.stringify(third))
+  assert.equal(third.updates.length, 0, '相同版本/内容不得反复生成待审更新')
 })
 
 test('已驳回的技能不会被同步复活', async () => {
@@ -207,13 +225,46 @@ test('文件扫描覆盖 Codex / Claude / Cursor / DSH / .agents 的项目级与
 })
 
 test('SKILL.md frontmatter 解析：多行 description 与 whenToUse', () => {
-  const p = parseSkillFile('---\nname: gamma\ndescription: >\n  line one\n  line two\nwhenToUse: whenever\n---\n\nbody', 'fallback')
+  const p = parseSkillFile('---\nname: gamma\ndescription: >\n  line one\n  line two\nversion: 2.1.0\nwhenToUse: whenever\n---\n\nbody', 'fallback')
   assert.equal(p.name, 'gamma')
   assert.match(p.description, /line one line two/)
   assert.equal(p.whenToUse, 'whenever')
-  const built = buildSkillCardBody({ name: 'gamma', description: p.description, content: p.content })
+  assert.equal(p.version, '2.1.0')
+  const built = buildSkillCardBody({ name: 'gamma', description: p.description, version: p.version, content: p.content })
   assert.match(built.body, /## 技能说明/)
+  assert.match(built.body, /版本：2\.1\.0/)
   assert.match(built.body, /whenever|line one/)
+})
+
+test('同名技能多版本同时安装：选择 semver 最高的一份', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-skill-versions-'))
+  const rootA = path.join(home, 'custom-a')
+  const rootB = path.join(home, 'custom-b')
+  const write = (root, version, body) => {
+    const dir = path.join(root, 'dup')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'SKILL.md'), '---\nname: dup\ndescription: Duplicate skill\nversion: ' + version + '\n---\n\n' + body + '\n', 'utf8')
+  }
+  write(rootA, '1.9.0', 'old body')
+  write(rootB, '2.0.0', 'new body')
+  const noHome = path.join(home, 'no-such-home')
+  const env = {
+    ...process.env,
+    DSH_HOME: path.join(home, '.dsh'),
+    DSH_AGENTS_HOME: path.join(noHome, '.agents'),
+    CLAUDE_CONFIG_DIR: path.join(noHome, '.claude'),
+    CODEX_HOME: path.join(noHome, '.codex'),
+    CURSOR_HOME: path.join(noHome, '.cursor'),
+    GEMINI_HOME: path.join(noHome, '.gemini'),
+    XDG_CONFIG_HOME: path.join(noHome, '.config'),
+    MEMORY_SKILL_DIRS: rootA + path.delimiter + rootB,
+    DSH_BUNDLED_SKILL_DIR: '',
+  }
+  const found = collectSkillFiles({ env, cwd: home, packageRoot: '' })
+  const dup = found.filter((s) => s.name === 'dup')
+  assert.equal(dup.length, 1, '同名多版本应只保留一份')
+  assert.equal(dup[0].version, '2.0.0', '应保留最高版本')
+  assert.match(dup[0].content, /new body/)
 })
 
 test('UI：技能类型在筛选 / 新建卡 / 统计 / 图谱里都有入口', () => {

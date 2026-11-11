@@ -205,6 +205,13 @@ export const ZH = {
   skillsUpdated: '更新',
   skillsPendingUpdates: '待审更新',
   skillsSyncFail: '技能卡同步失败',
+  skillUpdatesFound: '发现技能新版本',
+  skillUpdatesHint: '已按版本/内容校验生成待审更新；批准后会覆盖旧技能卡。',
+  skillUpdatesReview: '去审核',
+  skillUpdatesLater: '稍后',
+  skillUpdatesContentChanged: '同版本内容有变化',
+  skillUpdatesNoVersion: '未标注版本',
+  skillUpdatesNeedReview: '有技能更新待审核',
   cardsTab: '知识卡',
   webTab: 'Web 版',
   webOpening: '正在用默认浏览器打开 Web 版…',
@@ -1008,6 +1015,13 @@ export const EN = {
   skillsUpdated: 'updated',
   skillsPendingUpdates: 'pending updates',
   skillsSyncFail: 'Skill sync failed',
+  skillUpdatesFound: 'Skill updates found',
+  skillUpdatesHint: 'Version/content-checked updates are pending review; approving replaces the old skill card.',
+  skillUpdatesReview: 'Review now',
+  skillUpdatesLater: 'Later',
+  skillUpdatesContentChanged: 'Content changed at the same version',
+  skillUpdatesNoVersion: 'No version',
+  skillUpdatesNeedReview: 'skill updates need review',
   cardsTab: 'Cards',
   webTab: 'Web version',
   webOpening: 'Opening the web version in your browser…',
@@ -4176,6 +4190,16 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const importRef = useRef(null)
   const [exporting, setExporting] = useState(false)
   const [skillBusy, setSkillBusy] = useState(false)
+  const [skillReview, setSkillReview] = useState(null)
+  // 设置页的「同步技能」和主界面共用同一个审核提醒弹窗。
+  useEffect(() => {
+    const onUpdates = (e) => {
+      const updates = Array.isArray(e && e.detail && e.detail.updates) ? e.detail.updates : []
+      if (updates.length) setSkillReview({ updates })
+    }
+    window.addEventListener('me-skill-updates', onUpdates)
+    return () => window.removeEventListener('me-skill-updates', onUpdates)
+  }, [])
   const [newsUnread, setNewsUnread] = useState(0)
   const [reader, setReader] = useState(null)
   const [allVaults, setAllVaults] = useState(false)
@@ -4506,6 +4530,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) +
           ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0)
         setLibToast({ ok: true, msg })
+        if (Array.isArray(r.updates) && r.updates.length) setSkillReview({ updates: r.updates })
         await loadAll()
         bump()
       } else {
@@ -4601,6 +4626,40 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         </div>
       )}
       {libToast && <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'fixed', left: '50%', transform: 'translateX(-50%)', top: 22, zIndex: 70, background: 'rgba(20,22,26,0.97)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#f5f5f5', borderRadius: 12, padding: '10px 20px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 14px 44px rgba(0,0,0,.5)', pointerEvents: 'none', animation: 'me-pop .22s ease', borderLeft: '4px solid ' + (libToast.ok ? '#22c55e' : '#ef4444'), maxWidth: '90vw' }}><span style={{ color: libToast.ok ? '#34d399' : '#f87171', fontWeight: 800, fontSize: 15 }}>{libToast.ok ? '✓' : '✕'}</span><span>{libToast.msg}</span></div>}
+      {skillReview && (
+        <div className="me-overlay" onClick={() => setSkillReview(null)}>
+          <div className="me-dialog" role="dialog" aria-modal="true" aria-label={t('skillUpdatesFound')} style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px 12px', borderBottom: '1px solid var(--dsw-alias-border-l1, #e5e7eb)' }}>
+              <span style={{ fontSize: 20 }}>🧩</span>
+              <div style={{ flex: 1 }}>
+                <b style={{ fontSize: 15 }}>{t('skillUpdatesFound')} · {skillReview.updates.length}</b>
+                <div style={{ marginTop: 3, fontSize: 11.5, opacity: .7, lineHeight: 1.5 }}>{t('skillUpdatesHint')}</div>
+              </div>
+              <button type="button" className="mc-btn" onClick={() => setSkillReview(null)} aria-label={t('close')}>✕</button>
+            </div>
+            <div className="me-dialog-body" style={{ padding: '12px 18px 16px', overflow: 'auto', maxHeight: '50vh' }}>
+              {skillReview.updates.map((u, i) => {
+                const from = u.fromVersion || t('skillUpdatesNoVersion')
+                const to = u.toVersion || t('skillUpdatesNoVersion')
+                const same = from === to
+                return (
+                  <div key={(u.path || u.name || '') + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--dsw-alias-border-l1, #e5e7eb)' }}>
+                    <span style={{ flex: 'none', padding: '1px 7px', borderRadius: 999, background: 'rgba(139,92,246,.14)', color: '#8b5cf6', fontSize: 10.5, fontWeight: 700 }}>skill</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <b style={{ display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</b>
+                      <span style={{ fontSize: 10.5, opacity: .65 }}>{same ? t('skillUpdatesContentChanged') : from + ' → ' + to}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px 16px', borderTop: '1px solid var(--dsw-alias-border-l1, #e5e7eb)' }}>
+              <button type="button" className="mc-btn" onClick={() => setSkillReview(null)}>{t('skillUpdatesLater')}</button>
+              <button type="button" className="mc-btn me-on" onClick={() => { setSkillReview(null); goView('audit') }}>🛡️ {t('skillUpdatesReview')}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {inModal && (
         <div className="me-modal-head">
           <div className="me-modal-title">
@@ -5565,7 +5624,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   try {
                     const r = await fetch(API + '/skills/sync', { method: 'POST' }).then((x) => x.json()).catch(() => null)
                     if (r && r.ok) {
-                      notify(t('skillsSyncDone') + '：' + t('skillsScanned') + ' ' + (r.total || 0) + ' · ' + t('skillsCreated') + ' ' + (r.created || 0) + ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) + ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0))
+                      if (Array.isArray(r.updates) && r.updates.length) {
+                        try { window.dispatchEvent(new CustomEvent('me-skill-updates', { detail: { updates: r.updates } })) } catch { /* 非浏览器环境忽略 */ }
+                      }
+                      notify(t('skillsSyncDone') + '：' + t('skillsScanned') + ' ' + (r.total || 0) + ' · ' + t('skillsCreated') + ' ' + (r.created || 0) + ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) + ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0) + (r.pendingUpdates || r.updated ? ' · ' + t('skillUpdatesNeedReview') : ''))
                     } else notify((r && r.error) || t('skillsSyncFail'), false)
                   } catch (e) { notify(t('skillsSyncFail'), false) } finally { setBusy('') }
                 }}>{busy === 'skills' ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</button>
