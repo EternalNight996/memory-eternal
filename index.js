@@ -702,7 +702,7 @@ export function apply(ctx, config) {
   const scheduleCapture = (agent, events) => {
     const cfg = settings.get() ?? {}
     const sessionId = agent?.session?.id ?? agent?.id ?? 'unknown'
-    if (!cfg.enabled || !cfg.autoCapture) return
+    if (cfg.enabled === false || cfg.autoCapture === false) return
     if (!Array.isArray(events) || events.length === 0) {
       logCapture(sessionId, 'listen', '读不到会话事件：agent.session 无 events/snapshotEvents（DSH 版本不匹配）')
       return
@@ -747,7 +747,7 @@ export function apply(ctx, config) {
     const events = Array.isArray(job?.events) ? job.events : []
     try {
       const cfg = settings.get() ?? {}
-      if (!cfg.enabled || !cfg.autoCapture) return
+      if (cfg.enabled === false || cfg.autoCapture === false) return
       // 本会话实际使用的库（#15）：会话工作区命中 vaultProfiles[].match.workspace 时写进对应项目库。
       const root = vaultDir(sessionWorkspace(agent))
       if (root !== vaultDir()) syncAudit(root)
@@ -763,12 +763,12 @@ export function apply(ctx, config) {
         logCapture(sessionId, 'skip', `有效内容不足：剥离运行时注入后只剩 ${text.trim().length} 字（多为环境快照 / 广播 / 工具说明）`)
         return
       }
-      if (text.length < (cfg.captureMinChars ?? 200)) {
-        logCapture(sessionId, 'skip', `内容太短：${text.length} < ${cfg.captureMinChars ?? 200} 字（调小「捕获最小长度」可放宽）`)
+      if (text.length < (cfg.captureMinChars ?? 120)) {
+        logCapture(sessionId, 'skip', `内容太短：${text.length} < ${cfg.captureMinChars ?? 120} 字（调小「捕获最小长度」可放宽）`)
         return
       }
       // 会话冷却：同一会话频繁收尾时避免每轮都烧一次 LLM。
-      const cooldown = Number(cfg.captureCooldownMs) || 0
+      const cooldown = Number(cfg.captureCooldownMs ?? 60000) || 0
       const lastAt = lastCaptureAt.get(sessionId) ?? 0
       if (cooldown > 0 && Date.now() - lastAt < cooldown) {
         logCapture(sessionId, 'skip', `冷却中：距上次沉淀 ${Math.round((Date.now() - lastAt) / 1000)}s < ${Math.round(cooldown / 1000)}s`)
@@ -1029,7 +1029,7 @@ export function apply(ctx, config) {
         disposeSection = null
         dispose()
       }
-      if (!cfg || cfg.enabled === false || cfg.autoRecall !== true) return
+      if (!cfg || cfg.enabled === false || cfg.autoRecall === false) return
       const text = [
         '你拥有一个本地「记忆核心」（SQLite 知识库，位于 ' + vaultDir() + '）。',
         '规则：',
@@ -1561,10 +1561,10 @@ export function apply(ctx, config) {
               const cfg = settings.get() ?? {}
               // 只暴露可安全展示/回填的字段
               const safe = {
-                autoCapture: cfg.autoCapture, autoRecall: cfg.autoRecall, coreMemoryEnabled: cfg.coreMemoryEnabled, workingMemoryEnabled: cfg.workingMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, theme: cfg.theme, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
-                captureMinChars: cfg.captureMinChars, captureCooldownMs: cfg.captureCooldownMs, dedupThreshold: cfg.dedupThreshold, maxCardsPerDay: cfg.maxCardsPerDay,
-                distillEnabled: cfg.distillEnabled, dedupByLLM: cfg.dedupByLLM, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
-                autoWeb: cfg.autoWeb, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,
+                autoCapture: cfg.autoCapture !== false, autoRecall: cfg.autoRecall !== false, coreMemoryEnabled: cfg.coreMemoryEnabled, workingMemoryEnabled: cfg.workingMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, theme: cfg.theme, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
+                captureMinChars: cfg.captureMinChars ?? 120, captureCooldownMs: cfg.captureCooldownMs ?? 60000, dedupThreshold: cfg.dedupThreshold ?? 0.62, maxCardsPerDay: cfg.maxCardsPerDay ?? 1000,
+                distillEnabled: cfg.distillEnabled !== false, dedupByLLM: cfg.dedupByLLM !== false, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
+                autoWeb: cfg.autoWeb !== false, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,
                 auditMode: cfg.auditMode ?? 'all', auditExemptAgents: cfg.auditExemptAgents || [], auditExemptKinds: cfg.auditExemptKinds || [], recycleRetentionDays: cfg.recycleRetentionDays ?? 30,
                 // 多库（#10）：配置页可直接编辑
                 vaultProfiles: Array.isArray(cfg.vaultProfiles) ? cfg.vaultProfiles : [],

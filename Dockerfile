@@ -1,6 +1,6 @@
 # memory-eternal MCP server (stdio)
 # 用法：
-#   docker build -t memory-eternal-mcp --build-arg MEMORY_ETERNAL_VERSION=0.31.3 .
+#   docker build -t memory-eternal-mcp --build-arg MEMORY_ETERNAL_VERSION=0.31.4 .
 #   docker run -i --rm -v memory-vault:/root/.dsh/memory-vault memory-eternal-mcp
 FROM node:22-alpine
 LABEL org.opencontainers.image.title="memory-eternal" \
