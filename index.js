@@ -81,9 +81,9 @@ export const Config = z.object({
   theme: z.union([z.const('default'), z.const('pop'), z.const('light'), z.const('resident'), z.const('spider')]).default('default'),
   vaultDir: z.string().default(''),
   dedupThreshold: z.number().min(0).max(1).default(0.62),
-  captureMinChars: z.number().default(200),
-  captureCooldownMs: z.number().default(5 * 60 * 1000),
-  maxCardsPerDay: z.number().default(60),
+  captureMinChars: z.number().default(120),
+  captureCooldownMs: z.number().default(60 * 1000),
+  maxCardsPerDay: z.number().default(1000),
   // 成本控制（v0.6.2）：让用户精控 LLM token / 蒸馏调用 / 召回注入量
   // 蒸馏：true=LLM 压缩成知识卡；false=只存原文卡，零 LLM 消耗（最大省钱）
   distillEnabled: z.boolean().default(true),
@@ -95,7 +95,7 @@ export const Config = z.object({
   captureModel: z.string().default(''),
   // issue #42 需求 2：「跟随当前会话」——宿主蒸馏优先用**这一轮会话**的 provider/model；
   // 后台 / 无会话任务（CLI、watchdog、hooks）拿不到会话上下文，回退到上面的显式配置。
-  captureFollowSession: z.boolean().default(false),
+  captureFollowSession: z.boolean().default(true),
   // issue #42 需求 3：「仅试首选」——只尝试第一个候选、失败即停，不轮换兜底
   //（避免「先打官方 → 白烧一次调用 → 再轮换」）。
   captureFirstOnly: z.boolean().default(false),
@@ -105,7 +105,7 @@ export const Config = z.object({
   captureMaxTokens: z.number().min(100).max(4000).default(DEFAULT_CAPTURE_MAX_TOKENS),
   // issue #48：蒸馏单次超时（毫秒）。本地 30B 模型冷启动要 40–60s，45s 必超时；
   // 默认仍 45s（云端模型够用），本地推理用户可调到 120000+。超时后宿主会自动加时重试一次。
-  captureTimeoutMs: z.number().min(5000).max(600000).default(45000),
+  captureTimeoutMs: z.number().min(5000).max(600000).default(60000),
   // 召回相关性阈值（minScore），越高召回越少越精越省
   recallMinScore: z.number().min(0).max(50).default(2),
   // 注入体积可配置（召回）
@@ -728,7 +728,7 @@ export function apply(ctx, config) {
     while (lastDayStamps.length && lastDayStamps[0] < dayStart) lastDayStamps.shift()
     return lastDayStamps.length
   }
-  const underDailyQuota = (max) => quotaUsed() < (max ?? 60)
+  const underDailyQuota = (max) => quotaUsed() < (max ?? 1000)
 
   // 自动审核：根据配置决定新卡 status（免审→approved，否则 pending）
   const resolveAuditStatus = (cfg, kind, submittedBy) => {
@@ -776,7 +776,7 @@ export function apply(ctx, config) {
       }
       // 日配额：防止一次大扫荡烧光 token（只统计真正写卡/追加的次数）。
       if (!underDailyQuota(cfg.maxCardsPerDay)) {
-        logCapture(sessionId, 'skip', `日配额已满（24h 已写 ${quotaUsed()} 张 / 上限 ${cfg.maxCardsPerDay ?? 60}）`)
+        logCapture(sessionId, 'skip', `日配额已满（24h 已写 ${quotaUsed()} 张 / 上限 ${cfg.maxCardsPerDay ?? 1000}）`)
         return
       }
       lastCaptureAt.set(sessionId, Date.now())
@@ -844,7 +844,7 @@ export function apply(ctx, config) {
       for (let i = 0; i < routes.length; i++) {
         route = routes[i]
         // issue #48：超时不再硬编码 45s（本地 30B 冷启动 40–60s 必超时），且超时后**同候选**用更长超时重试一次。
-        const baseTimeout = Math.max(5000, Number(cfg.captureTimeoutMs) || 45000)
+        const baseTimeout = Math.max(5000, Number(cfg.captureTimeoutMs) || 60000)
         const isTimeoutFailure = (x) => /ABORTED|TIMEOUT|ETIMEDOUT|aborted/i.test(String((x && (x.code + ' ' + x.message)) || ''))
         // issue #51：把真实会话 id 透传给 LLM（opencode-go 网关靠它注入 x-opencode-session，
         // 缺了首跳固定 400 MissingSessionID）。同一会话的蒸馏请求也因此能被网关按会话归并。
@@ -1575,7 +1575,7 @@ export function apply(ctx, config) {
                 captureProvider: cfg.captureProvider || '',
                 captureFollowSession: cfg.captureFollowSession === true,
                 captureFirstOnly: cfg.captureFirstOnly === true,
-                captureTimeoutMs: cfg.captureTimeoutMs ?? 45000,
+                captureTimeoutMs: cfg.captureTimeoutMs ?? 60000,
                 captureModel: cfg.captureModel || '',
                 recallEmbedding: cfg.recallEmbedding || '',
                 sessionBudgetChars: cfg.sessionBudgetChars ?? 80000,
