@@ -434,7 +434,7 @@ npm run build   # builds lib/client.js (DSH embed) + web/app.js (standalone web 
 ```
 
 > 📄 **The README ships as two separate files**: `README.md` (Simplified Chinese, the **default** —
-> this is what npm and the plugin marketplace render) and `README.zh-CN.md` (English). Heading levels are
+> this is what npm and the plugin marketplace render) and `README.en.md` (English). Heading levels are
 > 1:1 between them, so **a change in one must be mirrored in the other** (add new sections on both sides).
 
 ---

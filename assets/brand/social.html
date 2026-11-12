@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8" />
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;width:1280px;height:640px;overflow:hidden;background:#0b0d12;color:#fff;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .stage{position:relative;width:1280px;height:640px;overflow:hidden;
+    background:radial-gradient(900px 500px at 82% 10%,rgba(230,36,41,.38),transparent 62%),
+               radial-gradient(700px 520px at 90% 95%,rgba(31,79,216,.34),transparent 62%),
+               linear-gradient(135deg,#0b0d12,#131722 60%,#0b0d12)}
+  .half{position:absolute;inset:0;opacity:.15;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:9px 9px;
+    mask-image:radial-gradient(55% 60% at 76% 42%,#000 15%,transparent 72%);-webkit-mask-image:radial-gradient(55% 60% at 76% 42%,#000 15%,transparent 72%)}
+  .web{position:absolute;right:-90px;top:-140px;width:560px;height:560px;opacity:.45;border-radius:50%;
+    background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.20) 0 1deg,transparent 1deg 14deg),
+               repeating-radial-gradient(circle at 50% 50%,transparent 0 46px,rgba(255,255,255,.12) 46px 48px,transparent 48px 94px)}
+  .frame{position:absolute;inset:16px;border:3px solid #e62429;border-radius:20px;box-shadow:inset 0 0 40px rgba(230,36,41,.28)}
+  .frame:after{content:'';position:absolute;inset:8px;border:2px dashed rgba(255,216,61,.5);border-radius:14px}
+  .in{position:relative;z-index:2;display:flex;align-items:center;gap:34px;height:100%;padding:54px 62px}
+  img.logo{width:104px;height:104px;border-radius:24px;border:3px solid #fff;box-shadow:0 0 0 5px #e62429,0 18px 44px rgba(0,0,0,.6);background:#111}
+  .txt{flex:1;min-width:0}
+  h1{margin:0;font-size:60px;line-height:1;letter-spacing:-.04em;font-weight:900;text-shadow:4px 4px 0 #e62429,8px 8px 0 rgba(0,0,0,.5)}
+  .sub{margin-top:12px;font-size:21px;color:#ffd83d;font-weight:800;text-shadow:2px 2px 0 #111}
+  .desc{margin-top:14px;font-size:16px;line-height:1.75;color:#c6d0dc;max-width:660px}
+  .chips{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+  .chip{border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.07);border-radius:999px;padding:6px 12px;font-size:13px;color:#e6edf3}
+  .chip.acc{background:#ffd83d;color:#111;border-color:#111;font-weight:900}
+  .metrics{display:flex;flex-direction:column;gap:12px;width:250px;flex:none}
+  .m{background:rgba(12,15,22,.85);border:2px solid #1f4fd8;border-radius:14px;padding:12px 16px}
+  .m b{display:block;font-size:30px;color:#ffd83d;font-weight:900;text-shadow:2px 2px 0 #111;letter-spacing:-.02em}
+  .m span{font-size:12px;color:#aab4c2}
+  .url{position:absolute;right:64px;bottom:38px;z-index:3;font-size:15px;color:#8fb4ff;font-weight:800;letter-spacing:.02em}
+  .tag{position:absolute;left:62px;bottom:36px;z-index:3;font-size:13px;color:#9aa6b6}
+</style></head>
+<body>
+<div class="stage">
+  <div class="half"></div><div class="web"></div><div class="frame"></div>
+  <div class="in">
+    <img class="logo" src="../icon-400.png" alt="memory-eternal" />
+    <div class="txt">
+      <h1>memory-eternal</h1>
+      <div class="sub">给 AI 一个可信的第二大脑 🕷</div>
+      <div class="desc">本地 SQLite · 先审核再入库 · 不可篡改审计 · 记忆账本。<br/>DSH / Claude Code / Codex / Cursor 共用一个库，零云端。</div>
+      <div class="chips">
+        <span class="chip acc">MIT</span><span class="chip">local-first</span><span class="chip">audit-gated</span><span class="chip">MCP</span><span class="chip">v0.32.0</span>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="m"><b>99.1%</b><span>自建金标 R@5</span></div>
+      <div class="m"><b>97.2%</b><span>LongMemEval-S R@5</span></div>
+      <div class="m"><b>89.9%</b><span>Top1 命中率</span></div>
+    </div>
+  </div>
+  <div class="tag">github.com/EternalNight996/memory-eternal</div>
+  <div class="url">🕸 LOCAL FIRST · HUMAN IN THE LOOP</div>
+</div>
+</body></html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>memory-eternal 与高星记忆项目对比 · 2026-11-12</title>
+<style>
+  :root{--bg:#0d1117;--card:#161b22;--line:#262d38;--fg:#e6edf3;--mut:#8b949e;--acc:#ff7a45;--ok:#3fb950;--warn:#d29922;--blue:#58a6ff;--gold:#e3b341;--silver:#adbac7;--bronze:#c17a4a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 -apple-system,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:32px 20px 64px}
+  header{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:22px}
+  h1{font-size:26px;margin:0;letter-spacing:-.02em}
+  .sub{color:var(--mut);font-size:13px;margin-top:6px}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;border:1px solid var(--line);color:var(--mut);margin-left:6px}
+  .tag.acc{color:var(--acc);border-color:rgba(255,122,69,.45);background:rgba(255,122,69,.1)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin:18px 0}
+  h2{font-size:17px;margin:0 0 4px}
+  .note{color:var(--mut);font-size:12px;margin:0 0 14px;line-height:1.7}
+  .warn{border-left:3px solid var(--warn);background:rgba(210,153,34,.08);padding:10px 14px;border-radius:8px;font-size:12.5px;color:#e3c77a;margin:14px 0}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th{color:var(--mut);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+  tr.hi td{background:rgba(255,122,69,.08)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .bar{position:relative;height:6px;border-radius:4px;background:#21262d;overflow:hidden;min-width:56px;margin-top:3px}
+  .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+  .b-acc{background:linear-gradient(90deg,#ff7a45,#ffb27a)}
+  .b-mut{background:#3b434f}
+  .rank{font-weight:800;font-size:14px;white-space:nowrap}
+  .medal{font-size:16px;margin-right:2px}
+  .pill{display:inline-block;padding:1px 6px;border-radius:999px;font-size:10.5px;border:1px solid var(--line);white-space:nowrap}
+  .y{color:var(--ok);border-color:rgba(63,185,80,.35);background:rgba(63,185,80,.1)}
+  .n{color:#f85149;border-color:rgba(248,81,73,.3);background:rgba(248,81,73,.08)}
+  .m{color:var(--warn);border-color:rgba(210,153,34,.35);background:rgba(210,153,34,.08)}
+  .stars{color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .foot{color:var(--mut);font-size:11.5px;line-height:1.9}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:6px}
+  .kpi{background:#0b0f14;border:1px solid var(--line);border-radius:10px;padding:12px}
+  .kpi b{display:block;font-size:21px;letter-spacing:-.02em}
+  .kpi span{color:var(--mut);font-size:11.5px}
+  .kpi.acc b{color:var(--acc)} .kpi.ok b{color:var(--ok)} .kpi.blue b{color:var(--blue)}
+  @media print{body{background:#fff;color:#111}.card{border-color:#ddd;background:#fff}th{color:#555}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>memory-eternal 与高星记忆项目对比 <span class="tag acc">2026-11-12</span> <span class="tag">v0.32.0</span></h1>
+    <div class="sub">只挑 GitHub 上眼熟的项目（按 Stars）；两张表，前三名 🥇🥈🥉。星标是热度，不是能力分。</div>
+  </header>
+
+  <div class="grid">
+    <div class="kpi acc"><b>8.54</b><span>综合排名第 1（Ollama 方案）</span></div>
+    <div class="kpi ok"><b>97.2%</b><span>LongMemEval-S 检索 R@5（500 题全量）</span></div>
+    <div class="kpi blue"><b>99.1%</b><span>自建金标 R@5（bge-m3，109 题）</span></div>
+    <div class="kpi"><b>0</b><span>默认依赖 / API 费用（内置语义）</span></div>
+  </div>
+
+  <div class="card">
+    <h2>表 1 · 综合排名（10 维加权）</h2>
+    <p class="note">权重：召回 22 / 语义 10 / 隐私 14 / 治理 14 / 成本 10 / 安装 8 / 延迟 6 / 可靠 6 / 维护 5 / 基准 5。判断分，不是基准分。</p>
+    <table>
+      <thead><tr><th>排名</th><th>项目</th><th class="num">Stars</th><th class="num">召回</th><th class="num">语义</th><th class="num">隐私</th><th class="num">治理</th><th class="num">成本</th><th class="num">安装</th><th class="num">延迟</th><th class="num">可靠</th><th class="num">维护</th><th class="num">基准</th><th class="num">总分</th></tr></thead>
+      <tbody>
+        <tr class="hi"><td class="rank"><span class="medal">🥇</span>1</td><td><b>memory-eternal（Ollama）</b></td><td class="num stars">176</td><td class="num">8.6</td><td class="num">8.6</td><td class="num">9.5</td><td class="num">9.0</td><td class="num">8.0</td><td class="num">8.0</td><td class="num">7.5</td><td class="num">8.5</td><td class="num">8.0</td><td class="num">8.0</td><td class="num"><b>8.54</b><div class="bar"><i class="b-acc" style="width:85.4%"></i></div></td></tr>
+        <tr class="hi"><td class="rank"><span class="medal">🥈</span>2</td><td><b>memory-eternal（内置）</b></td><td class="num stars">176</td><td class="num">7.1</td><td class="num">6.8</td><td class="num">9.5</td><td class="num">9.0</td><td class="num">9.5</td><td class="num">9.5</td><td class="num">10</td><td class="num">8.5</td><td class="num">8.5</td><td class="num">8.0</td><td class="num"><b>8.48</b><div class="bar"><i class="b-acc" style="width:84.8%"></i></div></td></tr>
+        <tr><td class="rank"><span class="medal">🥉</span>3</td><td><b>Mem0</b></td><td class="num stars">68,849</td><td class="num">9.3</td><td class="num">9.0</td><td class="num">6.0</td><td class="num">6.0</td><td class="num">6.5</td><td class="num">8.0</td><td class="num">7.0</td><td class="num">8.0</td><td class="num">7.0</td><td class="num">6.5</td><td class="num">7.49<div class="bar"><i class="b-mut" style="width:74.9%"></i></div></td></tr>
+        <tr><td class="rank">4</td><td>MemOS（MemTensor）</td><td class="num stars">12,366</td><td class="num">8.5</td><td class="num">8.5</td><td class="num">7.0</td><td class="num">6.0</td><td class="num">7.0</td><td class="num">7.0</td><td class="num">7.5</td><td class="num">7.5</td><td class="num">7.0</td><td class="num">6.5</td><td class="num">7.38<div class="bar"><i class="b-mut" style="width:73.8%"></i></div></td></tr>
+        <tr><td class="rank">5</td><td>graphiti（Zep 团队）</td><td class="num stars">32,771</td><td class="num">7.8</td><td class="num">8.5</td><td class="num">8.0</td><td class="num">6.0</td><td class="num">7.0</td><td class="num">6.5</td><td class="num">6.0</td><td class="num">8.0</td><td class="num">6.5</td><td class="num">7.0</td><td class="num">7.26<div class="bar"><i class="b-mut" style="width:72.6%"></i></div></td></tr>
+        <tr><td class="rank">6</td><td>basic-memory</td><td class="num stars">4,557</td><td class="num">6.5</td><td class="num">6.5</td><td class="num">9.0</td><td class="num">6.0</td><td class="num">9.0</td><td class="num">7.5</td><td class="num">8.5</td><td class="num">7.5</td><td class="num">7.5</td><td class="num">5.0</td><td class="num">7.26<div class="bar"><i class="b-mut" style="width:72.6%"></i></div></td></tr>
+        <tr><td class="rank">7</td><td>Letta（原 MemGPT）</td><td class="num stars">25,421</td><td class="num">8.0</td><td class="num">8.5</td><td class="num">8.0</td><td class="num">6.0</td><td class="num">6.5</td><td class="num">6.0</td><td class="num">6.5</td><td class="num">8.0</td><td class="num">6.5</td><td class="num">6.5</td><td class="num">7.22<div class="bar"><i class="b-mut" style="width:72.2%"></i></div></td></tr>
+        <tr><td class="rank">8</td><td>mcp-memory-service</td><td class="num stars">2,116</td><td class="num">6.0</td><td class="num">6.0</td><td class="num">9.0</td><td class="num">5.0</td><td class="num">9.5</td><td class="num">8.5</td><td class="num">9.0</td><td class="num">7.5</td><td class="num">7.5</td><td class="num">6.0</td><td class="num">7.17<div class="bar"><i class="b-mut" style="width:71.7%"></i></div></td></tr>
+        <tr><td class="rank">9</td><td>memobase</td><td class="num stars">2,956</td><td class="num">7.2</td><td class="num">7.0</td><td class="num">8.0</td><td class="num">6.0</td><td class="num">8.0</td><td class="num">7.0</td><td class="num">7.5</td><td class="num">7.5</td><td class="num">7.0</td><td class="num">6.0</td><td class="num">7.15<div class="bar"><i class="b-mut" style="width:71.5%"></i></div></td></tr>
+        <tr><td class="rank">10</td><td>cognee</td><td class="num stars">33,263</td><td class="num">8.0</td><td class="num">8.5</td><td class="num">8.0</td><td class="num">5.5</td><td class="num">7.0</td><td class="num">6.0</td><td class="num">6.0</td><td class="num">7.5</td><td class="num">6.5</td><td class="num">6.5</td><td class="num">7.14<div class="bar"><i class="b-mut" style="width:71.4%"></i></div></td></tr>
+        <tr><td class="rank">11</td><td>supermemory</td><td class="num stars">31,595</td><td class="num">8.0</td><td class="num">8.0</td><td class="num">6.5</td><td class="num">5.5</td><td class="num">6.5</td><td class="num">8.0</td><td class="num">7.5</td><td class="num">8.0</td><td class="num">7.0</td><td class="num">6.5</td><td class="num">7.14<div class="bar"><i class="b-mut" style="width:71.4%"></i></div></td></tr>
+        <tr><td class="rank">12</td><td>Zep</td><td class="num stars">5,005</td><td class="num">7.0</td><td class="num">7.5</td><td class="num">6.5</td><td class="num">6.5</td><td class="num">6.0</td><td class="num">7.5</td><td class="num">7.0</td><td class="num">7.5</td><td class="num">7.0</td><td class="num">7.0</td><td class="num">6.88<div class="bar"><i class="b-mut" style="width:68.8%"></i></div></td></tr>
+      </tbody>
+    </table>
+    <p class="note">公开 QA 榜的 OMEGA（95.4）、Hindsight（91.4）是研究/自建项目，GitHub 上没有可比生态，放表 2 脚注，不参与排名。</p>
+  </div>
+
+  <div class="card">
+    <h2>表 2 · 公开基准与部署硬指标</h2>
+    <p class="note">QA = 答对率；检索 R@5 = gold session 是否进前 5。两列口径不同，不要跨列直接比大小。</p>
+    <table>
+      <thead><tr><th>排名</th><th>项目</th><th>LongMemEval QA</th><th>检索 R@5</th><th>本地</th><th>零 API</th><th>需模型</th><th>审核治理</th><th>MCP</th><th class="num">Stars</th></tr></thead>
+      <tbody>
+        <tr class="hi"><td class="rank"><span class="medal">🥇</span>1</td><td><b>memory-eternal（Ollama）</b></td><td>未测</td><td><b>97.2%</b> · 500 题全量</td><td><span class="pill y">✅</span></td><td><span class="pill m">需 Ollama</span></td><td><span class="pill n">是</span></td><td><span class="pill y">审核+审计+回收</span></td><td><span class="pill y">✅</span></td><td class="num stars">176</td></tr>
+        <tr class="hi"><td class="rank"><span class="medal">🥈</span>2</td><td><b>memory-eternal（内置）</b></td><td>未测</td><td><b>95.4%</b> · 500 题全量</td><td><span class="pill y">✅</span></td><td><span class="pill y">✅</span></td><td><span class="pill y">否</span></td><td><span class="pill y">审核+审计+回收</span></td><td><span class="pill y">✅</span></td><td class="num stars">176</td></tr>
+        <tr><td class="rank"><span class="medal">🥉</span>3</td><td>Mem0</td><td><b>94.4%</b></td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill m">部分</span></td><td><span class="pill n">是</span></td><td><span class="pill m">弱</span></td><td><span class="pill y">✅</span></td><td class="num stars">68,849</td></tr>
+        <tr><td class="rank">4</td><td>MemOS</td><td>—</td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill m">部分</span></td><td><span class="pill n">是</span></td><td><span class="pill m">中</span></td><td><span class="pill y">✅</span></td><td class="num stars">12,366</td></tr>
+        <tr><td class="rank">5</td><td>graphiti</td><td>—</td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill m">部分</span></td><td><span class="pill n">是</span></td><td><span class="pill m">中</span></td><td><span class="pill n">—</span></td><td class="num stars">32,771</td></tr>
+        <tr><td class="rank">6</td><td>basic-memory</td><td>—</td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill y">✅</span></td><td><span class="pill y">否</span></td><td><span class="pill m">弱</span></td><td><span class="pill y">✅</span></td><td class="num stars">4,557</td></tr>
+        <tr><td class="rank">7</td><td>Letta（MemGPT）</td><td>—</td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill m">部分</span></td><td><span class="pill n">是</span></td><td><span class="pill m">中</span></td><td><span class="pill n">—</span></td><td class="num stars">25,421</td></tr>
+        <tr><td class="rank">8</td><td>mcp-memory-service</td><td>—</td><td>80.4–86.0%</td><td><span class="pill y">✅</span></td><td><span class="pill y">✅</span></td><td><span class="pill m">可选</span></td><td><span class="pill m">弱</span></td><td><span class="pill y">✅</span></td><td class="num stars">2,116</td></tr>
+        <tr><td class="rank">9</td><td>memobase</td><td>—</td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill m">部分</span></td><td><span class="pill n">是</span></td><td><span class="pill m">中</span></td><td><span class="pill n">—</span></td><td class="num stars">2,956</td></tr>
+        <tr><td class="rank">10</td><td>cognee</td><td>—</td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill m">部分</span></td><td><span class="pill n">是</span></td><td><span class="pill m">中</span></td><td><span class="pill n">—</span></td><td class="num stars">33,263</td></tr>
+        <tr><td class="rank">11</td><td>supermemory</td><td>81.6–85.2%</td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill m">部分</span></td><td><span class="pill n">是</span></td><td><span class="pill m">弱</span></td><td><span class="pill n">—</span></td><td class="num stars">31,595</td></tr>
+        <tr><td class="rank">12</td><td>Zep</td><td>71.2%</td><td>—</td><td><span class="pill y">✅</span></td><td><span class="pill n">❌</span></td><td><span class="pill n">是</span></td><td><span class="pill m">中</span></td><td><span class="pill n">—</span></td><td class="num stars">5,005</td></tr>
+      </tbody>
+    </table>
+    <div class="warn">我们的 97.2% / 95.4% 是 <b>检索 R@5</b>，不是 QA。参考（不计入排名）：OMEGA QA 95.4%、Hindsight 91.4%。</div>
+  </div>
+
+  <div class="card">
+    <h2>一句话选型</h2>
+    <div class="grid">
+      <div class="kpi acc"><b>memory-eternal</b><span>开箱即用、零成本、可审计的本地记忆；内置语义即可，想更强再上 Ollama</span></div>
+      <div class="kpi blue"><b>Mem0</b><span>最大生态、QA 分高，能接受云和费用</span></div>
+      <div class="kpi ok"><b>cognee / graphiti</b><span>图记忆、知识图谱</span></div>
+      <div class="kpi"><b>basic-memory / Letta</b><span>Markdown 纯文件 / 有状态 Agent</span></div>
+    </div>
+  </div>
+
+  <div class="card foot">
+    <b>口径（必须一起引用）</b><br/>
+    1. 表 1 是工程判断分，权重一变排名会变；<br/>
+    2. QA 分来自各项目自报，没有中立第三方审计；<br/>
+    3. memory-eternal 的 97.2%/95.4% 是 LongMemEval-S <b>检索 R@5</b>（500 题全量、可复跑），不是 QA；<br/>
+    4. Stars 取 2026-11-12 GitHub API，是社区热度，不是能力分；<br/>
+    5. 复跑命令与逐题结果见 <code>bench/FINAL-REPORT.md</code>。
+  </div>
+</div>
+</body>
+</html>

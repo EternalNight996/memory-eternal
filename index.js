@@ -32,7 +32,7 @@ import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
-import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
+import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, preferenceLines, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { recordLedger } from './lib/ledger.js'
@@ -916,7 +916,8 @@ export function apply(ctx, config) {
           tags: ['raw', 'distill-failed'],
           body: text,
           source,
-          status: resolveAuditStatus(cfg, rawKind, source),
+          // 蒸馏失败必须进审核：即使全局 auditMode=none，失败兜底的原文卡也不能直接入库
+          status: 'pending',
           submittedBy: source,
           severity: 'info',
           reason: `AI 自动沉淀（蒸馏无输出 → 原文卡兜底；主因：${why}）`,
@@ -944,6 +945,12 @@ export function apply(ctx, config) {
         submittedBy: DSH_AGENT,
         severity: 'info',
         reason: 'AI 自动沉淀（蒸馏卡）',
+      }
+      // 偏好类查询（“我平时喜欢…”）在正文里往往只有一句，蒸馏可能丢掉；零成本补一段可检索摘要
+      const prefs = preferenceLines(text)
+      if (prefs.length) {
+        card.body = String(card.body || '') + '\n\n偏好摘要：\n- ' + prefs.join('\n- ')
+        card.tags = [...(Array.isArray(card.tags) ? card.tags : []), 'preference']
       }
       const out = await captureCard(root, card, { threshold: cfg.dedupThreshold })
       if (out.ok) {

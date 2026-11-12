@@ -1,0 +1,1468 @@
+{
+  "summary": {
+    "label": "s3-old-snapshot",
+    "vault": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\dsh-rVWU3b\\mc-bench-snap-20261111-194827",
+    "golden": "bench\\golden-recall.json",
+    "cases": 109,
+    "cards": 2544,
+    "limit": 10,
+    "R5": 0,
+    "R10": 0,
+    "MRR": 0,
+    "Top1": 0,
+    "zeroHit": 109,
+    "latencyMs": {
+      "mean": 0.7,
+      "p95": 1.4
+    },
+    "byKind": {
+      "title": {
+        "n": 30,
+        "R5": 0,
+        "Top1": 0
+      },
+      "body": {
+        "n": 30,
+        "R5": 0,
+        "Top1": 0
+      },
+      "noisy": {
+        "n": 20,
+        "R5": 0,
+        "Top1": 0
+      },
+      "natural2": {
+        "n": 10,
+        "R5": 0,
+        "Top1": 0
+      },
+      "natural": {
+        "n": 19,
+        "R5": 0,
+        "Top1": 0
+      }
+    },
+    "at": "2026-11-11T12:21:14.993Z"
+  },
+  "results": [
+    {
+      "id": "t0",
+      "kind": "title",
+      "query": "制造业售前澄清清单提示词（固定模板）",
+      "expected": [
+        "05-Prompts/制造业售前澄清清单提示词固定模板.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t1",
+      "kind": "title",
+      "query": "1.任务依赖索性和 修士状态 结合一起优化空间",
+      "expected": [
+        "04-Content/1任务依赖索性和-修士状态-结合一起优化空间.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t2",
+      "kind": "title",
+      "query": "craft-anything Windows 编译环境：ring 的 cl D8050 问题与字体配置",
+      "expected": [
+        "07-Tools/craft-anything-windows-编译环境ring-的-cl-d8050-问题与字体配置.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t3",
+      "kind": "title",
+      "query": "任务排队改派竞态：interrupt 后状态未同步导致改派失败",
+      "expected": [
+        "08-Mistakes/任务排队改派竞态interrupt-后状态未同步导致改派失败.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t4",
+      "kind": "title",
+      "query": "ETest 烧录防重复锁定：do_write 成功后加 locked_key 锁",
+      "expected": [
+        "08-Mistakes/etest-烧录防重复锁定do-write-成功后加-locked-key-锁.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t5",
+      "kind": "title",
+      "query": "DailyCultivation V1 交付状态与验收标准",
+      "expected": [
+        "02-Projects/dailycultivation-v1-交付状态与验收标准.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t6",
+      "kind": "title",
+      "query": "shj-client 登录链路 6/6 自检：自动登录凭证语义与三层验证法",
+      "expected": [
+        "07-Tools/shj-client-登录链路-66-自检自动登录凭证语义与三层验证法.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t7",
+      "kind": "title",
+      "query": "dsh-pixel-team 开宗向导与立誓流程设计决策（0.1.82-0.1.90）",
+      "expected": [
+        "02-Projects/dsh-pixel-team-开宗向导与立誓流程设计决策0182-0190.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t8",
+      "kind": "title",
+      "query": "DSH 会话工作区（草稿本）v0.26.0 设计与取舍",
+      "expected": [
+        "02-Projects/dsh-会话工作区草稿本v0260-设计与取舍.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t9",
+      "kind": "title",
+      "query": "ltica 自带 workspace、Dify 自带部署平台",
+      "expected": [
+        "04-Content/ltica-自带-workspacedify-自带部署平台.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t10",
+      "kind": "title",
+      "query": "g libs. 助手：**⚠ 自动沉淀异常提醒**：记忆核心报告「蒸馏调用失败（",
+      "expected": [
+        "04-Content/g-libs-助手-自动沉淀异常提醒记忆核心报告蒸馏调用失败.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t11",
+      "kind": "title",
+      "query": "服务器带宽选型：1-5M 换算与多租户起步建议",
+      "expected": [
+        "03-Knowledge/服务器带宽选型1-5m-换算与多租户起步建议.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t12",
+      "kind": "title",
+      "query": "pnpm 安装 GitHub 仓库卡住的定位与本地 tarball 兜底",
+      "expected": [
+        "08-Mistakes/pnpm-安装-github-仓库卡住的定位与本地-tarball-兜底.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t13",
+      "kind": "title",
+      "query": "非员工合伙人《竞业与保密承诺书》远程签署方案（eternal 公司）",
+      "expected": [
+        "06-Business/非员工合伙人竞业与保密承诺书远程签署方案eternal-公司.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t14",
+      "kind": "title",
+      "query": "用户：在windows服务器中 etest和findany 用egui运行都无界",
+      "expected": [
+        "04-Content/用户在windows服务器中-etest和findany-用egui运行都无界.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t15",
+      "kind": "title",
+      "query": "验证OK 修复的版本请更新到etest",
+      "expected": [
+        "04-Content/验证ok-修复的版本请更新到etest.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t16",
+      "kind": "title",
+      "query": "「开宗」九阵营架构设计",
+      "expected": [
+        "02-Projects/开宗九阵营架构设计.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t17",
+      "kind": "title",
+      "query": "dsh-pixel-team 项目关键知识（架构/门禁/发版/踩坑）",
+      "expected": [
+        "02-Projects/dsh-pixel-team-项目关键知识架构门禁发版踩坑.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t18",
+      "kind": "title",
+      "query": "BATTERY工步电压项精简：V点1(COM3)+mV点2(COM4)",
+      "expected": [
+        "02-Projects/battery工步电压项精简v点1com3mv点2com4.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t19",
+      "kind": "title",
+      "query": "修复发布v0.17.0",
+      "expected": [
+        "04-Content/修复发布v0170.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t20",
+      "kind": "title",
+      "query": "openmausbot 部署分析稿审查要点与事实核对清单",
+      "expected": [
+        "03-Knowledge/openmausbot-部署分析稿审查要点与事实核对清单.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t21",
+      "kind": "title",
+      "query": "agents_pixe_roles 与 agents_pixe_team 工具使用指南",
+      "expected": [
+        "03-Knowledge/agents-pixe-roles-与-agents-pixe-team-工具使用指南.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t22",
+      "kind": "title",
+      "query": "贪吃蛇大作战 Web 游戏实现要点与 N1/N3/N4 修复",
+      "expected": [
+        "02-Projects/贪吃蛇大作战-web-游戏实现要点与-n1n3n4-修复.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t23",
+      "kind": "title",
+      "query": "MVCheck 记录查询判定合并与日志工序源改造",
+      "expected": [
+        "02-Projects/mvcheck-记录查询判定合并与日志工序源改造.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t24",
+      "kind": "title",
+      "query": "shj-platform CI 证书不入库导致的回归与 Copy-Item 嵌套事故",
+      "expected": [
+        "08-Mistakes/shj-platform-ci-证书不入库导致的回归与-copy-item-嵌套事故.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t25",
+      "kind": "title",
+      "query": "DSH 记忆入口宿主识别：writable/isDsh 双层机制",
+      "expected": [
+        "03-Knowledge/dsh-记忆入口宿主识别writableisdsh-双层机制.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t26",
+      "kind": "title",
+      "query": "justfile 可读性优化：分组+注释顺序+private（etest/dsh 项目）",
+      "expected": [
+        "07-Tools/justfile-可读性优化分组注释顺序privateetestdsh-项目.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t27",
+      "kind": "title",
+      "query": "dsh 六仓取证：工具计数实测口径与只读产物修复（t3 repair round 2）",
+      "expected": [
+        "02-Projects/dsh-六仓取证工具计数实测口径与只读产物修复t3-repair-round-2.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t28",
+      "kind": "title",
+      "query": "iOS 真机开发环境与免费账号坑（V1 验收流程）",
+      "expected": [
+        "07-Tools/ios-真机开发环境与免费账号坑v1-验收流程.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "t29",
+      "kind": "title",
+      "query": "MVCheck 工单校验临时禁用与 SN 实时获取改造",
+      "expected": [
+        "02-Projects/mvcheck-工单校验临时禁用与-sn-实时获取改造.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b30",
+      "kind": "body",
+      "query": "统一筛选/列表逻辑后自查出四处「毛边",
+      "expected": [
+        "03-Knowledge/etest-筛选列表毛边完善排序口径空态文案空分组跳过.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b31",
+      "kind": "body",
+      "query": "拿到后我会在 VM（UEFI）里走一",
+      "expected": [
+        "04-Content/窗体高度从-470-调到-520按钮勾选框提示的坐标都排过按钮行-y300沿用行-y360勾选框-x4.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b32",
+      "kind": "body",
+      "query": "修复方案（重命名不可用时改复制）",
+      "expected": [
+        "07-Tools/nvm-windows-环境被官方安装包污染-项目级-node-18-切换yarn-1-engines-硬校验.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b33",
+      "kind": "body",
+      "query": "SHJ-platform R5 客户",
+      "expected": [
+        "02-Projects/shj-platform-r5-客户端收尾预检离线缓存100并发压测实现与决策.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b34",
+      "kind": "body",
+      "query": "meng-you 官网同步 dsh-",
+      "expected": [
+        "02-Projects/meng-you-官网同步-dsh-pixel-team-017-发布流程.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b35",
+      "kind": "body",
+      "query": "办公室选人 spawn 次数 ==",
+      "expected": [
+        "04-Content/用户关于成员团队不全部导入-用户选择了什么角色则导入什么角色与编排什么团队导.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b36",
+      "kind": "body",
+      "query": "目标是让遍历与明细行都变成常量级内存",
+      "expected": [
+        "02-Projects/a-遍历流式化scannerengine-改造与内存优化路线.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b37",
+      "kind": "body",
+      "query": "若要在现有队伍里追加任务，需接宿主任",
+      "expected": [
+        "02-Projects/dsh-pixel-team-v01155-归档持久化与发布纪律.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b38",
+      "kind": "body",
+      "query": "需要关闭时直接切到「宗门进度」",
+      "expected": [
+        "02-Projects/宗门进度审核后跳转与子修士关联主任务.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b39",
+      "kind": "body",
+      "query": "其中 ⑤⑥ 已落地，1-4、7 为排",
+      "expected": [
+        "02-Projects/mes-查询式单列排版重构施工图cfg-app-三区布局.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b40",
+      "kind": "body",
+      "query": "在 balanced/full 的「",
+      "expected": [
+        "03-Knowledge/内核方案呈现层分级与反ai味设计规范.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b41",
+      "kind": "body",
+      "query": "根因： useLineups 的 g",
+      "expected": [
+        "02-Projects/dsh-pixel-team-三层模型重构皮肤角色阵容闭环-2.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b42",
+      "kind": "body",
+      "query": "两者是上下游关系，并非竞品：",
+      "expected": [
+        "02-Projects/craft-anything-与-rea-对比结论.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b43",
+      "kind": "body",
+      "query": "F-023：弹窗正常但拿不到支付页（",
+      "expected": [
+        "02-Projects/短剧平台红队演习f-023-与最终交付结论.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b44",
+      "kind": "body",
+      "query": "openkill 项目页 UI 表格",
+      "expected": [
+        "02-Projects/openkill-项目页-ui-表格化与-marvel-主题进度.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b45",
+      "kind": "body",
+      "query": "dsh-theme npm 包发布为",
+      "expected": [
+        "02-Projects/dsh-theme-npm-包发布为-eternalnightdsh-themescoped的流程与关键决策.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b46",
+      "kind": "body",
+      "query": "文首写「核查日期 2026-10-2",
+      "expected": [
+        "04-Content/环境工作目录-fmyappeternalmeng-you梦游科技官网项目.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b47",
+      "kind": "body",
+      "query": "国内文生图厂商对比与 craft-a",
+      "expected": [
+        "03-Knowledge/国内文生图厂商对比与-craft-anything-接入选型.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b48",
+      "kind": "body",
+      "query": "装进 desktop profile",
+      "expected": [
+        "02-Projects/dsh-pixel-team-交付即展示与藏经阁展示面板v01127128.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b49",
+      "kind": "body",
+      "query": "真缺口是 矛盾判别 与「同目标不同工",
+      "expected": [
+        "02-Projects/memory-eternal-v01021库打开即体检-overview-降级-doctor-恢复引导与发布链加固.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b50",
+      "kind": "body",
+      "query": "运行方式 日志文件 判定时机",
+      "expected": [
+        "02-Projects/findany-日志标准化cligui-双日志文件与轮转.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b51",
+      "kind": "body",
+      "query": "单人维护（milind-soni），",
+      "expected": [
+        "03-Knowledge/openmausbot-teams-仓库分析内容营销产品与集成缺陷.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b52",
+      "kind": "body",
+      "query": "配置判断用了真值判断，缺键时 und",
+      "expected": [
+        "08-Mistakes/memory-eternal-0314缺键导致自动沉淀召回被静默关闭的修复.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b53",
+      "kind": "body",
+      "query": "百度-香港反向代理与TLS回源架构",
+      "expected": [
+        "02-Projects/百度-香港反向代理与tls回源架构.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b54",
+      "kind": "body",
+      "query": "教训：打 tag 前检查 git s",
+      "expected": [
+        "02-Projects/dsh-pixel-team-项目现状与质量门禁设计v0151.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b55",
+      "kind": "body",
+      "query": "draft ⚡极速草稿 允许硬编码，",
+      "expected": [
+        "02-Projects/dsh-pixel-team-多模式改造五模式定义与模块架构.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b56",
+      "kind": "body",
+      "query": "禁止过度设计、不写非冒烟测试、不引入",
+      "expected": [
+        "02-Projects/贪吃蛇终端项目windows-环境约束与-t2-审查结论.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b57",
+      "kind": "body",
+      "query": "要改的话建议：保留旧 id 做兼容别",
+      "expected": [
+        "04-Content/任何dat留下的项目名与图标ico等-都需要替换掉.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b58",
+      "kind": "body",
+      "query": "连续自动重开预算 5 次 ，观察到已",
+      "expected": [
+        "02-Projects/t83-右栏主视图标签自愈实现与实机验证阻塞.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "b59",
+      "kind": "body",
+      "query": "结果：普通用户完全看不到激活入口",
+      "expected": [
+        "02-Projects/mengbot-解锁码入口可见性修复01148.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n60",
+      "kind": "noisy",
+      "query": "请问 图标语言 = 米黄宣纸底 + 是怎么处理的？",
+      "expected": [
+        "02-Projects/每日修仙-app-图标接入与视觉方向.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n61",
+      "kind": "noisy",
+      "query": "请问 正确做法：要么用 impor 是怎么处理的？",
+      "expected": [
+        "08-Mistakes/dsh-theme-threejs-3d皮肤实现与回退历程.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n62",
+      "kind": "noisy",
+      "query": "请问 迁移策略（不破坏消费者） 是怎么处理的？",
+      "expected": [
+        "02-Projects/hikvision-rs-架构分析与重构方案.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n63",
+      "kind": "noisy",
+      "query": "请问 mengbot 市场站（ap 是怎么处理的？",
+      "expected": [
+        "02-Projects/mengbot-市场站appsmarket本地已上线与部署现状.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n64",
+      "kind": "noisy",
+      "query": "请问 必须有英文 README （ 是怎么处理的？",
+      "expected": [
+        "04-Content/所以怎么升级本项目.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n65",
+      "kind": "noisy",
+      "query": "请问 拿到弹窗原文即可判断是哪一步 是怎么处理的？",
+      "expected": [
+        "08-Mistakes/etest-本地登录失败根因用户名取内存旧值-企业精确匹配.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 2,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n66",
+      "kind": "noisy",
+      "query": "请问 顺手清理探库时留下的临时文件 是怎么处理的？",
+      "expected": [
+        "02-Projects/etest-三仓库-rr-逆向解析修复提交与-linux-打包要点.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 3,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n67",
+      "kind": "noisy",
+      "query": "请问 关键点： .host 必须 是怎么处理的？",
+      "expected": [
+        "02-Projects/右栏洞府块撑满高度消除底部留白t45.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 3,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n68",
+      "kind": "noisy",
+      "query": "请问 接口定义（《CMES 对外接 是怎么处理的？",
+      "expected": [
+        "03-Knowledge/cmes-getstationpassqty-返回空数组的文档口径判定与排查路径.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 2,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n69",
+      "kind": "noisy",
+      "query": "请问 三清超然裁决/2 严格需合议 是怎么处理的？",
+      "expected": [
+        "03-Knowledge/门派系统-v2policy-与-role-与-skin-三层架构设计.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n70",
+      "kind": "noisy",
+      "query": "请问 两种最终结果都应是新图标 是怎么处理的？",
+      "expected": [
+        "07-Tools/findany-运行时窗口图标加载机制与产物路径排查.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n71",
+      "kind": "noisy",
+      "query": "请问 应用数量上限仅展示、尚未拦截 是怎么处理的？",
+      "expected": [
+        "02-Projects/mengbot-解锁码系统架构安全约束与铸码流程.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n72",
+      "kind": "noisy",
+      "query": "请问 目标为「继续完成交付」任务直 是怎么处理的？",
+      "expected": [
+        "02-Projects/灵枢-霓虹调度台暗色霓虹全栈工单看板零依赖-node-sqlitewal.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n73",
+      "kind": "noisy",
+      "query": "请问 可按项目 argon2 参数 是怎么处理的？",
+      "expected": [
+        "07-Tools/etest-账号数据合并发行包用户迁移与密码规律.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n74",
+      "kind": "noisy",
+      "query": "请问 CMOS 掉电时偏移达数年 是怎么处理的？",
+      "expected": [
+        "03-Knowledge/cmos-checksum-error-产线防呆方案.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n75",
+      "kind": "noisy",
+      "query": "请问 建议以显式回落默认值（如 h 是怎么处理的？",
+      "expected": [
+        "08-Mistakes/掌教返回主对话右栏空白问题与修复01163.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n76",
+      "kind": "noisy",
+      "query": "请问 首次构建预计 10–25 分 是怎么处理的？",
+      "expected": [
+        "02-Projects/腾讯云香港轻量-90元档购买参数与部署前置顺序.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n77",
+      "kind": "noisy",
+      "query": "请问 原因是（遍历流式 + 明细落 是怎么处理的？",
+      "expected": [
+        "02-Projects/findany-v200-内存优化进度与流式改造计划.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n78",
+      "kind": "noisy",
+      "query": "请问 助手：Social prev 是怎么处理的？",
+      "expected": [
+        "04-Content/time-sampled-while-preparing-turn-34-step-2-2026-10-25t01.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "n79",
+      "kind": "noisy",
+      "query": "请问 钳制下限保持 48，需同步改 是怎么处理的？",
+      "expected": [
+        "02-Projects/智子头顶常驻进度文字与更小尺寸档实现.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h80",
+      "kind": "natural2",
+      "query": "开宗请求一直卡着不动是怎么回事",
+      "expected": [
+        "08-Mistakes/开宗请求卡死客户端90s服务端65s双层超时修复.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h81",
+      "kind": "natural2",
+      "query": "首页点应用进不去页面",
+      "expected": [
+        "08-Mistakes/首页应用mcp-列表页-404-修复buildmjs-补索引页.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h82",
+      "kind": "natural2",
+      "query": "Umami 怎么保存访客真实 IP",
+      "expected": [
+        "03-Knowledge/umami-原始-ip-存储方案ingestion-sidecar.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h83",
+      "kind": "natural2",
+      "query": "用 npx 装插件时路径对不上",
+      "expected": [
+        "03-Knowledge/dsh-插件发布与安装的版本路径陷阱.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h84",
+      "kind": "natural2",
+      "query": "help 示例怎么补的",
+      "expected": [
+        "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h85",
+      "kind": "natural2",
+      "query": "插件要提交到哪几个市场",
+      "expected": [
+        "03-Knowledge/dsh-plugin-submit-marketplace-收录与发布流程.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h86",
+      "kind": "natural2",
+      "query": "默认验收条件被强加给用户是怎么改的",
+      "expected": [
+        "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h87",
+      "kind": "natural2",
+      "query": "验证脚本全部 FAIL 怎么排查",
+      "expected": [
+        "08-Mistakes/cvte-mes-验证脚本-21-项-pc-拆分与-dns-全-fail-排障.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h88",
+      "kind": "natural2",
+      "query": "滚动条拖不到底怎么回事",
+      "expected": [
+        "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "h89",
+      "kind": "natural2",
+      "query": "更新按钮位置乱跑怎么固定",
+      "expected": [
+        "06-BestPractices/dsh-desktop-更新入口固定设置左侧栏底部.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q90",
+      "kind": "natural",
+      "query": "之前跟 Hindsight 比过一次分数，结论是什么",
+      "expected": [
+        "03-Knowledge/hindsight-与-memory-eternal-分数对比及评测口径.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q91",
+      "kind": "natural",
+      "query": "Hindsight 和这个插件的定位有什么不同",
+      "expected": [
+        "03-Knowledge/memory-eternal-与-hindsight-的区别及-v0313-默认参数.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q92",
+      "kind": "natural",
+      "query": "中文两个字搜不到是怎么修的",
+      "expected": [
+        "03-Knowledge/mengbot-记忆系统中文检索修复cjk-bigram-影子索引.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q93",
+      "kind": "natural",
+      "query": "v0.24 那版检索层改了什么",
+      "expected": [
+        "02-Projects/v0240-检索层改造fts5-bigram-预切词-增量索引.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 5,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q94",
+      "kind": "natural",
+      "query": "端到端召回测试怎么做的",
+      "expected": [
+        "02-Projects/memory-eternal-端到端召回测试三步骤验证实现经验.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q95",
+      "kind": "natural",
+      "query": "Bitwarden 的 Argon2id 是怎么配的",
+      "expected": [
+        "02-Projects/mengbot-国产实时语音bitwarden-argon2idlint-清零工程记录.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q96",
+      "kind": "natural",
+      "query": "记忆库跑了 60 天效率怎么样",
+      "expected": [
+        "03-Knowledge/dsh-memory-记忆库-60-天效率评估结论.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q97",
+      "kind": "natural",
+      "query": "这个插件的职责边界有哪些",
+      "expected": [
+        "03-Knowledge/记忆插件职责边界与三项可优化点.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q98",
+      "kind": "natural",
+      "query": "findany 日志落盘和双远端发布怎么做的",
+      "expected": [
+        "02-Projects/findany-日志落盘与双远端发布流程.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q99",
+      "kind": "natural",
+      "query": "memory-eternal 和 mengbot 的记忆系统架构区别",
+      "expected": [
+        "03-Knowledge/mengbot-与-memory-eternal-记忆系统架构对比.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q100",
+      "kind": "natural",
+      "query": "自动沉淀为什么会被静默关掉",
+      "expected": [
+        "08-Mistakes/memory-eternal-0314缺键导致自动沉淀召回被静默关闭的修复.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q101",
+      "kind": "natural",
+      "query": "核心记忆常驻注入要花多少 token",
+      "expected": [
+        "03-Knowledge/核心记忆常驻注入的token成本与设计约束.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q102",
+      "kind": "natural",
+      "query": "待审核卡片时间显示不对是怎么修的",
+      "expected": [
+        "02-Projects/memory-eternal-55待审核卡片时间时区未本地化修复.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q103",
+      "kind": "natural",
+      "query": "知识图谱星球视图放大掉帧怎么办",
+      "expected": [
+        "03-Knowledge/知识图谱星球视图放大掉帧优化与公转随机化.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q104",
+      "kind": "natural",
+      "query": "npm 包和 github clone 体积差多少",
+      "expected": [
+        "02-Projects/memory-eternal-插件-npm-与-github-clone-体积对比.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q105",
+      "kind": "natural",
+      "query": "插件市场收录要提几个 PR",
+      "expected": [
+        "03-Knowledge/ds插件市场收录-pr提交三大市场踩坑与正确流程.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q106",
+      "kind": "natural",
+      "query": "皮肤一共几套，怎么做响应式的",
+      "expected": [
+        "02-Projects/memory-eternal-主题皮肤系统defaultpoplight与三端响应式设置页.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q107",
+      "kind": "natural",
+      "query": "评分表里成本效率那列是怎么算的",
+      "expected": [
+        "03-Knowledge/记忆系统评分表成本效率列方向与各方案实测依据.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 1,
+      "top": [],
+      "err": "unable to open database file"
+    },
+    {
+      "id": "q108",
+      "kind": "natural",
+      "query": "长期记忆哪个系统更好用",
+      "expected": [
+        "03-Knowledge/memory-eternal-与-hindsight-的区别及-v0313-默认参数.md",
+        "03-Knowledge/hindsight-与-memory-eternal-分数对比及评测口径.md",
+        "03-Knowledge/mengbot-与-memory-eternal-记忆系统架构对比.md"
+      ],
+      "rank": 0,
+      "hits": 0,
+      "ms": 0,
+      "top": [],
+      "err": "unable to open database file"
+    }
+  ]
+}

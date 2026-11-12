@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8" />
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;width:1600px;height:900px;overflow:hidden;background:#0b0d12;color:#fff;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .stage{position:relative;width:1600px;height:900px;overflow:hidden;
+    background:radial-gradient(1200px 600px at 78% 12%,rgba(230,36,41,.35),transparent 60%),
+               radial-gradient(900px 700px at 92% 90%,rgba(31,79,216,.30),transparent 60%),
+               linear-gradient(135deg,#0b0d12 0%,#12151d 55%,#0b0d12 100%)}
+  .halftone{position:absolute;inset:0;opacity:.18;
+    background-image:radial-gradient(#ffffff 1px,transparent 1px);background-size:10px 10px;
+    mask-image:radial-gradient(60% 60% at 70% 40%,#000 20%,transparent 75%);
+    -webkit-mask-image:radial-gradient(60% 60% at 70% 40%,#000 20%,transparent 75%)}
+  .web{position:absolute;right:-120px;top:-160px;width:780px;height:780px;opacity:.5;
+    background:
+      repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.22) 0deg 1deg,transparent 1deg 12deg),
+      repeating-radial-gradient(circle at 50% 50%,transparent 0 58px,rgba(255,255,255,.14) 58px 60px,transparent 60px 118px);
+    border-radius:50%}
+  .web2{position:absolute;left:-220px;bottom:-260px;width:560px;height:560px;opacity:.22;
+    background:repeating-radial-gradient(circle at 50% 50%,transparent 0 44px,rgba(255,255,255,.16) 44px 46px,transparent 46px 92px);border-radius:50%}
+  .frame{position:absolute;left:22px;right:22px;top:22px;bottom:22px;border:3px solid #e62429;border-radius:26px;
+    box-shadow:0 0 0 6px #0b0d12,0 0 60px rgba(230,36,41,.35) inset;pointer-events:none}
+  .frame:after{content:'';position:absolute;inset:10px;border:2px dashed rgba(255,216,61,.55);border-radius:18px}
+  .inner{position:relative;z-index:2;display:flex;height:100%;padding:76px 70px;gap:44px}
+  .left{flex:1 1 58%;display:flex;flex-direction:column;justify-content:center;min-width:0}
+  .brand{display:flex;align-items:center;gap:18px}
+  .brand img{width:92px;height:92px;border-radius:22px;border:3px solid #fff;box-shadow:0 0 0 5px #e62429,0 16px 40px rgba(0,0,0,.5);background:#111}
+  .kick{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;background:#ffd83d;color:#111;font-weight:900;
+    font-size:15px;letter-spacing:.12em;padding:7px 14px;border-radius:6px;transform:rotate(-2deg);box-shadow:6px 6px 0 #111;margin-bottom:18px}
+  h1{margin:0;font-size:86px;line-height:.95;letter-spacing:-.04em;font-weight:900;
+    color:#fff;text-shadow:5px 5px 0 #e62429,10px 10px 0 rgba(0,0,0,.55)}
+  h1 small{display:block;font-size:30px;letter-spacing:.02em;color:#ffd83d;text-shadow:3px 3px 0 #111;margin-top:14px}
+  .desc{margin-top:22px;font-size:20px;line-height:1.8;color:#c9d1dc;max-width:640px}
+  .desc b{color:#fff}
+  .kpis{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
+  .kpi{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.18);border-radius:14px;padding:14px 20px;min-width:170px;backdrop-filter:blur(6px)}
+  .kpi b{display:block;font-size:38px;font-weight:900;letter-spacing:-.02em;color:#ffd83d;text-shadow:2px 2px 0 #111}
+  .kpi span{font-size:13px;color:#aab4c2}
+  .right{flex:1 1 42%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px}
+  .card{width:100%;max-width:520px;background:rgba(12,15,22,.82);border:3px solid #1f4fd8;border-radius:20px;padding:20px 24px;
+    box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 0 6px rgba(31,79,216,.12)}
+  .card h3{margin:0 0 12px;font-size:17px;color:#8fb4ff;letter-spacing:.06em}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px dashed rgba(255,255,255,.14);font-size:16px}
+  .row:last-child{border-bottom:0}
+  .row b{color:#fff}
+  .row .ok{color:#3fb950;font-weight:800}
+  .row .acc{color:#ffd83d;font-weight:900}
+  .tag{position:absolute;right:74px;bottom:64px;display:flex;gap:10px;z-index:3}
+  .tag span{background:#e62429;color:#fff;font-weight:900;font-size:14px;padding:7px 12px;border-radius:6px;transform:rotate(-2deg);box-shadow:4px 4px 0 #111}
+  .tag span:nth-child(2){background:#1f4fd8}
+</style></head>
+<body>
+<div class="stage">
+  <div class="halftone"></div><div class="web"></div><div class="web2"></div><div class="frame"></div>
+  <div class="inner">
+    <div class="left">
+      <div class="kick">🕷 SPIDER EDITION · LOCAL FIRST</div>
+      <div class="brand">
+        <img src="../icon-400.png" alt="memory-eternal" />
+        <div>
+          <h1>memory-eternal<small>给 AI 一个可信的第二大脑</small></h1>
+        </div>
+      </div>
+      <div class="desc">本地 SQLite · <b>先审核再入库</b> · 记忆账本 · 一个库接入 DSH / Claude Code / Codex / Cursor。<br/>零云端、可离线、每条记忆都可追溯。</div>
+      <div class="kpis">
+        <div class="kpi"><b>99.1%</b><span>自建金标 R@5</span></div>
+        <div class="kpi"><b>97.2%</b><span>LongMemEval-S R@5</span></div>
+        <div class="kpi"><b>89.9%</b><span>Top1 命中率</span></div>
+        <div class="kpi"><b>0</b><span>默认依赖 / API 费用</span></div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="card">
+        <h3>WHY IT WINS</h3>
+        <div class="row"><span>人工审核闸门</span><b class="ok">✓ 物理隔离</b></div>
+        <div class="row"><span>不可篡改审计日志</span><b class="ok">✓ SQLite 强制</b></div>
+        <div class="row"><span>内置语义（免装模型）</span><b class="acc">✓ 开箱即用</b></div>
+        <div class="row"><span>Ollama / 在线 API</span><b>可选升级</b></div>
+        <div class="row"><span>记忆账本</span><b>可量化有用率</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="tag"><span>MIT</span><span>v0.32.0</span></div>
+</div>
+</body></html>

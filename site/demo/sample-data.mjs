@@ -8,6 +8,18 @@ const DAY = 86400000
 
 const recent = [
   {
+    slug: 'skill-create-skill', kind: 'skill', title: '技能：create-skill 生成规范技能',
+    tags: ['skill', 'dsh', 'authoring'], agent: 'skill-sync', age: 0.35,
+    section: '技能说明',
+    body: `从本机技能目录自动生成技能卡，写入 10-Skills，强制待审。\n\n- 读取 SKILL.md 的 name / description / 正文。\n- 同一技能内容变化时刷新待审卡，不重复建卡。\n- 批准后才进入主库，可被 memory_recall 召回。`,
+  },
+  {
+    slug: 'skill-publish-kit', kind: 'skill', title: '技能：publish-kit 发布流程',
+    tags: ['skill', 'publish', 'npm'], agent: 'skill-sync', age: 0.6,
+    section: '技能说明',
+    body: `把 npm / GitHub / Gitee / DSH 插件市场的发版步骤收进一个技能。\n\n- 发版前检查版本号、CHANGELOG、构建产物。\n- 三端 tag 必须指向同一个 commit。\n- 发布后验证 registry 与 Release 页面。`,
+  },
+  {
     slug: 'northstar-cursor-pagination', kind: 'project', title: 'northstar API 分页从 offset 改为 cursor',
     tags: ['northstar', 'api', 'pagination', 'sqlite'], agent: 'deepseek-harness', age: 0.2,
     section: '决策',
@@ -194,6 +206,12 @@ const old = [
 
 const pending = [
   {
+    slug: 'skill-memory-audit', kind: 'skill', title: '技能：memory-audit 审核清单',
+    tags: ['skill', 'memory', 'review'], agent: 'skill-sync', age: 0.15,
+    section: '技能说明',
+    body: `审核记忆卡时按固定清单检查：来源、证据、边界、是否过期、是否与已有卡冲突。\n\n- 先看 decision 再看 evidence 是否支撑。\n- 边界缺失时退回补充。\n- 批准后仍可在回收站撤销。`,
+  },
+  {
     slug: 'explainable-recall', kind: 'project', title: 'northstar 2.5 计划：把召回做成可解释的',
     tags: ['northstar', 'recall', 'explainability'], agent: 'deepseek-harness', age: 0.1,
     section: '背景与结论',
@@ -238,8 +256,8 @@ const rejected = [
   },
 ]
 
-const folder = { project: '02-Projects', knowledge: '03-Knowledge', content: '04-Content', prompt: '05-Prompts', business: '06-Business', tool: '07-Tools', mistake: '08-Mistakes' }
-const rank = { project: 0, knowledge: 1, mistake: 2, content: 3, tool: 4, prompt: 5, business: 6 }
+const folder = { project: '02-Projects', knowledge: '03-Knowledge', skill: '10-Skills', content: '04-Content', prompt: '05-Prompts', business: '06-Business', tool: '07-Tools', mistake: '08-Mistakes' }
+const rank = { project: 0, knowledge: 1, skill: 2, mistake: 3, content: 4, tool: 5, prompt: 6, business: 7 }
 
 function make(def, status, idx) {
   const updated = new Date(now - def.age * DAY).toISOString()
@@ -275,11 +293,11 @@ activity.push({ ts: now - 20 * 3600000, action: 'skip', text: '冷却中：距�
 
 const data = {
   generatedAt: new Date(now).toISOString(),
-  version: '0.16.0',
+  version: '0.19.0',
   total: 897,
   recent: 183,
   tags: 1987,
-  byKind: { project: 357, knowledge: 205, mistake: 165, content: 111, tool: 44, prompt: 12, business: 3 },
+  byKind: { project: 357, knowledge: 205, skill: 2, mistake: 165, content: 111, tool: 44, prompt: 12, business: 3 },
   quarantine: { pending: 5, rejected: 2, deleted: 1, total: 8 },
   approved,
   graphCards: approved.concat(oldCards),

@@ -1,0 +1,321 @@
+{
+  "summary": {
+    "label": "re-D3-para",
+    "vault": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\mc-re-171632",
+    "golden": "bench\\paraphrase.json",
+    "cases": 10,
+    "cards": 0,
+    "limit": 10,
+    "clean": true,
+    "expand": true,
+    "R5": 0.5,
+    "R10": 0.6,
+    "MRR": 0.3861,
+    "Top1": 0.3,
+    "zeroHit": 0,
+    "latencyMs": {
+      "mean": 62.5,
+      "p95": 74.3
+    },
+    "byKind": {
+      "paraphrase": {
+        "n": 10,
+        "R5": 0.5,
+        "Top1": 0.3
+      }
+    },
+    "at": "2026-11-12T09:17:38.212Z"
+  },
+  "results": [
+    {
+      "id": "p1",
+      "kind": "paraphrase",
+      "query": "发出的指令一直没回应，程序瘫在等待界面",
+      "expected": [
+        "08-Mistakes/开宗请求卡死客户端90s服务端65s双层超时修复.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 74,
+      "top": [
+        {
+          "path": "08-Mistakes/开宗请求卡死客户端90s服务端65s双层超时修复.md",
+          "title": "开宗请求卡死：客户端90s+服务端65s双层超时修复",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/shj-platform-参数向导-is-wait-开关与执行模式规范化.md",
+          "title": "shj-platform 参数向导 is_wait 开关与执行模式规范化",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/开宗卡住根因阵容重复成员名-超时保护缺失.md",
+          "title": "开宗卡住根因：阵容重复成员名 + 超时保护缺失",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p2",
+      "kind": "paraphrase",
+      "query": "点了快捷入口可是页面打不开",
+      "expected": [
+        "08-Mistakes/首页应用mcp-列表页-404-修复buildmjs-补索引页.md"
+      ],
+      "rank": 2,
+      "hits": 10,
+      "ms": 74,
+      "top": [
+        {
+          "path": "02-Projects/mengbot-解锁码入口可见性修复01148.md",
+          "title": "MengBot 解锁码入口可见性修复（0.1.148）",
+          "score": 19
+        },
+        {
+          "path": "08-Mistakes/首页应用mcp-列表页-404-修复buildmjs-补索引页.md",
+          "title": "首页应用/MCP 列表页 404 修复（build.mjs 补索引页）",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/memory-eternal-插件独立-web-页只读导致保存按钮无反应v0918-修复.md",
+          "title": "memory-eternal 插件：独立 Web 页只读导致保存按钮无反应（v0.9.18 修复）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p3",
+      "kind": "paraphrase",
+      "query": "统计工具怎么留下访客真实地址",
+      "expected": [
+        "03-Knowledge/umami-原始-ip-存储方案ingestion-sidecar.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 74,
+      "top": [
+        {
+          "path": "02-Projects/市场站点数据面板umami-聚合接口与前端实现.md",
+          "title": "市场站点数据面板：Umami 聚合接口与前端实现",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/分享链接-uid-参数不参与身份归因-邀请码绑定无校验安全测试结论.md",
+          "title": "分享链接 UID 参数不参与身份归因 + 邀请码绑定无校验（安全测试结论）",
+          "score": 18
+        },
+        {
+          "path": "04-Content/为了节约资源-先用本地docker测试吧.md",
+          "title": "为了节约资源 先用本地docker测试吧",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p4",
+      "kind": "paraphrase",
+      "query": "命令行安装时版本对不上",
+      "expected": [
+        "03-Knowledge/dsh-插件发布与安装的版本路径陷阱.md"
+      ],
+      "rank": 4,
+      "hits": 10,
+      "ms": 58,
+      "top": [
+        {
+          "path": "07-Tools/memory-eternal-v01028版本对齐检查align与宿主仍跑旧代码根因.md",
+          "title": "memory-eternal v0.10.28：版本对齐检查（align）与「宿主仍跑旧代码」根因",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/语义召回嵌入模型配置设计本地-ollama-在线-api.md",
+          "title": "语义召回嵌入模型配置设计（本地 Ollama + 在线 API）",
+          "score": 19
+        },
+        {
+          "path": "08-Mistakes/dshmemhub-插件版本三态认知页面脚本-vs-宿主加载-vs-磁盘.md",
+          "title": "DSH/MemHub 插件版本三态认知：页面脚本 vs 宿主加载 vs 磁盘",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p5",
+      "kind": "paraphrase",
+      "query": "命令行帮助文本怎么补充",
+      "expected": [
+        "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md"
+      ],
+      "rank": 9,
+      "hits": 10,
+      "ms": 56,
+      "top": [
+        {
+          "path": "04-Content/用户补充readme-上传发布-助手主上要补充-readme-并上传发布先.md",
+          "title": "用户：补充readme 上传发布 助手：主上要补充 README 并上传发布。先",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/知识图谱后续功能补充候选清单按价值成本排序.md",
+          "title": "知识图谱后续功能补充候选清单（按价值/成本排序）",
+          "score": 18
+        },
+        {
+          "path": "04-Content/此文件夹要上传github的-先清理界面.md",
+          "title": "此文件夹要上传github的 先清理界面",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p6",
+      "kind": "paraphrase",
+      "query": "要让别人能搜到我的扩展该走哪些渠道",
+      "expected": [
+        "03-Knowledge/dsh-plugin-submit-marketplace-收录与发布流程.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 61,
+      "top": [
+        {
+          "path": "03-Knowledge/s2-同义短语扩展检索召回兜底方案与实测结论.md",
+          "title": "S2 同义短语扩展：检索召回兜底方案与实测结论",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-交付治理层定位与-dsh-版本兼容坑.md",
+          "title": "dsh-pixel-team 交付治理层定位与 DSH 版本兼容坑",
+          "score": 18
+        },
+        {
+          "path": "04-Content/不用验证了-这个项目别人已经验证过了-现在就是要改成我们的代码.md",
+          "title": "不用验证了 这个项目别人已经验证过了 现在就是要改成我们的代码",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p7",
+      "kind": "paraphrase",
+      "query": "系统自己加了一堆严格标准",
+      "expected": [
+        "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 62,
+      "top": [
+        {
+          "path": "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md",
+          "title": "模式默认值被误当用户验收：根因与修复规则",
+          "score": 19
+        },
+        {
+          "path": "04-Content/用户etestdb增加了配置吗-助手是的加了-1-行实测核对.md",
+          "title": "用户：etest.db增加了配置吗？ 助手：是的，**加了 1 行**。实测核对",
+          "score": 19
+        },
+        {
+          "path": "08-Mistakes/验收标准不得由模式默认值注入只来自用户明确选择.md",
+          "title": "验收标准不得由模式默认值注入：只来自用户明确选择",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p8",
+      "kind": "paraphrase",
+      "query": "自检脚本瞬间全红",
+      "expected": [
+        "08-Mistakes/cvte-mes-验证脚本-21-项-pc-拆分与-dns-全-fail-排障.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 58,
+      "top": [
+        {
+          "path": "08-Mistakes/memory-eternal-v0101728状态自相矛盾根因与托管自检修复.md",
+          "title": "memory-eternal v0.10.17：#28「状态自相矛盾」根因与托管自检修复",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/mvcheck-v051-一键验收自检功能与交付状态.md",
+          "title": "MVCheck v0.5.1 一键验收自检功能与交付状态",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/cvte-mes-车间跑批u盘离线验收包与网络预检机制.md",
+          "title": "cvte-mes 车间跑批：U盘离线验收包与网络预检机制",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p9",
+      "kind": "paraphrase",
+      "query": "拖动条拉不到最下面",
+      "expected": [
+        "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 54,
+      "top": [
+        {
+          "path": "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md",
+          "title": "egui 交互命中与滚动条映射三处修复（P0 徽标命中/thumb 夹取/显示真实优先级）",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/etest-全项目滚动条统一保留-scrollarea-隐藏原生条-自绘.md",
+          "title": "etest 全项目滚动条统一：保留 ScrollArea + 隐藏原生条 + 自绘",
+          "score": 18
+        },
+        {
+          "path": "04-Content/合理利用空间-尽量减少滚动条.md",
+          "title": "合理利用空间 尽量减少滚动条",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p10",
+      "kind": "paraphrase",
+      "query": "按钮到处乱飘怎么让它老实待着",
+      "expected": [
+        "06-BestPractices/dsh-desktop-更新入口固定设置左侧栏底部.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 55,
+      "top": [
+        {
+          "path": "04-Content/1文件和脚本专门规划好文件夹到处放.md",
+          "title": "1.文件和脚本专门规划好文件夹到处放",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/令牌常驻显示与悬浮隐藏显示按钮01179.md",
+          "title": "令牌常驻显示与悬浮隐藏/显示按钮（0.1.179）",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/多皮肤按钮-hover-对比度问题与修复方案.md",
+          "title": "多皮肤按钮 hover 对比度问题与修复方案",
+          "score": 18
+        }
+      ],
+      "err": ""
+    }
+  ]
+}

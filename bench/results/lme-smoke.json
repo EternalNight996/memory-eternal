@@ -1,0 +1,23 @@
+{
+  "summary": {
+    "label": "smoke",
+    "data": "bench\\longmemeval\\longmemeval_s_cleaned.json",
+    "limit": 10,
+    "questions": 1,
+    "R5": 1,
+    "R10": 1,
+    "MRR": 0.5,
+    "misses": [],
+    "ms": 1064,
+    "at": "2026-11-12T10:35:55.812Z"
+  },
+  "rows": [
+    {
+      "id": "e47becba",
+      "type": "single-session-user",
+      "rank": 2,
+      "hits": 6,
+      "sessions": 53
+    }
+  ]
+}

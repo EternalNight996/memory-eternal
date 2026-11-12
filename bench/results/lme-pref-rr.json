@@ -1,0 +1,229 @@
+{
+  "summary": {
+    "label": "pref-rr",
+    "data": "bench\\longmemeval\\longmemeval_s_cleaned.json",
+    "limit": 10,
+    "questions": 30,
+    "R5": 0.8333,
+    "R10": 0.9333,
+    "MRR": 0.5709,
+    "misses": [
+      "09d032c9",
+      "d6233ab6"
+    ],
+    "ms": 179450,
+    "at": "2026-11-12T12:21:29.568Z"
+  },
+  "rows": [
+    {
+      "id": "8a2466db",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 50
+    },
+    {
+      "id": "06878be2",
+      "type": "single-session-preference",
+      "rank": 2,
+      "hits": 10,
+      "sessions": 48
+    },
+    {
+      "id": "75832dbd",
+      "type": "single-session-preference",
+      "rank": 7,
+      "hits": 10,
+      "sessions": 48
+    },
+    {
+      "id": "0edc2aef",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 46
+    },
+    {
+      "id": "35a27287",
+      "type": "single-session-preference",
+      "rank": 4,
+      "hits": 10,
+      "sessions": 51
+    },
+    {
+      "id": "32260d93",
+      "type": "single-session-preference",
+      "rank": 3,
+      "hits": 10,
+      "sessions": 46
+    },
+    {
+      "id": "195a1a1b",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 46
+    },
+    {
+      "id": "afdc33df",
+      "type": "single-session-preference",
+      "rank": 2,
+      "hits": 10,
+      "sessions": 46
+    },
+    {
+      "id": "caf03d32",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 51
+    },
+    {
+      "id": "54026fce",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 49
+    },
+    {
+      "id": "06f04340",
+      "type": "single-session-preference",
+      "rank": 5,
+      "hits": 10,
+      "sessions": 55
+    },
+    {
+      "id": "6b7dfb22",
+      "type": "single-session-preference",
+      "rank": 6,
+      "hits": 10,
+      "sessions": 45
+    },
+    {
+      "id": "1a1907b4",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 48
+    },
+    {
+      "id": "09d032c9",
+      "type": "single-session-preference",
+      "rank": 0,
+      "hits": 10,
+      "sessions": 43
+    },
+    {
+      "id": "38146c39",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 46
+    },
+    {
+      "id": "d24813b1",
+      "type": "single-session-preference",
+      "rank": 6,
+      "hits": 10,
+      "sessions": 44
+    },
+    {
+      "id": "57f827a0",
+      "type": "single-session-preference",
+      "rank": 2,
+      "hits": 10,
+      "sessions": 51
+    },
+    {
+      "id": "95228167",
+      "type": "single-session-preference",
+      "rank": 3,
+      "hits": 10,
+      "sessions": 49
+    },
+    {
+      "id": "505af2f5",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 53
+    },
+    {
+      "id": "75f70248",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 42
+    },
+    {
+      "id": "d6233ab6",
+      "type": "single-session-preference",
+      "rank": 0,
+      "hits": 10,
+      "sessions": 44
+    },
+    {
+      "id": "1da05512",
+      "type": "single-session-preference",
+      "rank": 2,
+      "hits": 10,
+      "sessions": 47
+    },
+    {
+      "id": "fca70973",
+      "type": "single-session-preference",
+      "rank": 3,
+      "hits": 10,
+      "sessions": 45
+    },
+    {
+      "id": "b6025781",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 47
+    },
+    {
+      "id": "a89d7624",
+      "type": "single-session-preference",
+      "rank": 5,
+      "hits": 10,
+      "sessions": 49
+    },
+    {
+      "id": "b0479f84",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 48
+    },
+    {
+      "id": "1d4e3b97",
+      "type": "single-session-preference",
+      "rank": 2,
+      "hits": 10,
+      "sessions": 45
+    },
+    {
+      "id": "07b6f563",
+      "type": "single-session-preference",
+      "rank": 4,
+      "hits": 10,
+      "sessions": 52
+    },
+    {
+      "id": "1c0ddc50",
+      "type": "single-session-preference",
+      "rank": 4,
+      "hits": 10,
+      "sessions": 51
+    },
+    {
+      "id": "0a34ad58",
+      "type": "single-session-preference",
+      "rank": 1,
+      "hits": 10,
+      "sessions": 42
+    }
+  ]
+}
