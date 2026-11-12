@@ -1,0 +1,37 @@
+{
+  "summary": {
+    "label": "fixture",
+    "data": "bench/longmemeval/fixture.json",
+    "limit": 10,
+    "questions": 3,
+    "R5": 1,
+    "R10": 1,
+    "MRR": 1,
+    "misses": [],
+    "ms": 195,
+    "at": "2026-11-11T12:06:23.572Z"
+  },
+  "rows": [
+    {
+      "id": "fixture-q1",
+      "type": "single-session-user",
+      "rank": 1,
+      "hits": 2,
+      "sessions": 4
+    },
+    {
+      "id": "fixture-q2",
+      "type": "single-session-assistant",
+      "rank": 1,
+      "hits": 3,
+      "sessions": 3
+    },
+    {
+      "id": "fixture-q3",
+      "type": "multi-session",
+      "rank": 1,
+      "hits": 3,
+      "sessions": 5
+    }
+  ]
+}

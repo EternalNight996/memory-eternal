@@ -1,0 +1,93 @@
+{
+  "label": "smoke8",
+  "data": "bench\\longmemeval\\longmemeval_s_cleaned.json",
+  "questions": 8,
+  "k": 5,
+  "answerModel": "qwen2.5:1.5b",
+  "judgeModel": "qwen2.5:1.5b",
+  "accuracy": 0.125,
+  "byType": {
+    "single-session-user": {
+      "n": 2,
+      "ok": 1
+    },
+    "multi-session": {
+      "n": 2,
+      "ok": 0
+    },
+    "temporal-reasoning": {
+      "n": 2,
+      "ok": 0
+    },
+    "knowledge-update": {
+      "n": 2,
+      "ok": 0
+    }
+  },
+  "rows": [
+    {
+      "id": "e47becba",
+      "type": "single-session-user",
+      "correct": false,
+      "pred": "I don't have enough information to determine the degree you graduated with.",
+      "gold": "Business Administration",
+      "hits": 5
+    },
+    {
+      "id": "3d86fd0a",
+      "type": "single-session-user",
+      "correct": true,
+      "pred": "You met Sophia at a coffee shop in the city.",
+      "gold": "a coffee shop in the city",
+      "hits": 5
+    },
+    {
+      "id": "81507db6",
+      "type": "multi-session",
+      "correct": false,
+      "pred": "I don't have information about specific graduation ceremonies you've attended in the past three months.",
+      "gold": "3",
+      "hits": 5
+    },
+    {
+      "id": "3fdac837",
+      "type": "multi-session",
+      "correct": false,
+      "pred": "I don't have specific information on the exact number of days you spent in Japan and Chicago. The context provided doesn't mention any specific dates or durations of your trips. Therefore, I can't give you an accurate answer.",
+      "gold": "11 days (or 12 days, if April 15th to 22nd is considered as 8 days)",
+      "hits": 5
+    },
+    {
+      "id": "gpt4_18c2b244",
+      "type": "temporal-reasoning",
+      "correct": false,
+      "pred": "The order of the three events you mentioned is:\n\n1. I signed up for the rewards program at ShopRite\n2. I used a Buy One Get One Free coupon on Luvs diapers at Walmart\n3. I redeemed $12 cashback for a $10 Amazon gift card from Ibotta",
+      "gold": "First, I used a Buy One Get One Free coupon on Luvs diapers at Walmart. Then, I redeemed $12 cashback for a $10 Amazon gift card from Ibotta. Finally, I signed up for the rewards program at ShopRite.",
+      "hits": 5
+    },
+    {
+      "id": "2c63a862",
+      "type": "temporal-reasoning",
+      "correct": false,
+      "pred": "It's not specified in the context how many days it took for you to find a house you loved after starting to work with Rachel. The context only mentions that you saw a house on March 1st and were considering making an offer. Without addition",
+      "gold": "14 days. 15 days (including the last day) is also acceptable.",
+      "hits": 5
+    },
+    {
+      "id": "9ea5eabc",
+      "type": "knowledge-update",
+      "correct": false,
+      "pred": "You went on a family trip to Hawaii.",
+      "gold": "Paris",
+      "hits": 5
+    },
+    {
+      "id": "031748ae_abs",
+      "type": "knowledge-update",
+      "correct": false,
+      "pred": "You lead 4 engineers when you just started your new role as Software Engineer Manager.",
+      "gold": "The information provided is not enough. You mentioned starting the role as Senior Software Engineer but not Software Engineer Manager.",
+      "hits": 1
+    }
+  ]
+}

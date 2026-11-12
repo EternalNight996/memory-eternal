@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(path.join(root, p), 'utf8')
-const en = read('README.md')
-const zh = read('README.zh-CN.md')
+const en = read('README.en.md')
+const zh = read('README.md')
 const pkg = JSON.parse(read('package.json'))
 
 const stripFences = (text) => text.replace(/\r\n/g, '\n').replace(/```[\s\S]*?```/g, '')
@@ -23,17 +23,17 @@ const headingLevels = (text) => stripFences(text)
 const fenceCount = (text) => (text.replace(/\r\n/g, '\n').match(/^```/gm) || []).length
 
 test('两份 README 都在随包白名单里（少一份用户就看不到）', () => {
-  assert.ok(pkg.files.includes('README.md'), 'README.md 必须在 package.json files 里')
-  assert.ok(pkg.files.includes('README.zh-CN.md'), 'README.zh-CN.md 必须在 package.json files 里')
+  assert.ok(pkg.files.includes('README.md'), 'README.md 必须在 package.json files 里（中文默认）')
+  assert.ok(pkg.files.includes('README.en.md'), 'README.en.md 必须在 package.json files 里')
 })
 
-test('默认英文：两份都标明默认语言，且互相能跳转', () => {
+test('默认中文：两份互相能跳转，并标明语言', () => {
   assert.match(en.split('\n')[0], /^# 🧠 memory-eternal/, '英文 README 第一行应是本插件标题')
   assert.match(zh.split('\n')[0], /^# 🧠 memory-eternal/, '中文 README 第一行应是本插件标题')
-  assert.ok(en.includes('English (default)'), '英文那份要标明自己是默认')
-  assert.ok(zh.includes('(README.md)'), '中文那份要指向默认英文版')
-  assert.ok(en.includes('(README.zh-CN.md)'), '英文那份要有中文镜像入口')
-  assert.ok(zh.includes('简体中文'), '中文镜像要标明语言')
+  assert.ok(en.includes('English'), '英文那份要标明自己是英文版')
+  assert.ok(en.includes('(README.md)'), '英文那份要指向中文默认版')
+  assert.ok(zh.includes('(README.en.md)'), '中文那份要有英文镜像入口')
+  assert.ok(zh.includes('简体中文'), '中文默认版要标明语言')
 })
 
 test('结构一一对应：标题层级序列与代码块数量必须一致', () => {

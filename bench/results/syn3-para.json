@@ -1,0 +1,321 @@
+{
+  "summary": {
+    "label": "syn3-para",
+    "vault": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\mc-syn2-175638",
+    "golden": "bench\\paraphrase.json",
+    "cases": 10,
+    "cards": 0,
+    "limit": 10,
+    "clean": true,
+    "expand": true,
+    "R5": 0.4,
+    "R10": 0.4,
+    "MRR": 0.325,
+    "Top1": 0.3,
+    "zeroHit": 0,
+    "latencyMs": {
+      "mean": 8.4,
+      "p95": 14.3
+    },
+    "byKind": {
+      "paraphrase": {
+        "n": 10,
+        "R5": 0.4,
+        "Top1": 0.3
+      }
+    },
+    "at": "2026-11-12T09:57:10.162Z"
+  },
+  "results": [
+    {
+      "id": "p1",
+      "kind": "paraphrase",
+      "query": "发出的指令一直没回应，程序瘫在等待界面",
+      "expected": [
+        "08-Mistakes/开宗请求卡死客户端90s服务端65s双层超时修复.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 14,
+      "top": [
+        {
+          "path": "08-Mistakes/etest-注销流程三处修复显示用户名返回待登录界面logout-删本地-user-行语义问题.md",
+          "title": "ETest 注销流程三处修复：显示用户名、返回待登录界面、logout 删本地 user 行语义问题",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/全链路-tls-wss-终止配置与验证记录.md",
+          "title": "全链路 TLS + WSS 终止配置与验证记录",
+          "score": 18
+        },
+        {
+          "path": "10-Skills/cra-patch.md",
+          "title": "cra-patch",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p2",
+      "kind": "paraphrase",
+      "query": "点了快捷入口可是页面打不开",
+      "expected": [
+        "08-Mistakes/首页应用mcp-列表页-404-修复buildmjs-补索引页.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 10,
+      "top": [
+        {
+          "path": "09-Core/有用-但重启程序就失效了.md",
+          "title": "有用 但重启程序就失效了",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/藏经阁改为道通藏书阁实时视图v0119-设计决策.md",
+          "title": "藏经阁改为道通藏书阁实时视图（v0.1.19 设计决策）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/mengbot-解锁码入口可见性修复01148.md",
+          "title": "MengBot 解锁码入口可见性修复（0.1.148）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p3",
+      "kind": "paraphrase",
+      "query": "统计工具怎么留下访客真实地址",
+      "expected": [
+        "03-Knowledge/umami-原始-ip-存储方案ingestion-sidecar.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 9,
+      "top": [
+        {
+          "path": "02-Projects/市场站点数据面板umami-聚合接口与前端实现.md",
+          "title": "市场站点数据面板：Umami 聚合接口与前端实现",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/umami-自建分析接入-mengbot部署方案与进度.md",
+          "title": "Umami 自建分析接入 MengBot（部署方案与进度）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/findany-v200-rust-重写提交与双远端推送状态.md",
+          "title": "findany v2.0.0 Rust 重写提交与双远端推送状态",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p4",
+      "kind": "paraphrase",
+      "query": "命令行安装时版本对不上",
+      "expected": [
+        "03-Knowledge/dsh-插件发布与安装的版本路径陷阱.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 8,
+      "top": [
+        {
+          "path": "08-Mistakes/memory-eternal-v01045重启按钮消失与反馈区横向溢出修复.md",
+          "title": "memory-eternal v0.10.45：重启按钮消失与反馈区横向溢出修复",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/dsh-desktop-更新安装前清理-nodedsh-进程复用场景根因与加固.md",
+          "title": "dsh-desktop 更新安装前清理 node/dsh 进程（复用场景根因与加固）",
+          "score": 18
+        },
+        {
+          "path": "07-Tools/rea给-ai-agent-装二进制流量逆向能力的工具.md",
+          "title": "REA：给 AI Agent 装二进制/流量逆向能力的工具",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p5",
+      "kind": "paraphrase",
+      "query": "命令行帮助文本怎么补充",
+      "expected": [
+        "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 7,
+      "top": [
+        {
+          "path": "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md",
+          "title": "cvte-mes 帮助示例补全与 G 盘同步误报教训",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-tui-接入真实本地-api-live-write-双模式设计.md",
+          "title": "dsh-tui 接入真实本地 API：--live / --write 双模式设计",
+          "score": 18
+        },
+        {
+          "path": "04-Content/此文件夹要上传github的-先清理界面.md",
+          "title": "此文件夹要上传github的 先清理界面",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p6",
+      "kind": "paraphrase",
+      "query": "要让别人能搜到我的扩展该走哪些渠道",
+      "expected": [
+        "03-Knowledge/dsh-plugin-submit-marketplace-收录与发布流程.md"
+      ],
+      "rank": 4,
+      "hits": 10,
+      "ms": 8,
+      "top": [
+        {
+          "path": "02-Projects/dsh-pixel-team-交付治理层定位与-dsh-版本兼容坑.md",
+          "title": "dsh-pixel-team 交付治理层定位与 DSH 版本兼容坑",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/dsh插件市场收录pr三大市场对比.md",
+          "title": "DSH插�件市场收录PR三大市场对比",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/dsh插件市场收录pr三大市场对比与踩坑.md",
+          "title": "DSH插件市场收录PR三大市场对比与踩坑",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p7",
+      "kind": "paraphrase",
+      "query": "系统自己加了一堆严格标准",
+      "expected": [
+        "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 8,
+      "top": [
+        {
+          "path": "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md",
+          "title": "模式默认值被误当用户验收：根因与修复规则",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/memory-eternal-v0181-自动迁移与配置修复.md",
+          "title": "memory-eternal v0.18.1 自动迁移与配置修复",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-v01113三主模式重构draftprecisioncompliance.md",
+          "title": "dsh-pixel-team v0.1.113：三主模式重构（draft/precision/compliance）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p8",
+      "kind": "paraphrase",
+      "query": "自检脚本瞬间全红",
+      "expected": [
+        "08-Mistakes/cvte-mes-验证脚本-21-项-pc-拆分与-dns-全-fail-排障.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 9,
+      "top": [
+        {
+          "path": "08-Mistakes/findanypyside6-onefile-exe目标机-dll-load-failed-排查处置单.md",
+          "title": "findany（PySide6 onefile exe）目标机 DLL load failed 排查处置单",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/findany-10万混合真假样本测试数据集bug-2a-真伪校验验证.md",
+          "title": "findany 10万混合真假样本测试数据集（Bug-2A 真伪校验验证）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/以西游记像素站-t1-需求基线与-r-a1r-a2-裁决.md",
+          "title": "以西游记像素站 t1 需求基线与 R-A1/R-A2 裁决",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p9",
+      "kind": "paraphrase",
+      "query": "拖动条拉不到最下面",
+      "expected": [
+        "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md",
+          "title": "egui 交互命中与滚动条映射三处修复（P0 徽标命中/thumb 夹取/显示真实优先级）",
+          "score": 18
+        },
+        {
+          "path": "04-Content/合理利用空间-尽量减少滚动条.md",
+          "title": "合理利用空间 尽量减少滚动条",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/etest-全项目滚动条统一保留-scrollarea-隐藏原生条-自绘.md",
+          "title": "etest 全项目滚动条统一：保留 ScrollArea + 隐藏原生条 + 自绘",
+          "score": 17
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p10",
+      "kind": "paraphrase",
+      "query": "按钮到处乱飘怎么让它老实待着",
+      "expected": [
+        "06-BestPractices/dsh-desktop-更新入口固定设置左侧栏底部.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "04-Content/1文件和脚本专门规划好文件夹到处放.md",
+          "title": "1.文件和脚本专门规划好文件夹到处放",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/egui-自定义标题栏按钮几何对齐不估算照抄窗体内布局公式.md",
+          "title": "egui 自定义标题栏按钮几何对齐（不估算，照抄窗体内布局公式）",
+          "score": 17
+        },
+        {
+          "path": "04-Content/1更新了dsh的版本画面可以了不过右上角的按钮点了都无效.md",
+          "title": "1.更新了DSH的版本画面可以了，不过右上角的按钮点了都无效",
+          "score": 17
+        }
+      ],
+      "err": ""
+    }
+  ]
+}

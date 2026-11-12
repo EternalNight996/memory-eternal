@@ -377,6 +377,64 @@ export const ZH = {
   budgetChars: '预算字符',
   recallLimitLabel: '召回条数',
   embeddingLabel: '语义召回',
+  embeddingTitle: '语义召回（可选）',
+  embeddingHint: '默认关闭。开启后按“意思相近”找卡；不装本地模型也不影响其他功能。',
+  embeddingOn: '启用语义召回',
+  embeddingBase: '本地服务地址',
+  embeddingModelName: '模型名',
+  embeddingKey: 'API Key（本地可留空）',
+  embeddingProbe: '🔌 检测连接',
+  embeddingBuild: '⚡ 一键配置并建缓存',
+  embeddingPull: '⬇️ 一键拉取模型',
+  embeddingCopy: '复制安装命令',
+  embeddingSave: '保存',
+  embeddingCopied: '已复制',
+  embeddingGuide: '推荐 Ollama（免费、数据不出本机）：安装后设 OLLAMA_HOST=127.0.0.1:7997 再启动；也可手动执行 ollama pull <模型名>。',
+  embeddingServiceOn: '服务可达',
+  embeddingServiceOff: '服务不可达',
+  embeddingCoverage: '向量覆盖',
+  embeddingOff: '未启用',
+  embeddingJob: '任务',
+  embeddingNoJob: '空闲',
+  embeddingSaveFail: '操作失败',
+  embeddingDone: '完成',
+  embeddingBackfillDone: '建缓存完成',
+  embeddingMode: '部署方式',
+  embeddingModeLocal: '本地 Ollama 部署',
+  embeddingModeBuiltin: '内置语义（无需 Ollama）',
+  embeddingModeOnline: '在线 API',
+  embeddingBuiltinHint: '零安装、零网络、零费用；用内置同义短语扩展做语义兜底，检索质量 R@5 约 95.4%。',
+  embeddingBuiltinOn: '内置语义已生效（随检索自动启用）',
+  embeddingDefaultOff: '默认关闭',
+  embeddingSystem: '本机条件',
+  embeddingGpuNone: '未检测到 NVIDIA 显卡（CPU 可跑，较慢）',
+  embeddingOllama: 'Ollama 环境',
+  embeddingOllamaInstalled: '已安装',
+  embeddingOllamaMissing: '未安装',
+  embeddingInstallOllama: '安装 Ollama',
+  embeddingInstallManual: '未找到安装器，请手动下载：',
+  embeddingInstalling: '安装已开始，稍后点「刷新状态」',
+  embeddingModelSelect: '模型',
+  embeddingInstalled: '已安装',
+  embeddingSize: '大小',
+  embeddingDims: '维度',
+  embeddingRam: '内存建议',
+  embeddingVram: '显存建议',
+  embeddingDownload: '下载模型',
+  embeddingDownloading: '下载中',
+  embeddingDeploy: '立即部署',
+  embeddingDeployed: '已部署',
+  embeddingBuilding: '建缓存中',
+  embeddingRefresh: '刷新状态',
+  embeddingVendor: '厂商',
+  embeddingService: '服务',
+  embeddingApiOld: '插件接口未就绪：请完全退出 DSH 再打开（仅刷新页面不会加载新版服务端）',
+  embeddingOllamaService: '服务可达',
+  embeddingNoFile: '未找到程序文件（可能通过服务方式安装）',
+  embeddingCustomModel: '自定义模型…',
+  embeddingCustom: '自定义',
+  embeddingLocalNote: '本地 = 模型跑在你自己机器上，零 API 费用、数据不出本机',
+  embeddingOnlineNote: '在线 = 调用第三方厂商 API，按量计费，卡片文本会发到对方服务',
   mergePairs: '相似卡对（可合并）',
   staleCards: '陈旧卡（>90 天未更新）',
   noOptimize: '暂无可整理项，很健康 🎉',
@@ -596,6 +654,10 @@ export const ZH = {
   auditNoMatch: '没有匹配的审核卡',
   auditUndo: '批准与驳回都可撤销',
   auditSelected: '已选',
+  redistill: '重新蒸馏',
+  redistillConfirm: '重新蒸馏这张原文卡？会调用蒸馏模型；失败则保留原卡',
+  redistillOk: '重新蒸馏成功',
+  redistillFail: '重新蒸馏失败',
   auditRevision: '修改',
   auditRevisionFrom: '修改原卡',
   auditClearSelection: '清空',
@@ -1194,6 +1256,64 @@ export const EN = {
   budgetChars: 'Budget chars',
   recallLimitLabel: 'Recall limit',
   embeddingLabel: 'Semantic recall',
+  embeddingTitle: 'Semantic recall (optional)',
+  embeddingHint: 'Off by default. When enabled it finds cards by meaning; everything else works without installing any model.',
+  embeddingOn: 'Enable semantic recall',
+  embeddingBase: 'Local service URL',
+  embeddingModelName: 'Model',
+  embeddingKey: 'API key (empty for local)',
+  embeddingProbe: '🔌 Test connection',
+  embeddingBuild: '⚡ Configure & build cache',
+  embeddingPull: '⬇️ Pull model',
+  embeddingCopy: 'Copy install command',
+  embeddingSave: 'Save',
+  embeddingCopied: 'Copied',
+  embeddingGuide: 'Ollama recommended (free, data stays local): install, set OLLAMA_HOST=127.0.0.1:7997, then run ollama pull <model>.',
+  embeddingServiceOn: 'Service reachable',
+  embeddingServiceOff: 'Service unreachable',
+  embeddingCoverage: 'Vector coverage',
+  embeddingOff: 'Disabled',
+  embeddingJob: 'Job',
+  embeddingNoJob: 'idle',
+  embeddingSaveFail: 'Failed',
+  embeddingDone: 'done',
+  embeddingBackfillDone: 'cache built',
+  embeddingMode: 'Deployment',
+  embeddingModeLocal: 'Local Ollama',
+  embeddingModeBuiltin: 'Built-in semantics (no Ollama)',
+  embeddingModeOnline: 'Online API',
+  embeddingBuiltinHint: 'No install, no network, no cost: built-in synonym expansion as semantic fallback (R@5 ~95.4%).',
+  embeddingBuiltinOn: 'Built-in semantics active (automatic)',
+  embeddingDefaultOff: 'Off by default',
+  embeddingSystem: 'This machine',
+  embeddingGpuNone: 'No NVIDIA GPU detected (CPU works, slower)',
+  embeddingOllama: 'Ollama',
+  embeddingOllamaInstalled: 'installed',
+  embeddingOllamaMissing: 'not installed',
+  embeddingInstallOllama: 'Install Ollama',
+  embeddingInstallManual: 'Installer not found. Download manually:',
+  embeddingInstalling: 'Installation started; click Refresh later',
+  embeddingModelSelect: 'Model',
+  embeddingInstalled: 'installed',
+  embeddingSize: 'Size',
+  embeddingDims: 'Dims',
+  embeddingRam: 'RAM',
+  embeddingVram: 'VRAM',
+  embeddingDownload: 'Download model',
+  embeddingDownloading: 'Downloading',
+  embeddingDeploy: 'Deploy now',
+  embeddingDeployed: 'Deployed',
+  embeddingBuilding: 'Building cache',
+  embeddingRefresh: 'Refresh',
+  embeddingVendor: 'Provider',
+  embeddingService: 'Service',
+  embeddingApiOld: 'Plugin API not ready: fully quit and reopen DSH (a page refresh does not load the new server code)',
+  embeddingOllamaService: 'service reachable',
+  embeddingNoFile: 'binary not found (service install?)',
+  embeddingCustomModel: 'Custom model…',
+  embeddingCustom: 'Custom',
+  embeddingLocalNote: 'Local = model runs on this machine; no API cost, data stays here',
+  embeddingOnlineNote: 'Online = third-party API; pay per use, card text leaves this machine',
   mergePairs: 'Similar pairs (mergeable)',
   staleCards: 'Stale (>90d)',
   noOptimize: 'Nothing to organize, healthy 🎉',
@@ -1413,6 +1533,10 @@ export const EN = {
   auditNoMatch: 'No matching review cards',
   auditUndo: 'Approve and reject are both undoable',
   auditSelected: 'Selected',
+  redistill: 'Re-distill',
+  redistillConfirm: 'Re-distill this raw card? It calls the distillation model; on failure the card stays unchanged',
+  redistillOk: 'Re-distilled',
+  redistillFail: 'Re-distill failed',
   auditRevision: 'Revision',
   auditRevisionFrom: 'Revises',
   auditClearSelection: 'Clear',
@@ -3692,6 +3816,9 @@ const CSS = `
 [data-skin="spider"] .mc-v5-pagehead h1::after { content: '!'; color: var(--sp-yellow); -webkit-text-stroke: 2px var(--sp-ink); margin-left: 2px; }
 [data-skin="spider"] .mc-v5-pagehead p { max-width: 46%; }
 [data-skin="spider"] .mc-v5-pagecount { position: absolute; right: 16px; top: 14px; z-index: 3; }
+/* 图谱页头右侧有「平铺全部」按钮：统计徽标必须留在 flex 行内，绝对定位会压住按钮 */
+[data-skin="spider"] .mc-v5-graphhead .mc-v5-pagecount,
+[data-skin="resident"] .mc-v5-graphhead .mc-v5-pagecount { position: static; right: auto; top: auto; z-index: auto; }
 [data-skin="spider"] .mc-v5-feature::before { z-index: 2; }
 [data-skin="spider"] .mc-theme-charm {
   display: block; position: fixed; top: 58px; left: 190px; width: 64px; height: 128px;
@@ -4112,6 +4239,104 @@ function WorkingNoteCard({ t, notify, onPromoted }) {
 export function MemoryLibrary(props) {
   return <PanelErrorBoundary><MemoryLibraryInner {...props} /></PanelErrorBoundary>
 }
+/** 首次使用引导：默认全开 + 语义三选一；不写死配置，点完成才落盘。 */
+function FirstRunWizard({ t, onDone }) {
+  const [step, setStep] = useState(0)
+  const [sem, setSem] = useState('builtin')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const finish = async () => {
+    setBusy(true); setErr('')
+    try {
+      const r = await fetch(`${API}/embedding/config`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sem === 'ollama' ? { mode: 'local', enabled: true } : { mode: 'builtin', enabled: false }),
+      }).then((x) => x.json()).catch(() => null)
+      if (r && r.ok === false) throw new Error(r.error || 'HTTP')
+      try { localStorage.setItem('me-onboarded-v2', '1') } catch { /* 隐私模式 */ }
+      onDone && onDone()
+    } catch (e) { setErr(String((e && e.message) || e)) } finally { setBusy(false) }
+  }
+  const overlay = { position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(8,10,14,0.72)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
+  const card = { width: 'min(560px, 94vw)', maxHeight: '86vh', overflow: 'auto', borderRadius: 16, background: 'var(--dsw-alias-bg-layer-1, #14181f)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 24px 70px rgba(0,0,0,.55)', color: 'var(--dsw-alias-label-primary, #e5e7eb)', padding: 18 }
+  const opt = (id, title, desc, badge) => (
+    <button key={id} type="button" onClick={() => setSem(id)}
+      style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', color: 'inherit', background: sem === id ? 'rgba(255,122,69,0.16)' : 'rgba(255,255,255,0.03)', border: '1px solid ' + (sem === id ? 'rgba(255,122,69,0.65)' : 'rgba(255,255,255,0.10)') }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <b style={{ fontSize: 13 }}>{title}</b>
+        {badge ? <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'rgba(16,185,129,.18)', color: '#34d399' }}>{badge}</span> : null}
+      </div>
+      <div style={{ fontSize: 11.5, opacity: 0.72, marginTop: 4, lineHeight: 1.5 }}>{desc}</div>
+    </button>
+  )
+  return (
+    <div style={overlay} role="dialog" aria-modal="true">
+      <div style={card}>
+        <div style={{ fontSize: 11, letterSpacing: '.12em', opacity: 0.55 }}>MEMORY ETERNAL · 首次使用</div>
+        <h2 style={{ margin: '6px 0 4px', fontSize: 20 }}>{step === 0 ? '先按推荐值开好，马上就能用' : step === 1 ? '语义召回：默认内置，推荐升级 Ollama' : step === 2 ? '确认一下' : '最后：如果它省了你时间'}</h2>
+        {step === 0 && (
+          <div style={{ fontSize: 12.5, lineHeight: 1.8 }}>
+            <p style={{ margin: '4px 0 8px', opacity: 0.8 }}>下面这些会默认开启，全部本地运行、零 API 费用：</p>
+            {['记忆核心（SQLite 本地库）', '自动沉淀（会话结束自动记卡）', '自动召回（相关历史自动带进上下文）', '核心记忆注入（硬约束每次生效）', '工作记忆（会话草稿本）', '内置语义召回（零安装，改写查询也能搜到）'].map((x) => (
+              <div key={x} style={{ display: 'flex', gap: 8, padding: '2px 0' }}><span style={{ color: '#34d399' }}>✓</span><span>{x}</span></div>
+            ))}
+            <p style={{ margin: '10px 0 0', opacity: 0.65 }}>以后都能在「设置 → 记忆」里单独关闭。</p>
+          </div>
+        )}
+        {step === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+            {opt('builtin', '内置语义（默认，推荐先这样）', '零安装、零网络、零费用；同义扩展兜底，开箱即用。', '默认')}
+            {opt('ollama', '本地 Ollama（效果最好，需装模型）', 'bge-m3 向量召回，改写题 R@5 80%；本机首次使用需下载约 1.2GB 模型。', '推荐升级')}
+            {opt('online', '在线 API（可选）', '任何 OpenAI 兼容 embedding 端点；有费用、数据出本机，适合已有额度的人。', '进阶')}
+            <div style={{ fontSize: 11.5, opacity: 0.6 }}>选 Ollama 后，点完成会开启语义；首次使用请在「设置 → 记忆 → 语义召回」点一次「立即部署」。</div>
+          </div>
+        )}
+        {step === 2 && (
+          <div style={{ fontSize: 12.5, lineHeight: 1.8 }}>
+            <div>✓ 记忆核心、自动沉淀、自动召回、核心记忆注入：<b>开启</b></div>
+            <div>✓ 工作记忆：<b>开启</b></div>
+            <div>✓ 语义召回：<b>{sem === 'builtin' ? '内置（免安装）' : sem === 'ollama' ? '本地 Ollama' : '在线 API'}</b></div>
+            <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,122,69,0.10)', border: '1px solid rgba(255,122,69,0.28)', fontSize: 11.5 }}>
+              沉淀的卡片默认进「待审批」，你批准后才进入长期记忆；不会偷偷改你的库。
+            </div>
+          </div>
+        )}
+        {step === 3 && (
+          <div style={{ marginTop: 10 }}>
+            <p style={{ margin: '0 0 10px', fontSize: 12.5, lineHeight: 1.7, opacity: 0.85 }}>
+              这个插件是 MIT 开源的，不收费、不收集数据。Star 让更多人找到它，Fork 是你自己的备份与二次开发入口。
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button type="button" onClick={() => openExternal('https://github.com/EternalNight996/memory-eternal')}
+                style={{ padding: '16px 10px', borderRadius: 12, border: '1px solid rgba(255,122,69,.65)', background: 'linear-gradient(135deg, rgba(255,122,69,.95), rgba(255,150,80,.85))', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 8px 24px rgba(255,122,69,.28)' }}>
+                ⭐ Star
+                <div style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.9, marginTop: 4 }}>让更多人发现</div>
+              </button>
+              <button type="button" onClick={() => openExternal('https://github.com/EternalNight996/memory-eternal/fork')}
+                style={{ padding: '16px 10px', borderRadius: 12, border: '1px solid rgba(139,92,246,.65)', background: 'linear-gradient(135deg, rgba(139,92,246,.9), rgba(99,102,241,.85))', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 8px 24px rgba(99,102,241,.25)' }}>
+                🍴 Fork
+                <div style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.9, marginTop: 4 }}>备份 + 二次开发</div>
+              </button>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 10.5, opacity: 0.5, textAlign: 'center' }}>两个都是可选操作；不点也完全不影响使用</div>
+          </div>
+        )}
+        {err && <div style={{ color: '#f87171', fontSize: 12, marginTop: 8 }}>⚠ {err}</div>}
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
+          {step > 0 && <button type="button" className="mc-btn" onClick={() => setStep(step - 1)}>上一步</button>}
+          <span style={{ flex: 1 }} />
+          {step < 3 && <button type="button" className="mc-btn me-on" onClick={() => setStep(step + 1)}>{step === 2 ? '去最后一步' : '下一步'}</button>}
+          {step === 3 && <button type="button" className="mc-btn me-on" disabled={busy} onClick={finish}>{busy ? '保存中…' : '完成并开始使用'}</button>}
+        </div>
+        <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+          {[0, 1, 2, 3].map((i) => <span key={i} style={{ width: 18, height: 3, borderRadius: 2, background: i <= step ? '#FF7A45' : 'rgba(255,255,255,0.15)' }} />)}
+          <span style={{ flex: 1 }} />
+          <button type="button" className="mc-btn" style={{ padding: '1px 8px', opacity: 0.6 }} onClick={() => { try { localStorage.setItem('me-onboarded-v2', '1') } catch { /* ignore */ } onDone && onDone() }}>稍后</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 function MemoryLibraryInner({ t, inModal, onClose }) {
   const inHost = typeof window !== 'undefined' && (!!window.__DSH_BOOT__ || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
   const [overview, setOverview] = useState(null)
@@ -4131,6 +4356,9 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     } catch { return 'default' }
   })
   const [cards, setCards] = useState([])
+  const [onboarded, setOnboarded] = useState(() => {
+    try { return localStorage.getItem('me-onboarded-v2') === '1' } catch { return true }
+  })
   const [loading, setLoading] = useState(true)
   const [capHealth, setCapHealth] = useState(null)
   const [error, setError] = useState('')
@@ -4611,6 +4839,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       }}
     >
       <style>{CSS}</style>
+      {!onboarded && <FirstRunWizard t={t} onDone={() => setOnboarded(true)} />}
       <div className="mc-theme-charm" aria-hidden="true" />
       {!inModal && (
         <div className={`mc-v5-top${inHost ? ' in-host' : ''}`}>
@@ -4620,7 +4849,6 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           <div className="mc-v5-top-actions">
             <span className="mc-v5-sys"><i />{t('v5Local')}</span>
             <span className="mc-v5-ver">v{CLIENT_VERSION}</span>
-            <button type="button" className="mc-v5-star" onClick={() => openExternal('https://github.com/EternalNight996/memory-eternal')} title={t('v5Star')}>★ <span className="mc-v5-star-label">Star</span></button>
             <button type="button" className="mc-v5-help" onClick={() => openSupport('group')} title={t('supportTitle')} aria-label={t('supportTitle')}>?</button>
           </div>
         </div>
@@ -4635,6 +4863,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             </span>
           </span>
           <button type="button" className="mc-btn me-on" onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal'); starAct('never') }}>★ {t('starAskGo')}</button>
+          <button type="button" className="mc-btn" style={{ borderColor: 'rgba(139,92,246,.55)', color: '#a78bfa' }} onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal/fork'); starAct('never') }}>🍴 Fork</button>
           <button type="button" className="mc-btn" onClick={() => starAct('later')}>{t('starAskLater')}</button>
           <button type="button" className="mc-btn" onClick={() => starAct('never')}>{t('starAskNever')}</button>
         </div>
@@ -5047,12 +5276,662 @@ function CfgSection({ icon, title, sub, id, children, hidden }) {
   )
 }
 
+// 语义召回面板：默认关闭；本地服务地址默认 127.0.0.1:7997，一键检测/保存/建缓存/拉模型。
+// 不装模型、不配置时本面板只是一段说明，绝不触发任何网络请求（除状态查询）。
+function EmbeddingPanel({ t }) {
+  const [cfg, setCfg] = useState({ enabled: false, baseUrl: 'http://127.0.0.1:7997/v1', model: 'bge-m3', apiKey: '' })
+  const [status, setStatus] = useState(null)
+  const [busy, setBusy] = useState('')
+  const [note, setNote] = useState(null)
+
+  const load = useCallback(async (probe = false) => {
+    try {
+      const r = await fetch(API + '/embedding/status' + (probe ? '?probe=1' : '')).then((x) => x.json()).catch(() => null)
+      if (r && r.ok) {
+        setStatus(r)
+        setCfg((c) => ({ ...c, enabled: !!r.config?.enabled, baseUrl: r.config?.baseUrl || c.baseUrl, model: r.config?.model || c.model }))
+      }
+      return r
+    } catch { return null }
+  }, [])
+
+  useEffect(() => { load(false) }, [load])
+  useEffect(() => {
+    if (!status?.job || status.job.state !== 'running') return undefined
+    const id = setInterval(() => load(false), 1500)
+    return () => clearInterval(id)
+  }, [status, load])
+
+  const post = async (path, body) => {
+    setBusy(path)
+    setNote(null)
+    try {
+      const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then((x) => x.json())
+      if (!r?.ok) setNote({ ok: false, text: r?.error || t('embeddingSaveFail') })
+      await load(true)
+      return r
+    } catch (e) {
+      setNote({ ok: false, text: String((e && e.message) || e) })
+      return null
+    } finally { setBusy('') }
+  }
+
+  const probeNow = async () => {
+    setBusy('probe')
+    const r = await load(true)
+    const s = r?.service
+    setBusy('')
+    setNote(s?.reachable
+      ? { ok: true, text: t('embeddingServiceOn') + (s.models?.length ? '：' + s.models.slice(0, 4).join(', ') : '') + (s.kind ? ' (' + s.kind + ')' : '') }
+      : { ok: false, text: t('embeddingServiceOff') + (s?.error ? '：' + s.error : '') })
+  }
+
+  const save = async () => {
+    const r = await post('/embedding/config', { enabled: cfg.enabled, baseUrl: cfg.baseUrl, model: cfg.model, apiKey: cfg.apiKey })
+    if (r?.ok) setNote({ ok: true, text: '✅ ' + t('embeddingSave') + ' · ' + t('embeddingDone') })
+  }
+
+  const build = async () => {
+    const s = await post('/embedding/config', { enabled: true, baseUrl: cfg.baseUrl, model: cfg.model, apiKey: cfg.apiKey })
+    if (!s?.ok) return
+    const r = await post('/embedding/backfill', { limit: 20000 })
+    if (r?.ok && r.job) setNote({ ok: true, text: t('embeddingJob') + '：' + r.job.state })
+  }
+
+  const pull = async () => {
+    const r = await post('/embedding/pull', { model: cfg.model })
+    if (r?.ok && r.job) setNote({ ok: true, text: t('embeddingJob') + '：' + r.job.state })
+  }
+
+  const copyCmd = async () => {
+    const cmd = 'ollama pull ' + (cfg.model || 'bge-m3')
+    try { await navigator.clipboard.writeText(cmd); setNote({ ok: true, text: t('embeddingCopied') + '：' + cmd }) }
+    catch { setNote({ ok: true, text: cmd }) }
+  }
+
+  const input = { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12.5 }
+  const job = status?.job
+  const cov = status?.coverage
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 11.5, opacity: 0.7, lineHeight: 1.7 }}>{t('embeddingGuide')}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+          <input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} />
+          {t('embeddingOn')}
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+          <span>{t('embeddingBase')}</span>
+          <input value={cfg.baseUrl} onChange={(e) => setCfg({ ...cfg, baseUrl: e.target.value })} style={input} />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+          <span>{t('embeddingModelName')}</span>
+          <input value={cfg.model} onChange={(e) => setCfg({ ...cfg, model: e.target.value })} style={input} />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+          <span>{t('embeddingKey')}</span>
+          <input type="password" value={cfg.apiKey} placeholder="sk-…" onChange={(e) => setCfg({ ...cfg, apiKey: e.target.value })} style={input} />
+        </label>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <button type="button" className="mc-btn" disabled={!!busy} onClick={probeNow}>{busy === 'probe' ? '⏳' : t('embeddingProbe')}</button>
+        <button type="button" className="mc-btn" disabled={!!busy} onClick={save}>{t('embeddingSave')}</button>
+        <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={build}>{t('embeddingBuild')}</button>
+        <button type="button" className="mc-btn" disabled={!!busy} onClick={pull}>{t('embeddingPull')}</button>
+        <button type="button" className="mc-btn" disabled={!!busy} onClick={copyCmd}>{t('embeddingCopy')}</button>
+      </div>
+      <div style={{ fontSize: 11.5, lineHeight: 1.7, opacity: 0.75 }}>
+        {status ? (
+          <>
+            <span>{status.enabled ? '🟢 ' + (status.source === 'config' ? t('embeddingOn') : 'env') : '⚪ ' + t('embeddingOff')}</span>
+            {status.service ? <span> · {status.service.reachable ? '🟢 ' + t('embeddingServiceOn') : '🔴 ' + t('embeddingServiceOff')}</span> : null}
+            {cov ? <span> · {t('embeddingCoverage')} {cov.vectors}/{cov.cards}</span> : null}
+            <span> · {t('embeddingJob')}：{job ? job.kind + ' ' + job.state + (job.total ? ` ${job.done || 0}/${job.total}` : '') + (job.error ? ' · ' + job.error : '') : t('embeddingNoJob')}</span>
+          </>
+        ) : null}
+      </div>
+      {note ? <div style={{ fontSize: 11.5, lineHeight: 1.6, color: note.ok ? '#10b981' : '#b91c1c' }}>{note.text}</div> : null}
+    </div>
+  )
+}
+
+// 语义召回面板 v2：部署方式（本地 Ollama / 在线 API）+ 模型目录 + 条件/进度 + 一键部署。
+function EmbeddingPanelV2({ t }) {
+  const [data, setData] = useState(null)
+  const [mode, setMode] = useState('local')
+  const [vendor, setVendor] = useState('siliconflow')
+  const [localModel, setLocalModel] = useState('bge-m3')
+  const [onlineBase, setOnlineBase] = useState('https://api.siliconflow.cn/v1')
+  const [onlineModel, setOnlineModel] = useState('BAAI/bge-m3')
+  const [apiKey, setApiKey] = useState('')
+  const [busy, setBusy] = useState('')
+  const [note, setNote] = useState(null)
+
+  const load = useCallback(async (probe = false) => {
+    try {
+      const r = await fetch(API + '/embedding/models' + (probe ? '?probe=1' : '')).then((x) => x.json()).catch(() => null)
+      if (!r || !r.ok) return null
+      setData(r)
+      if (r.config?.baseUrl) {
+        const isLocal = /127\.0\.0\.1|localhost/.test(r.config.baseUrl)
+        setMode(isLocal ? 'local' : 'online')
+        if (isLocal) setLocalModel(r.config.model || 'bge-m3')
+        else {
+          setOnlineBase(r.config.baseUrl)
+          setOnlineModel(r.config.model || '')
+          const v = (r.vendors || []).find((x) => x.baseUrl && r.config.baseUrl.startsWith(x.baseUrl))
+          if (v) setVendor(v.id)
+        }
+      }
+      return r
+    } catch { return null }
+  }, [])
+
+  useEffect(() => { load(false) }, [load])
+  useEffect(() => {
+    const running = data?.job?.state === 'running'
+    if (!running) return undefined
+    const id = setInterval(() => load(false), 1500)
+    return () => clearInterval(id)
+  }, [data, load])
+
+  const post = async (path, body) => {
+    setBusy(path); setNote(null)
+    try {
+      const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then((x) => x.json())
+      if (!r?.ok) setNote({ ok: false, text: r?.error || t('embeddingSaveFail') })
+      await load(false)
+      return r
+    } catch (e) { setNote({ ok: false, text: String((e && e.message) || e) }); return null }
+    finally { setBusy('') }
+  }
+
+  const pickVendor = (id) => {
+    setVendor(id)
+    const v = (data?.vendors || []).find((x) => x.id === id)
+    if (v) {
+      setOnlineBase(v.baseUrl)
+      setOnlineModel(v.models?.[0]?.id || '')
+    }
+  }
+
+  const catalog = data?.catalog || []
+  const vendors = data?.vendors || []
+  const installed = data?.installed || []
+  const system = data?.system
+  const ollama = data?.ollama
+  const isInstalled = (name) => installed.some((x) => x === name || x === name + ':latest' || x.startsWith(name + ':'))
+  const model = mode === 'local' ? catalog.find((m) => m.name === localModel) || catalog[0] : null
+  const job = data?.job
+  const pulling = job && job.state === 'running' && job.kind === 'pull' && job.model === localModel
+  const building = job && job.state === 'running' && job.kind === 'backfill'
+  const pct = job && job.total ? Math.min(100, Math.round((job.total ? (job.done || job.completed || 0) / job.total : 0) * 100)) : 0
+  const coverage = data?.config ? null : null
+
+  const input = { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12.5 }
+  const row = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }
+  const pill = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 999, fontSize: 11.5, background: 'rgba(127,127,127,0.10)' }
+
+  const installOllama = async () => {
+    const r = await post('/embedding/install-ollama')
+    if (r && r.manual) setNote({ ok: false, text: t('embeddingInstallManual') + ' ' + r.url })
+    else if (r?.ok) setNote({ ok: true, text: t('embeddingInstalling') })
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* 部署方式 */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <label style={{ ...row, minWidth: 180 }}>
+          <span>{t('embeddingMode')}</span>
+          <select value={mode} onChange={(e) => setMode(e.target.value)} style={input}>
+            <option value="local">{t('embeddingModeLocal')}</option>
+            <option value="online">{t('embeddingModeOnline')}</option>
+          </select>
+        </label>
+        <span style={pill}>{t('embeddingDefaultOff')}</span>
+      </div>
+
+      {mode === 'local' ? (
+        <>
+          {/* 机器条件 + Ollama 状态 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
+            <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.7 }}>
+              <b>{t('embeddingSystem')}</b><br />
+              CPU：{system?.cpu || '—'}（{system?.cores || '?'} 核）<br />
+              内存：{system?.ramGB ? system.ramGB + ' GB' : '—'}<br />
+              显卡：{system?.gpu ? system.gpu.name + (system.gpu.vramGB ? ' · ' + system.gpu.vramGB : '') : t('embeddingGpuNone')}
+            </div>
+            <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.7 }}>
+              <b>{t('embeddingOllama')}</b><br />
+              {ollama?.installed ? <span style={{ color: '#10b981' }}>✓ {t('embeddingOllamaInstalled')}</span> : <span style={{ color: '#b91c1c' }}>✗ {t('embeddingOllamaMissing')}</span>}
+              {ollama?.path ? <div style={{ opacity: 0.6, fontSize: 10.5, wordBreak: 'break-all' }}>{ollama.path}</div> : null}
+              {!ollama?.installed ? (
+                <button type="button" className="mc-btn me-on" style={{ marginTop: 6, padding: '3px 10px' }} disabled={!!busy} onClick={installOllama}>{t('embeddingInstallOllama')}</button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* 模型选择 + 明细 */}
+          <label style={{ ...row, maxWidth: 380 }}>
+            <span>{t('embeddingModelSelect')}</span>
+            <select value={localModel} onChange={(e) => setLocalModel(e.target.value)} style={input}>
+              {catalog.map((m) => (
+                <option key={m.name} value={m.name}>{m.name}{isInstalled(m.name) ? ' ✓ ' + t('embeddingInstalled') : ''} · {m.sizeMB} MB</option>
+              ))}
+            </select>
+          </label>
+
+          {model ? (
+            <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.8 }}>
+              <b>{model.name}</b> <span style={{ ...pill, marginLeft: 6 }}>{model.tag}</span>
+              <div style={{ opacity: 0.8 }}>{model.desc}</div>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 4, opacity: 0.85 }}>
+                <span>{t('embeddingSize')}：{model.sizeMB} MB</span>
+                <span>{t('embeddingDims')}：{model.dims}</span>
+                <span>{t('embeddingRam')}：≥ {model.ramMB} MB</span>
+                <span>{t('embeddingVram')}：≥ {model.vramMB} MB</span>
+              </div>
+            </div>
+          ) : null}
+
+          {/* 操作区：下载 / 进度 / 立即部署 */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {isInstalled(localModel) ? (
+              <button type="button" className="mc-btn me-on" disabled={!!busy || building} onClick={() => post('/embedding/deploy', { model: localModel, baseUrl: data?.config?.baseUrl || 'http://127.0.0.1:7997/v1' })}>
+                {building ? '⏳ ' + t('embeddingBuilding') : '🚀 ' + t('embeddingDeploy')}
+              </button>
+            ) : (
+              <button type="button" className="mc-btn me-on" disabled={!!busy || pulling || !ollama?.installed} onClick={() => post('/embedding/pull', { model: localModel })}>
+                {pulling ? '⏳ ' + t('embeddingDownloading') : '⬇️ ' + t('embeddingDownload')}
+              </button>
+            )}
+            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => load(true)}>{busy === '' ? t('embeddingRefresh') : '⏳'}</button>
+          </div>
+
+          {pulling && job ? (
+            <div>
+              <div style={{ fontSize: 11.5, marginBottom: 4, opacity: 0.8 }}>{t('embeddingDownloading')} {job.status || ''} {job.completed ? Math.round(job.completed / 1024 / 1024) + ' MB' : ''}{job.total ? ' / ' + Math.round(job.total / 1024 / 1024) + ' MB' : ''}</div>
+              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden' }}>
+                <div style={{ width: Math.max(2, Math.min(100, pct)) + '%', height: '100%', background: 'var(--dsw-alias-brand-primary, #4f7cff)', transition: 'width .3s' }} />
+              </div>
+            </div>
+          ) : null}
+          {building ? (
+            <div>
+              <div style={{ fontSize: 11.5, marginBottom: 4, opacity: 0.8 }}>{t('embeddingBuilding')} {job.done}/{job.total || '?'}</div>
+              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden' }}>
+                <div style={{ width: Math.max(2, Math.min(100, pct)) + '%', height: '100%', background: '#10b981', transition: 'width .3s' }} />
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {/* 在线 API：厂商 + 模型 + Key */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
+            <label style={row}>
+              <span>{t('embeddingVendor')}</span>
+              <select value={vendor} onChange={(e) => pickVendor(e.target.value)} style={input}>
+                {vendors.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+              </select>
+            </label>
+            <label style={row}>
+              <span>{t('embeddingModelSelect')}</span>
+              {(() => {
+                const v = vendors.find((x) => x.id === vendor)
+                return v && v.models?.length ? (
+                  <select value={onlineModel} onChange={(e) => setOnlineModel(e.target.value)} style={input}>
+                    {v.models.map((m) => <option key={m.id} value={m.id}>{m.id} · {m.dims}d</option>)}
+                  </select>
+                ) : (
+                  <input value={onlineModel} onChange={(e) => setOnlineModel(e.target.value)} placeholder="text-embedding-3-small" style={input} />
+                )
+              })()}
+            </label>
+            <label style={row}>
+              <span>{t('embeddingBase')}</span>
+              <input value={onlineBase} onChange={(e) => setOnlineBase(e.target.value)} style={input} />
+            </label>
+            <label style={row}>
+              <span>{t('embeddingKey')}</span>
+              <input type="password" value={apiKey} placeholder="sk-…" onChange={(e) => setApiKey(e.target.value)} style={input} />
+            </label>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => load(true)}>{t('embeddingProbe')}</button>
+            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => post('/embedding/config', { enabled: true, baseUrl: onlineBase, model: onlineModel, apiKey })}>{t('embeddingSave')}</button>
+            <button type="button" className="mc-btn me-on" disabled={!!busy || building} onClick={() => post('/embedding/deploy', { model: onlineModel, baseUrl: onlineBase, apiKey })}>{building ? '⏳ ' + t('embeddingBuilding') : '🚀 ' + t('embeddingDeploy')}</button>
+          </div>
+          {building ? (
+            <div>
+              <div style={{ fontSize: 11.5, marginBottom: 4, opacity: 0.8 }}>{t('embeddingBuilding')} {job.done}/{job.total || '?'}</div>
+              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 420 }}>
+                <div style={{ width: Math.max(2, Math.min(100, pct)) + '%', height: '100%', background: '#10b981', transition: 'width .3s' }} />
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {/* 状态行 */}
+      <div style={{ fontSize: 11.5, lineHeight: 1.7, opacity: 0.8 }}>
+        <span>{data?.config?.enabled ? '🟢 ' + t('embeddingOn') : '⚪ ' + t('embeddingOff')}</span>
+        <span> · {t('embeddingService')}: {data?.service ? (data.service.reachable ? '🟢 ' + t('embeddingServiceOn') : '🔴 ' + t('embeddingServiceOff')) : '—'}</span>
+        <span> · {t('embeddingCoverage')}: {data?.coverage ? `${data.coverage.vectors}/${data.coverage.cards}` : '—'}</span>
+        <span> · {t('embeddingJob')}: {job ? job.kind + ' ' + job.state + (job.error ? ' · ' + job.error : '') : t('embeddingNoJob')}</span>
+        {installed.length ? <span> · {t('embeddingInstalled')}: {installed.slice(0, 4).join(', ')}</span> : null}
+      </div>
+      {note ? <div style={{ fontSize: 11.5, color: note.ok ? '#10b981' : '#b91c1c' }}>{note.text}</div> : null}
+    </div>
+  )
+}
+
+// 语义召回面板 v3：两种部署方式（本地 Ollama / 在线厂商）+ 常用模型 + 自定义 + 条件/进度/部署。
+function EmbeddingPanelV3({ t }) {
+  const [data, setData] = useState(null)
+  const [apiOld, setApiOld] = useState(false)
+  const [mode, setMode] = useState('local')
+  const [common, setCommon] = useState('bge-m3')
+  const [custom, setCustom] = useState('')
+  const [vendor, setVendor] = useState('siliconflow')
+  const [oModel, setOModel] = useState('')
+  const [oBase, setOBase] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [busy, setBusy] = useState('')
+  const [note, setNote] = useState(null)
+
+  const load = useCallback(async () => {
+    const res = await fetch(API + '/embedding/models').catch(() => null)
+    if (!res || !res.ok) { setApiOld(true); return null }
+    const r = await res.json().catch(() => null)
+    if (!r || !r.ok) { setApiOld(true); return null }
+    setApiOld(false)
+    setData(r)
+    const savedMode = r.config?.mode
+    const base = r.config?.baseUrl || ''
+    if (savedMode === 'builtin') {
+      setMode('builtin')
+    } else if (base) {
+      const local = /127\.0\.0\.1|localhost/.test(base)
+      setMode(savedMode === 'online' ? 'online' : (local ? 'local' : 'online'))
+      if (local) {
+        const name = r.config?.model || 'bge-m3'
+        if ((r.catalog || []).some((m) => m.name === name)) setCommon(name)
+        else { setCommon('__custom'); setCustom(name) }
+      } else {
+        setOBase(base)
+        setOModel(r.config?.model || '')
+        const v = (r.vendors || []).find((x) => x.baseUrl && base.startsWith(x.baseUrl))
+        setVendor(v ? v.id : 'custom')
+      }
+    }
+    return r
+  }, [])
+
+  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (data?.job?.state !== 'running') return undefined
+    const id = setInterval(load, 1500)
+    return () => clearInterval(id)
+  }, [data, load])
+
+  const post = async (path, body) => {
+    setBusy(path); setNote(null)
+    try {
+      const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then((x) => x.json())
+      if (!r?.ok) setNote({ ok: false, text: r?.error || t('embeddingSaveFail') })
+      await load()
+      return r
+    } catch (e) { setNote({ ok: false, text: String((e && e.message) || e) }); return null }
+    finally { setBusy('') }
+  }
+
+  const pickVendor = (id) => {
+    setVendor(id)
+    const v = (data?.vendors || []).find((x) => x.id === id)
+    if (v) { setOBase(v.baseUrl); setOModel(v.models?.[0]?.id || '') }
+  }
+
+  const localModel = common === '__custom' ? custom.trim() : common
+  const installed = data?.installed || []
+  const isInstalled = (n) => !!n && installed.some((x) => x === n || x.startsWith(n + ':'))
+  const info = (data?.catalog || []).find((m) => m.name === localModel)
+  const ollama = data?.ollama
+  const job = data?.job
+  const pulling = job?.state === 'running' && job.kind === 'pull'
+  const building = job?.state === 'running' && job.kind === 'backfill'
+  const pct = job?.total ? Math.max(1, Math.min(100, Math.round(((job.completed || job.done || 0) / job.total) * 100))) : 0
+  const canDeploy = isInstalled(localModel)
+  const cov = data?.coverage
+  const normBase = (u) => String(u || '').replace(/\/+$/, '')
+  const deployedLocal = !!(data?.config?.enabled && data.config.model === localModel &&
+    cov && cov.cards > 0 && cov.vectors >= cov.cards)
+  const deployedOnline = !!(data?.config?.enabled && data.config.model === oModel &&
+    normBase(data.config.baseUrl) === normBase(oBase) && cov && cov.cards > 0 && cov.vectors >= cov.cards)
+
+  const input = { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12.5 }
+  const row = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }
+  const hint = { fontSize: 11, opacity: 0.65, lineHeight: 1.6 }
+
+  if (apiOld) {
+    return (
+      <div className="mc-card" style={{ padding: 10, fontSize: 12, color: '#b91c1c', lineHeight: 1.7 }}>
+        ⚠️ {t('embeddingApiOld')}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* 部署方式 + 总开关 */}
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label style={{ ...row, minWidth: 200 }}>
+          <span>{t('embeddingMode')}</span>
+          <select
+            value={mode}
+            onChange={(e) => {
+              const v = e.target.value
+              setMode(v)
+              post('/embedding/config', v === 'builtin' ? { mode: 'builtin', enabled: false } : { mode: v })
+            }}
+            style={input}
+          >
+            <option value="builtin">{t('embeddingModeBuiltin')}</option>
+            <option value="local">{t('embeddingModeLocal')}</option>
+            <option value="online">{t('embeddingModeOnline')}</option>
+          </select>
+        </label>
+        {mode === 'builtin' ? (
+          <span style={{ ...hint, color: '#10b981' }}>🟢 {t('embeddingBuiltinOn')}</span>
+        ) : (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: 'pointer', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
+            <input
+              type="checkbox"
+              checked={!!data?.config?.enabled}
+              disabled={!!busy}
+              onChange={(e) => post('/embedding/config', { enabled: e.target.checked })}
+            />
+            <b>{t('embeddingOn')}</b>
+            <span style={{ color: data?.config?.enabled ? '#10b981' : 'rgba(127,127,127,0.75)', fontSize: 11.5 }}>
+              {data?.config?.enabled ? t('embeddingOn') : t('embeddingOff')}
+            </span>
+          </label>
+        )}
+        <span style={hint}>{mode === 'builtin' ? t('embeddingBuiltinHint') : mode === 'local' ? t('embeddingLocalNote') : t('embeddingOnlineNote')}</span>
+        <button type="button" className="mc-btn" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => { try { localStorage.removeItem('me-onboarded-v2') } catch { /* ignore */ } location.reload() }}>🧭 引导</button>
+      </div>
+
+      {mode === 'builtin' ? (
+        <div className="mc-card" style={{ padding: '10px 12px', fontSize: 12, lineHeight: 1.9 }}>
+          <b>🧠 {t('embeddingModeBuiltin')}</b>
+          <div style={{ opacity: 0.85, marginTop: 4 }}>{t('embeddingBuiltinHint')}</div>
+          <div style={{ marginTop: 6, opacity: 0.7, fontSize: 11.5 }}>
+            实测：R@5 95.4% · 改写题 30% · 延迟约 4 ms · 零依赖零网络
+          </div>
+        </div>
+      ) : mode === 'local' ? (
+        <>
+          {/* Ollama 状态 */}
+          <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.8 }}>
+            <b>{t('embeddingOllama')}</b>：
+            {ollama?.installed
+              ? <span style={{ color: '#10b981' }}>✓ {t('embeddingOllamaInstalled')}{ollama.version ? ' · ' + ollama.version : ''}</span>
+              : ollama?.serviceReachable
+                ? <span style={{ color: '#10b981' }}>✓ {t('embeddingOllamaService')}（{t('embeddingNoFile')}）</span>
+                : <span style={{ color: '#b91c1c' }}>✗ {t('embeddingOllamaMissing')}</span>}
+            {ollama?.path ? <span style={{ opacity: 0.55, marginLeft: 8, fontSize: 10.5, wordBreak: 'break-all' }}>{ollama.path}</span> : null}
+            {!ollama?.installed && !ollama?.serviceReachable ? (
+              <div style={{ marginTop: 6 }}>
+                <button type="button" className="mc-btn me-on" style={{ padding: '3px 10px' }} disabled={!!busy} onClick={async () => {
+                  const r = await post('/embedding/install-ollama')
+                  if (r && r.manual) setNote({ ok: false, text: t('embeddingInstallManual') + ' ' + r.url })
+                  else if (r?.ok) setNote({ ok: true, text: t('embeddingInstalling') })
+                }}>{t('embeddingInstallOllama')}</button>
+                <div style={hint}>{t('embeddingInstallManual')} https://ollama.com/download</div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* 模型：常用 / 自定义 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
+            <label style={row}>
+              <span>{t('embeddingModelSelect')}</span>
+              <select value={common} onChange={(e) => setCommon(e.target.value)} style={input}>
+                {(data?.catalog || []).map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.name} · {m.sizeMB} MB{m.tag ? ' · ' + m.tag : ''}{isInstalled(m.name) ? ' ✓' : ''}
+                  </option>
+                ))}
+                <option value="__custom">{t('embeddingCustomModel')}</option>
+              </select>
+            </label>
+            {common === '__custom' ? (
+              <label style={row}>
+                <span>{t('embeddingCustom')}</span>
+                <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="例如 bge-m3:latest" style={input} />
+              </label>
+            ) : null}
+          </div>
+
+          {info ? (
+            <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.8 }}>
+              <b>{info.name}</b> <span style={{ opacity: 0.65 }}>· {info.tag}</span>
+              <div style={{ opacity: 0.8 }}>{info.desc}</div>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', opacity: 0.85 }}>
+                <span>{t('embeddingSize')}：{info.sizeMB} MB</span>
+                <span>{t('embeddingDims')}：{info.dims}</span>
+                <span>{t('embeddingRam')}：≥ {info.ramMB} MB</span>
+                <span>{t('embeddingVram')}：≥ {info.vramMB} MB</span>
+              </div>
+            </div>
+          ) : null}
+
+          {/* 操作 */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {canDeploy ? (
+              deployedLocal ? (
+                <button type="button" className="mc-btn" disabled>✅ {t('embeddingDeployed')}</button>
+              ) : (
+                <button type="button" className="mc-btn me-on" disabled={!!busy || building || !localModel} onClick={() => post('/embedding/deploy', { model: localModel, baseUrl: data?.config?.baseUrl || 'http://127.0.0.1:7997/v1' })}>
+                  {building ? '⏳ ' + t('embeddingBuilding') : '🚀 ' + t('embeddingDeploy')}
+                </button>
+              )
+            ) : (
+              <button type="button" className="mc-btn me-on" disabled={!!busy || pulling || !localModel || (!ollama?.installed && !ollama?.serviceReachable)} onClick={() => post('/embedding/pull', { model: localModel })}>
+                {pulling ? '⏳ ' + t('embeddingDownloading') : '⬇️ ' + t('embeddingDownload')}
+              </button>
+            )}
+            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => load()}>{t('embeddingRefresh')}</button>
+          </div>
+
+          {pulling ? (
+            <div>
+              <div style={hint}>{t('embeddingDownloading')} {job.status || ''} {job.completed ? Math.round(job.completed / 1048576) + ' MB' : ''}{job.total ? ' / ' + Math.round(job.total / 1048576) + ' MB' : ''}</div>
+              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 520 }}>
+                <div style={{ width: pct + '%', height: '100%', background: 'var(--dsw-alias-brand-primary, #4f7cff)', transition: 'width .3s' }} />
+              </div>
+            </div>
+          ) : null}
+          {building ? (
+            <div>
+              <div style={hint}>{t('embeddingBuilding')} {job.done}/{job.total || '?'}</div>
+              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 520 }}>
+                <div style={{ width: pct + '%', height: '100%', background: '#10b981', transition: 'width .3s' }} />
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
+            <label style={row}>
+              <span>{t('embeddingVendor')}</span>
+              <select value={vendor} onChange={(e) => pickVendor(e.target.value)} style={input}>
+                {(data?.vendors || []).map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+              </select>
+            </label>
+            <label style={row}>
+              <span>{t('embeddingModelSelect')}</span>
+              {(() => {
+                const v = (data?.vendors || []).find((x) => x.id === vendor)
+                return v && v.models?.length ? (
+                  <select value={oModel} onChange={(e) => setOModel(e.target.value)} style={input}>
+                    {v.models.map((m) => <option key={m.id} value={m.id}>{m.id} · {m.dims}d</option>)}
+                  </select>
+                ) : (
+                  <input value={oModel} onChange={(e) => setOModel(e.target.value)} placeholder="text-embedding-3-small" style={input} />
+                )
+              })()}
+            </label>
+            <label style={row}>
+              <span>{t('embeddingBase')}</span>
+              <input value={oBase} onChange={(e) => setOBase(e.target.value)} style={input} />
+            </label>
+            <label style={row}>
+              <span>{t('embeddingKey')}</span>
+              <input type="password" value={apiKey} placeholder="sk-…" onChange={(e) => setApiKey(e.target.value)} style={input} />
+            </label>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => load()}>{t('embeddingProbe')}</button>
+            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => post('/embedding/config', { enabled: true, baseUrl: oBase, model: oModel, apiKey })}>{t('embeddingSave')}</button>
+            {deployedOnline ? (
+              <button type="button" className="mc-btn" disabled>✅ {t('embeddingDeployed')}</button>
+            ) : (
+              <button type="button" className="mc-btn me-on" disabled={!!busy || building || !oModel} onClick={() => post('/embedding/deploy', { model: oModel, baseUrl: oBase, apiKey })}>{building ? '⏳ ' + t('embeddingBuilding') : '🚀 ' + t('embeddingDeploy')}</button>
+            )}
+          </div>
+          {building ? (
+            <div>
+              <div style={hint}>{t('embeddingBuilding')} {job.done}/{job.total || '?'}</div>
+              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 520 }}>
+                <div style={{ width: pct + '%', height: '100%', background: '#10b981', transition: 'width .3s' }} />
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {/* 状态 */}
+      <div style={{ ...hint, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <span>{data?.config?.enabled ? '🟢 ' + t('embeddingOn') : '⚪ ' + t('embeddingOff')}</span>
+        <span>{t('embeddingService')}：{data?.service ? (data.service.reachable ? '🟢 ' + t('embeddingServiceOn') : '🔴 ' + t('embeddingServiceOff')) : '—'}</span>
+        <span>{t('embeddingCoverage')}：{data?.coverage ? data.coverage.vectors + '/' + data.coverage.cards : '—'}</span>
+        <span>{t('embeddingJob')}：{job ? job.kind + ' ' + job.state + (job.error ? ' · ' + job.error : '') : t('embeddingNoJob')}</span>
+        {installed.length ? <span>{t('embeddingInstalled')}：{installed.slice(0, 4).join(', ')}</span> : null}
+      </div>
+      {note ? <div style={{ fontSize: 11.5, color: note.ok ? '#10b981' : '#b91c1c' }}>{note.text}</div> : null}
+    </div>
+  )
+}
+
 function ConfigPanel({ t, onReload, version, compact }) {
   // 弹窗形态：分页导航（只保留 4 个核心分类）
   const [page, setPage] = useState('general')
   const PAGE_OF = {
     'sec-preset': 'general', 'sec-theme': 'general', 'sec-basic': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
-    'sec-memory': 'memory', 'sec-core': 'memory', 'sec-vault': 'memory',
+    'sec-memory': 'memory', 'sec-embed': 'memory', 'sec-core': 'memory', 'sec-vault': 'memory',
     'sec-cost': 'advanced', 'sec-audit': 'advanced',
     'sec-service': 'service',
   }
@@ -5625,6 +6504,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="recallEmbedding" label={t('recallEmbedding')} wide />
               </div>
             </CfgSection>
+            {/* 语义召回（可选，默认关闭；本地 HTTP 服务默认 7997） */}
+            <CfgSection {...secProps('sec-embed')} id="sec-embed" icon="🔍" title={t('embeddingTitle')} sub={t('embeddingHint')}>
+              <EmbeddingPanelV3 t={t} />
+            </CfgSection>
             {/* 核心记忆（前置强制注入） */}
             <CfgSection {...secProps('sec-core')} id="sec-core" icon="⭐" title={t('coreMemory')} sub={t('coreMemoryHint')}>
               <div className="mc-cfg-switches">
@@ -5975,6 +6858,22 @@ function AuditPanel({ t, onReload, version }) {
     } catch (e) { notify(t('toastFailed') + ': ' + String((e && e.message) || e), false) } finally { setBusy('') }
   }
   const clearSel = () => setSel(new Set())
+  const isRawCard = (c) => {
+    const tags = Array.isArray(c?.tags) ? c.tags : []
+    return tags.includes('raw') || tags.includes('distill-failed') || /原文卡|蒸馏无输出|蒸馏失败/.test(String(c?.reason || ''))
+  }
+  const redistill = async (path) => {
+    if (!window.confirm(t('redistillConfirm'))) return
+    setBusy('redistill')
+    try {
+      const r = await fetch(API + '/audit/redistill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) }).then((x) => x.json())
+      if (r && r.ok) {
+        notify(t('redistillOk') + (r.title ? '：' + r.title : ''))
+        setBodies((b) => { const n = { ...b }; delete n[path]; return n })
+      } else notify(t('redistillFail') + ': ' + ((r && r.error) || 'HTTP'), false)
+      await load(); if (onReload) onReload()
+    } catch (e) { notify(t('redistillFail') + ': ' + String((e && e.message) || e), false) } finally { setBusy('') }
+  }
   const switchTab = (next) => { setTab(next); clearSel() }
   const kindList = ['all', ...KIND_IDS.filter((k) => k !== 'all')]
   return (
@@ -6066,6 +6965,7 @@ function AuditPanel({ t, onReload, version }) {
                         <div className="me-audit-row-actions" onClick={(e) => e.stopPropagation()}>
                           {tab === 'pending' ? (
                             <>
+                              {isRawCard(c) && <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('redistill')} disabled={!!busy} onClick={() => redistill(c.path)}>🔁</button>}
                               <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => applyStatus('approved', [c.path])}>✓</button>
                               <button type="button" className="mc-btn mc-btn-danger" style={{ padding: '2px 8px' }} onClick={() => applyStatus('rejected', [c.path])}>✕</button>
                             </>
@@ -6109,6 +7009,9 @@ function AuditPanel({ t, onReload, version }) {
                       : (!previewSt.loading && <p className="me-audit-preview-summary">{previewCard.summary || ''}</p>)}
                   </div>
                   <div className="me-audit-preview-actions">
+                    {tab === 'pending' && isRawCard(previewCard) && (
+                      <button type="button" className="mc-btn" disabled={!!busy} onClick={() => redistill(previewCard.path)}>🔁 {t('redistill')}</button>
+                    )}
                     <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path])}>✓ {tab === 'rejected' ? t('restore') : previewCard.kind === 'core' ? t('approveCore') : t('approve')}</button>
                     {tab === 'pending' && previewCard.kind !== 'core' && !previewCard.revision && (
                       <button type="button" className="mc-btn me-core-btn" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'core' })}>⭐ {t('approveAndCore')}</button>

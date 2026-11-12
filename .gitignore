@@ -18,3 +18,4 @@ docs/sessions/
 # 验收工具临时输出（截图与 JSON 报告不入库）
 .shots/
 *-out.json
+bench/longmemeval/*.json

@@ -1,0 +1,2719 @@
+{
+  "summary": {
+    "label": "re-D2",
+    "vault": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\mc-re-171632",
+    "golden": "bench\\golden-recall.json",
+    "cases": 109,
+    "cards": 2544,
+    "limit": 10,
+    "clean": true,
+    "expand": true,
+    "R5": 0.9541,
+    "R10": 0.9817,
+    "MRR": 0.9042,
+    "Top1": 0.8624,
+    "zeroHit": 0,
+    "latencyMs": {
+      "mean": 3.4,
+      "p95": 5.8
+    },
+    "byKind": {
+      "title": {
+        "n": 30,
+        "R5": 1,
+        "Top1": 1
+      },
+      "body": {
+        "n": 30,
+        "R5": 1,
+        "Top1": 0.8333
+      },
+      "noisy": {
+        "n": 20,
+        "R5": 0.9,
+        "Top1": 0.85
+      },
+      "natural2": {
+        "n": 10,
+        "R5": 0.8,
+        "Top1": 0.7
+      },
+      "natural": {
+        "n": 19,
+        "R5": 0.9474,
+        "Top1": 0.7895
+      }
+    },
+    "at": "2026-11-12T09:17:02.154Z"
+  },
+  "results": [
+    {
+      "id": "t0",
+      "kind": "title",
+      "query": "制造业售前澄清清单提示词（固定模板）",
+      "expected": [
+        "05-Prompts/制造业售前澄清清单提示词固定模板.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 8,
+      "top": [
+        {
+          "path": "05-Prompts/制造业售前澄清清单提示词固定模板.md",
+          "title": "制造业售前澄清清单提示词（固定模板）",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t1",
+      "kind": "title",
+      "query": "1.任务依赖索性和 修士状态 结合一起优化空间",
+      "expected": [
+        "04-Content/1任务依赖索性和-修士状态-结合一起优化空间.md"
+      ],
+      "rank": 1,
+      "hits": 2,
+      "ms": 6,
+      "top": [
+        {
+          "path": "04-Content/1任务依赖索性和-修士状态-结合一起优化空间.md",
+          "title": "1.任务依赖索性和 修士状态 结合一起优化空间",
+          "score": 20
+        },
+        {
+          "path": "04-Content/头我就按这个方案做.md",
+          "title": "头我就按这个方案做",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t2",
+      "kind": "title",
+      "query": "craft-anything Windows 编译环境：ring 的 cl D8050 问题与字体配置",
+      "expected": [
+        "07-Tools/craft-anything-windows-编译环境ring-的-cl-d8050-问题与字体配置.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 6,
+      "top": [
+        {
+          "path": "07-Tools/craft-anything-windows-编译环境ring-的-cl-d8050-问题与字体配置.md",
+          "title": "craft-anything Windows 编译环境：ring 的 cl D8050 问题与字体配置",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t3",
+      "kind": "title",
+      "query": "任务排队改派竞态：interrupt 后状态未同步导致改派失败",
+      "expected": [
+        "08-Mistakes/任务排队改派竞态interrupt-后状态未同步导致改派失败.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 5,
+      "top": [
+        {
+          "path": "08-Mistakes/任务排队改派竞态interrupt-后状态未同步导致改派失败.md",
+          "title": "任务排队改派竞态：interrupt 后状态未同步导致改派失败",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t4",
+      "kind": "title",
+      "query": "ETest 烧录防重复锁定：do_write 成功后加 locked_key 锁",
+      "expected": [
+        "08-Mistakes/etest-烧录防重复锁定do-write-成功后加-locked-key-锁.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 4,
+      "top": [
+        {
+          "path": "08-Mistakes/etest-烧录防重复锁定do-write-成功后加-locked-key-锁.md",
+          "title": "ETest 烧录防重复锁定：do_write 成功后加 locked_key 锁",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t5",
+      "kind": "title",
+      "query": "DailyCultivation V1 交付状态与验收标准",
+      "expected": [
+        "02-Projects/dailycultivation-v1-交付状态与验收标准.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "02-Projects/dailycultivation-v1-交付状态与验收标准.md",
+          "title": "DailyCultivation V1 交付状态与验收标准",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t6",
+      "kind": "title",
+      "query": "shj-client 登录链路 6/6 自检：自动登录凭证语义与三层验证法",
+      "expected": [
+        "07-Tools/shj-client-登录链路-66-自检自动登录凭证语义与三层验证法.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 4,
+      "top": [
+        {
+          "path": "07-Tools/shj-client-登录链路-66-自检自动登录凭证语义与三层验证法.md",
+          "title": "shj-client 登录链路 6/6 自检：自动登录凭证语义与三层验证法",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t7",
+      "kind": "title",
+      "query": "dsh-pixel-team 开宗向导与立誓流程设计决策（0.1.82-0.1.90）",
+      "expected": [
+        "02-Projects/dsh-pixel-team-开宗向导与立誓流程设计决策0182-0190.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 5,
+      "top": [
+        {
+          "path": "02-Projects/dsh-pixel-team-开宗向导与立誓流程设计决策0182-0190.md",
+          "title": "dsh-pixel-team 开宗向导与立誓流程设计决策（0.1.82-0.1.90）",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t8",
+      "kind": "title",
+      "query": "DSH 会话工作区（草稿本）v0.26.0 设计与取舍",
+      "expected": [
+        "02-Projects/dsh-会话工作区草稿本v0260-设计与取舍.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "02-Projects/dsh-会话工作区草稿本v0260-设计与取舍.md",
+          "title": "DSH 会话工作区（草稿本）v0.26.0 设计与取舍",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t9",
+      "kind": "title",
+      "query": "ltica 自带 workspace、Dify 自带部署平台",
+      "expected": [
+        "04-Content/ltica-自带-workspacedify-自带部署平台.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "04-Content/ltica-自带-workspacedify-自带部署平台.md",
+          "title": "ltica 自带 workspace、Dify 自带部署平台",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t10",
+      "kind": "title",
+      "query": "g libs. 助手：**⚠ 自动沉淀异常提醒**：记忆核心报告「蒸馏调用失败（",
+      "expected": [
+        "04-Content/g-libs-助手-自动沉淀异常提醒记忆核心报告蒸馏调用失败.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "04-Content/g-libs-助手-自动沉淀异常提醒记忆核心报告蒸馏调用失败.md",
+          "title": "g libs. 助手：**⚠ 自动沉淀异常提醒**：记忆核心报告「蒸馏调用失败（",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t11",
+      "kind": "title",
+      "query": "服务器带宽选型：1-5M 换算与多租户起步建议",
+      "expected": [
+        "03-Knowledge/服务器带宽选型1-5m-换算与多租户起步建议.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/服务器带宽选型1-5m-换算与多租户起步建议.md",
+          "title": "服务器带宽选型：1-5M 换算与多租户起步建议",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t12",
+      "kind": "title",
+      "query": "pnpm 安装 GitHub 仓库卡住的定位与本地 tarball 兜底",
+      "expected": [
+        "08-Mistakes/pnpm-安装-github-仓库卡住的定位与本地-tarball-兜底.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "08-Mistakes/pnpm-安装-github-仓库卡住的定位与本地-tarball-兜底.md",
+          "title": "pnpm 安装 GitHub 仓库卡住的定位与本地 tarball 兜底",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t13",
+      "kind": "title",
+      "query": "非员工合伙人《竞业与保密承诺书》远程签署方案（eternal 公司）",
+      "expected": [
+        "06-Business/非员工合伙人竞业与保密承诺书远程签署方案eternal-公司.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 4,
+      "top": [
+        {
+          "path": "06-Business/非员工合伙人竞业与保密承诺书远程签署方案eternal-公司.md",
+          "title": "非员工合伙人《竞业与保密承诺书》远程签署方案（eternal 公司）",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t14",
+      "kind": "title",
+      "query": "用户：在windows服务器中 etest和findany 用egui运行都无界",
+      "expected": [
+        "04-Content/用户在windows服务器中-etest和findany-用egui运行都无界.md"
+      ],
+      "rank": 1,
+      "hits": 2,
+      "ms": 3,
+      "top": [
+        {
+          "path": "04-Content/用户在windows服务器中-etest和findany-用egui运行都无界.md",
+          "title": "用户：在windows服务器中 etest和findany 用egui运行都无界",
+          "score": 20
+        },
+        {
+          "path": "04-Content/修法把最近一次操作结果直接显示在顶栏就在开始左边红.md",
+          "title": "修法**：把**最近一次操作结果**直接显示在顶栏、就在「开始」左边（`✖`红/",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t15",
+      "kind": "title",
+      "query": "验证OK 修复的版本请更新到etest",
+      "expected": [
+        "04-Content/验证ok-修复的版本请更新到etest.md"
+      ],
+      "rank": 1,
+      "hits": 2,
+      "ms": 4,
+      "top": [
+        {
+          "path": "04-Content/验证ok-修复的版本请更新到etest.md",
+          "title": "验证OK 修复的版本请更新到etest",
+          "score": 19
+        },
+        {
+          "path": "04-Content/s-h-authorization-bearer-tok-http18076144487070.md",
+          "title": "s -H \"Authorization: Bearer $tok\" 'http://180.76.144.48:7070",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t16",
+      "kind": "title",
+      "query": "「开宗」九阵营架构设计",
+      "expected": [
+        "02-Projects/开宗九阵营架构设计.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 1,
+      "top": [
+        {
+          "path": "02-Projects/开宗九阵营架构设计.md",
+          "title": "「开宗」九阵营架构设计",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t17",
+      "kind": "title",
+      "query": "dsh-pixel-team 项目关键知识（架构/门禁/发版/踩坑）",
+      "expected": [
+        "02-Projects/dsh-pixel-team-项目关键知识架构门禁发版踩坑.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "02-Projects/dsh-pixel-team-项目关键知识架构门禁发版踩坑.md",
+          "title": "dsh-pixel-team 项目关键知识（架构/门禁/发版/踩坑）",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t18",
+      "kind": "title",
+      "query": "BATTERY工步电压项精简：V点1(COM3)+mV点2(COM4)",
+      "expected": [
+        "02-Projects/battery工步电压项精简v点1com3mv点2com4.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/battery工步电压项精简v点1com3mv点2com4.md",
+          "title": "BATTERY工步电压项精简：V点1(COM3)+mV点2(COM4)",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t19",
+      "kind": "title",
+      "query": "修复发布v0.17.0",
+      "expected": [
+        "04-Content/修复发布v0170.md"
+      ],
+      "rank": 1,
+      "hits": 5,
+      "ms": 3,
+      "top": [
+        {
+          "path": "04-Content/修复发布v0170.md",
+          "title": "修复发布v0.17.0",
+          "score": 18
+        },
+        {
+          "path": "04-Content/147575-bytes.md",
+          "title": "147575 bytes",
+          "score": 17
+        },
+        {
+          "path": "04-Content/对话原文记录.md",
+          "title": "对话原文记录",
+          "score": 17
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t20",
+      "kind": "title",
+      "query": "openmausbot 部署分析稿审查要点与事实核对清单",
+      "expected": [
+        "03-Knowledge/openmausbot-部署分析稿审查要点与事实核对清单.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "03-Knowledge/openmausbot-部署分析稿审查要点与事实核对清单.md",
+          "title": "openmausbot 部署分析稿审查要点与事实核对清单",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t21",
+      "kind": "title",
+      "query": "agents_pixe_roles 与 agents_pixe_team 工具使用指南",
+      "expected": [
+        "03-Knowledge/agents-pixe-roles-与-agents-pixe-team-工具使用指南.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "03-Knowledge/agents-pixe-roles-与-agents-pixe-team-工具使用指南.md",
+          "title": "agents_pixe_roles 与 agents_pixe_team 工具使用指南",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t22",
+      "kind": "title",
+      "query": "贪吃蛇大作战 Web 游戏实现要点与 N1/N3/N4 修复",
+      "expected": [
+        "02-Projects/贪吃蛇大作战-web-游戏实现要点与-n1n3n4-修复.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/贪吃蛇大作战-web-游戏实现要点与-n1n3n4-修复.md",
+          "title": "贪吃蛇大作战 Web 游戏实现要点与 N1/N3/N4 修复",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t23",
+      "kind": "title",
+      "query": "MVCheck 记录查询判定合并与日志工序源改造",
+      "expected": [
+        "02-Projects/mvcheck-记录查询判定合并与日志工序源改造.md"
+      ],
+      "rank": 1,
+      "hits": 2,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/mvcheck-记录查询判定合并与日志工序源改造.md",
+          "title": "MVCheck 记录查询判定合并与日志工序源改造",
+          "score": 20
+        },
+        {
+          "path": "00-System/daily-2026-09-03.md",
+          "title": "每日回顾 2026-09-03",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t24",
+      "kind": "title",
+      "query": "shj-platform CI 证书不入库导致的回归与 Copy-Item 嵌套事故",
+      "expected": [
+        "08-Mistakes/shj-platform-ci-证书不入库导致的回归与-copy-item-嵌套事故.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "08-Mistakes/shj-platform-ci-证书不入库导致的回归与-copy-item-嵌套事故.md",
+          "title": "shj-platform CI 证书不入库导致的回归与 Copy-Item 嵌套事故",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t25",
+      "kind": "title",
+      "query": "DSH 记忆入口宿主识别：writable/isDsh 双层机制",
+      "expected": [
+        "03-Knowledge/dsh-记忆入口宿主识别writableisdsh-双层机制.md"
+      ],
+      "rank": 1,
+      "hits": 2,
+      "ms": 2,
+      "top": [
+        {
+          "path": "03-Knowledge/dsh-记忆入口宿主识别writableisdsh-双层机制.md",
+          "title": "DSH 记忆入口宿主识别：writable/isDsh 双层机制",
+          "score": 20
+        },
+        {
+          "path": "00-System/daily-2026-08-31.md",
+          "title": "每日回顾 2026-08-31",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t26",
+      "kind": "title",
+      "query": "justfile 可读性优化：分组+注释顺序+private（etest/dsh 项目）",
+      "expected": [
+        "07-Tools/justfile-可读性优化分组注释顺序privateetestdsh-项目.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "07-Tools/justfile-可读性优化分组注释顺序privateetestdsh-项目.md",
+          "title": "justfile 可读性优化：分组+注释顺序+private（etest/dsh 项目）",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t27",
+      "kind": "title",
+      "query": "dsh 六仓取证：工具计数实测口径与只读产物修复（t3 repair round 2）",
+      "expected": [
+        "02-Projects/dsh-六仓取证工具计数实测口径与只读产物修复t3-repair-round-2.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "02-Projects/dsh-六仓取证工具计数实测口径与只读产物修复t3-repair-round-2.md",
+          "title": "dsh 六仓取证：工具计数实测口径与只读产物修复（t3 repair round 2）",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t28",
+      "kind": "title",
+      "query": "iOS 真机开发环境与免费账号坑（V1 验收流程）",
+      "expected": [
+        "07-Tools/ios-真机开发环境与免费账号坑v1-验收流程.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "07-Tools/ios-真机开发环境与免费账号坑v1-验收流程.md",
+          "title": "iOS 真机开发环境与免费账号坑（V1 验收流程）",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "t29",
+      "kind": "title",
+      "query": "MVCheck 工单校验临时禁用与 SN 实时获取改造",
+      "expected": [
+        "02-Projects/mvcheck-工单校验临时禁用与-sn-实时获取改造.md"
+      ],
+      "rank": 1,
+      "hits": 2,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/mvcheck-工单校验临时禁用与-sn-实时获取改造.md",
+          "title": "MVCheck 工单校验临时禁用与 SN 实时获取改造",
+          "score": 20
+        },
+        {
+          "path": "00-System/daily-2026-08-31.md",
+          "title": "每日回顾 2026-08-31",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b30",
+      "kind": "body",
+      "query": "统一筛选/列表逻辑后自查出四处「毛边",
+      "expected": [
+        "03-Knowledge/etest-筛选列表毛边完善排序口径空态文案空分组跳过.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "03-Knowledge/etest-筛选列表毛边完善排序口径空态文案空分组跳过.md",
+          "title": "ETest 筛选/列表毛边完善：排序口径、空态文案、空分组跳过",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b31",
+      "kind": "body",
+      "query": "拿到后我会在 VM（UEFI）里走一",
+      "expected": [
+        "04-Content/窗体高度从-470-调到-520按钮勾选框提示的坐标都排过按钮行-y300沿用行-y360勾选框-x4.md"
+      ],
+      "rank": 2,
+      "hits": 2,
+      "ms": 2,
+      "top": [
+        {
+          "path": "04-Content/autorunbat-图形界面作业员用.md",
+          "title": "autorun.bat :: 图形界面（作业员用）",
+          "score": 18
+        },
+        {
+          "path": "04-Content/窗体高度从-470-调到-520按钮勾选框提示的坐标都排过按钮行-y300沿用行-y360勾选框-x4.md",
+          "title": "窗体高度从 470 调到 520，按钮/勾选框/提示的坐标都排过（按钮行 y=300、沿用行 y=360、勾选框 x=4",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b32",
+      "kind": "body",
+      "query": "修复方案（重命名不可用时改复制）",
+      "expected": [
+        "07-Tools/nvm-windows-环境被官方安装包污染-项目级-node-18-切换yarn-1-engines-硬校验.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "07-Tools/nvm-windows-环境被官方安装包污染-项目级-node-18-切换yarn-1-engines-硬校验.md",
+          "title": "nvm-windows 环境被官方安装包污染 + 项目级 Node 18 切换（yarn 1 engines 硬校验）",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b33",
+      "kind": "body",
+      "query": "SHJ-platform R5 客户",
+      "expected": [
+        "02-Projects/shj-platform-r5-客户端收尾预检离线缓存100并发压测实现与决策.md"
+      ],
+      "rank": 1,
+      "hits": 4,
+      "ms": 1,
+      "top": [
+        {
+          "path": "02-Projects/shj-platform-r5-客户端收尾预检离线缓存100并发压测实现与决策.md",
+          "title": "SHJ-platform R5 客户端收尾：预检+离线缓存+100并发压测实现与决策",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/shj-山海经灵枢平台-v2-重评估清理-192gb-死产物-新开发计划-r0-r8.md",
+          "title": "SHJ 山海经灵枢平台 V2 重评估：清理 1.92GB 死产物 + 新开发计划 R0-R8",
+          "score": 18
+        },
+        {
+          "path": "00-System/daily-2026-09-02.md",
+          "title": "每日回顾 2026-09-02",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b34",
+      "kind": "body",
+      "query": "meng-you 官网同步 dsh-",
+      "expected": [
+        "02-Projects/meng-you-官网同步-dsh-pixel-team-017-发布流程.md"
+      ],
+      "rank": 1,
+      "hits": 2,
+      "ms": 1,
+      "top": [
+        {
+          "path": "02-Projects/meng-you-官网同步-dsh-pixel-team-017-发布流程.md",
+          "title": "meng-you 官网同步 dsh-pixel-team 0.1.7 发布流程",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-0110-hardeningbuild-模板质量化.md",
+          "title": "dsh-pixel-team 0.1.10 hardening/build 模板质量化",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b35",
+      "kind": "body",
+      "query": "办公室选人 spawn 次数 ==",
+      "expected": [
+        "04-Content/用户关于成员团队不全部导入-用户选择了什么角色则导入什么角色与编排什么团队导.md"
+      ],
+      "rank": 1,
+      "hits": 3,
+      "ms": 1,
+      "top": [
+        {
+          "path": "04-Content/用户关于成员团队不全部导入-用户选择了什么角色则导入什么角色与编排什么团队导.md",
+          "title": "用户：关于成员团队：不全部导入 用户选择了什么角色则导入什么角色与编排什么团队导",
+          "score": 18
+        },
+        {
+          "path": "04-Content/对话原文记录.md",
+          "title": "对话原文记录",
+          "score": 17
+        },
+        {
+          "path": "04-Content/angelogmdfmyappeternalagent-teams.md",
+          "title": "ANGELOG.md](F:\\MyApp\\eternal\\agent-teams",
+          "score": 17
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b36",
+      "kind": "body",
+      "query": "目标是让遍历与明细行都变成常量级内存",
+      "expected": [
+        "02-Projects/a-遍历流式化scannerengine-改造与内存优化路线.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "02-Projects/a-遍历流式化scannerengine-改造与内存优化路线.md",
+          "title": "①-a 遍历流式化：scanner/engine 改造与内存优化路线",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b37",
+      "kind": "body",
+      "query": "若要在现有队伍里追加任务，需接宿主任",
+      "expected": [
+        "02-Projects/dsh-pixel-team-v01155-归档持久化与发布纪律.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 3,
+      "top": [
+        {
+          "path": "02-Projects/dsh-pixel-team-v01155-归档持久化与发布纪律.md",
+          "title": "dsh-pixel-team v0.1.155 归档持久化与发布纪律",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b38",
+      "kind": "body",
+      "query": "需要关闭时直接切到「宗门进度」",
+      "expected": [
+        "02-Projects/宗门进度审核后跳转与子修士关联主任务.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/宗门进度审核后跳转与子修士关联主任务.md",
+          "title": "宗门进度：审核后跳转与子修士关联主任务",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b39",
+      "kind": "body",
+      "query": "其中 ⑤⑥ 已落地，1-4、7 为排",
+      "expected": [
+        "02-Projects/mes-查询式单列排版重构施工图cfg-app-三区布局.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/mes-查询式单列排版重构施工图cfg-app-三区布局.md",
+          "title": "MES 查询式单列排版重构施工图（cfg_app 三区布局）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b40",
+      "kind": "body",
+      "query": "在 balanced/full 的「",
+      "expected": [
+        "03-Knowledge/内核方案呈现层分级与反ai味设计规范.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 1,
+      "top": [
+        {
+          "path": "03-Knowledge/内核方案呈现层分级与反ai味设计规范.md",
+          "title": "内核方案呈现层分级与反AI味设计规范",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b41",
+      "kind": "body",
+      "query": "根因： useLineups 的 g",
+      "expected": [
+        "02-Projects/dsh-pixel-team-三层模型重构皮肤角色阵容闭环-2.md"
+      ],
+      "rank": 3,
+      "hits": 3,
+      "ms": 1,
+      "top": [
+        {
+          "path": "02-Projects/dsh-设置页阵容角色皮肤交互改造方案.md",
+          "title": "DSH 设置页：阵容/角色/皮肤交互改造方案",
+          "score": 17
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-三层模型重构皮肤角色阵容闭环.md",
+          "title": "dsh-pixel-team 三层模型重构：皮肤/角色/阵容闭环",
+          "score": 17
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-三层模型重构皮肤角色阵容闭环-2.md",
+          "title": "dsh-pixel-team 三层模型重构：皮肤/角色/阵容闭环",
+          "score": 17
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b42",
+      "kind": "body",
+      "query": "两者是上下游关系，并非竞品：",
+      "expected": [
+        "02-Projects/craft-anything-与-rea-对比结论.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/craft-anything-与-rea-对比结论.md",
+          "title": "Craft Anything 与 REA 对比结论",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b43",
+      "kind": "body",
+      "query": "F-023：弹窗正常但拿不到支付页（",
+      "expected": [
+        "02-Projects/短剧平台红队演习f-023-与最终交付结论.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/短剧平台红队演习f-023-与最终交付结论.md",
+          "title": "短剧平台红队演习：F-023 与最终交付结论",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b44",
+      "kind": "body",
+      "query": "openkill 项目页 UI 表格",
+      "expected": [
+        "02-Projects/openkill-项目页-ui-表格化与-marvel-主题进度.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 1,
+      "top": [
+        {
+          "path": "02-Projects/openkill-项目页-ui-表格化与-marvel-主题进度.md",
+          "title": "openkill 项目页 UI 表格化与 Marvel 主题进度",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b45",
+      "kind": "body",
+      "query": "dsh-theme npm 包发布为",
+      "expected": [
+        "02-Projects/dsh-theme-npm-包发布为-eternalnightdsh-themescoped的流程与关键决策.md"
+      ],
+      "rank": 1,
+      "hits": 2,
+      "ms": 4,
+      "top": [
+        {
+          "path": "02-Projects/dsh-theme-npm-包发布为-eternalnightdsh-themescoped的流程与关键决策.md",
+          "title": "dsh-theme npm 包发布为 @eternalnight/dsh-theme（scoped）的流程与关键决策",
+          "score": 19
+        },
+        {
+          "path": "04-Content/用户分析一下同类型产品httpsgithubcommempalace.md",
+          "title": "用户：分析一下同类型产品https://github.com/MemPalace",
+          "score": 15
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b46",
+      "kind": "body",
+      "query": "文首写「核查日期 2026-10-2",
+      "expected": [
+        "04-Content/环境工作目录-fmyappeternalmeng-you梦游科技官网项目.md"
+      ],
+      "rank": 2,
+      "hits": 2,
+      "ms": 1,
+      "top": [
+        {
+          "path": "04-Content/环境工作目录-fmyappeternalmeng-you梦游科技官网项目-2.md",
+          "title": "环境：工作目录 F:\\MyApp\\eternal\\meng-you（梦游科技官网项目）",
+          "score": 18
+        },
+        {
+          "path": "04-Content/环境工作目录-fmyappeternalmeng-you梦游科技官网项目.md",
+          "title": "环境：工作目录 F:\\MyApp\\eternal\\meng-you（梦游科技官网项目）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b47",
+      "kind": "body",
+      "query": "国内文生图厂商对比与 craft-a",
+      "expected": [
+        "03-Knowledge/国内文生图厂商对比与-craft-anything-接入选型.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "03-Knowledge/国内文生图厂商对比与-craft-anything-接入选型.md",
+          "title": "国内文生图厂商对比与 craft-anything 接入选型",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b48",
+      "kind": "body",
+      "query": "装进 desktop profile",
+      "expected": [
+        "02-Projects/dsh-pixel-team-交付即展示与藏经阁展示面板v01127128.md"
+      ],
+      "rank": 4,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "07-Tools/dsh-桌面版安装记忆核心插件本地构建的方法与坑.md",
+          "title": "DSH 桌面版安装记忆核心插件本地构建的方法与坑",
+          "score": 18
+        },
+        {
+          "path": "07-Tools/github-受限网络安装插件踩坑与缓解方案.md",
+          "title": "GitHub 受限网络安装插件踩坑与缓解方案",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-v01127交付即展示与藏经阁展示功能.md",
+          "title": "dsh-pixel-team v0.1.127：交付即展示与藏经阁「展示」功能",
+          "score": 17
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b49",
+      "kind": "body",
+      "query": "真缺口是 矛盾判别 与「同目标不同工",
+      "expected": [
+        "02-Projects/memory-eternal-v01021库打开即体检-overview-降级-doctor-恢复引导与发布链加固.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/memory-eternal-v01021库打开即体检-overview-降级-doctor-恢复引导与发布链加固.md",
+          "title": "memory-eternal v0.10.21：库打开即体检 + /overview 降级 + doctor 恢复引导与发布链加固",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b50",
+      "kind": "body",
+      "query": "运行方式 日志文件 判定时机",
+      "expected": [
+        "02-Projects/findany-日志标准化cligui-双日志文件与轮转.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/findany-日志标准化cligui-双日志文件与轮转.md",
+          "title": "findany 日志标准化：CLI/GUI 双日志文件与轮转",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b51",
+      "kind": "body",
+      "query": "单人维护（milind-soni），",
+      "expected": [
+        "03-Knowledge/openmausbot-teams-仓库分析内容营销产品与集成缺陷.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 1,
+      "top": [
+        {
+          "path": "03-Knowledge/openmausbot-teams-仓库分析内容营销产品与集成缺陷.md",
+          "title": "openmausbot-teams 仓库分析：内容营销产品与集成缺陷",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b52",
+      "kind": "body",
+      "query": "配置判断用了真值判断，缺键时 und",
+      "expected": [
+        "08-Mistakes/memory-eternal-0314缺键导致自动沉淀召回被静默关闭的修复.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "08-Mistakes/memory-eternal-0314缺键导致自动沉淀召回被静默关闭的修复.md",
+          "title": "memory-eternal 0.31.4：缺键导致自动沉淀/召回被静默关闭的修复",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/memory-eternal-与-hindsight-的区别及-v0313-默认参数.md",
+          "title": "memory-eternal 与 Hindsight 的区别及 v0.31.3 默认参数",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/核心记忆配置页bug修复与遗留风险.md",
+          "title": "核心记忆配置页BUG修复与遗留风险",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b53",
+      "kind": "body",
+      "query": "百度-香港反向代理与TLS回源架构",
+      "expected": [
+        "02-Projects/百度-香港反向代理与tls回源架构.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/百度-香港反向代理与tls回源架构.md",
+          "title": "百度-香港反向代理与TLS回源架构",
+          "score": 20
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b54",
+      "kind": "body",
+      "query": "教训：打 tag 前检查 git s",
+      "expected": [
+        "02-Projects/dsh-pixel-team-项目现状与质量门禁设计v0151.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/dsh-pixel-team-项目现状与质量门禁设计v0151.md",
+          "title": "dsh-pixel-team 项目现状与质量门禁设计（v0.1.51）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b55",
+      "kind": "body",
+      "query": "draft ⚡极速草稿 允许硬编码，",
+      "expected": [
+        "02-Projects/dsh-pixel-team-多模式改造五模式定义与模块架构.md"
+      ],
+      "rank": 2,
+      "hits": 4,
+      "ms": 1,
+      "top": [
+        {
+          "path": "02-Projects/dsh-pixel-team-多模式改造方案与-v0123-交付状态.md",
+          "title": "dsh-pixel-team 多模式改造方案与 v0.1.23 交付状态",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-多模式改造五模式定义与模块架构.md",
+          "title": "dsh-pixel-team 多模式改造：五模式定义与模块架构",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-多模式改造v0119v0124.md",
+          "title": "dsh-pixel-team 多模式改造（v0.1.19–v0.1.24）",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b56",
+      "kind": "body",
+      "query": "禁止过度设计、不写非冒烟测试、不引入",
+      "expected": [
+        "02-Projects/贪吃蛇终端项目windows-环境约束与-t2-审查结论.md"
+      ],
+      "rank": 1,
+      "hits": 3,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/贪吃蛇终端项目windows-环境约束与-t2-审查结论.md",
+          "title": "贪吃蛇终端项目：Windows 环境约束与 t2 审查结论",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-面板横版转竖版需求基线showcasepanel-为靶.md",
+          "title": "dsh-pixel-team 面板横版转竖版需求基线（ShowcasePanel 为靶）",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-模式体系重构默认快速模式与验收注入修复.md",
+          "title": "dsh-pixel-team 模式体系重构：默认快速模式与验收注入修复",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b57",
+      "kind": "body",
+      "query": "要改的话建议：保留旧 id 做兼容别",
+      "expected": [
+        "04-Content/任何dat留下的项目名与图标ico等-都需要替换掉.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "04-Content/任何dat留下的项目名与图标ico等-都需要替换掉.md",
+          "title": "任何DAT留下的项目名与图标ico等 都需要替换掉",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b58",
+      "kind": "body",
+      "query": "连续自动重开预算 5 次 ，观察到已",
+      "expected": [
+        "02-Projects/t83-右栏主视图标签自愈实现与实机验证阻塞.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/t83-右栏主视图标签自愈实现与实机验证阻塞.md",
+          "title": "t83 右栏主视图标签自愈实现与实机验证阻塞",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "b59",
+      "kind": "body",
+      "query": "结果：普通用户完全看不到激活入口",
+      "expected": [
+        "02-Projects/mengbot-解锁码入口可见性修复01148.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 2,
+      "top": [
+        {
+          "path": "02-Projects/mengbot-解锁码入口可见性修复01148.md",
+          "title": "MengBot 解锁码入口可见性修复（0.1.148）",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n60",
+      "kind": "noisy",
+      "query": "请问 图标语言 = 米黄宣纸底 + 是怎么处理的？",
+      "expected": [
+        "02-Projects/每日修仙-app-图标接入与视觉方向.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "02-Projects/每日修仙-app-图标接入与视觉方向.md",
+          "title": "每日修仙 App 图标接入与视觉方向",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/每日修仙dailycultivationios-项目背景与美术管线.md",
+          "title": "每日修仙（DailyCultivation）iOS 项目背景与美术管线",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/agent-bot-页面改版-v6回退洞府版式-大肥鱼图标-the-pet-区块-部署.md",
+          "title": "agent-bot 页面改版 v6：回退洞府版式 + 大肥鱼图标 + THE PET 区块 + 部署",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n61",
+      "kind": "noisy",
+      "query": "请问 正确做法：要么用 impor 是怎么处理的？",
+      "expected": [
+        "08-Mistakes/dsh-theme-threejs-3d皮肤实现与回退历程.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "08-Mistakes/dsh-theme-threejs-3d皮肤实现与回退历程.md",
+          "title": "dsh-theme Three.js 3D皮肤实现与回退历程",
+          "score": 18
+        },
+        {
+          "path": "04-Content/用户dsh-memory-dsh-memory-不是内部或外部命令也不是.md",
+          "title": "用户：dsh-memory 'dsh-memory' 不是内部或外部命令，也不是",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/memory-eternal-v0102501026锁不可写三态撞锁重试与-npm-暂存发布坑.md",
+          "title": "memory-eternal v0.10.25–0.10.26：锁不可写三态、撞锁重试与 npm 暂存发布坑",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n62",
+      "kind": "noisy",
+      "query": "请问 迁移策略（不破坏消费者） 是怎么处理的？",
+      "expected": [
+        "02-Projects/hikvision-rs-架构分析与重构方案.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "02-Projects/hikvision-rs-架构分析与重构方案.md",
+          "title": "hikvision-rs 架构分析与重构方案",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/openmausbot-衍生项目的法律归属数据兼容与外链处理边界.md",
+          "title": "OpenMausBot 衍生项目的法律归属、数据兼容与外链处理边界",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/hikvision-rs-护栏工程abi-守卫-返回码语义-清警告.md",
+          "title": "hikvision-rs 护栏工程：ABI 守卫 + 返回码语义 + 清警告",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n63",
+      "kind": "noisy",
+      "query": "请问 mengbot 市场站（ap 是怎么处理的？",
+      "expected": [
+        "02-Projects/mengbot-市场站appsmarket本地已上线与部署现状.md"
+      ],
+      "rank": 2,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "02-Projects/mengbot-市场站五类目与一键安装深链方案.md",
+          "title": "MengBot 市场站：五类目与一键安装深链方案",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/mengbot-市场站appsmarket本地已上线与部署现状.md",
+          "title": "mengbot 市场站（apps/market）本地已上线与部署现状",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/mengbot-市场站与客户端-01206-发布口径.md",
+          "title": "MengBot 市场站与客户端 0.1.206 发布口径",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n64",
+      "kind": "noisy",
+      "query": "请问 必须有英文 README （ 是怎么处理的？",
+      "expected": [
+        "04-Content/所以怎么升级本项目.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "04-Content/所以怎么升级本项目.md",
+          "title": "所以怎么升级本项目",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/鹈鹕骑单车-t4-冒烟验证方案cdp-无依赖浏览器自动化.md",
+          "title": "鹈鹕骑单车 t4 冒烟验证方案（CDP 无依赖浏览器自动化）",
+          "score": 18
+        },
+        {
+          "path": "07-Tools/各-ai-agent-技能目录约定与扫描器实现.md",
+          "title": "各 AI Agent 技能目录约定与扫描器实现",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n65",
+      "kind": "noisy",
+      "query": "请问 拿到弹窗原文即可判断是哪一步 是怎么处理的？",
+      "expected": [
+        "08-Mistakes/etest-本地登录失败根因用户名取内存旧值-企业精确匹配.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "08-Mistakes/etest-本地登录失败根因用户名取内存旧值-企业精确匹配.md",
+          "title": "etest 本地登录失败根因：用户名取内存旧值 + 企业精确匹配",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/mes-配置工具-app-列表与保存链路批量修复egui.md",
+          "title": "MES 配置工具 APP 列表与保存链路批量修复（egui）",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/findany-v200-卡死修复与进度续跑处置.md",
+          "title": "findany v2.0.0 卡死修复与进度续跑处置",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n66",
+      "kind": "noisy",
+      "query": "请问 顺手清理探库时留下的临时文件 是怎么处理的？",
+      "expected": [
+        "02-Projects/etest-三仓库-rr-逆向解析修复提交与-linux-打包要点.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "02-Projects/etest-三仓库-rr-逆向解析修复提交与-linux-打包要点.md",
+          "title": "etest 三仓库 R<...>R 逆向解析修复提交与 Linux 打包要点",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/contentsonar-ssh-推送与-pyinstaller-自包含-exe-打包要点.md",
+          "title": "ContentSonar SSH 推送与 PyInstaller 自包含 exe 打包要点",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/etest-清空凭证语义纠正清用户凭证并立即注销仅在线显示.md",
+          "title": "etest 清空凭证语义纠正：清用户凭证并立即注销，仅在线显示",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n67",
+      "kind": "noisy",
+      "query": "请问 关键点： .host 必须 是怎么处理的？",
+      "expected": [
+        "02-Projects/右栏洞府块撑满高度消除底部留白t45.md"
+      ],
+      "rank": 0,
+      "hits": 2,
+      "ms": 4,
+      "top": [
+        {
+          "path": "04-Content/用户1把涉及到gui界面设置的配置迁移进sqlitedb-中去-2-图片上.md",
+          "title": "用户：1.把涉及到GUI界面设置的配置迁移进sqlitedb 中去 2. 图片上",
+          "score": 16
+        },
+        {
+          "path": "04-Content/用户分析一下同类型产品httpsgithubcommempalace.md",
+          "title": "用户：分析一下同类型产品https://github.com/MemPalace",
+          "score": 15
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n68",
+      "kind": "noisy",
+      "query": "请问 接口定义（《CMES 对外接 是怎么处理的？",
+      "expected": [
+        "03-Knowledge/cmes-getstationpassqty-返回空数组的文档口径判定与排查路径.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "03-Knowledge/cmes-getstationpassqty-返回空数组的文档口径判定与排查路径.md",
+          "title": "CMES GetStationPassQty 返回空数组的文档口径判定与排查路径",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/cvte-mes-v020-cmes-对接标准补全与-rustls-tls-provider-坑.md",
+          "title": "cvte-mes v0.2.0 CMES 对接标准补全与 rustls TLS provider 坑",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/cmes-接口对接核查accept-头缺失与统一响应分层解析缺口修复.md",
+          "title": "CMES 接口对接核查：Accept 头缺失与统一响应分层解析缺口修复",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n69",
+      "kind": "noisy",
+      "query": "请问 三清超然裁决/2 严格需合议 是怎么处理的？",
+      "expected": [
+        "03-Knowledge/门派系统-v2policy-与-role-与-skin-三层架构设计.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "03-Knowledge/门派系统-v2policy-与-role-与-skin-三层架构设计.md",
+          "title": "门派系统 v2：Policy 与 Role 与 Skin 三层架构设计",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/开宗九阵营架构设计.md",
+          "title": "「开宗」九阵营架构设计",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/publish-kit-手动渠道收尾gitee-建仓阻塞与素材变更待裁决.md",
+          "title": "publish-kit 手动渠道收尾：Gitee 建仓阻塞与素材变更待裁决",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n70",
+      "kind": "noisy",
+      "query": "请问 两种最终结果都应是新图标 是怎么处理的？",
+      "expected": [
+        "07-Tools/findany-运行时窗口图标加载机制与产物路径排查.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "07-Tools/findany-运行时窗口图标加载机制与产物路径排查.md",
+          "title": "findany 运行时窗口图标加载机制与产物路径排查",
+          "score": 19
+        },
+        {
+          "path": "04-Content/用户也将图标覆盖到findany-助手把-etest-的-etestico.md",
+          "title": "用户：也将图标覆盖到findany 助手：把 etest 的 etest.ico",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/windows-换-exe-图标后仍显示旧图标shelliconcache-与-extractassociatedicon-陷阱.md",
+          "title": "Windows 换 exe 图标后仍显示旧图标：ShellIconCache 与 ExtractAssociatedIcon 陷阱",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n71",
+      "kind": "noisy",
+      "query": "请问 应用数量上限仅展示、尚未拦截 是怎么处理的？",
+      "expected": [
+        "02-Projects/mengbot-解锁码系统架构安全约束与铸码流程.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "02-Projects/mengbot-解锁码系统架构安全约束与铸码流程.md",
+          "title": "MengBot 解锁码系统：架构、安全约束与铸码流程",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/mengbot-解锁体系应用连接上限实现01146.md",
+          "title": "MengBot 解锁体系应用连接上限实现（0.1.146）",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/简易计算器-t1-需求与验收规格军师.md",
+          "title": "简易计算器 t1 需求与验收规格（军师）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n72",
+      "kind": "noisy",
+      "query": "请问 目标为「继续完成交付」任务直 是怎么处理的？",
+      "expected": [
+        "02-Projects/灵枢-霓虹调度台暗色霓虹全栈工单看板零依赖-node-sqlitewal.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "02-Projects/灵枢-霓虹调度台暗色霓虹全栈工单看板零依赖-node-sqlitewal.md",
+          "title": "灵枢 · 霓虹调度台：暗色霓虹全栈工单看板（零依赖 Node + SQLite/WAL）",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/plan-模式与可运行交付冲突的处置宪法优先零写盘上报掌门.md",
+          "title": "plan 模式与「可运行交付」冲突的处置：宪法优先、零写盘、上报掌门",
+          "score": 18
+        },
+        {
+          "path": "04-Content/继续完成已构建已安装.md",
+          "title": "继续完成（已构建、已安装）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n73",
+      "kind": "noisy",
+      "query": "请问 可按项目 argon2 参数 是怎么处理的？",
+      "expected": [
+        "07-Tools/etest-账号数据合并发行包用户迁移与密码规律.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "07-Tools/etest-账号数据合并发行包用户迁移与密码规律.md",
+          "title": "etest 账号数据合并：发行包用户迁移与密码规律",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/mengbot-桌面客户端bitwarden-接入与市场安装适配层.md",
+          "title": "MengBot 桌面客户端：Bitwarden 接入与市场安装适配层",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/游戏素材生成预算与模型选型建议.md",
+          "title": "游戏素材生成预算与模型选型建议",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n74",
+      "kind": "noisy",
+      "query": "请问 CMOS 掉电时偏移达数年 是怎么处理的？",
+      "expected": [
+        "03-Knowledge/cmos-checksum-error-产线防呆方案.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/cmos-checksum-error-产线防呆方案.md",
+          "title": "CMOS checksum error 产线防呆方案",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/纯软件检测-cmos-掉电复位的方案windows-事件日志判据.md",
+          "title": "纯软件检测 CMOS 掉电复位的方案（Windows 事件日志判据）",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/hg-autotest-cmos-纽扣电池防呆漏检根因与分层整改方案.md",
+          "title": "hg-autotest CMOS 纽扣电池防呆漏检根因与分层整改方案",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n75",
+      "kind": "noisy",
+      "query": "请问 建议以显式回落默认值（如 h 是怎么处理的？",
+      "expected": [
+        "08-Mistakes/掌教返回主对话右栏空白问题与修复01163.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "08-Mistakes/掌教返回主对话右栏空白问题与修复01163.md",
+          "title": "掌教返回主对话右栏空白问题与修复（0.1.163）",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/mvcheck-默认启用海康-mvs-与-just-环境变量默认值.md",
+          "title": "mvcheck 默认启用海康 MVS 与 just 环境变量默认值",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/观星台客户端登录-premature-end-of-input-根因服务端时间戳无时区偏移.md",
+          "title": "观星台客户端登录 premature end of input 根因：服务端时间戳无时区偏移",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n76",
+      "kind": "noisy",
+      "query": "请问 首次构建预计 10–25 分 是怎么处理的？",
+      "expected": [
+        "02-Projects/腾讯云香港轻量-90元档购买参数与部署前置顺序.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "02-Projects/腾讯云香港轻量-90元档购买参数与部署前置顺序.md",
+          "title": "腾讯云香港轻量 90元档购买参数与部署前置顺序",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/cargo-多仓库统一打-tag-发布私有-githubeternalnight996-体系.md",
+          "title": "Cargo 多仓库统一打 tag 发布私有 GitHub（EternalNight996 体系）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/mengbotcomcn-腾讯云轻量部署前置清单.md",
+          "title": "mengbot.com.cn 腾讯云轻量部署前置清单",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n77",
+      "kind": "noisy",
+      "query": "请问 原因是（遍历流式 + 明细落 是怎么处理的？",
+      "expected": [
+        "02-Projects/findany-v200-内存优化进度与流式改造计划.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "02-Projects/findany-v200-内存优化进度与流式改造计划.md",
+          "title": "findany v2.0.0 内存优化进度与流式改造计划",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/文件搜索工具内存安全重构流式有界方案.md",
+          "title": "文件搜索工具内存安全重构：流式有界方案",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/a-遍历流式化scannerengine-改造与内存优化路线.md",
+          "title": "①-a 遍历流式化：scanner/engine 改造与内存优化路线",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n78",
+      "kind": "noisy",
+      "query": "请问 助手：Social prev 是怎么处理的？",
+      "expected": [
+        "04-Content/time-sampled-while-preparing-turn-34-step-2-2026-10-25t01.md"
+      ],
+      "rank": 7,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "04-Content/修复发布v0170.md",
+          "title": "修复发布v0.17.0",
+          "score": 18
+        },
+        {
+          "path": "04-Content/用户也将图标覆盖到findany-助手把-etest-的-etestico.md",
+          "title": "用户：也将图标覆盖到findany 助手：把 etest 的 etest.ico",
+          "score": 18
+        },
+        {
+          "path": "04-Content/用户图形化在扫描目录增加一个扫描文件单文件的支持-助手需求gui-扫描目标.md",
+          "title": "用户：图形化在扫描目录增加一个扫描文件单文件的支持 助手：需求：GUI 扫描目标",
+          "score": 17
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "n79",
+      "kind": "noisy",
+      "query": "请问 钳制下限保持 48，需同步改 是怎么处理的？",
+      "expected": [
+        "02-Projects/智子头顶常驻进度文字与更小尺寸档实现.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "02-Projects/智子头顶常驻进度文字与更小尺寸档实现.md",
+          "title": "智子头顶常驻进度文字与更小尺寸档实现",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/mengbot-仓库拆分与发布策略.md",
+          "title": "MengBot 仓库拆分与发布策略",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/鹈鹕骑单车-t4-冒烟验证方案cdp-无依赖浏览器自动化.md",
+          "title": "鹈鹕骑单车 t4 冒烟验证方案（CDP 无依赖浏览器自动化）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h80",
+      "kind": "natural2",
+      "query": "开宗请求一直卡着不动是怎么回事",
+      "expected": [
+        "08-Mistakes/开宗请求卡死客户端90s服务端65s双层超时修复.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "08-Mistakes/开宗请求卡死客户端90s服务端65s双层超时修复.md",
+          "title": "开宗请求卡死：客户端90s+服务端65s双层超时修复",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/清除职责层与三层模型重做方向.md",
+          "title": "清除职责层与三层模型重做方向",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-三层模型重构皮肤角色阵容闭环-2.md",
+          "title": "dsh-pixel-team 三层模型重构：皮肤/角色/阵容闭环",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h81",
+      "kind": "natural2",
+      "query": "首页点应用进不去页面",
+      "expected": [
+        "08-Mistakes/首页应用mcp-列表页-404-修复buildmjs-补索引页.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "08-Mistakes/首页应用mcp-列表页-404-修复buildmjs-补索引页.md",
+          "title": "首页应用/MCP 列表页 404 修复（build.mjs 补索引页）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/桌面宠物双击唤醒-dsh-并展开右侧栏.md",
+          "title": "桌面宠物双击唤醒 DSH 并展开右侧栏",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/etest-本地登录失败根因用户名取内存旧值-企业精确匹配.md",
+          "title": "etest 本地登录失败根因：用户名取内存旧值 + 企业精确匹配",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h82",
+      "kind": "natural2",
+      "query": "Umami 怎么保存访客真实 IP",
+      "expected": [
+        "03-Knowledge/umami-原始-ip-存储方案ingestion-sidecar.md"
+      ],
+      "rank": 2,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "02-Projects/umami-自建分析接入-mengbot部署方案与进度.md",
+          "title": "Umami 自建分析接入 MengBot（部署方案与进度）",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/umami-原始-ip-存储方案ingestion-sidecar.md",
+          "title": "Umami 原始 IP 存储方案（ingestion sidecar）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/市场站点数据面板umami-聚合接口与前端实现.md",
+          "title": "市场站点数据面板：Umami 聚合接口与前端实现",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h83",
+      "kind": "natural2",
+      "query": "用 npx 装插件时路径对不上",
+      "expected": [
+        "03-Knowledge/dsh-插件发布与安装的版本路径陷阱.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "03-Knowledge/dsh-插件发布与安装的版本路径陷阱.md",
+          "title": "DSH 插件发布与安装的版本/路径陷阱",
+          "score": 18
+        },
+        {
+          "path": "07-Tools/dsh-cli-插件-update-命令必须指定-profile-参数.md",
+          "title": "DSH CLI 插件 update 命令必须指定 --profile 参数",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/dsh-desktop-插件崩溃黑屏与改动不生效的架构根因.md",
+          "title": "dsh-desktop 插件崩溃/黑屏与「改动不生效」的架构根因",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h84",
+      "kind": "natural2",
+      "query": "help 示例怎么补的",
+      "expected": [
+        "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 3,
+      "top": [
+        {
+          "path": "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md",
+          "title": "cvte-mes 帮助示例补全与 G 盘同步误报教训",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/cmes-验证脚本修复鉴权头名pass-word-防呆与工具链一致性.md",
+          "title": "CMES 验证脚本修复：鉴权头名、PASS_WORD 防呆与工具链一致性",
+          "score": 17
+        },
+        {
+          "path": "03-Knowledge/just-默认命令改为-help-的配置方法.md",
+          "title": "just 默认命令改为 help 的配置方法",
+          "score": 17
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h85",
+      "kind": "natural2",
+      "query": "插件要提交到哪几个市场",
+      "expected": [
+        "03-Knowledge/dsh-plugin-submit-marketplace-收录与发布流程.md"
+      ],
+      "rank": 7,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "03-Knowledge/ds插件市场收录-pr提交三大市场踩坑与正确流程.md",
+          "title": "DSH 插件市场收录 PR 提交流程与踩坑（三大市场对比）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-memory-eternal-改名-memory-eternal-并提交市场收录-pr-的完整流程.md",
+          "title": "dsh-memory-eternal 改名 memory-eternal 并提交市场收录 PR 的完整流程",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/findany-历史结果重传判定以字段齐全为准不看判型.md",
+          "title": "findany 历史结果重传：判定以字段齐全为准，不看判型",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h86",
+      "kind": "natural2",
+      "query": "默认验收条件被强加给用户是怎么改的",
+      "expected": [
+        "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md",
+          "title": "模式默认值被误当用户验收：根因与修复规则",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-三模式重构默认-draft-与验收基线v01112.md",
+          "title": "dsh-pixel-team 三模式重构：默认 draft 与验收基线（v0.1.112）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-v01113三主模式重构draftprecisioncompliance.md",
+          "title": "dsh-pixel-team v0.1.113：三主模式重构（draft/precision/compliance）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h87",
+      "kind": "natural2",
+      "query": "验证脚本全部 FAIL 怎么排查",
+      "expected": [
+        "08-Mistakes/cvte-mes-验证脚本-21-项-pc-拆分与-dns-全-fail-排障.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "08-Mistakes/cvte-mes-验证脚本-21-项-pc-拆分与-dns-全-fail-排障.md",
+          "title": "cvte-mes 验证脚本 21 项 PC 拆分与 DNS 全 FAIL 排障",
+          "score": 18
+        },
+        {
+          "path": "07-Tools/cvte-mes-构建需-features-input-api-scripts-批量验证脚本.md",
+          "title": "cvte-mes 构建需 --features input-api + scripts/ 批量验证脚本",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/cvte-mes-logsbft2-分析结论与独立-curl-验证脚本curl-pcbat-curl-bftbat.md",
+          "title": "cvte-mes logs/bft/2 分析结论与独立 curl 验证脚本（curl-pc.bat / curl-bft.bat）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h88",
+      "kind": "natural2",
+      "query": "滚动条拖不到底怎么回事",
+      "expected": [
+        "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 3,
+      "top": [
+        {
+          "path": "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md",
+          "title": "egui 交互命中与滚动条映射三处修复（P0 徽标命中/thumb 夹取/显示真实优先级）",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/egui-表格-remainder-留白行底色与滚动条口径统一.md",
+          "title": "egui 表格 remainder 留白：行底色与滚动条口径统一",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/etest-全项目滚动条统一保留-scrollarea-隐藏原生条-自绘.md",
+          "title": "etest 全项目滚动条统一：保留 ScrollArea + 隐藏原生条 + 自绘",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "h89",
+      "kind": "natural2",
+      "query": "更新按钮位置乱跑怎么固定",
+      "expected": [
+        "06-BestPractices/dsh-desktop-更新入口固定设置左侧栏底部.md"
+      ],
+      "rank": 10,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "08-Mistakes/findany-左栏溢出真宽定位法egui-面板宽度断言.md",
+          "title": "findany 左栏溢出真宽定位法（egui 面板宽度断言）",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/dsh-pixel-team-任务产物边界与贪吃蛇事故.md",
+          "title": "dsh-pixel-team 任务产物边界与贪吃蛇事故",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/agent-bot-站点下载链接更新流程v015.md",
+          "title": "agent-bot 站点下载链接更新流程（v0.1.5）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q90",
+      "kind": "natural",
+      "query": "之前跟 Hindsight 比过一次分数，结论是什么",
+      "expected": [
+        "03-Knowledge/hindsight-与-memory-eternal-分数对比及评测口径.md"
+      ],
+      "rank": 2,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/记忆系统评分表成本效率列方向与各方案实测依据.md",
+          "title": "记忆系统评分表：成本效率列方向与各方案实测依据",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/hindsight-与-memory-eternal-分数对比及评测口径.md",
+          "title": "Hindsight 与 memory-eternal 分数对比及评测口径",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/etest-ui-框架选型评分对比2026-10-31.md",
+          "title": "ETest UI 框架选型评分对比（2026-10-31）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q91",
+      "kind": "natural",
+      "query": "Hindsight 和这个插件的定位有什么不同",
+      "expected": [
+        "03-Knowledge/memory-eternal-与-hindsight-的区别及-v0313-默认参数.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 3,
+      "top": [
+        {
+          "path": "03-Knowledge/memory-eternal-与-hindsight-的区别及-v0313-默认参数.md",
+          "title": "memory-eternal 与 Hindsight 的区别及 v0.31.3 默认参数",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/hindsight-与-memory-eternal-分数对比及评测口径.md",
+          "title": "Hindsight 与 memory-eternal 分数对比及评测口径",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/pnpm-安装-github-仓库卡住的定位与本地-tarball-兜底.md",
+          "title": "pnpm 安装 GitHub 仓库卡住的定位与本地 tarball 兜底",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q92",
+      "kind": "natural",
+      "query": "中文两个字搜不到是怎么修的",
+      "expected": [
+        "03-Knowledge/mengbot-记忆系统中文检索修复cjk-bigram-影子索引.md"
+      ],
+      "rank": 0,
+      "hits": 1,
+      "ms": 1,
+      "top": [
+        {
+          "path": "03-Knowledge/s2-同义短语扩展检索召回兜底方案与实测结论.md",
+          "title": "S2 同义短语扩展：检索召回兜底方案与实测结论",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q93",
+      "kind": "natural",
+      "query": "v0.24 那版检索层改了什么",
+      "expected": [
+        "02-Projects/v0240-检索层改造fts5-bigram-预切词-增量索引.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "02-Projects/v0240-检索层改造fts5-bigram-预切词-增量索引.md",
+          "title": "v0.24.0 检索层改造：FTS5 + bigram 预切词 + 增量索引",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/sag-wiki-与-memory-eternal-对比与借鉴方案.md",
+          "title": "SAG-Wiki 与 memory-eternal 对比与借鉴方案",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/system-prompt教agent写md的根因.md",
+          "title": "system prompt教agent写.md的根因",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q94",
+      "kind": "natural",
+      "query": "端到端召回测试怎么做的",
+      "expected": [
+        "02-Projects/memory-eternal-端到端召回测试三步骤验证实现经验.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "02-Projects/memory-eternal-端到端召回测试三步骤验证实现经验.md",
+          "title": "memory-eternal 端到端召回测试（三步骤验证）实现经验",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/tauri-updater-端到端接通密钥自生成docker-模拟发布全链路.md",
+          "title": "tauri-updater 端到端接通：密钥自生成+docker 模拟发布全链路",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/山海经灵枢平台-web-端登录-功能项管理模块实现.md",
+          "title": "山海经灵枢平台 Web 端登录 + 功能项管理模块实现",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q95",
+      "kind": "natural",
+      "query": "Bitwarden 的 Argon2id 是怎么配的",
+      "expected": [
+        "02-Projects/mengbot-国产实时语音bitwarden-argon2idlint-清零工程记录.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "02-Projects/mengbot-国产实时语音bitwarden-argon2idlint-清零工程记录.md",
+          "title": "mengbot 国产实时语音/Bitwarden Argon2id/lint 清零工程记录",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/mengbot-桌面客户端bitwarden-接入与市场安装适配层.md",
+          "title": "MengBot 桌面客户端：Bitwarden 接入与市场安装适配层",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/mengbot-01205-测试包构建与验证要点.md",
+          "title": "MengBot 0.1.205 测试包构建与验证要点",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q96",
+      "kind": "natural",
+      "query": "记忆库跑了 60 天效率怎么样",
+      "expected": [
+        "03-Knowledge/dsh-memory-记忆库-60-天效率评估结论.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/dsh-memory-记忆库-60-天效率评估结论.md",
+          "title": "dsh-memory 记忆库 60 天效率评估结论",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/记忆库-bge-m3-语义召回接入与-ab-结果.md",
+          "title": "记忆库 bge-m3 语义召回接入与 A/B 结果",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/memory-eternal-效率实测结论与三项待修.md",
+          "title": "memory-eternal 效率实测结论与三项待修",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q97",
+      "kind": "natural",
+      "query": "这个插件的职责边界有哪些",
+      "expected": [
+        "03-Knowledge/记忆插件职责边界与三项可优化点.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 3,
+      "top": [
+        {
+          "path": "03-Knowledge/记忆插件职责边界与三项可优化点.md",
+          "title": "记忆插件职责边界与三项可优化点",
+          "score": 19
+        },
+        {
+          "path": "00-System/daily-2026-08-27.md",
+          "title": "每日回顾 2026-08-27",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-三层模型重构皮肤角色阵容移除职责层.md",
+          "title": "dsh-pixel-team 三层模型重构：皮肤/角色/阵容，移除职责层",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q98",
+      "kind": "natural",
+      "query": "findany 日志落盘和双远端发布怎么做的",
+      "expected": [
+        "02-Projects/findany-日志落盘与双远端发布流程.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "02-Projects/findany-日志落盘与双远端发布流程.md",
+          "title": "findany 日志落盘与双远端发布流程",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/findany-分批模式batch-dirs与自检收尾.md",
+          "title": "findany 分批模式（batch_dirs）与自检收尾",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/findany-v200-rust-重写提交与双远端推送状态.md",
+          "title": "findany v2.0.0 Rust 重写提交与双远端推送状态",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q99",
+      "kind": "natural",
+      "query": "memory-eternal 和 mengbot 的记忆系统架构区别",
+      "expected": [
+        "03-Knowledge/mengbot-与-memory-eternal-记忆系统架构对比.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "03-Knowledge/mengbot-与-memory-eternal-记忆系统架构对比.md",
+          "title": "MengBot 与 memory-eternal 记忆系统架构对比",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/mengbot-记忆子系统与-memory-eternal-对比.md",
+          "title": "MengBot 记忆子系统与 memory-eternal 对比",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/memory-eternal-与-hindsight-的区别及-v0313-默认参数.md",
+          "title": "memory-eternal 与 Hindsight 的区别及 v0.31.3 默认参数",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q100",
+      "kind": "natural",
+      "query": "自动沉淀为什么会被静默关掉",
+      "expected": [
+        "08-Mistakes/memory-eternal-0314缺键导致自动沉淀召回被静默关闭的修复.md"
+      ],
+      "rank": 1,
+      "hits": 1,
+      "ms": 1,
+      "top": [
+        {
+          "path": "08-Mistakes/memory-eternal-0314缺键导致自动沉淀召回被静默关闭的修复.md",
+          "title": "memory-eternal 0.31.4：缺键导致自动沉淀/召回被静默关闭的修复",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q101",
+      "kind": "natural",
+      "query": "核心记忆常驻注入要花多少 token",
+      "expected": [
+        "03-Knowledge/核心记忆常驻注入的token成本与设计约束.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/核心记忆常驻注入的token成本与设计约束.md",
+          "title": "核心记忆常驻注入的token成本与设计约束",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/核心记忆配置页bug修复与遗留风险.md",
+          "title": "核心记忆配置页BUG修复与遗留风险",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/memory-eternal-自动沉淀召回核心记忆机制与-0312-语言配置.md",
+          "title": "memory-eternal 自动沉淀/召回/核心记忆机制与 0.31.2 语言配置",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q102",
+      "kind": "natural",
+      "query": "待审核卡片时间显示不对是怎么修的",
+      "expected": [
+        "02-Projects/memory-eternal-55待审核卡片时间时区未本地化修复.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 5,
+      "top": [
+        {
+          "path": "02-Projects/memory-eternal-55待审核卡片时间时区未本地化修复.md",
+          "title": "memory-eternal #55：待审核卡片时间时区未本地化修复",
+          "score": 19
+        },
+        {
+          "path": "02-Projects/issue-55-卡片时间-utc-截断修复本地时区显示.md",
+          "title": "issue #55 卡片时间 UTC 截断修复（本地时区显示）",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/issue-55-待审页时间差一个时区utc-墙钟误当本地时间.md",
+          "title": "Issue #55 待审页时间差一个时区：UTC 墙钟误当本地时间",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q103",
+      "kind": "natural",
+      "query": "知识图谱星球视图放大掉帧怎么办",
+      "expected": [
+        "03-Knowledge/知识图谱星球视图放大掉帧优化与公转随机化.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/知识图谱星球视图放大掉帧优化与公转随机化.md",
+          "title": "知识图谱星球视图：放大掉帧优化与公转随机化",
+          "score": 20
+        },
+        {
+          "path": "03-Knowledge/知识图谱星球视图卡顿非算力问题与静置停帧优化.md",
+          "title": "知识图谱星球视图卡顿：非算力问题与静置停帧优化",
+          "score": 20
+        },
+        {
+          "path": "02-Projects/知识图谱星球分层视图方案204910k.md",
+          "title": "知识图谱星球分层视图方案（2049→10k）",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q104",
+      "kind": "natural",
+      "query": "npm 包和 github clone 体积差多少",
+      "expected": [
+        "02-Projects/memory-eternal-插件-npm-与-github-clone-体积对比.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 3,
+      "top": [
+        {
+          "path": "02-Projects/memory-eternal-插件-npm-与-github-clone-体积对比.md",
+          "title": "memory-eternal 插件 npm 与 GitHub clone 体积对比",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/memory-eternal-仓库瘦身与-mcpclaude-生态分发矩阵v0271v028x.md",
+          "title": "memory-eternal 仓库瘦身与 MCP/Claude 生态分发矩阵（v0.27.1→v0.28.x）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-memory-eternal-readme-素材更新与-gif-体积超限提醒.md",
+          "title": "dsh-memory-eternal README 素材更新与 GIF 体积超限提醒",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q105",
+      "kind": "natural",
+      "query": "插件市场收录要提几个 PR",
+      "expected": [
+        "03-Knowledge/ds插件市场收录-pr提交三大市场踩坑与正确流程.md"
+      ],
+      "rank": 3,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/dsh插件市场收录pr三大市场对比与踩坑.md",
+          "title": "DSH插件市场收录PR三大市场对比与踩坑",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/dsh插件市场收录pr三大市场对比.md",
+          "title": "DSH插�件市场收录PR三大市场对比",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/ds插件市场收录-pr提交三大市场踩坑与正确流程.md",
+          "title": "DSH 插件市场收录 PR 提交流程与踩坑（三大市场对比）",
+          "score": 19
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q106",
+      "kind": "natural",
+      "query": "皮肤一共几套，怎么做响应式的",
+      "expected": [
+        "02-Projects/memory-eternal-主题皮肤系统defaultpoplight与三端响应式设置页.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 3,
+      "top": [
+        {
+          "path": "02-Projects/memory-eternal-主题皮肤系统defaultpoplight与三端响应式设置页.md",
+          "title": "memory-eternal 主题皮肤系统（default/pop/light）与三端响应式设置页",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/memory-eternal-v0310-发布与皮肤上架记录.md",
+          "title": "memory-eternal v0.31.0 发布与皮肤上架记录",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/响应式布局断点与-pc-1080p-形态规格.md",
+          "title": "响应式布局断点与 PC 1080p 形态规格",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q107",
+      "kind": "natural",
+      "query": "评分表里成本效率那列是怎么算的",
+      "expected": [
+        "03-Knowledge/记忆系统评分表成本效率列方向与各方案实测依据.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/记忆系统评分表成本效率列方向与各方案实测依据.md",
+          "title": "记忆系统评分表：成本效率列方向与各方案实测依据",
+          "score": 19
+        },
+        {
+          "path": "03-Knowledge/dsh-memory-记忆库-60-天效率评估结论.md",
+          "title": "dsh-memory 记忆库 60 天效率评估结论",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/memory-eternal-效率实测结论与三项待修.md",
+          "title": "memory-eternal 效率实测结论与三项待修",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "q108",
+      "kind": "natural",
+      "query": "长期记忆哪个系统更好用",
+      "expected": [
+        "03-Knowledge/memory-eternal-与-hindsight-的区别及-v0313-默认参数.md",
+        "03-Knowledge/hindsight-与-memory-eternal-分数对比及评测口径.md",
+        "03-Knowledge/mengbot-与-memory-eternal-记忆系统架构对比.md"
+      ],
+      "rank": 4,
+      "hits": 10,
+      "ms": 4,
+      "top": [
+        {
+          "path": "03-Knowledge/记忆检索高分项目方案对比与s3路线验证.md",
+          "title": "记忆检索高分项目方案对比与S3路线验证",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/s0s1-检索召回基线词法层已饱和需上-s2-语义召回.md",
+          "title": "S0/S1 检索召回基线：词法层已饱和，需上 S2 语义召回",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/mengbot-记忆系统中文检索修复cjk-bigram-影子索引.md",
+          "title": "MengBot 记忆系统中文检索修复（CJK bigram 影子索引）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    }
+  ]
+}

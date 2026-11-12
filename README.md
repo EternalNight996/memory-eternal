@@ -1,293 +1,406 @@
-# 🧠 memory-eternal — a second brain for your AI
+# 🧠 memory-eternal —— 给 AI 装一个可信的第二大脑
+
+<p align="center"><img src="assets/icon-400.png" width="92" height="92" alt="memory-eternal icon" /></p>
+
+<p align="center"><img src="assets/screen/hero.png" width="100%" alt="memory-eternal 蜘蛛侠皮肤：本地、可审核、可量化的 AI 长期记忆" /></p>
+
+## 📊 实测（2026-11-12）
+
+| 排名 | 方案 | 自建金标 R@5 | LongMemEval-S R@5 | Top1 | 依赖 |
+|---|---|---|---|---|---|
+| 🥇 | **Ollama（bge-m3）** | **99.1%** | **97.2%**（500 题全量） | **89.9%** | 本机模型 |
+| 🥈 | **内置语义（默认）** | 96.3% | 95.4%（500 题全量） | 86.2% | **零依赖** |
+| 🥉 | Mem0（对照） | — | 94.4%（QA 分） | — | 云 / 模型 |
+
+> 10 维综合分：**8.54 / 8.48**，位列第一梯队（OMEGA 8.47）；完整排名、部署与成本对比见 **[对比页](bench/comparison.html)**。
+> 检索分 ≠ QA 分，两列不混比；改写题 R@5 40% → **70%**，噪声查询 Top1 60% → **95%**。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/cover-zh.png" width="900" alt="记忆核心 memory-eternal：给 AI 一个不会忘、可审核、可量化的长期记忆" />
+  <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
+  <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
+  <img src="https://img.shields.io/badge/release-v0.40.0-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
+[English](README.en.md) · **简体中文（默认）**
+
+## 📸 界面（蜘蛛侠皮肤）
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/graph-en.png" width="31%" alt="Knowledge graph: clusters by kind, tag edges" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/audit-en.png" width="31%" alt="Review inbox: type bar, queue and verdict pane" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/status-en.png" width="31%" alt="Runtime status: database, backups, capture, version" />
+  <img src="assets/screen/spider-cards.png" width="49.5%" alt="知识卡：蜘蛛侠皮肤" />
+  <img src="assets/screen/spider-graph.png" width="49.5%" alt="知识星图：蜘蛛侠皮肤" />
 </p>
-<p align="center"><sub>▲ Knowledge graph · review inbox · runtime status</sub></p>
+<p align="center">
+  <img src="assets/screen/spider-audit.png" width="49.5%" alt="审核中心：蜘蛛侠皮肤" />
+  <img src="assets/screen/spider-usage.png" width="49.5%" alt="运行状态 / 记忆账本：蜘蛛侠皮肤" />
+</p>
 
 **记忆核心（memory-eternal）** —— 给 AI 一个不会忘、可审核、可量化的长期记忆。本地优先 · 审核闸门 · 记忆账本 · 一个库接入 DSH / Claude Code / Codex / Cursor 与任意 MCP 客户端。
 
-[![GitHub stars](https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat)](https://github.com/EternalNight996/memory-eternal/stargazers)
-[![npm](https://img.shields.io/npm/v/memory-eternal)](https://www.npmjs.com/package/memory-eternal)
-[![release](https://img.shields.io/badge/release-v0.31.4-FF7A45)](https://github.com/EternalNight996/memory-eternal/releases)
-[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-
-**English (default)** · [简体中文](README.zh-CN.md)
-
-> **Your AI forgets every session. Give it a memory it can trust.**
+> **你的 AI 每次会话都失忆。给它一个可信的记忆库。**
 >
-> Local-first, review-gated, measurable — one SQLite vault shared by DSH, Claude Code, Codex, Cursor and any MCP client.
+> 本地优先、先审后入、可度量 —— 一个 SQLite 库，DSH / Claude Code / Codex / Cursor 与任意 MCP 客户端共享。
 
-- 🔍 **Review before it counts** — new cards wait in a review queue; approve or reject from the Web UI or terminal; every change is written to an immutable audit log.
-- ✏️ **Editable & revisable** — fix a card by hand in the reader, or let an agent submit a **revised copy** (`memory_revise`); the queue labels it a revision, and an approved card is only overwritten when you approve it.
-- 🧾 **Token ledger** — see how much recall injected, how many distillation calls ran, and how often recall was actually useful.
-- 🏠 **Local-first, no cloud** — SQLite + Markdown on your own disk. No third-party memory framework, no account. Memory data never leaves the machine; only the News page fetches public RSS / Hacker News on demand (titles, excerpts and outbound links only).
-- ⭐ **Core memory** — promote approved cards to always-on memory; every session gets them automatically, and the review queue still decides what qualifies.
-- 🧭 **Reader & layout** — clickable table of contents in the card reader, plus a compact / normal / large layout setting for the whole memory UI.
+- 🔍 **先审核，再入库** —— 新卡先进待审队列，Web 或终端里批准/驳回；每次状态变更写入不可篡改的审计日志。
+- ✏️ **可编辑、可修订** —— 在阅读器里直接改卡片，或让 agent 提交**修改副本**（`memory_revise`）；审核中心把它标成「✏️ 修改」，人批准后才覆盖原卡。
+- 🧾 **记忆账本** —— 召回注入了多少、蒸馏调了几次、召回到底有没有用，全部可查。
+- 🏠 **本地优先，零云端** —— SQLite + Markdown 存在你自己的磁盘上。没有第三方记忆框架、不需要账号；记忆数据不外发，只有「动态」资讯会按需请求公开 RSS / Hacker News（只取标题、摘要与外链）。
+- ⭐ **核心记忆** —— 已批准的卡可提升为「每次会话强制注入」的核心记忆；自动沉淀可以建议，但最终仍由审核中心决定。
+- 🧭 **阅读与布局** —— 卡片目录可点击跳转；记忆界面支持紧凑 / 标准 / 大三种布局大小。
 
-<p align="center"><strong>⭐ If it saves you from explaining the same context again, a star helps a lot.</strong><br/><sub>DSH one-liner: <code>dsh plugin --profile desktop add memory-eternal</code></sub></p>
+<p align="center"><strong>⭐ 如果它帮你少解释了一遍上下文，点个 Star 就是最大的支持</strong><br/><sub>DSH 一条命令：<code>dsh plugin --profile desktop add memory-eternal</code></sub></p>
 
-## ⚡ Quick start
+## ⚡ 快速开始
 
-**DeepSeek Harness (desktop / web)**
+**DeepSeek Harness（桌面版 / Web）**
 
 ```bash
 dsh plugin --profile desktop add memory-eternal
-# reopen DSH → sidebar "Memory"
+# 重开 DSH → 左栏「记忆」
 ```
 
-**Claude Code, Codex or Cursor — same vault via MCP**
+**Claude Code、Codex 或 Cursor —— 通过 MCP 共享同一个库**
 
 ```bash
 npm i -g memory-eternal
-dsh-memory connect claude    # or: codex / cursor
+dsh-memory connect claude    # 或：codex / cursor
 ```
 
-**Any MCP client**（MengBot / OpenClaw / Hermes 见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)）
+**任意 MCP 客户端**（MengBot / OpenClaw / Hermes 的配置见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)）
 
 ```bash
 npx -y -p memory-eternal dsh-memory mcp
 ```
 
-**Browser or terminal**
+**浏览器或终端**
 
 ```bash
 dsh-memory open              # http://127.0.0.1:7999
-npx -y -p memory-eternal dsh-memory tui   # live queue in the terminal
+npx -y -p memory-eternal dsh-memory tui   # 终端里的实时待审队列
 ```
 
-## 🧬 How memory actually flows
+## 🧬 底层记忆是怎么流动的
 
-One SQLite vault, one write gate, two read paths. Nothing enters recall without passing the gate.
+一个 SQLite 库、一道写入闸门、两条读取路径。**没过闸门的东西，永远不会被召回。**
 
 ```mermaid
 flowchart TD
-  subgraph S1["① Input"]
-    A1["Conversation + tool events<br/>captured when a turn ends"]
-    A2["Installed skills<br/>scanned from the host"]
-    A3["News follows<br/>RSS · GitHub · HN · arXiv · DSH plugins"]
-    A4["Manual cards / imports"]
+  subgraph S1["① 输入"]
+    A1["对话 + 工具调用事件<br/>一轮结束后采集"]
+    A2["本机已装技能<br/>从宿主技能注册表扫描"]
+    A3["新闻关注<br/>RSS · GitHub · HN · arXiv · DSH 插件"]
+    A4["手动建卡 / 导入"]
   end
-  subgraph S2["② Distill — the only LLM step"]
-    B1["LLM distills the session<br/>on failure: raw card, nothing lost"]
-    B2["Dedup: lexical Jaccard<br/>optional LLM merge decision"]
-    B3["Kind classification"]
+  subgraph S2["② 沉淀 —— 唯一消耗 LLM 的一步"]
+    B1["LLM 蒸馏成知识卡<br/>失败则降级原文卡，不丢内容"]
+    B2["去重：词法 Jaccard<br/>可选 LLM 判「新建 vs 追加」"]
+    B3["归类：knowledge / project / skill …"]
   end
-  subgraph S3["③ Review gate — human only"]
-    C1[("Quarantine<br/>pending / rejected")]
-    C2{"approve / reject"}
-    C3[("Main store<br/>approved only")]
+  subgraph S3["③ 审核闸门 —— 只能由人操作"]
+    C1[("隔离区<br/>pending / rejected")]
+    C2{"批准 / 驳回"}
+    C3[("主库<br/>只存 approved")]
   end
-  subgraph S4["④ Storage"]
-    D1[("SQLite: cards + FTS5 index")]
-    D2["Markdown mirror<br/>git-able"]
-    D3["audit_log + token ledger"]
+  subgraph S4["④ 存储"]
+    D1[("SQLite：cards + FTS5 索引")]
+    D2["Markdown 镜像<br/>可 git 管理"]
+    D3["审计日志 + 记忆账本"]
   end
-  subgraph S5["⑤ Recall — every session"]
-    E1["Core memory → system prompt"]
+  subgraph S5["⑤ 召回 —— 每轮会话"]
+    E1["核心记忆 → systemPrompt"]
     E2["memory_recall → FTS5 + BM25"]
-    E3["memory_revise → pending revision"]
+    E3["memory_revise → 待审修改副本"]
   end
   A1 --> B1 --> B2 --> B3 --> C1
   A2 --> B2
   A3 --> C1
   A4 --> B2
   C1 --> C2
-  C2 -->|approve| C3
-  C2 -->|reject| C1
+  C2 -->|批准| C3
+  C2 -->|驳回| C1
   C3 --> D1
   D1 --> D2
   C3 --> D3
   C3 --> E1
   C3 --> E2
-  E2 -->|hits + chars| D3
+  E2 -->|命中 + 注入字符| D3
   E3 --> C1
 ```
 
-The diagram is only true because three invariants are enforced in code, not by convention:
+这张图之所以成立，是因为三条不变量**写在代码里**，不是写在文档里：
 
-| Invariant | Enforced by |
+| 不变量 | 由什么保证 |
 |---|---|
-| The main store **only** ever contains approved cards | Two physical tables; every read path queries the main one |
-| An agent can never approve its own memory | Agent writes land in quarantine; approve/reject is a human action in the UI / TUI / CLI |
-| Recall costs **zero model calls** | FTS5 + BM25; the LLM runs only while distilling |
+| 主库**物理上只存 approved** | 两张物理表；所有读取路径只查主库 |
+| Agent **永远不能批准自己的记忆** | Agent 只能写进隔离区；批准/驳回是 UI / TUI / CLI 里的人工动作 |
+| 召回**零模型调用** | FTS5 + BM25；LLM 只在沉淀时运行 |
 
-## 🔌 How agents talk to the memory
+## 🏗 完整底层架构
 
-| Channel | Direction | When | Gate | Cost |
+```mermaid
+flowchart TB
+  subgraph IF["接入层"]
+    UI["DSH Web UI<br/>记忆库 · 星图 · 审核中心 · 设置"]
+    MCPC["MCP 客户端<br/>Claude Code · Codex · Cursor · OpenClaw"]
+    CLI["CLI / TUI<br/>dsh-memory"]
+  end
+  subgraph RT["插件运行时（宿主 Node 进程）"]
+    HOST["index.js<br/>事件订阅 · 配置 · systemPrompt 注入"]
+    API["lib/api.js<br/>HTTP API · SSE · CSRF · 审核接口"]
+    CAP["capture.js / capture-run.js<br/>采集 → 蒸馏 → 降级原文卡"]
+    IDX["search-index.js<br/>清洗 · 同义扩展 · FTS5 BM25"]
+    EMB["embeddings.js<br/>向量 · 覆盖率门控 · 融合 · 可选重排"]
+    VAULT["vault.js<br/>读写 · 审核 · 审计 · 回收站"]
+    MCPL["mcp.js + hooks<br/>工具注册 · 会话事件"]
+    SRV["watchdog + web.js<br/>常驻实例 · 保活 · 自动重启"]
+  end
+  subgraph DB["本地存储（SQLite WAL + 文件）"]
+    CARDS[("cards<br/>仅 approved")]
+    QUAR[("quarantine<br/>pending / rejected")]
+    FTS[("cards_fts<br/>FTS5 索引")]
+    VEC[("card_vec<br/>可选向量")]
+    LOG[("audit_log · ledger · revisions")]
+    MD["Markdown 镜像 + 每日备份"]
+  end
+  subgraph EX["可选外部服务"]
+    LLM["蒸馏 LLM<br/>宿主 provider 或环境变量"]
+    OLL["Ollama :7997<br/>或任意 OpenAI 兼容 embedding"]
+  end
+
+  UI --> API
+  MCPC --> MCPL
+  CLI --> VAULT
+  HOST --> CAP
+  CAP --> LLM
+  CAP --> VAULT
+  VAULT --> CARDS
+  VAULT --> QUAR
+  VAULT --> LOG
+  QUAR -->|人工批准| CARDS
+  CARDS --> FTS
+  CARDS --> VEC
+  IDX --> FTS
+  IDX --> EMB
+  EMB --> VEC
+  EMB --> OLL
+  EMB --> HOST
+  HOST -->|systemPrompt / memory_recall| UI
+  VAULT --> MD
+  SRV -.-> API
+```
+
+三层职责：**接入层**只负责展示与调用；**运行时**负责采集、检索、审核、注入；**存储层**用 SQLite 物理隔离 approved / pending，Markdown 只是可读镜像。外部只有两处可选依赖：蒸馏 LLM 和 embedding 服务，都可完全关掉。
+
+## 🔌 Agent 与记忆的交互通道
+
+| 通道 | 方向 | 何时 | 闸门 | 成本 |
 |---|---|---|---|---|
-| `memory_recall` | agent → memory | on demand | approved only | **0 model calls** (p50 2.3 ms) |
-| Core memory | memory → agent | every session, automatic | approved only | ~0.2k chars |
-| Session capture / `memory_write` | conversation → memory | turn end | **queued for review** | 1 LLM call |
-| `memory_revise` | agent → memory | on demand | **queued as a revision** | 0 |
-| Review (Web UI · TUI · CLI) | human → memory | manual | — | 0 |
-| Hooks (Claude Code / Codex / Cursor) | host → memory | session end | **queued** | 1 LLM call |
-| MCP server | any MCP client | on demand | same gate | same |
-| News follows | web → memory | interval / 24h | isolated from cards | network only |
+| `memory_recall` | Agent → 记忆 | 按需 | 只读已批准 | **0 次模型调用**（p50 2.3ms） |
+| 核心记忆 | 记忆 → Agent | 每轮会话自动 | 只读已批准 | 约 0.2k 字符 |
+| 会话沉淀 / `memory_write` | 对话 → 记忆 | 一轮结束 | **进待审队列** | 1 次 LLM |
+| `memory_revise` | Agent → 记忆 | 按需 | **进待审「修改副本」** | 0 |
+| 审核（Web / TUI / CLI） | 人 → 记忆 | 手动 | — | 0 |
+| Hook（Claude Code / Codex / Cursor） | 宿主 → 记忆 | 会话结束 | **进待审** | 1 次 LLM |
+| MCP 服务 | 任意 MCP 客户端 | 按需 | 同上 | 同上 |
+| 新闻关注 | 网络 → 记忆 | 按间隔 / 24h | 与知识卡隔离 | 仅网络 |
 
-## 🧾 Does it actually save tokens?
+## 🧾 真的省 token 吗？
 
-Most memory products <em>say</em> they save tokens. We think you should check. The plugin ships a built-in **memory ledger** (Runtime status → Memory ledger) that records:
+大多数记忆产品都说自己省 token。我们认为你应该自己验证。插件内置**记忆账本**（运行状态 → 记忆账本），记录：
 
-| Recorded | What it means |
+| 记录项 | 含义 |
 |---|---|
-| recall: hits + injected characters | how much memory actually entered the context |
-| capture: LLM calls + input/output characters | what distillation cost you |
-| usefulness: useful / not-useful feedback | whether recalled memories actually helped |
+| 召回：命中数 + 注入字符 | 到底有多少记忆进入了上下文 |
+| 沉淀：LLM 调用次数 + 输入/输出字符 | 蒸馏花了你多少成本 |
+| 有用率：有用 / 没用 反馈 | 召回的记忆是否真的帮上了忙 |
 
-The honest math:
+诚实的算式：
 
 ```text
-net benefit ≈ avoided context cost − (injected characters + distillation calls × price)
+净收益 ≈ 被避免的上下文开销 −（注入字符 + 蒸馏调用 × 单价）
 ```
 
-| Scenario | You pay | You avoid |
+| 场景 | 你要付 | 你能省 |
 |---|---|---|
-| Multi-session project with decisions and pitfalls | ~0.6–0.9k tokens per recall | re-explaining context (~1.5–3k) or re-reading files (3–6k) |
-| One-off question, low hit rate | recall injection | usually nothing |
+| 有决策与踩坑记录的多会话项目 | 每次召回约 0.6–0.9k token | 重新解释上下文（约 1.5–3k）或重读文件（3–6k） |
+| 一次性问题、低命中率 | 召回注入 | 通常什么也省不到 |
 
-> Illustrative numbers, not a benchmark — measure your own with the ledger. If recall usefulness stays below ~60%, tune it down (fewer results, shorter summaries) or turn memory off.
+> 以上是示意数字，不是 benchmark —— 用账本测你自己的。如果召回有用率长期低于约 60%，就调小（更少条数、更短摘要）或直接关掉记忆。
 
-## 📊 How it compares — measured on a real vault
+## 📊 与同类产品的实测对比
 
-Snapshot **2026-11-07**. Our figures are measured on a real **2,321-card vault** on Windows (not a toy corpus); competitor facts come from their public README / docs / license page on the same date. `—` means *not advertised or not verifiable*, not "absent".
+> 只挑 GitHub 上眼熟的项目（按 Stars）；两张表，前三名 🥇🥈🥉。完整可视化版见 [bench/comparison.html](bench/comparison.html)。
 
-| Capability | **memory-eternal v0.25.0** | [agentmemory](https://github.com/rohitg00/agentmemory) v0.9.32 | [mem0](https://github.com/mem0ai/mem0) v3 | [Obsidian](https://obsidian.md) | CLAUDE.md / AGENTS.md |
-|---|---|---|---|---|---|
-| Form factor | DSH-native plugin: capture, review UI, graph, CLI/TUI/MCP | local memory server + MCP for coding agents | memory SDK / self-hosted server / cloud | local Markdown notes app | hand-written context files |
-| Storage | SQLite + Markdown mirror (git-friendly) | local file store (Redis optional) | vector + graph stores (self-hosted or cloud) | Markdown files on disk | one flat file |
-| Write gate | **human review queue** (three stores) | automatic capture, no review | LLM extraction, no review | human-written only | none |
-| Immutable audit log | ✅ enforced at the SQLite layer | operation audit tool, not storage-enforced | — | — | — |
-| Retrieval | FTS5 + **BM25/IDF**, column weights | BM25 + vector + graph (local embeddings optional) | semantic + BM25 + entity + graph | full-text search / plugins | whole file injected |
-| Recall latency | **p50 2.33 ms · p95 6.18 ms** | — | p50 ~0.88–1.09 s (vendor paper, cloud) | grows with vault size | grows with file size |
-| Recall model calls | **0** (BM25 only) | 0 for keyword; 1 embedding call when semantic is on | 1 embedding call + optional LLM rerank | 0 | 0 |
-| Model calls per write | 1 when auto-capture runs (can be off) | 0 by default (synthetic compression); LLM optional | ≥1 LLM call per add | 0 | 0 |
-| Token ledger (measured usefulness) | ✅ | — | platform usage dashboard | — | — |
-| Multi-agent | DSH + MCP + hooks + TUI + browser | MCP + REST: Claude Code, Codex, Cursor, DSH, … | Python/TS SDK, self-hosted server, cloud | no native agent interface | loaded per tool |
-| License | MIT | Apache-2.0 | Apache-2.0 | proprietary (free for all use) | n/a |
+**表 1 · 综合排名（10 维加权，判断分）**
 
-**We are not the biggest here.** mem0 has a funded team, a research paper and a managed service; agentmemory's automatic capture covers more coding agents than we do; Obsidian is where many people already keep their notes. What we do differently is the *write path*: a human gate, a three-store separation, and an audit trail you can point at — plus a token ledger so you can check whether recall is worth its cost.
+| 排名 | 项目 | 召回 | 语义 | 隐私 | 治理 | 成本 | 总分 |
+|---|---|---|---|---|---|---|---|
+| 🥇 1 | **memory-eternal（Ollama）** | 8.6 | 8.6 | 9.5 | 9.0 | 8.0 | **8.54** |
+| 🥈 2 | **memory-eternal（内置语义）** | 7.1 | 6.8 | 9.5 | 9.0 | 9.5 | **8.48** |
+| 🥉 3 | Mem0（68.8k★） | 9.3 | 9.0 | 6.0 | 6.0 | 6.5 | 7.49 |
+| 4 | MemOS（12.4k★） | 8.5 | 8.5 | 7.0 | 6.0 | 7.0 | 7.38 |
+| 5 | graphiti（32.8k★） | 7.8 | 8.5 | 8.0 | 6.0 | 7.0 | 7.26 |
+| 6 | basic-memory（4.6k★） | 6.5 | 6.5 | 9.0 | 6.0 | 9.0 | 7.26 |
+| 7 | Letta（25.4k★） | 8.0 | 8.5 | 8.0 | 6.0 | 6.5 | 7.22 |
+| 8 | mcp-memory-service（2.1k★） | 6.0 | 6.0 | 9.0 | 5.0 | 9.5 | 7.17 |
+| 9 | memobase（3.0k★） | 7.2 | 7.0 | 8.0 | 6.0 | 8.0 | 7.15 |
+| 10 | cognee（33.3k★） | 8.0 | 8.5 | 8.0 | 5.5 | 7.0 | 7.14 |
+| 11 | supermemory（31.6k★） | 8.0 | 8.0 | 6.5 | 5.5 | 6.5 | 7.14 |
+| 12 | Zep（5.0k★） | 7.0 | 7.5 | 6.5 | 6.5 | 6.0 | 6.88 |
 
-Reproduce our numbers on your own vault:
+**表 2 · 公开基准与部署硬指标**
+
+| 排名 | 项目 | LongMemEval QA | 检索 R@5 | 本地 / 零 API | 审核治理 | Stars |
+|---|---|---|---|---|---|---|
+| 🥇 1 | memory-eternal（Ollama） | 未测 | **97.2%**（500 题） | 需 Ollama | ✅ | 176 |
+| 🥈 2 | memory-eternal（内置） | 未测 | **95.4%**（500 题） | ✅ / ✅ | ✅ | 176 |
+| 🥉 3 | Mem0 | 94.4% | — | 部分 | 弱 | 68,849 |
+| 4 | MemOS | — | — | 部分 | 中 | 12,366 |
+| 5 | graphiti | — | — | 部分 | 中 | 32,771 |
+| 6 | basic-memory | — | — | ✅ / ✅ | 弱 | 4,557 |
+| 7 | Letta | — | — | 部分 | 中 | 25,421 |
+| 8 | mcp-memory-service | — | 80.4–86.0% | ✅ / ✅ | 弱 | 2,116 |
+| 9 | memobase | — | — | 部分 | 中 | 2,956 |
+| 10 | cognee | — | — | 部分 | 中 | 33,263 |
+| 11 | supermemory | 81.6–85.2% | — | 部分 | 弱 | 31,595 |
+| 12 | Zep | 71.2% | — | ❌ | 中 | 5,005 |
+
+**我们不是这里最大的。** Mem0 有 68.8k 星、成熟团队和托管服务；我们做的不一样的是**写入路径**：人审闸门、三库分离、可指认的审计链，外加一本能自己核对"召回值不值"的账本。表 2 的 97.2% / 95.4% 是 **检索 R@5**，不是 QA；OMEGA 95.4%、Hindsight 91.4% 是自报 QA，仅作参考、不参与排名。
+
+在我们的库上自己复跑：
 
 ```bash
-node scripts/bench-search.mjs --rebuild   # rebuild time + p50/p95/max latency
-dsh-memory ledger --days 30 --json        # recall injection / capture / usefulness
+node scripts/bench-search.mjs --rebuild   # 重建耗时 + p50/p95/max 延迟
+dsh-memory ledger --days 30 --json        # 召回注入 / 沉淀调用 / 有用率
 ```
 
-| Our measured baseline | Value |
+| 我们实测的基线（2026-11-12） | 数值 |
 |---|---|
-| Cards indexed | 2,321 |
-| Index rebuild (cold) | 869 ms |
-| Recall p50 / p95 / max | 2.33 / 6.18 / 7.60 ms |
-| Recall throughput | ~431 queries/s |
-| Recall model calls | 0 |
-| Injection per recall (60-day ledger) | ~1,394 chars |
+| 库内卡片数 | 2,943 |
+| 金标 109 题 R@5（内置 / bge-m3） | 96.3% / **99.1%** |
+| 金标 109 题 Top1（内置 / bge-m3） | 86.2% / **89.9%** |
+| 改写题 10 条 R@5（内置 / bge-m3） | 40% / **70%** |
+| LongMemEval-S 500 题 R@5（内置 / bge-m3） | 95.4% / **97.2%** |
+| 召回延迟（词法 / 语义） | 约 7 ms / 81 ms |
+| 召回模型调用（内置语义） | 0 |
 
-## 🛡️ Review first, prove later
+## 🛡️ 先审核，再入库
 
-A memory system that silently ingests everything will eventually recall a wrong fact as truth. memory-eternal defaults to **review-before-commit**:
+一个「什么都自动吞进去」的记忆系统，迟早会把错误事实当成真相召回。memory-eternal 默认**先审后入**：
 
-- new cards land in a **pending queue**; nothing enters the main vault until a human approves it;
-- approve, reject or bulk-process from the Web UI, the terminal TUI, or the CLI;
-- every status change is appended to an **immutable audit log** (who / what / when / why) — enforced at the SQLite layer, not by convention;
-- agents can read and propose, but **cannot approve their own cards**;
-- agents can also submit a **revision**: a copy of an approved card lands in the queue marked “✏️ revision of …”; approving it overwrites the original (id, path and status preserved, an entry appended to the card's update log), rejecting it leaves the original untouched;
-- deleted cards go to a recycle bin (30 days by default).
+- 新卡先进入**待审队列**，人工批准后才进主库；
+- 在 Web、终端 TUI 或 CLI 里批准 / 驳回 / 批量处理；
+- 每次状态变更追加到**不可篡改的审计日志**（谁 / 什么 / 何时 / 为什么）—— 由 SQLite 层强制，而不是靠约定；
+- Agent 可以读取和提议，但**不能批准自己写的卡**；
+- Agent 也可以提交**修改**：已批准卡的副本进待审队列并标注「✏️ 修改原卡：…」；批准 = 用副本覆盖原卡（id / path / 状态不变，更新记录留痕），驳回 = 原卡一字不动；
+- 删除的卡进回收站（默认保留 30 天）。
 
-## ⭐ Core memory
+## ⭐ 核心记忆
 
-Not everything should be injected into every session. Core memory is the small, explicit set of rules and preferences that must always win:
+不是所有内容都该每次注入上下文。核心记忆是一组**必须每次遵守**的偏好与硬约束：
 
-- any approved card can be promoted from the reader or card list;
-- auto-capture may **suggest** core only for explicit long-term preferences / hard constraints, and core candidates always stay pending for review;
-- approved core cards are injected into the system prompt of every session — no `memory_recall` call needed;
-- set a card limit and character budget in Settings → Memory → Core memory;
-- in the knowledge graph, core nodes are orange diamonds with a ★;
-- never store secrets or API keys in a core card; keep only a pointer to the credential directory.
+- 任意已批准卡片都可以在阅读器或卡片列表里提升为核心记忆；
+- 自动沉淀只会在用户明确要求长期偏好 / 硬约束时**建议**核心，且 core 候选**一律待审**；
+- 已批准的核心卡每次会话直接注入 systemPrompt，不依赖 `memory_recall` 调用；
+- 在「设置 → 记忆 → 核心记忆」里可配置条数上限和字符预算；
+- 知识星图里核心节点显示为橙色菱形 + ★；
+- **不要把密钥/Token 的值写进核心卡**，只保存凭证目录的引用。
 
-## 🎛 Reader & layout
+## 🎛 阅读与布局
 
-- click any heading in the reader's table of contents to smoothly scroll to that section;
-- Settings → Memory → Layout size offers **compact / normal / large** for the whole UI; it only affects display.
+- 卡片阅读器右侧目录可点击，平滑跳转到对应章节；
+- 「设置 → 记忆 → 布局大小」支持 **紧凑 / 标准 / 大**，只影响界面显示。
 
-## 🧩 One vault, every agent
+## 🧩 一个库，所有 Agent
 
-| Entry | What you get |
+| 入口 | 你能得到什么 |
 |---|---|
-| **DSH desktop / web** | embedded memory UI: review, graph, config, ledger |
-| **Claude Code / Codex / Cursor** | MCP server, same local vault, <code>dsh-memory connect</code> |
-| **Any MCP client** | <code>npx -y -p memory-eternal dsh-memory mcp</code> |
-| **Terminal** | <code>dsh-memory tui</code> — live queue, select-all, batch approve/reject, long-form reader |
-| **Browser** | <code>dsh-memory open</code> → http://127.0.0.1:7999 |
+| **DSH 桌面版 / Web** | 内嵌记忆界面：审核、图谱、配置、账本 |
+| **Claude Code / Codex / Cursor** | MCP server，同一个本地库，<code>dsh-memory connect</code> |
+| **任意 MCP 客户端** | <code>npx -y -p memory-eternal dsh-memory mcp</code> |
+| **终端** | <code>dsh-memory tui</code> —— 实时队列、全选、批量批/驳、长文读卡 |
+| **浏览器** | <code>dsh-memory open</code> → http://127.0.0.1:7999 |
 
-## 🎨 Skins
+## 🎨 皮肤 / Skins
 
-Five skins, switch in Settings → General → Theme with one click. The choice is saved locally and survives reloads.
+五套皮肤，设置 → 通用 → 主题皮肤一键切换；选择会本地保存，刷新后保持。
 
 <p align="center">
-  <img src="assets/screen/skins-gallery.png" width="900" alt="Five themes: Default, Pop, Light, Resident Evil and Spider-Man" />
+  <img src="assets/screen/skins-gallery.png" width="900" alt="五种主题皮肤：默认暗色、波普、明亮、生化危机、蜘蛛侠" />
 </p>
 
-| Skin | Style |
+| 皮肤 | 风格 |
 | --- | --- |
-| **Default** | Dark base + amber accent, easy on the eyes |
-| **Pop** | Yellow paper, black frames, hard shadows and halftone |
-| **Light** | Warm paper + serif headings for daytime |
-| **Resident Evil** | Umbrella lab, toxic-green scanlines, B.O.W. banner and claw |
-| **Spider-Man** | Red/blue comic, webs, halftone, wide action banner and hanging charm |
+| **默认暗色** | 深色底 + 琥珀强调，长时间阅读不刺眼 |
+| **波普 Pop** | 黄底黑框、硬阴影、半调与粗黑标题 |
+| **明亮 Light** | 暖纸面 + 衬线标题，适合白天 |
+| **生化危机** | Umbrella 实验室、毒绿扫描线、B.O.W. 头图与巨爪 |
+| **蜘蛛侠** | 红蓝漫画、蛛网、半调、横版动作头图与悬吊挂件 |
 
-## 📸 Screenshots
-
-<p align="center">
-  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/demo.gif" width="900" alt="memory-eternal 20-second tour: review queue, token ledger, knowledge graph" /></a>
-</p>
-<p align="center"><sub>▲ 20-second tour — review queue · token ledger · knowledge graph · <a href="https://eternalnight996.github.io/memory-eternal/demo/">live demo</a></sub></p>
-
+## 📸 截图
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-audit.png" width="49%" alt="Native terminal audit: select-all, batch approve/reject" />
-  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-reader.png" width="49%" alt="Native terminal long-form reader" />
+  <a href="https://eternalnight996.github.io/memory-eternal/demo/"><img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/demo.gif" width="900" alt="memory-eternal 20 秒演示：审核队列、记忆账本、知识星图" /></a>
 </p>
-<p align="center"><sub>▲ Terminal-native review and long-form reading — <code>dsh-memory tui</code></sub></p>
+<p align="center"><sub>▲ 20 秒演示 —— 审核队列 · 记忆账本 · 知识星图 · <a href="https://eternalnight996.github.io/memory-eternal/demo/">在线 Demo</a></sub></p>
 
-## 📚 Documentation & links
 
-- [Full manual (English)](docs/GUIDE.md) · [完整手册（中文）](docs/GUIDE.zh-CN.md)
-- [Private deployment (Docker / systemd)](docs/DEPLOY.md)
-- [Changelog](docs/CHANGELOG.md) · [Architecture](docs/ARCHITECTURE.md)
-- [Terminal plugin (dsh-tui)](dsh-tui-plugin/README.md) · [Orca launcher](orca-plugin/README.md) · [Cursor / VS Code extension](cursor-extension/README.md)
-- [Report a bug](https://github.com/EternalNight996/memory-eternal/issues)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-audit.png" width="49%" alt="终端原生审核：全选、批量批准/驳回" />
+  <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/screen/tui-reader.png" width="49%" alt="终端原生长文读卡器" />
+</p>
+<p align="center"><sub>▲ 终端原生审核与长文读卡 —— <code>dsh-memory tui</code></sub></p>
 
-## 💬 Community
+## 🔍 语义召回（默认内置，无需装模型）
 
-**Questions, ideas, or DSH plugin talk — join the groups:**
+**新装默认就是内置语义**：零安装、零网络、零费用，同义扩展兜底，开箱即用。三种部署方式：
 
-| QQ group | WeChat group |
+| 方式 | 说明 |
+|---|---|
+| 内置语义（默认） | 零依赖；自建集 R@5 96.3%，改写题 40% |
+| 本地 Ollama（推荐升级） | bge-m3 向量；R@5 99.1%，改写题 70%，延迟约 100ms |
+| 在线 API | OpenAI 兼容端点，按量计费 |
+
+首次打开记忆库会走三步引导，并默认全开：记忆核心 / 自动沉淀 / 自动召回 / 核心记忆注入 / 工作记忆 / 内置语义。设置页「语义召回」右上角可「🧭 引导」重新查看。
+
+升级 Ollama：安装后设 `OLLAMA_HOST=127.0.0.1:7997` 启动 `ollama serve`，面板里「一键拉取模型 → 立即部署」即可。
+
+**实测（2026-11-12）**：自建 109 题内置 R@5 96.3%、Top1 86.2%；+bge-m3 R@5 **99.1%**、Top1 89.9%。
+LongMemEval-S 500 题全量：词法 95.2%、语义 **97.2%** R@5（检索口径，非 QA）。
+
+细节见 [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md) 与 [bench/FINAL-REPORT.md](bench/FINAL-REPORT.md)。
+
+## 📚 文档与链接
+
+- [英文完整手册](docs/GUIDE.md) · [完整手册（中文）](docs/GUIDE.zh-CN.md)
+- [私有化部署（Docker / systemd）](docs/DEPLOY.md)
+- [更新日志](docs/CHANGELOG.md) · [架构](docs/ARCHITECTURE.md)
+- [终端插件（dsh-tui）](dsh-tui-plugin/README.md) · [Orca 启动器](orca-plugin/README.md) · [Cursor / VS Code 扩展](cursor-extension/README.md)
+- [反馈问题](https://github.com/EternalNight996/memory-eternal/issues)
+
+## 💬 交流群
+
+**遇到问题、想提需求、或者想聊聊 DSH 插件开发 —— 欢迎进群：**
+
+| QQ 交流群 | 微信交流群 |
 |:---:|:---:|
-| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ group QR" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.jpg" width="240" alt="WeChat group QR" /> |
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-qr.jpg" width="240" alt="QQ 群二维码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/group-wechat.jpg" width="240" alt="微信群二维码" /> |
 
-**Buy the author a coffee (optional) — WeChat or Alipay:**
+**如果这个插件帮你省了时间，可以请作者喝杯咖啡（微信 / 支付宝任选其一）：**
 
-| WeChat Pay | WeChat Reward | Alipay |
+| 微信收款码 | 微信赞赏码 | 支付宝 |
 |:---:|:---:|:---:|
-| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg" width="200" alt="WeChat Pay QR" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="200" alt="WeChat Reward QR" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/alipay.jpg" width="200" alt="Alipay QR" /> |
+| <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-pay.jpg" width="200" alt="微信收款码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/wechat-reward.jpg" width="200" alt="微信赞赏码" /> | <img src="https://raw.githubusercontent.com/EternalNight996/memory-eternal/main/assets/support/alipay.jpg" width="200" alt="支付宝收款码" /> |
 
-> Sponsorship is optional; the plugin stays MIT and free. See [SPONSOR.md](SPONSOR.md).
+> 打赏完全自愿，不影响任何功能；插件本体始终开源免费（MIT）。详见 [SPONSOR.md](SPONSOR.md)。
 
 ## 📄 License
 
-MIT — use it, self-host it, build on it.
+MIT —— 随便用、随便自托管、随便二次开发。
 
-## 🖋 Author's Quotes
+## 🖋 作者语录
 
-_Verses from 《蛊真人》(Reverend Insanity). Kept in the original Chinese — a translation would lose the meter. Also rotating at the bottom of the panel's left rail._
+_「大爱」二字，是全篇最大的反讽。面板左栏底部同步轮播。_
 
 > 落魄谷中寒风吹，春秋蝉鸣少年归。<br>
 > 荡魂山处石人泪，定仙游走魔向北。<br>
@@ -313,14 +426,14 @@ _Verses from 《蛊真人》(Reverend Insanity). Kept in the original Chinese �
 
 ---
 
-## 🌟 Contributors
+## 🌟 贡献者
 
-Thanks to everyone who helped memory-eternal get better.
+感谢每一位让记忆核心更好用的人。
 
-| Contributor | Contribution |
+| 贡献者 | 贡献 |
 | --- | --- |
-| [@aloneangel45](https://github.com/aloneangel45) | Found and fixed [#54](https://github.com/EternalNight996/memory-eternal/issues/54) — `memory_recall` / `memory_note` were never registered when the `tools` service mounted late ([#58](https://github.com/EternalNight996/memory-eternal/pull/58)) |
-| [@EternalNight996](https://github.com/EternalNight996) | Author and maintainer |
+| [@aloneangel45](https://github.com/aloneangel45) | 发现并修复 [#54](https://github.com/EternalNight996/memory-eternal/issues/54) —— `tools` 服务晚挂载时 `memory_recall` / `memory_note` 从未注册（[#58](https://github.com/EternalNight996/memory-eternal/pull/58)） |
+| [@EternalNight996](https://github.com/EternalNight996) | 作者与维护者 |
 
-Have a fix worth landing? Open an issue or a pull request — accepted contributions are listed here.
+有想落地的修复？欢迎开 issue 或 PR —— 每个被合并的贡献都会出现在这里。
 

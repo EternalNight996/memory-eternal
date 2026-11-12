@@ -69,5 +69,5 @@ test('端到端：哈希+LSH 管线仍能发现近重复卡（similar 边）', a
       return (s === pa && t === pb) || (s === pb && t === pa)
     })
     assert.equal(pair.length, 1, 'A/B 之间应恰好一条 similar 边，实测 ' + pair.length + '（全部 similar: ' + g.edges.filter((e) => e.type === 'similar').length + '）')
-  } finally { closeAllDb(); await fs.rm(tmp, { recursive: true, force: true }) }
+  } finally { closeAllDb(); try { await fs.rm(tmp, { recursive: true, force: true }) } catch { /* Windows 下 SQLite 句柄释放有延迟：EBUSY 不影响断言 */ } }
 })

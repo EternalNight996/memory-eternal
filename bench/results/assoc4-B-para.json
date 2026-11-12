@@ -1,0 +1,321 @@
+{
+  "summary": {
+    "label": "assoc4-B-para",
+    "vault": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\mc-assoc-182152",
+    "golden": "bench\\paraphrase.json",
+    "cases": 10,
+    "cards": 0,
+    "limit": 10,
+    "clean": true,
+    "expand": true,
+    "R5": 0.5,
+    "R10": 0.5,
+    "MRR": 0.35,
+    "Top1": 0.3,
+    "zeroHit": 0,
+    "latencyMs": {
+      "mean": 10,
+      "p95": 19.2
+    },
+    "byKind": {
+      "paraphrase": {
+        "n": 10,
+        "R5": 0.5,
+        "Top1": 0.3
+      }
+    },
+    "at": "2026-11-12T10:22:36.830Z"
+  },
+  "results": [
+    {
+      "id": "p1",
+      "kind": "paraphrase",
+      "query": "发出的指令一直没回应，程序瘫在等待界面",
+      "expected": [
+        "08-Mistakes/开宗请求卡死客户端90s服务端65s双层超时修复.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 19,
+      "top": [
+        {
+          "path": "08-Mistakes/etest-注销流程三处修复显示用户名返回待登录界面logout-删本地-user-行语义问题.md",
+          "title": "ETest 注销流程三处修复：显示用户名、返回待登录界面、logout 删本地 user 行语义问题",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/全链路-tls-wss-终止配置与验证记录.md",
+          "title": "全链路 TLS + WSS 终止配置与验证记录",
+          "score": 18
+        },
+        {
+          "path": "10-Skills/cra-patch.md",
+          "title": "cra-patch",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p2",
+      "kind": "paraphrase",
+      "query": "点了快捷入口可是页面打不开",
+      "expected": [
+        "08-Mistakes/首页应用mcp-列表页-404-修复buildmjs-补索引页.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 13,
+      "top": [
+        {
+          "path": "09-Core/有用-但重启程序就失效了.md",
+          "title": "有用 但重启程序就失效了",
+          "score": 18
+        },
+        {
+          "path": "07-Tools/dsh-tui-plugin-读卡器长文模式与滚动操作.md",
+          "title": "dsh-tui-plugin 读卡器长文模式与滚动操作",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-v0181洞府安全审核入口与崩溃隔离.md",
+          "title": "DSH Pixel Team v0.1.81：洞府安全审核入口与崩溃隔离",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p3",
+      "kind": "paraphrase",
+      "query": "统计工具怎么留下访客真实地址",
+      "expected": [
+        "03-Knowledge/umami-原始-ip-存储方案ingestion-sidecar.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 10,
+      "top": [
+        {
+          "path": "02-Projects/日志提取回传工具ui-实时显示已回传累计.md",
+          "title": "日志提取回传工具：UI 实时显示已回传累计",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/日志提取回传工具excel-降级分片与流式遍历定稿设计.md",
+          "title": "日志提取回传工具：Excel 降级分片与流式遍历定稿设计",
+          "score": 18
+        },
+        {
+          "path": "00-System/daily-2026-08-31.md",
+          "title": "每日回顾 2026-08-31",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p4",
+      "kind": "paraphrase",
+      "query": "命令行安装时版本对不上",
+      "expected": [
+        "03-Knowledge/dsh-插件发布与安装的版本路径陷阱.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 9,
+      "top": [
+        {
+          "path": "08-Mistakes/memory-eternal-v01045重启按钮消失与反馈区横向溢出修复.md",
+          "title": "memory-eternal v0.10.45：重启按钮消失与反馈区横向溢出修复",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/dsh-desktop-更新安装前清理-nodedsh-进程复用场景根因与加固.md",
+          "title": "dsh-desktop 更新安装前清理 node/dsh 进程（复用场景根因与加固）",
+          "score": 18
+        },
+        {
+          "path": "07-Tools/rea给-ai-agent-装二进制流量逆向能力的工具.md",
+          "title": "REA：给 AI Agent 装二进制/流量逆向能力的工具",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p5",
+      "kind": "paraphrase",
+      "query": "命令行帮助文本怎么补充",
+      "expected": [
+        "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 7,
+      "top": [
+        {
+          "path": "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md",
+          "title": "cvte-mes 帮助示例补全与 G 盘同步误报教训",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-tui-接入真实本地-api-live-write-双模式设计.md",
+          "title": "dsh-tui 接入真实本地 API：--live / --write 双模式设计",
+          "score": 18
+        },
+        {
+          "path": "04-Content/此文件夹要上传github的-先清理界面.md",
+          "title": "此文件夹要上传github的 先清理界面",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p6",
+      "kind": "paraphrase",
+      "query": "要让别人能搜到我的扩展该走哪些渠道",
+      "expected": [
+        "03-Knowledge/dsh-plugin-submit-marketplace-收录与发布流程.md"
+      ],
+      "rank": 4,
+      "hits": 10,
+      "ms": 9,
+      "top": [
+        {
+          "path": "02-Projects/dsh-pixel-team-交付治理层定位与-dsh-版本兼容坑.md",
+          "title": "dsh-pixel-team 交付治理层定位与 DSH 版本兼容坑",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/dsh插件市场收录pr三大市场对比.md",
+          "title": "DSH插�件市场收录PR三大市场对比",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/dsh插件市场收录pr三大市场对比与踩坑.md",
+          "title": "DSH插件市场收录PR三大市场对比与踩坑",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p7",
+      "kind": "paraphrase",
+      "query": "系统自己加了一堆严格标准",
+      "expected": [
+        "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 8,
+      "top": [
+        {
+          "path": "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md",
+          "title": "模式默认值被误当用户验收：根因与修复规则",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/记忆系统评分表成本效率列方向与各方案实测依据.md",
+          "title": "记忆系统评分表：成本效率列方向与各方案实测依据",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-v01113三主模式重构draftprecisioncompliance.md",
+          "title": "dsh-pixel-team v0.1.113：三主模式重构（draft/precision/compliance）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p8",
+      "kind": "paraphrase",
+      "query": "自检脚本瞬间全红",
+      "expected": [
+        "08-Mistakes/cvte-mes-验证脚本-21-项-pc-拆分与-dns-全-fail-排障.md"
+      ],
+      "rank": 4,
+      "hits": 10,
+      "ms": 10,
+      "top": [
+        {
+          "path": "02-Projects/cvte-mes-接口验证脚本verify2bat-renderps1-彩色表格.md",
+          "title": "cvte-mes 接口验证脚本（verify2.bat + _render.ps1 彩色表格）",
+          "score": 18
+        },
+        {
+          "path": "08-Mistakes/验证脚本日志完整化不截断用例一一对应每次运行归档.md",
+          "title": "验证脚本日志完整化：不截断+用例一一对应+每次运行归档",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/cvte-mes-验证脚本同步-g-盘与-sn2-条码取基础码.md",
+          "title": "cvte-mes 验证脚本同步 G 盘与 SN2 条码取基础码",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p9",
+      "kind": "paraphrase",
+      "query": "拖动条拉不到最下面",
+      "expected": [
+        "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 7,
+      "top": [
+        {
+          "path": "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md",
+          "title": "egui 交互命中与滚动条映射三处修复（P0 徽标命中/thumb 夹取/显示真实优先级）",
+          "score": 18
+        },
+        {
+          "path": "04-Content/合理利用空间-尽量减少滚动条.md",
+          "title": "合理利用空间 尽量减少滚动条",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/etest-全项目滚动条统一保留-scrollarea-隐藏原生条-自绘.md",
+          "title": "etest 全项目滚动条统一：保留 ScrollArea + 隐藏原生条 + 自绘",
+          "score": 18
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p10",
+      "kind": "paraphrase",
+      "query": "按钮到处乱飘怎么让它老实待着",
+      "expected": [
+        "06-BestPractices/dsh-desktop-更新入口固定设置左侧栏底部.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 6,
+      "top": [
+        {
+          "path": "02-Projects/主作业栏增加打开文件夹按钮与日志内容增强b3631d8.md",
+          "title": "主作业栏增加打开文件夹按钮与日志内容增强（b3631d8）",
+          "score": 18
+        },
+        {
+          "path": "02-Projects/etest-客户端五条改动sqlx-日志压制审计分类云配置保存按钮与窗口防抖.md",
+          "title": "etest 客户端五条改动：sqlx 日志压制、审计分类、云配置保存按钮与窗口防抖",
+          "score": 18
+        },
+        {
+          "path": "03-Knowledge/dsh-super-agents-队伍卡片四态按钮与提示浮层设计0116601176.md",
+          "title": "dsh-super-agents 队伍卡片四态按钮与提示浮层设计（0.1.166–0.1.176）",
+          "score": 18
+        }
+      ],
+      "err": ""
+    }
+  ]
+}

@@ -1,0 +1,321 @@
+{
+  "summary": {
+    "label": "f2-on-para",
+    "vault": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\mc-final2-180745",
+    "golden": "bench\\paraphrase.json",
+    "cases": 10,
+    "cards": 0,
+    "limit": 10,
+    "clean": true,
+    "expand": true,
+    "R5": 0.4,
+    "R10": 0.6,
+    "MRR": 0.3033,
+    "Top1": 0.2,
+    "zeroHit": 0,
+    "latencyMs": {
+      "mean": 68.4,
+      "p95": 76.9
+    },
+    "byKind": {
+      "paraphrase": {
+        "n": 10,
+        "R5": 0.4,
+        "Top1": 0.2
+      }
+    },
+    "at": "2026-11-12T10:07:57.262Z"
+  },
+  "results": [
+    {
+      "id": "p1",
+      "kind": "paraphrase",
+      "query": "发出的指令一直没回应，程序瘫在等待界面",
+      "expected": [
+        "08-Mistakes/开宗请求卡死客户端90s服务端65s双层超时修复.md"
+      ],
+      "rank": 6,
+      "hits": 10,
+      "ms": 75,
+      "top": [
+        {
+          "path": "08-Mistakes/顶栏内联操作反馈条设计校验失败可见性.md",
+          "title": "顶栏内联操作反馈条设计（校验失败可见性）",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/dsh-pixel-team对话框叫停当前任务并立刻执行排队任务的需求方案.md",
+          "title": "dsh-pixel-team：对话框叫停当前任务并立刻执行排队任务的需求方案",
+          "score": 3
+        },
+        {
+          "path": "04-Content/头我就按这个方案做.md",
+          "title": "头我就按这个方案做",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p2",
+      "kind": "paraphrase",
+      "query": "点了快捷入口可是页面打不开",
+      "expected": [
+        "08-Mistakes/首页应用mcp-列表页-404-修复buildmjs-补索引页.md"
+      ],
+      "rank": 6,
+      "hits": 10,
+      "ms": 77,
+      "top": [
+        {
+          "path": "02-Projects/mengbot-解锁码入口可见性修复01148.md",
+          "title": "MengBot 解锁码入口可见性修复（0.1.148）",
+          "score": 3
+        },
+        {
+          "path": "07-Tools/mengbot-设备授权页-device-缺-user-code-故障修复v018.md",
+          "title": "MengBot 设备授权页 /device 缺 user_code 故障修复（v0.1.8）",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/autobot-deepseek-面板完成状态与登录入口切换.md",
+          "title": "AutoBot DeepSeek 面板“完成”状态与登录入口切换",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p3",
+      "kind": "paraphrase",
+      "query": "统计工具怎么留下访客真实地址",
+      "expected": [
+        "03-Knowledge/umami-原始-ip-存储方案ingestion-sidecar.md"
+      ],
+      "rank": 5,
+      "hits": 10,
+      "ms": 69,
+      "top": [
+        {
+          "path": "03-Knowledge/元气桌面会员权益与登录态分离游客账号证据与两条实现路径.md",
+          "title": "元气桌面会员权益与登录态分离：游客账号证据与两条实现路径",
+          "score": 3
+        },
+        {
+          "path": "04-Content/用户真实账号写到verify2bat去-我到时候会删除的-助手明白直接写.md",
+          "title": "用户：真实账号写到verify2.bat去 我到时候会删除的 助手：明白，直接写",
+          "score": 3
+        },
+        {
+          "path": "04-Content/对话原文记录-2.md",
+          "title": "对话原文记录",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p4",
+      "kind": "paraphrase",
+      "query": "命令行安装时版本对不上",
+      "expected": [
+        "03-Knowledge/dsh-插件发布与安装的版本路径陷阱.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 68,
+      "top": [
+        {
+          "path": "03-Knowledge/dsh-插件发布与安装的版本路径陷阱.md",
+          "title": "DSH 插件发布与安装的版本/路径陷阱",
+          "score": 3
+        },
+        {
+          "path": "07-Tools/ubuntu-deb-三版本兼容依赖或语法与安装方式.md",
+          "title": "Ubuntu deb 三版本兼容：依赖或语法与安装方式",
+          "score": 3
+        },
+        {
+          "path": "04-Content/态表格容器改一处两个模式同时生效不会再分叉-要退.md",
+          "title": "态、表格容器——**改一处，两个模式同时生效**，不会再分叉。 --- **要退",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p5",
+      "kind": "paraphrase",
+      "query": "命令行帮助文本怎么补充",
+      "expected": [
+        "08-Mistakes/cvte-mes-帮助示例补全与-g-盘同步误报教训.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 69,
+      "top": [
+        {
+          "path": "04-Content/用户补充readme-上传发布-助手主上要补充-readme-并上传发布先.md",
+          "title": "用户：补充readme 上传发布 助手：主上要补充 README 并上传发布。先",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/just-默认命令改为-help-的配置方法.md",
+          "title": "just 默认命令改为 help 的配置方法",
+          "score": 3
+        },
+        {
+          "path": "04-Content/测试方案有了-流程配置数据-autopecom.md",
+          "title": "测试方案有了 流程配置数据 .\\autope.com",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p6",
+      "kind": "paraphrase",
+      "query": "要让别人能搜到我的扩展该走哪些渠道",
+      "expected": [
+        "03-Knowledge/dsh-plugin-submit-marketplace-收录与发布流程.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 74,
+      "top": [
+        {
+          "path": "04-Content/用户补充readme-上传发布-助手主上要补充-readme-并上传发布先.md",
+          "title": "用户：补充readme 上传发布 助手：主上要补充 README 并上传发布。先",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/dsh插件市场收录pr三大市场对比.md",
+          "title": "DSH插�件市场收录PR三大市场对比",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/s2-同义短语扩展检索召回兜底方案与实测结论.md",
+          "title": "S2 同义短语扩展：检索召回兜底方案与实测结论",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p7",
+      "kind": "paraphrase",
+      "query": "系统自己加了一堆严格标准",
+      "expected": [
+        "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md"
+      ],
+      "rank": 2,
+      "hits": 10,
+      "ms": 71,
+      "top": [
+        {
+          "path": "08-Mistakes/验收标准不得由模式默认值注入只来自用户明确选择.md",
+          "title": "验收标准不得由模式默认值注入：只来自用户明确选择",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/模式默认值被误当用户验收根因与修复规则.md",
+          "title": "模式默认值被误当用户验收：根因与修复规则",
+          "score": 3
+        },
+        {
+          "path": "02-Projects/dsh-pixel-team-模式体系重构默认快速模式与验收注入修复.md",
+          "title": "dsh-pixel-team 模式体系重构：默认快速模式与验收注入修复",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p8",
+      "kind": "paraphrase",
+      "query": "自检脚本瞬间全红",
+      "expected": [
+        "08-Mistakes/cvte-mes-验证脚本-21-项-pc-拆分与-dns-全-fail-排障.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 65,
+      "top": [
+        {
+          "path": "02-Projects/mvcheck-工序状态报错只爆红当前工序去掉额外标签.md",
+          "title": "MVCheck 工序状态报错只爆红当前工序（去掉额外标签）",
+          "score": 3
+        },
+        {
+          "path": "04-Content/修法把最近一次操作结果直接显示在顶栏就在开始左边红.md",
+          "title": "修法**：把**最近一次操作结果**直接显示在顶栏、就在「开始」左边（`✖`红/",
+          "score": 3
+        },
+        {
+          "path": "02-Projects/cvte-mes-接口验证脚本verify2bat-renderps1-彩色表格.md",
+          "title": "cvte-mes 接口验证脚本（verify2.bat + _render.ps1 彩色表格）",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p9",
+      "kind": "paraphrase",
+      "query": "拖动条拉不到最下面",
+      "expected": [
+        "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md"
+      ],
+      "rank": 1,
+      "hits": 10,
+      "ms": 59,
+      "top": [
+        {
+          "path": "08-Mistakes/egui-交互命中与滚动条映射三处修复p0-徽标命中thumb-夹取显示真实优先级.md",
+          "title": "egui 交互命中与滚动条映射三处修复（P0 徽标命中/thumb 夹取/显示真实优先级）",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/etest-全项目滚动条统一保留-scrollarea-隐藏原生条-自绘.md",
+          "title": "etest 全项目滚动条统一：保留 ScrollArea + 隐藏原生条 + 自绘",
+          "score": 3
+        },
+        {
+          "path": "04-Content/1图1处增加下拉框选项团队功能.md",
+          "title": "1.图1处增加下拉框选项团队功能",
+          "score": 3
+        }
+      ],
+      "err": ""
+    },
+    {
+      "id": "p10",
+      "kind": "paraphrase",
+      "query": "按钮到处乱飘怎么让它老实待着",
+      "expected": [
+        "06-BestPractices/dsh-desktop-更新入口固定设置左侧栏底部.md"
+      ],
+      "rank": 0,
+      "hits": 10,
+      "ms": 57,
+      "top": [
+        {
+          "path": "02-Projects/令牌常驻显示与悬浮隐藏显示按钮01179.md",
+          "title": "令牌常驻显示与悬浮隐藏/显示按钮（0.1.179）",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/桌面宠物随机行为设计.md",
+          "title": "桌面宠物随机行为设计",
+          "score": 3
+        },
+        {
+          "path": "03-Knowledge/知识卡片头部按钮挤压修复与图片流程图方案规划.md",
+          "title": "知识卡片头部按钮挤压修复与图片/流程图方案规划",
+          "score": 3
+        }
+      ],
+      "err": ""
+    }
+  ]
+}

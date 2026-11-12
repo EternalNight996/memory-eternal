@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { ensureVault, listCards, readCard } from '../lib/vault.js'
 import { closeAllDb } from '../lib/db.js'
-import { summarizeTurn, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, parseCaptureJson, captureCard, captureUpdate, makeDedupChecker, pickNeighbors, DEDUP_THRESHOLD, compressExcerpt } from '../lib/capture.js'
+import { summarizeTurn, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, parseCaptureJson, captureCard, captureUpdate, makeDedupChecker, pickNeighbors, DEDUP_THRESHOLD, compressExcerpt, preferenceLines } from '../lib/capture.js'
 
 const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'mc-cap-'))
 const root = path.join(tmpRoot, 'vault')
@@ -277,6 +277,13 @@ test('captureCard writes with dedup; duplicate appends update instead', async ()
   assert.ok(text.includes('## 更新记录'))
   const cards = await listCards(freshRoot)
   assert.equal(cards.length, 1, '不应产生重复卡')
+})
+
+test('preferenceLines 抽偏好句（零 LLM）', () => {
+  const lines = preferenceLines('user: I prefer dark mode\nassistant: ok\nuser: 我喜欢简洁 UI')
+  assert.equal(lines.length, 2)
+  assert.match(lines[0], /prefer/)
+  assert.match(lines[1], /喜欢/)
 })
 
 test('makeDedupChecker scans a directory', async () => {

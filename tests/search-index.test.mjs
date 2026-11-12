@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { promises as fsp } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { tokenize, buildMatch, searchIndexed, ensureIndex, indexStats } from '../lib/search-index.js'
+import { tokenize, buildMatch, searchIndexed, ensureIndex, indexStats, cleanQuery } from '../lib/search-index.js'
 import { ensureVault, writeCard, search, deleteCard } from '../lib/vault.js'
 import { getDb, closeAllDb } from '../lib/db.js'
 
@@ -105,4 +105,36 @@ test('索引统计与重建入口可用', async () => {
   const st = indexStats(db)
   assert.equal(st.indexed, 1)
   assert.equal(st.cards, 1)
+})
+
+test('查询侧清洗：功能词不进检索式，实词原样保留', () => {
+  const cleaned = cleanQuery('怎么让召回更准确')
+  assert.ok(!cleaned.includes('怎么'))
+  assert.ok(cleaned.includes('召回'))
+  assert.ok(cleaned.includes('准确'))
+  assert.ok(cleanQuery('系统 对比').includes('系统'), '领域实词不能被当停用词删掉')
+  assert.equal(cleanQuery(''), '')
+})
+
+test('口语长句不再被「怎么/什么」类功能词带偏（99 题金标集外的回归用例）', async () => {
+  const root = await freshRoot()
+  for (let i = 0; i < 5; i++) {
+    await writeCard(root, { kind: 'knowledge', title: '怎么处理问题 ' + i, body: body('noise' + i) + ' 怎么 什么 哪个 问题 内容 情况', status: 'approved' })
+  }
+  await writeCard(root, { kind: 'knowledge', title: '召回准确率实测', body: body('target') + ' 召回 准确 噪声 的实测方法', status: 'approved' })
+  const hits = await search(root, '怎么让召回更准确')
+  assert.ok(hits.length >= 1, '清洗后仍应命中实词')
+  assert.equal(hits[0].title, '召回准确率实测', '功能词噪声卡不得压过实词命中的目标卡')
+})
+
+test('同义扩展只在 AND 落空时兜底：口语改写能命中「检索/修复」卡', async () => {
+  const root = await freshRoot()
+  for (let i = 0; i < 4; i++) {
+    await writeCard(root, { kind: 'knowledge', title: '资料合集 ' + i, body: body('junk' + i) + ' 中文 资料 合集', status: 'approved' })
+  }
+  // 目标卡不含「中文」二字，只有同义扩展词（检索/修复/未命中）能把它召回来
+  await writeCard(root, { kind: 'knowledge', title: '检索修复记录', body: body('target') + ' 检索 未命中 修复 的方法', status: 'approved' })
+  const hits = await search(root, '中文搜不到怎么修')
+  assert.ok(hits.length >= 1, '扩展后应命中目标卡')
+  assert.equal(hits[0].title, '检索修复记录', '同义词命中的卡应排在只含原词噪声的卡前面')
 })
