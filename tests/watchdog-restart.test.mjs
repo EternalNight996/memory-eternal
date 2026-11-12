@@ -32,11 +32,18 @@ async function deadPid() {
 
 // -- ① 决策矩阵 ---------------------------------------------------------------
 
-test('decideResidentAction：版本一致 → delegate（不动常驻实例）', () => {
+test('decideResidentAction：版本一致且有看门狗 → delegate（不动常驻实例）', () => {
   const d = decideResidentAction({ served: '0.10.6', expect: '0.10.6', watchdogAlive: true })
   assert.equal(d.action, 'delegate')
   assert.equal(d.stale, false)
   assert.equal(d.reason, 'up-to-date')
+})
+
+test('decideResidentAction：版本一致但看门狗没了 → spawn 接管（issue #63）', () => {
+  const d = decideResidentAction({ served: '0.10.6', expect: '0.10.6', watchdogAlive: false })
+  assert.equal(d.action, 'spawn')
+  assert.equal(d.stale, false)
+  assert.equal(d.reason, 'adopt-unmanaged')
 })
 
 test('decideResidentAction：版本漂移 → restart（这就是「更新运行中的程序」）', () => {
