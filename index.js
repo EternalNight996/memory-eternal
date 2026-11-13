@@ -206,27 +206,7 @@ markAllVolatile(Config)
  * @param {number} now
  * @returns {number} 时间戳
  */
-export function nextBackupAt({ lastAt = 0, intervalHours = 24, windowStart = 3 } = {}, now = Date.now()) {
-  const hours = Math.max(1, Math.min(Math.floor(Number(intervalHours) || 24), 24 * 365))
-  const winStart = Math.max(0, Math.min(23, Math.floor(Number(windowStart ?? 3))))
-  const last = Number(lastAt) > 0 ? Number(lastAt) : 0
-  // 每天一次（）时：今天窗口还没过、且今天还没备过 → 今天的窗口；否则明天的窗口
-  const todayWin = new Date(now)
-  todayWin.setHours(winStart, 0, 0, 0)
-  if (hours <= 24) {
-    const busyToday = last > 0 && new Date(last).toDateString() === new Date(now).toDateString()
-    if (!busyToday && todayWin.getTime() > now) return todayWin.getTime()
-    const next = new Date(todayWin)
-    next.setDate(next.getDate() + 1)
-    // 每天一次：今天备过就明天备，不再叠加「距上次够 24h」的额外顺延
-    return next.getTime()
-  }
-  const earliest = last > 0 ? last + hours * 3600000 : now
-  const d = new Date(earliest)
-  d.setHours(winStart, 0, 0, 0)
-  if (d.getTime() < earliest) d.setDate(d.getDate() + 1)
-  return d.getTime()
-}
+export { nextBackupAt } from './lib/backup-window.js'
 
 export function backupDue(cfg = {}, now = Date.now(), lastAt = 0) {
   const hours = Math.max(1, Math.min(Math.floor(Number(cfg.backupIntervalHours) || 24), 24 * 365))
