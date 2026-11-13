@@ -35,7 +35,7 @@ test('服务端不引用客户端 UI 代码（剥离干净）', () => {
   assert.doesNotMatch(src, /web\/app\.js|web\/index\.html/, '不允许引用客户端静态资源')
   // 云端只依赖 api.js（数据层出口）与 cloud-auth.js（鉴权）
   const deps = [...src.matchAll(/from '\.\/([\w.-]+\.js)'/g)].map((m) => m[1])
-  assert.deepEqual(deps.sort(), ['api.js', 'cloud-auth.js', 'entitlement.js', 'license.js', 'oidc.js', 'webhook.js'], '云端模块只应依赖 api / cloud-auth / license / entitlement / oidc / webhook')
+  assert.deepEqual(deps.sort(), ['api.js', 'billing.js', 'cloud-auth.js', 'entitlement.js', 'license.js', 'oidc.js', 'webhook.js'], '云端模块只应依赖 api / cloud-auth / license / entitlement / oidc / webhook / billing')
 })
 
 test('版本统一：没传 version 时读 package.json（客户端兼容判断要用）', () => {
