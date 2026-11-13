@@ -63,7 +63,8 @@
     "!lib/oidc.js",
     "!lib/webhook.js",
     "!docs/MENGBOT-OIDC-WEBHOOK.md",
-    "!docs/MENGBOT-INTEGRATION-REQUEST.md"
+    "!docs/MENGBOT-INTEGRATION-REQUEST.md",
+    "!docs/mengbot-integration-reply.md"
   ],
   "engines": {
     "node": ">=22",
