@@ -133,6 +133,37 @@ function consumeCloudTokenFromHash() {
 }
 /** 当前实际使用的 API 前缀（本地相对路径 or 云端绝对地址）。 */
 const apiPrefix = () => (API_TARGET_URL ? API_TARGET_URL + LOCAL_PREFIX : LOCAL_PREFIX)
+
+// ---- 云端熔断：**云端失败绝不能拖垮客户端** ---------------------------------
+//
+// 教训：只把请求重写到云端、没有回退，一旦云端不可达（CORS/证书/服务挂了/会话失效），
+// 200 多处 fetch 全失败 → 整个页面空白、连本地库都看不了。
+// 这里做两件事：
+//   ① 连续失败（网络错误 / 401 / 403 / 5xx）达到阈值 → 自动切回本地模式并提示；
+//   ② 启动时探活一次：配置了云端但连不上，直接用本地，不阻塞首屏。
+const CLOUD_FAIL_LIMIT = 3
+let cloudFailCount = 0
+let cloudFallbackDone = false
+
+function fallbackToLocal(reason) {
+  if (cloudFallbackDone) return
+  cloudFallbackDone = true
+  API_TARGET_URL = ''
+  cloudToken = ''
+  try { saveCloudConn({ mode: 'local', url: '', token: '' }) } catch { /* 忽略 */ }
+  try {
+    // 不 reload：先切回本地前缀，让后续请求立刻打本地；再给一条明确提示
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('me-cloud-fallback', { detail: { reason: String(reason || '云端不可达') } }))
+    }
+  } catch { /* 忽略 */ }
+}
+
+/** 请求算不算「云端失败」（网络错误也算）。 */
+function cloudFailureStatus(status) {
+  return status === 0 || status === 401 || status === 403 || status >= 500
+}
+
 // 包装 fetch：云端模式下把相对 API 路径**重写成云端绝对地址**并补 Authorization。
 // 这样 200 多处 `fetch(API + '/xxx')` 一行都不用改：调用点写的仍是 `/memory-eternal/api/...`。
 try {
@@ -143,7 +174,21 @@ try {
       if (API_TARGET_URL && typeof input === 'string' && input.startsWith(LOCAL_PREFIX)) {
         const headers = { ...((init && init.headers) || {}) }
         if (cloudToken && !headers.Authorization && !headers.authorization) headers.Authorization = 'Bearer ' + cloudToken
-        return _fetch(API_TARGET_URL + input, { ...(init || {}), headers })
+        const target = API_TARGET_URL + input
+        return _fetch(target, { ...(init || {}), headers }).then((r) => {
+          if (cloudFailureStatus(r.status)) {
+            cloudFailCount += 1
+            if (cloudFailCount >= CLOUD_FAIL_LIMIT) fallbackToLocal('云端返回 ' + r.status)
+          } else {
+            cloudFailCount = 0
+          }
+          return r
+        }, (err) => {
+          // 网络层失败（CORS / DNS / 证书 / 超时）：立刻计数
+          cloudFailCount += 1
+          if (cloudFailCount >= CLOUD_FAIL_LIMIT) fallbackToLocal('网络失败：' + String((err && err.message) || err))
+          throw err
+        })
       }
       return _fetch(input, init)
     }
@@ -153,6 +198,16 @@ try {
 applyCloudConn(readCloudConn())
 // 跳转登录刚回来：从 #fragment 里取令牌（读完立刻清地址栏）
 const cloudFromHash = typeof location !== 'undefined' && location.hash ? consumeCloudTokenFromHash() : null
+// 启动探活：配置了云端就先 ping 一次，连不上直接退回本地（避免首屏全 401）
+if (API_TARGET_URL) {
+  try {
+    const ping = fetch(apiPrefix() + '/overview', { method: 'GET' })
+    if (ping && typeof ping.then === 'function') {
+      ping.then((r) => { if (!r || cloudFailureStatus(r.status)) fallbackToLocal('启动探活失败（HTTP ' + (r && r.status) + '）') })
+        .catch((e) => fallbackToLocal('启动探活网络失败：' + String((e && e.message) || e)))
+    }
+  } catch { /* 忽略 */ }
+}
 
 // 《蛊真人》作者语录：左侧栏底部轮播，README 底部同源。
 // 原始粘贴里有两段互相覆盖的串行（同一句被接了两遍），这里按完整诗节归并为 6 首，去重后保留原标点。
@@ -5214,6 +5269,17 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   }, [goView])
   const [sort, setSort] = useState('recent') // 'recent' | 'title' | 'hot'
   const [libToast, setLibToast] = useState(null)
+  // 云端熔断回退：lib 里 fallbackToLocal() 会发这个事件，这里给出可见提示并重载到本地模式。
+  useEffect(() => {
+    const onFallback = (e) => {
+      const reason = (e && e.detail && e.detail.reason) || '云端不可达'
+      try { notify('☁️ 云端不可达（' + reason + '），已切回本地模式', false) } catch { /* 忽略 */ }
+      // 1.2 秒后重载：此时 API 前缀已切回本地，页面会正常加载本地库
+      setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 1200)
+    }
+    try { window.addEventListener('me-cloud-fallback', onFallback) } catch { /* 忽略 */ }
+    return () => { try { window.removeEventListener('me-cloud-fallback', onFallback) } catch { /* 忽略 */ } }
+  }, [])
   // 运行位置（本地/云端）：连接信息存 localStorage，切换后整页 reload 让所有请求走新前缀
   const [cloudConn, setCloudConn] = useState(() => readCloudConn())
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
