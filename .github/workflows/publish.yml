@@ -1,0 +1,93 @@
+> 用 OIDC trusted publishing 发 npm：**不再需要 2FA-bypass token、不用手输 TOTP**。
+> 以后 `git push --tags` 推 `vX.Y.Z` → 自动发布 + 生成 provenance。
+
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只打包不发布（dry-run）'
+        type: boolean
+        default: true
+
+# 同一 tag 只允许一个发布任务在跑；不要 cancel（发布中途取消会留下 staged 占位）
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # ← trusted publishing（OIDC）必需
+
+jobs:
+  publish:
+    name: Build & publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # npm 11.5+ 才内置 trusted publishing 支持；这里固定版本，避免最新版把行为改掉
+      - name: Install npm with OIDC support
+        run: npm i -g npm@^11.5.0
+
+      - name: Verify tag matches package.json version
+        run: |
+          set -e
+          tag="${GITHUB_REF_NAME#v}"
+          ver="$(node -p "require('./package.json').version")"
+          echo "tag=$tag package.json=$ver"
+          if [ "$tag" != "$ver" ]; then
+            echo "::error::tag ($tag) 与 package.json 版本 ($ver) 不一致，拒绝发布"
+            exit 1
+          fi
+
+      - name: Ensure private modules are NOT in the package
+        run: |
+          set -e
+          # 直接看 npm pack 清单里有没有私有文件（files 里的 ! 排除项是否生效）
+          npm pack --dry-run 2>&1 | tee /tmp/pack.txt >/dev/null
+          if grep -qE 'cloud-(auth|server)\.js|docs/(CLOUD|PRIVATE)\.md|^\s*private/|^\s*runs/' /tmp/pack.txt; then
+            echo "::error::私有文件出现在发布清单里"
+            grep -E 'cloud-(auth|server)\.js|docs/(CLOUD|PRIVATE)\.md|private/|runs/' /tmp/pack.txt
+            exit 1
+          fi
+          echo "打包清单干净"
+
+      - name: Build
+        run: node build.mjs
+
+      - name: Unit tests
+        run: node --test tests/*.test.mjs
+        env:
+          # 这些测试不需要真实网络；没有 key 的用例自身会 skip
+          MEMORY_TEST: '1'
+
+      - name: Publish (dry-run)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: npm publish --access public --dry-run
+
+      - name: Publish (OIDC trusted publishing)
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
+        run: npm publish --access public --provenance
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "## ✅ Published memory-eternal@${{ github.ref_name }}"
+            echo ""
+            echo "- npm: https://www.npmjs.com/package/memory-eternal/v/$(node -p "require('./package.json').version")"
+            echo "- 方式: OIDC trusted publishing（无长期 token、无 TOTP）"
+          } >> "$GITHUB_STEP_SUMMARY"
