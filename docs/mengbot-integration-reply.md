@@ -6,6 +6,34 @@
 
 ---
 
+## 0. 我方生产域名与最终参数（已定）
+
+**域名：`mem.mengbot.com.cn`** —— 下文所有地址都已按此填好，可直接复制进表单。
+
+我方要配的环境变量（systemd 的 `EnvironmentFile`）：
+
+```bash
+MEMORY_CLOUD=1
+MEMORY_CLOUD_PUBLIC_URL=https://mem.mengbot.com.cn
+
+# OIDC（issuer / secret 待你们给）
+MEMORY_OIDC_ISSUER=<你们给的 issuer>
+MEMORY_OIDC_CLIENT_ID=memory-eternal-cloud
+MEMORY_OIDC_CLIENT_SECRET=<你们生成的 client_secret>
+MEMORY_OIDC_REDIRECT_URI=https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback
+
+# Webhook
+MEMORY_WEBHOOK_SECRET=<你们生成的 webhook secret>
+
+# 授权降级策略（生产建议 readonly）
+MEMORY_LICENSE_DEGRADE=readonly
+```
+
+> 现状：`mem.mengbot.com.cn` 目前**尚未解析**（`ENOTFOUND`），我方还没部署。
+> 你们可以先把表单填好、把两个 secret 给我方，等 DNS 生效 + 部署完成即可联调。
+
+---
+
 ## 结论
 
 三项我方**对应实现已全部完成并实测通过**，现在只等你们三个交付物：`client_secret`、`mbt_` token、`webhook secret`。
@@ -21,7 +49,7 @@
 | 字段 | 填什么 |
 |---|---|
 | **厂商名** | `memory-eternal-cloud` |
-| **redirect_uri** | `https://<我方生产域名>/memory-eternal/api/cloud/auth/callback http://127.0.0.1:7999/memory-eternal/api/cloud/auth/callback`<br>（多个用**空格**分隔；第一条等我方域名定下来后确认，第二条是本地调试，不放行就删掉） |
+| **redirect_uri** | `https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback http://127.0.0.1:7999/memory-eternal/api/cloud/auth/callback`<br>（多个用**空格**分隔；第一条为生产环境，第二条为本地调试，不放行可删） |
 | **scope** | 勾 `openid` `profile` `email` **+ `offline_access`** |
 
 **关于 scope 为什么必须带 `offline_access`**：我方用 `refresh_token` 做静默续期（
@@ -44,7 +72,7 @@ token 一过期用户就得重新跳一次登录。
   client_id: "memory-eternal-cloud",
   client_secret: process.env.MEMORY_ETERNAL_CLIENT_SECRET,   // ← 你们生成，安全渠道给我们
   redirect_uris: [
-    "https://<我方域名>/memory-eternal/api/cloud/auth/callback",
+    "https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback",
     "http://127.0.0.1:7999/memory-eternal/api/cloud/auth/callback", // 本地调试；不放行的话我删掉
   ],
   grant_types: ["authorization_code", "refresh_token"],
@@ -62,7 +90,7 @@ token 一过期用户就得重新跳一次登录。
 GET {issuer}/oidc/auth
   ?response_type=code
   &client_id=memory-eternal-cloud
-  &redirect_uri=https://<我方域名>/memory-eternal/api/cloud/auth/callback
+  &redirect_uri=https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback
   &scope=openid profile email offline_access
   &state=<32B base64url>.<回跳地址 base64url>
   &nonce=<base64url>
@@ -77,7 +105,7 @@ GET /memory-eternal/api/cloud/auth/start?redirect_uri=https://app.example/done
 → 302  https://cloud.mengbot.com.cn/oidc/auth
         ?response_type=code
         &client_id=memory-eternal-cloud
-        &redirect_uri=https%3A%2F%2Fmem.example.com%2Fmemory-eternal%2Fapi%2Fcloud%2Fauth%2Fcallback
+        &redirect_uri=https%3A%2F%2Fmem.mengbot.com.cn%2Fmemory-eternal%2Fapi%2Fcloud%2Fauth%2Fcallback
         &scope=openid+profile+email+offline_access
         &state=…&nonce=…&code_challenge=…&code_challenge_method=S256
 ```
@@ -154,7 +182,7 @@ cacheMbtToken(...) 后 : owner=yg@example.com via=mengbot-token
 | 字段 | 填什么 |
 |---|---|
 | **厂商名** | `memory-eternal-cloud` |
-| **地址** | `https://<我方生产域名>/memory-eternal/api/cloud/webhook/mengbot` |
+| **地址** | `https://mem.mengbot.com.cn/memory-eternal/api/cloud/webhook/mengbot` |
 
 **⚠️ 这道题和 OIDC 那道不一样：webhook 是我方被动接收，你们服务器要主动打过来。**
 
@@ -178,7 +206,7 @@ cacheMbtToken(...) 后 : owner=yg@example.com via=mengbot-token
 ### 3.1 我方端点（已实现，等你们推送）
 
 ```
-POST https://<我方域名>/memory-eternal/api/cloud/webhook/mengbot
+POST https://mem.mengbot.com.cn/memory-eternal/api/cloud/webhook/mengbot
 X-MengBot-Signature: sha256=<hex>          或  t=<unix_ms>,v1=<hex>
 X-MengBot-Event: entitlement.updated
 X-MengBot-Event-Id: <事件唯一 id>
@@ -244,7 +272,7 @@ GET  /cloud/config                     → access: {"source":"mengbot","plan":"p
 1. **`MEMORY_WEBHOOK_SECRET` 的值**（双方各存一份，走安全渠道）；
 2. **用哪种签名形态**（A 还是 B）；
 3. **`caps` 的键语义**（`planCaps()` 实际有哪些键：席位？卡片数？并发？）—— 我要用它设配额；
-4. **推送地址确认**：`https://<我方域名>/memory-eternal/api/cloud/webhook/mengbot`。
+4. **推送地址确认**：`https://mem.mengbot.com.cn/memory-eternal/api/cloud/webhook/mengbot`。
 
 ---
 
@@ -316,11 +344,11 @@ GET  /cloud/config                     → access: {"source":"mengbot","plan":"p
 MEMORY_OIDC_ISSUER=https://<你们给的 issuer>
 MEMORY_OIDC_CLIENT_ID=memory-eternal-cloud
 MEMORY_OIDC_CLIENT_SECRET=<你们给的>
-MEMORY_OIDC_REDIRECT_URI=https://<我方域名>/memory-eternal/api/cloud/auth/callback
+MEMORY_OIDC_REDIRECT_URI=https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback
 
 # Webhook
 MEMORY_WEBHOOK_SECRET=<你们给的>
-MEMORY_CLOUD_PUBLIC_URL=https://<我方域名>
+MEMORY_CLOUD_PUBLIC_URL=https://mem.mengbot.com.cn
 
 # 授权降级策略（生产建议 readonly）
 MEMORY_LICENSE_DEGRADE=readonly

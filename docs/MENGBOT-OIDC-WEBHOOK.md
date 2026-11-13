@@ -18,7 +18,7 @@
   client_id: "memory-eternal-cloud",
   client_secret: process.env.MEMORY_ETERNAL_CLIENT_SECRET,   // ← 你生成，同步给我们
   redirect_uris: [
-    "https://<我们的域名>/memory-eternal/api/cloud/auth/callback",
+    "https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback",
     "http://127.0.0.1:7999/memory-eternal/api/cloud/auth/callback", // 本地调试用
   ],
   grant_types: ["authorization_code", "refresh_token"],
@@ -49,7 +49,7 @@ GET {issuer}/oidc/auth
 ```
 GET /memory-eternal/api/cloud/auth/start?redirect_uri=https://app.example/done
 → 302  https://cloud.mengbot.com.cn/oidc/auth?response_type=code&client_id=memory-eternal-cloud
-        &redirect_uri=https%3A%2F%2Fmem.example.com%2Fmemory-eternal%2Fapi%2Fcloud%2Fauth%2Fcallback
+        &redirect_uri=https%3A%2F%2Fmem.mengbot.com.cn%2Fmemory-eternal%2Fapi%2Fcloud%2Fauth%2Fcallback
         &scope=openid+profile+email+offline_access&state=…&code_challenge=…&code_challenge_method=S256
 ```
 
@@ -109,7 +109,7 @@ OIDC 的 token 是**用户级**（一次登录一个用户）；`mbt_` 是**服�
 ### 3.1 我方端点（已实现，等你的推送）
 
 ```
-POST https://<我方域名>/memory-eternal/api/cloud/webhook/mengbot
+POST https://mem.mengbot.com.cn/memory-eternal/api/cloud/webhook/mengbot
 X-MengBot-Signature: sha256=<hex>          ← 或 t=<ts>,v1=<hex>（你选一种）
 X-MengBot-Event: entitlement.updated
 X-MengBot-Event-Id: <事件唯一 id>           ← 我方按它做幂等
@@ -163,7 +163,7 @@ signature = "t=<unix_ms>,v1=" + hex(HMAC_SHA256(secret, "<t>." + rawBody))
 1. **`MEMORY_WEBHOOK_SECRET`** 的值（双方各存一份，走安全渠道给）；
 2. **签名形态**（A 还是 B）；
 3. **`caps` 的键语义**（`planCaps()` 实际有哪些键）—— 我要用它设配额；
-4. 推送地址确认（我方生产地址 `https://<域名>/memory-eternal/api/cloud/webhook/mengbot`）。
+4. 推送地址确认（我方生产地址 `https://mem.mengbot.com.cn/memory-eternal/api/cloud/webhook/mengbot`）。
 
 ---
 
