@@ -1,4 +1,4 @@
-﻿// 云端熔断：**云端失败绝不能拖垮客户端**（真事故：没有回退时整个页面空白、本地库都看不了）。
+// 云端熔断：**云端失败绝不能拖垮客户端**（真事故：没有回退时整个页面空白、本地库都看不了）。
 // 守七件事：阈值/判定/计数/回退/事件/探活/作用域。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -24,7 +24,10 @@ test('fetch 包装里失败累加、成功清零', () => {
 })
 
 test('回退把配置切成 local 并派发事件', () => {
-  assert.match(src, /saveCloudConn\(\{ mode: 'local'/, '回退要清掉云端配置')
+  // 注意：**不能清空 url/token**（那是真事故：一次报错就要用户重填）。
+  // 正确做法是保留配置、只标记 active=false，见 tests/cloud-config-persist.test.mjs。
+  assert.doesNotMatch(src, /saveCloudConn\(\{ mode: 'local', url: '', token: '' \}\)/, '不允许清空云端配置')
+  assert.match(src, /saveCloudConn\(\{ \.\.\.prev, active: false/, '回退只标记 active=false')
   assert.match(src, /dispatchEvent\(new CustomEvent\('me-cloud-fallback'/, '要通知 UI')
 })
 
