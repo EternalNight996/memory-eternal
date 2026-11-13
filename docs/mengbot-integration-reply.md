@@ -16,6 +16,27 @@
 
 ## 1. OIDC 客户端注册
 
+### 1.0 你们那个注册表单怎么填（三字段）
+
+| 字段 | 填什么 |
+|---|---|
+| **厂商名** | `memory-eternal-cloud` |
+| **redirect_uri** | `https://<我方生产域名>/memory-eternal/api/cloud/auth/callback http://127.0.0.1:7999/memory-eternal/api/cloud/auth/callback`<br>（多个用**空格**分隔；第一条等我方域名定下来后确认，第二条是本地调试，不放行就删掉） |
+| **scope** | 勾 `openid` `profile` `email` **+ `offline_access`** |
+
+**关于 scope 为什么必须带 `offline_access`**：我方用 `refresh_token` 做静默续期（
+`$DSH_HOME/cloud-oidc-refresh.json`，自动轮换）。不勾它就拿不到 refresh_token，
+token 一过期用户就得重新跳一次登录。
+
+**关于 redirect_uri 的硬要求**（我方代码已按此实现）：
+
+- 路径固定 `/memory-eternal/api/cloud/auth/callback`（注意 `memory-eternal` 这个前缀）；
+- 生产必须 `https`（我们不做 TLS 终结，由 Caddy/Nginx 反代）；
+- 本地调试只有 `http://127.0.0.1:7999/...` 这一种 http 形态；
+- 多个值用空格分隔（不要逗号）。
+
+填完后请把**生成的 `client_secret`** 通过安全渠道给我方，我方配到 `MEMORY_OIDC_CLIENT_SECRET`。
+
 ### 1.1 请在 `server/pay/oidc.ts` 的 `clients` 数组追加
 
 ```ts
