@@ -20,12 +20,18 @@ const cx = (...xs) => xs.filter(Boolean).join(' ')
  *   icon?:string, title?:string, onClick?:Function, disabled?:boolean, children?:any}} props
  */
 export function Btn({ variant = 'secondary', size = 'md', loading = false, icon = '', children, className = '', disabled, ...rest }) {
+  // 注意：children 不能做字符串拼接。
+  // 旧实现是 (icon || '') + children —— 当 children 是多段文案的数组时（例如 icon + {t(...)}、
+  // 或 {t('pending')}（{n}）），会走 Array#toString：各段被 join(',') 拼成一串，
+  // 于是文案里凭空多出逗号、内嵌 <span> 变成 "[object Object]"。
+  // 用户报的「所有按钮都不要增加这种字符串」「待审核，（4，）」「● ，自动备份」都是这一处造成的。
+  // 现在用 Fragment 原样挂 children，图标与文案的间距交给 .me-btn 的 gap。
   return React.createElement('button', {
     type: 'button',
     className: cx('me-btn', 'me-btn--' + variant, size === 'sm' && 'me-btn--sm', className),
     disabled: disabled || loading,
     ...rest,
-  }, loading ? '…' : (icon ? icon + ' ' : '') + (children == null ? '' : children))
+  }, loading ? '…' : React.createElement(React.Fragment, null, icon ? icon : null, children))
 }
 
 /**

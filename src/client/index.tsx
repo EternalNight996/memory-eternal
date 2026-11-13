@@ -594,8 +594,10 @@ export const ZH = {
   cloudModeLocalHint: '用这台机器上的记忆库，不走网络',
   cloudModeCloud: '连接云端',
   cloudModeCloudHint: '连到云端实例（地址 + 密钥，或 MengBot 登录换来的令牌）',
-  cloudUrlLabel: '云端地址',
-  cloudTokenLabel: '访问密钥',
+  cloudUrlLabel: '云端实例地址',
+  cloudUrlHint: '填 memory-eternal-cloud 部署的地址（如 https://mem.mengbot.com.cn），不是 MengBot 账号域 accounts.mengbot.com.cn——那个只有点「用 MengBot 账号登录」时才跳过去',
+  cloudTokenLabel: '访问密钥（可选）',
+  cloudTokenHint: '用「用 MengBot 账号登录」时这里留空即可；只有直连别人给的实例才需要填',
   cloudUrlInvalid: '地址要以 http(s):// 开头',
   cloudTest: '测试连接',
   cloudTestOk: '连接成功 · {owner}',
@@ -1617,8 +1619,10 @@ export const EN = {
   cloudModeLocalHint: 'Use the memory vault on this machine (no network)',
   cloudModeCloud: 'Cloud',
   cloudModeCloudHint: 'Connect to a cloud instance (URL + key, or a MengBot token)',
-  cloudUrlLabel: 'Cloud URL',
-  cloudTokenLabel: 'Access key',
+  cloudUrlLabel: 'Cloud instance URL',
+  cloudUrlHint: 'The memory-eternal-cloud server address (e.g. https://mem.mengbot.com.cn) — NOT the MengBot identity host accounts.mengbot.com.cn',
+  cloudTokenLabel: 'Access key (optional)',
+  cloudTokenHint: 'Leave empty if you sign in with MengBot; only needed when connecting to someone else instance',
   cloudUrlInvalid: 'URL must start with http(s)://',
   cloudTest: 'Test connection',
   cloudTestOk: 'Connected · {owner}',
@@ -2381,7 +2385,7 @@ ${COMPONENTS_CSS}
 .mc-cfg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 13px 16px; }
 .mc-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 12px; }
 .mc-field-label { font-size: 11.5px; opacity: .62; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
-.mc-field-hint { font-size: 10.5px; opacity: .45; line-height: 1.4; }
+.mc-field-hint { font-size: 10.5px; opacity: .62; line-height: 1.5; }
 /* 只有「真正填内容」的控件才占满一行。多选下拉里的 checkbox 一旦被这条命中，
    会被撑成整行宽 —— 选项文字被挤到最右缘、逐字换行（用户截图里的下拉框 BUG）。 */
 .mc-field input:not([type="checkbox"]):not([type="radio"]), .mc-field select { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font-size: 12px; transition: border-color .15s, box-shadow .15s; }
@@ -4308,7 +4312,7 @@ ${COMPONENTS_CSS}
 [data-skin="spider"] .me-reader-dialog .me-core-banner { background: #fff6e0; border: 2px solid var(--sp-ink); }
 [data-skin="spider"] .me-reader-dialog .me-core-banner-desc { opacity: 1; color: #33333d; }
 /* -- ① 章节标题：蛛网细纹 + 半调网点背景，红蓝主色 -- */
-[data-skin="spider"] .me-reader-dialog .md-doc .md-h {
+[data-skin="spider"] .md-doc .md-h {
   align-items: center;
   margin: 16px 0 8px; padding: 4px 10px;
   color: var(--sp-blue);
@@ -4324,8 +4328,8 @@ ${COMPONENTS_CSS}
   background-position: 0 0, right -26px top -34px;
   background-repeat: repeat, no-repeat;
 }
-[data-skin="spider"] .me-reader-dialog .md-doc .md-h::after { background: currentColor; opacity: .32; }
-[data-skin="spider"] .me-reader-dialog .md-doc .md-h-h1 {
+[data-skin="spider"] .md-doc .md-h::after { background: currentColor; opacity: .32; }
+[data-skin="spider"] .md-doc .md-h-h1 {
   color: #fff;
   font-size: 16px;
   background-color: var(--sp-blue);
@@ -4336,6 +4340,17 @@ ${COMPONENTS_CSS}
   background-position: 0 0, right -26px top -34px;
   border-left-color: var(--sp-red);
 }
+/* 标题配色兜底（用户反馈「黑色标题」看不见）：
+   ① 颜色同时钉在 .md-h 与内层 .md-hx 上 —— 只有外层有 color 时，任何一层被别的规则影响都会掉回正文墨色；
+   ② h1（深蓝底）固定浅字，h2（浅底）固定深蓝字，两者都自带底色，永远不靠继承；
+   ③ 深底上补一层极淡的暗描边，字体渲染发灰时也还能读。 */
+[data-skin="spider"] .md-doc .md-h { color: var(--sp-blue); }
+[data-skin="spider"] .md-doc .md-h .md-hx { color: inherit; }
+[data-skin="spider"] .md-doc .md-h-h1,
+[data-skin="spider"] .md-doc .md-h-h1 .md-hx { color: #fff; }
+[data-skin="spider"] .md-doc .md-h-h2,
+[data-skin="spider"] .md-doc .md-h-h2 .md-hx { color: var(--sp-blue); }
+[data-skin="spider"] .md-doc .md-h-h1 { text-shadow: 0 1px 1px rgba(0,0,0,.35); }
 /* -- ① 正文 / 引用 / 代码 / 高亮：统一红蓝 -- */
 [data-skin="spider"] .me-reader-dialog .md-doc .md-p,
 [data-skin="spider"] .me-reader-dialog .md-doc .md-ul > li,
@@ -5828,11 +5843,13 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                   <div className="mc-cloud-fields">
                     <label className="mc-field">
                       <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                      <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://memory.example.com" />
+                      <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
+                      <span className="mc-field-hint">{t('cloudUrlHint')}</span>
                     </label>
                     <label className="mc-field">
                       <span className="mc-field-label">{t('cloudTokenLabel')}</span>
                       <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" />
+                      <span className="mc-field-hint">{t('cloudTokenHint')}</span>
                     </label>
                     <div className="mc-cloud-actions">
                       <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? t('loading') : t('cloudTest')}</Btn>
@@ -6082,7 +6099,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
               ))}
               {KIND_IDS.length > KIND_PRIMARY.length && (
                 <button type="button" className="mc-chip mc-chip--more" onClick={() => setShowAllKinds((v) => !v)} title={t('moreKindsHint')}>
-                  {showAllKinds ? t('collapseMore') + ' ▴' : t('moreKinds') + ' ▾ (' + (KIND_IDS.length - KIND_PRIMARY.length) + ')'}
+                  {showAllKinds ? t('collapseMore') + '▴' : t('moreKinds') + '▾'}<span className="me-count">{KIND_IDS.length - KIND_PRIMARY.length}</span>
                 </button>
               )}
             </div>
@@ -6618,7 +6635,7 @@ function EmbeddingPanel({ t, hidden }) {
   const lockedByOnline = !enabled && mode === 'online' && (!oBase || !oModel)
   const primaryDisabled = !!busy || lockedByModel || lockedByOnline
   const primaryText = enabled
-    ? '■ ' + t('embeddingStop')
+    ? '■' + t('embeddingStop')
     : mode === 'local' && !running
       ? '▶ ' + t('embeddingStartAndEnable')
       : '▶ ' + t('embeddingStart')
@@ -7774,11 +7791,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <div className="mc-cloud-fields">
                   <label className="mc-field">
                     <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://memory.example.com" />
+                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
+                    <span className="mc-field-hint">{t('cloudUrlHint')}</span>
                   </label>
                   <label className="mc-field">
                     <span className="mc-field-label">{t('cloudTokenLabel')}</span>
                     <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" />
+                    <span className="mc-field-hint">{t('cloudTokenHint')}</span>
                   </label>
                 </div>
               )}
@@ -8009,11 +8028,11 @@ function AuditPanel({ t, onReload, version }) {
                 批准/恢复 = primary；驳回/永久删除 = danger（描边）；全选/取消 = ghost；
                 页签「待审/已驳回」与「重新分类」是次级动作 —— 选中用 aria-pressed 表达，不再冒充主按钮。 */}
             <div className="mc-card mc-audit-batchcard" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Btn variant="secondary" size="sm" aria-pressed={tab === 'pending'} onClick={() => switchTab('pending')}>{t('pending')}（{pending.length}）</Btn>
-              <Btn variant="secondary" size="sm" aria-pressed={tab === 'rejected'} onClick={() => switchTab('rejected')}>{t('rejected')}（{rejected.length}）</Btn>
+              <Btn variant="secondary" size="sm" aria-pressed={tab === 'pending'} onClick={() => switchTab('pending')}>{t('pending')}<span className="me-count">{pending.length}</span></Btn>
+              <Btn variant="secondary" size="sm" aria-pressed={tab === 'rejected'} onClick={() => switchTab('rejected')}>{t('rejected')}<span className="me-count">{rejected.length}</span></Btn>
               <div style={{ flex: 1 }} />
-              <label style={{ fontSize: 12 }}><input type="checkbox" checked={items.length > 0 && toggled.length === items.length} onChange={(e) => { if (e.target.checked) { setSel(new Set(items.map((c) => c.path))) } else { setSel(new Set()) } }} /> {t('selectAll')}（{items.length}）</label>
-              <span style={{ fontSize: 11, opacity: 0.65 }}>{t('auditSelected')} {toggled.length}</span>
+              <label style={{ fontSize: 12 }}><input type="checkbox" checked={items.length > 0 && toggled.length === items.length} onChange={(e) => { if (e.target.checked) { setSel(new Set(items.map((c) => c.path))) } else { setSel(new Set()) } }} /> {t('selectAll')}<span className="me-count">{items.length}</span></label>
+              <span style={{ fontSize: 11, opacity: 0.65 }}>{t('auditSelected')}<span className="me-count">{toggled.length}</span></span>
               {tab === 'pending' && <Btn variant="secondary" size="sm" disabled={!!busy} onClick={reclassify}>{t('reclassify')}</Btn>}
               <Btn variant="primary" size="sm" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</Btn>
               {tab === 'pending'
@@ -9076,7 +9095,7 @@ function RecoverPanel({ t, onReload, version }) {
               if (r.ok && (!d || d.ok !== false)) notify(t('toastPurgeAll').split('{n}').join(String(d && d.purged != null ? d.purged : items.length)), true)
               else notify(t('toastFailed') + '：' + ((d && d.error) || ('HTTP ' + r.status)), false)
             } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') }
-          }}>{t('recyclePurgeAll')}{items.length ? '（' + items.length + '）' : ''}</Btn>
+          }}>{t('recyclePurgeAll')}{items.length ? <span className="me-count">{items.length}</span> : null}</Btn>
         </div>
         <div className="mc-v5-recycle-hint">{t('recycleHint')}</div>
         {loadErr && <div style={{ marginBottom: space(3) }}><ErrorBar error={t('error') + '：' + loadErr} onRetry={() => load()} retryText={t('retry')} /></div>}
@@ -9391,7 +9410,7 @@ function BackupCard({ t, notify }) {
         aria-pressed={on}
         onClick={() => saveConfig({ [key]: !on })}
       >
-        {on ? '●' : '○'} {label}
+        {on ? '●' : '○'}{label}
       </Btn>
     )
   }

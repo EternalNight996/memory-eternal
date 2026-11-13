@@ -136,3 +136,38 @@ test('备份分区有导出 / 导入还原两个入口（走 /backup/export 与 
   assert.match(src, /SQLite format 3/, '导入前前端也要挡一次文件头')
   assert.match(src, /importDbRef/, '导入要有隐藏的文件选择器')
 })
+
+
+// 「黑色标题」守卫：**深底标题必须自带浅色字**，不许靠继承正文墨色。
+// 用户反馈：spider 皮肤下章节标题是深蓝底 + 黑字，整段看不见（截图：🕷 问题一 注册入口失效）。
+// 规则：任何给 .md-h / .md-h-h1 画深色底色的 CSS 规则，都必须在同一处或后续规则里给出浅色 color
+//（含内层 .md-hx，避免某一层被别的规则顶掉后掉回墨色）。
+test('深底标题必须自带浅色字，且颜色钉到内层 .md-hx', () => {
+  const rules = []
+  const re = /([^{}]+)\{([^{}]*)\}/g
+  let m
+  while ((m = re.exec(src))) rules.push({ sel: m[1].replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').trim(), body: m[2] })
+  const lum = (hex) => {
+    let h = hex.replace('#', '')
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('')
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
+    return r * 0.299 + g * 0.587 + b * 0.114
+  }
+  const hexOf = (v) => { const x = String(v || '').match(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/); return x ? x[1] : '' }
+  const heads = rules.filter((r) => /\.md-h\b/.test(r.sel) && /background(?:-color)?:/.test(r.body))
+  assert.ok(heads.length > 0, '找不到 .md-h 标题规则，守卫失效')
+  const bad = []
+  for (const r of heads) {
+    const bg = r.body.match(/background(?:-color)?:\s*([^;]+)/)[1]
+    const bgHex = hexOf(bg)
+    if (!bgHex || lum(bgHex) >= 90) continue // 浅底不在此列
+    const own = r.body.match(/(?:^|;)\s*color:\s*([^;]+)/)
+    const ownLum = own && hexOf(own[1]) ? lum(hexOf(own[1])) : -1
+    // 同一条规则里有浅色字，或有后续规则把 .md-h-h1 的颜色钉成浅色
+    const later = rules.some((o) => /\.md-h-h1\b/.test(o.sel) && /color:\s*#(fff|ffffff)\b/i.test(o.body))
+    const pinned = rules.some((o) => /\.md-h-h1\s+\.md-hx/.test(o.sel) && /color:\s*(#fff|#ffffff|inherit)\b/i.test(o.body))
+    if (ownLum < 150 && !later) bad.push(r.sel + ' → ' + bg.trim())
+    if (!pinned) bad.push(r.sel + ' → 没有把 h1 颜色钉到 .md-hx')
+  }
+  assert.deepEqual(bad, [], '深底标题看不清：\n' + bad.join('\n'))
+})
