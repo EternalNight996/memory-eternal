@@ -252,3 +252,34 @@ test('/import 现在走批量引擎（速度与正确性）', async () => {
   })
   await cleanup(root)
 })
+
+test('NDJSON 流式导出：一行一卡 + 信封行 + since 过滤', async () => {
+  const root = tmpVault()
+  const db = (await import('../lib/db.js')).getDb(root)
+  const ins = db.prepare(`
+    INSERT INTO cards (id, path, kind, title, tags, body, summary, status, source, created_at, updated_at, content_hash)
+    VALUES (?, ?, 'knowledge', ?, '[]', ?, '', 'approved', '', ?, ?, ?)
+  `)
+  const now = new Date().toISOString()
+  for (let i = 1; i <= 4; i++) ins.run(i, `n${i}.md`, `导出卡 ${i}`, `第 ${i} 张正文，长度足够用于导出验证。`, now, now, contentHash(`导出卡 ${i}`, `第 ${i} 张正文，长度足够用于导出验证。`))
+
+  await withApi(root, async (base) => {
+    const r = await fetch(base + '/export/ndjson')
+    assert.equal(r.status, 200)
+    assert.match(String(r.headers.get('content-type')), /ndjson/, 'Content-Type 应是 ndjson')
+    const lines = (await r.text()).trim().split('\n')
+    assert.equal(lines.length, 5, '1 行信封 + 4 张卡')
+    const head = JSON.parse(lines[0])
+    assert.equal(head.format, 'memory-eternal-ndjson')
+    assert.equal(head.count, 4)
+    const cards = lines.slice(1).map((l) => JSON.parse(l))
+    assert.equal(cards.length, 4)
+    assert.deepEqual(cards.map((c) => c.title), ['导出卡 1', '导出卡 2', '导出卡 3', '导出卡 4'])
+
+    // since 过滤：未来时间点 → 只剩信封
+    const r2 = await fetch(base + '/export/ndjson?since=2099-01-01')
+    const l2 = (await r2.text()).trim().split('\n')
+    assert.equal(l2.length, 1, 'since 之后没有卡，只该有信封')
+  })
+  await cleanup(root)
+})
