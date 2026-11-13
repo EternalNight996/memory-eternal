@@ -45,7 +45,8 @@ test('待审卡的正文读得到（展开视图渲染的就是它），批/驳�
 test('源码守卫：审核中心右侧判词面板显示正文 + 直接批驳；正文按需拉取（不把整库正文塞进列表）', () => {
   const client = read('src/client/index.tsx')
   assert.match(client, /const previewSt = previewCard \? bodyState\(previewCard\.path\)/, '要有右侧判词预览')
-  assert.match(client, /\/card\?path=\$\{encodeURIComponent\(p\)\}&status=\$\{status\}/, '正文要按需拉 /card?status=')
+  // 只要「正文是按需拉 /card?path=…&status=…」，不绑定变量名与 status 的编码写法
+  assert.match(client, /\/card\?path=\$\{encodeURIComponent\([^)]+\)\}&status=\$\{encodeURIComponent\([^)]*\)\}/, '正文要按需拉 /card?status=')
   assert.match(client, /renderMd\(stripRepeatedTitle\(splitFrontmatter\(previewSt\.text\)\.body, previewCard\.title\)\)/, '判词面板要用同一套 Markdown 渲染（不是裸文本）')
   assert.match(client, /applyStatus\('approved', \[previewCard\.path\]\)/, '判词面板里要能直接批准')
   assert.equal((client.match(/auditBodyFail:/g) || []).length, 2, '中英词条各一条（否则英文界面显示 key）')

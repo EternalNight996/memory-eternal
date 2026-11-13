@@ -76,9 +76,12 @@ test('默认状态：关闭、默认 7997、无向量', async () => {
 })
 
 test('保存配置 → 探测 → 建缓存 → 覆盖率到 2/2', async () => {
-  const c = await j('/embedding/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true, baseUrl: mockBase, model: 'mock-embed-8' }) })
+  // 显式带 mode：不带的话会沿用上一条用例（内置通道）留下的 mode，
+  // 于是探测走 builtin 分支、kind 断言就红了（测试间状态泄漏，不是功能问题）。
+  const c = await j('/embedding/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true, mode: 'online', baseUrl: mockBase, model: 'mock-embed-8' }) })
   assert.equal(c.ok, true)
   assert.equal(c.config.enabled, true)
+  assert.equal(c.config.mode, 'online')
 
   const p = await j('/embedding/status?probe=1')
   assert.equal(p.service.reachable, true)
@@ -144,15 +147,17 @@ test('语义开关：关闭后 enabled=false，开启后恢复', async () => {
   assert.equal(st2.config.model, 'mock-embed-8', '开关不应丢掉已保存的模型')
 })
 
-test('内置语义（无需 Ollama）：mode=builtin 关闭向量、部署直接生效', async () => {
-  const m = await j('/embedding/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'builtin' }) })
-  assert.equal(m.ok, true)
-  assert.equal(m.config.mode, 'builtin')
-  assert.equal(m.config.enabled, false, '内置语义不需要向量后端')
-  const st = await j('/embedding/status')
-  assert.equal(st.enabled, false, '内置模式不启用向量路')
+test('内置语义（无需 Ollama）：是**真能用**的本地通道，部署后直接建向量', async () => {
+  // 历史行为是「mode=builtin 等于关掉语义召回」（enabled=false、不建向量）——
+  // 那让面板上的「内置语义」变成一个骗人的选项。现在它是本地 n-gram 通道：
+  // enabled=true、model=builtin-ngram-768、照常走 backfill。
   const d = await j('/embedding/deploy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'builtin' }) })
-  assert.equal(d.ok, true)
-  assert.equal(d.builtin, true)
-  assert.equal(d.job, undefined, '内置模式不应启动建向量任务')
+  assert.equal(d.ok, true, JSON.stringify(d))
+  assert.equal(d.mode, 'builtin')
+  assert.ok(d.job, '内置模式应当启动建向量任务（本地算，不联网）')
+  const st = await j('/embedding/status?probe=1')
+  assert.equal(st.config.mode, 'builtin')
+  assert.equal(st.config.enabled, true, '内置通道是启用的')
+  assert.equal(st.config.model, 'builtin-ngram-768')
+  assert.equal(st.service.kind, 'builtin', '内置通道的服务探测应当直接报 reachable/builtin')
 })

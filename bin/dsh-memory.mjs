@@ -339,7 +339,11 @@ async function main() {
         const { readWatchdogLock, isPidAlive } = await import('../lib/watchdog.js')
         const root = argOf('--vault') ? path.resolve(argOf('--vault')) : dvd()
         const from = argOf('--restore')
-        const live = readWatchdogLock(process.env).watchdogs.filter((w) => isPidAlive(w.pid))
+        // 只有「正在开着**这个** vault 的看门狗」才是边写边换的风险。
+        // 早先按进程存活一刀切，导致给隔离/临时 vault 做恢复演练也会被无关实例挡住。
+        const normVault = (p) => { try { return path.resolve(String(p || '')).replace(/[\\/]+$/, '').toLowerCase() } catch { return '' } }
+        const live = readWatchdogLock(process.env).watchdogs
+          .filter((w) => isPidAlive(w.pid) && normVault(w.vault) === normVault(root))
         const plan = await restoreFromBackup(root, { from, dryRun: true, force: has('--force') })
         if (has('--json')) { console.log(JSON.stringify({ planned: plan, liveWatchdogs: live.map((w) => w.pid) }, null, 2)); if (!plan.ok) process.exitCode = 1; return }
         if (!plan.ok) { console.error('不能恢复：' + plan.error); if (plan.code === 'DB_HEALTHY') console.error('  （确认要覆盖可写库：加 --force）'); process.exitCode = 1; return }

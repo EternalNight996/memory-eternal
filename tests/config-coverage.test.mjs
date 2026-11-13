@@ -43,6 +43,18 @@ test('覆盖：每个 Config 字段在配置页都有编辑入口', () => {
   for (const m of clientSrc.matchAll(/set\('(\w+)'/g)) ui.add(m[1])
   // vaultProfiles 走专门的编辑器（setForm 里整体替换数组），不是 set('vaultProfiles')
   if (clientSrc.includes('vaultProfiles: list')) ui.add('vaultProfiles')
+  // backup* 四项由 BackupCard 自己的开关/数字框编辑，走 `/backup/config` 接口写
+  // （备份配置和 settings 是两套存储，混进 form 会出现两条写路径打架）。
+  // 判据：BackupCard 里确实存在对应的 saveConfig({...}) 调用。
+  const backupManaged = [
+    ['backupEnabled', /saveConfig\(\{\s*\[key\]: !on/, 'toggle 开关'],
+    ['backupAutoRestore', /saveConfig\(\{\s*\[key\]: !on/, 'toggle 开关'],
+    ['backupIntervalHours', /patch\.intervalHours = h/, '周期输入'],
+    ['backupKeepDays', /patch\.keepDays = d/, '保留天数输入'],
+  ]
+  for (const [k, re, what] of backupManaged) {
+    if (re.test(clientSrc)) ui.add(k)
+  }
   const missing = configKeys.filter((k) => !ui.has(k))
   assert.deepEqual(missing, [], '配置页缺少编辑入口：' + missing.join(', '))
 })

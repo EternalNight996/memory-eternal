@@ -1,0 +1,35 @@
+{
+  "name": "memory-eternal-cloud",
+  "version": "0.45.0",
+  "private": true,
+  "description": "Memory Eternal 云端服务端（多租户 + 密钥 / MengBot 授权）。商用私有组件，不随 memory-eternal 开源包发布。",
+  "type": "module",
+  "license": "SEE LICENSE IN LICENSE-PRIVATE",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "lib/cloud-server.js",
+  "exports": {
+    ".": "./lib/cloud-server.js",
+    "./auth": "./lib/cloud-auth.js"
+  },
+  "files": [
+    "lib/cloud-auth.js",
+    "lib/cloud-server.js",
+    "docs/CLOUD.md",
+    "docs/PRIVATE.md",
+    "COMPAT.md",
+    "LICENSE-PRIVATE"
+  ],
+  "keywords": [
+    "memory-eternal",
+    "cloud",
+    "multi-tenant",
+    "sqlite"
+  ],
+  "notes": [
+    "源码常驻宿主插件的 lib/ 下（插件用动态 import 加载）。本包是**分发用的打包清单**：",
+    "npm run cloud:pack 会把它打成 memory-eternal-cloud-<version>.tgz，供授权客户安装。",
+    "不要把本包发到公共 npm；npmpublish 前先确认 LICENSE-PRIVATE 与授权条款。"
+  ]
+}

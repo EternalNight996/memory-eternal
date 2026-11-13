@@ -67,8 +67,11 @@ test('读路径兜底：库里已有的「双重编码」坏数据也能读成�
 test('渲染层兜底：坏 tags 不许把整棵 React 树带走（源码守卫）', () => {
   const client = read('src/client/index.tsx')
   assert.match(client, /const tagsOf = \(c\) => \(Array\.isArray\(c && c\.tags\) \? c\.tags : \[\]\)/, '要有渲染层兜底函数')
-  assert.match(client, /tagsOf\(card\)\.length > 0/, '卡片列表要走兜底')
-  assert.match(client, /tagsOf\(card\)\.slice\(0, 2\)/, '卡片列表渲染标签要走兜底')
-  assert.match(client, /\(Array\.isArray\(tags\) \? tags : \[\]\)\.slice\(0, 8\)/, '卡片阅读器的标签也要兜底')
+  // 只守「卡片列表确实经过兜底」，不绑定具体渲染写法：把 tags 提到局部变量后
+  // 再 find/filter/slice 都是等价安全的（类型标签重构后就换成了 find+filter）。
+  assert.match(client, /const tags = tagsOf\(card\)/, '卡片列表要走兜底（先取 tagsOf(card)）')
+  assert.match(client, /(tags|plainTags)\.(slice|find|filter)\(/, '渲染标签要在兜底后的数组上做')
+  // 阅读器里允许先 filter 掉机器键（knowledge-type:/skill-type:）再 slice，兜底语义不变
+  assert.match(client, /\(Array\.isArray\(tags\) \? tags[\s\S]{0,120}?\)\.slice\(0, 8\)/, '卡片阅读器的标签也要兜底')
   assert.doesNotMatch(client, /card\.tags\.slice\(/, '不许再直接对 card.tags 调 slice')
 })

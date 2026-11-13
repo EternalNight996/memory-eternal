@@ -15,6 +15,11 @@ import brandIcon from '../../assets/icon.png'
 import residentThemeArt from '../../assets/theme/resident.jpg'
 import spiderThemeArt from '../../assets/theme/spider.jpg'
 import { snippetAround } from './snippet.js'
+import { TOKENS_CSS, COMPONENTS_CSS, space } from './ui/design-tokens.js'
+// 组件层：按钮等级 / 状态 / 空态 / 错误条 / 骨架屏。
+// 阶段 3 只把「关键页面」换成这些组件（卡片列表、统计健康、审核与回收、阅读器），
+// 其余旧代码在原处继续跑 —— 改到哪块换哪块，不做一次性重排。
+import { Btn, Status, EmptyState, ErrorBar, Skeleton, Hint } from './ui/components.js'
 import { auditMatches } from './audit-filter.js'
 import { versionCardState } from './version-state.js'
 // issue #55：卡片时间一律按运行环境本地时区显示（DB 里存的是 UTC ISO，不能直接 slice）
@@ -30,7 +35,7 @@ import { stepSimulation, forceParamsFor, QUIET_TICKS } from './graph-force.js'
 // 星球分层：按层请求 + 层级缓存 + 图元→画布节点 + 资源账本（20 轮下钻不泄漏）
 import {
   LEVEL_TIMEOUT_MS, LEVEL_MAX_ITEMS, LEVEL_PAYLOAD_LIMIT, PLANET_MIN_RADIUS,
-  pathKey, segmentsOf, urlForLevel, levelItemToNode, planetLayerParams,
+  pathKey, segmentsOf, urlForLevel, levelItemToNode, planetLayerParams, planetMoat, orbitPlanets, assignOrbitRandom,
   describeLevelError, createLevelCache, createResourceTracker, validateLevelPayload, formatCount,
 } from './graph-planet.js'
 // 保存后不闪烁：宿主 volatile 回流滞后期间，用本地叠加层顶住输入框的值
@@ -38,6 +43,88 @@ import { mergeLocalOverlay } from './config-merge.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
+// ---- 运行位置（本地 / 云端）------------------------------------------------
+// 切换器把 `API` 从相对路径改成云端绝对地址，并给所有请求注入 Authorization。
+// 这样**不用改 200 多处 `fetch(API + '/xxx')`**：调用点拿到的仍是同一个字符串常量语义。
+let LOCAL_PREFIX = API
+let cloudToken = ''
+const CLOUD_CFG_KEY = 'me-cloud-conn'
+/** 读本地保存的云端连接（{url, token, mode}）。 */
+function readCloudConn() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || '{}')
+    return { mode: raw.mode === 'cloud' ? 'cloud' : 'local', url: String(raw.url || ''), token: String(raw.token || '') }
+  } catch { return { mode: 'local', url: '', token: '' } }
+}
+function saveCloudConn(c) {
+  try { localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(c)) } catch { /* 隐私模式 */ }
+}
+/** 应用连接配置：改 API 前缀 + 记下令牌（fetch 包装据此注入头）。 */
+function applyCloudConn(c) {
+  const url = String((c && c.url) || '').replace(/\/+$/, '')
+  if (c && c.mode === 'cloud' && /^https?:\/\//i.test(url)) {
+    API_TARGET_URL = url
+    cloudToken = String(c.token || '')
+  } else {
+    API_TARGET_URL = ''
+    cloudToken = ''
+  }
+}
+let API_TARGET_URL = ''
+
+/**
+ * 测试云端连接（模块级，**顶栏切换器与设置页共用**）。
+ * 为什么要抽出来：云端设置同时出现在两个组件里（顶栏胶囊弹层 / 设置→实验性），
+ * 直接引用另一个组件的 state 会 `cloudForm is not defined`（真的白屏过一次）。
+ */
+async function probeCloud(form) {
+  const url = String((form && form.url) || '').replace(/\/+$/, '')
+  if (!/^https?:\/\//i.test(url)) return { ok: false, error: 'url-invalid' }
+  const token = String((form && form.token) || '').trim()
+  try {
+    const r = await globalThis.fetch(url + '/memory-eternal/api/cloud/whoami', {
+      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    })
+    const d = await r.json().catch(() => ({}))
+    if (r.ok && d && d.ok) return { ok: true, owner: d.owner, via: d.via }
+    return { ok: false, error: (d && d.error) || ('HTTP ' + r.status) }
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) }
+  }
+}
+
+/** 落盘并应用云端连接（不 reload，调用方决定）。 */
+function persistCloud(form) {
+  const next = {
+    mode: form && form.mode === 'cloud' ? 'cloud' : 'local',
+    url: String((form && form.url) || '').trim(),
+    token: String((form && form.token) || '').trim(),
+  }
+  if (next.mode === 'cloud' && !/^https?:\/\//i.test(next.url)) return { ok: false, error: 'url-invalid' }
+  saveCloudConn(next)
+  applyCloudConn(next)
+  return { ok: true, next }
+}
+/** 当前实际使用的 API 前缀（本地相对路径 or 云端绝对地址）。 */
+const apiPrefix = () => (API_TARGET_URL ? API_TARGET_URL + LOCAL_PREFIX : LOCAL_PREFIX)
+// 包装 fetch：云端模式下把相对 API 路径**重写成云端绝对地址**并补 Authorization。
+// 这样 200 多处 `fetch(API + '/xxx')` 一行都不用改：调用点写的仍是 `/memory-eternal/api/...`。
+try {
+  const _fetch = globalThis.fetch && globalThis.fetch.bind(globalThis)
+  if (_fetch && !globalThis.__meFetchPatched) {
+    globalThis.__meFetchPatched = true
+    globalThis.fetch = (input, init) => {
+      if (API_TARGET_URL && typeof input === 'string' && input.startsWith(LOCAL_PREFIX)) {
+        const headers = { ...((init && init.headers) || {}) }
+        if (cloudToken && !headers.Authorization && !headers.authorization) headers.Authorization = 'Bearer ' + cloudToken
+        return _fetch(API_TARGET_URL + input, { ...(init || {}), headers })
+      }
+      return _fetch(input, init)
+    }
+  }
+} catch { /* 非浏览器环境 */ }
+// 启动时应用已保存的连接（首次运行没有配置 = 本地模式，行为与之前完全一致）
+applyCloudConn(readCloudConn())
 
 // 《蛊真人》作者语录：左侧栏底部轮播，README 底部同源。
 // 原始粘贴里有两段互相覆盖的串行（同一句被接了两遍），这里按完整诗节归并为 6 首，去重后保留原标点。
@@ -355,6 +442,23 @@ export const ZH = {
   tabOptimize: '整理建议',
   adminLoadFail: '数据加载失败：请彻底重启 dsh-desktop（host 需加载新版 /memory-eternal 路由）',
   retry: '重试',
+  // —— 阶段 3：空态 / 骨架 / 错误条 ——
+  // 原则：空态必带「下一步做什么」（hint），错误必带「重试」，加载态铺骨架而不是只留一行字。
+  cardsEmptyTitle: '记忆库还是空的',
+  cardsEmptyHint: '导入 Markdown 或手动新建一张；多聊几轮后，值得保存的内容也会自动沉淀成知识卡。',
+  cardsNoMatchTitle: '没有匹配的卡片',
+  cardsNoMatchHint: '试试清空筛选或换个关键词（搜索、类型、标签、状态都可能卡住结果）。',
+  otherTypeHint: '类型标签可通过「同步技能 / 回填类型」补齐。',
+  clearAllFilters: '清空筛选',
+  cardsLoadingSkeleton: '正在载入卡片…',
+  auditEmptyTitle: '没有待审卡片',
+  auditEmptyHint: '新沉淀的卡会先到这里，审核后进入主库。',
+  auditNoMatchHint: '换个关键词，或清空搜索与类型筛选。',
+  auditClearSearch: '清空搜索',
+  auditBodyFailHint: '重新读取这张卡的正文。',
+  readerEmptyTitle: '没有正文',
+  readerEmptyHint: '这张卡没有正文，可能是导入时的空文件。',
+  readerRenderFail: '正文渲染失败',
   mergeSimilar: '一键合并相似',
   trendLabel: '近 30 天趋势',
   cleanStale: '🗑️ 一键清理陈旧',
@@ -401,7 +505,7 @@ export const ZH = {
   embeddingBackfillDone: '建缓存完成',
   embeddingMode: '部署方式',
   embeddingModeLocal: '本地 Ollama 部署',
-  embeddingModeBuiltin: '内置语义（无需 Ollama）',
+  embeddingModeBuiltin: '内置语义（零安装）',
   embeddingModeOnline: '在线 API',
   embeddingBuiltinHint: '零安装、零网络、零费用；用内置同义短语扩展做语义兜底，检索质量 R@5 约 95.4%。',
   embeddingBuiltinOn: '内置语义已生效（随检索自动启用）',
@@ -435,6 +539,76 @@ export const ZH = {
   embeddingCustom: '自定义',
   embeddingLocalNote: '本地 = 模型跑在你自己机器上，零 API 费用、数据不出本机',
   embeddingOnlineNote: '在线 = 调用第三方厂商 API，按量计费，卡片文本会发到对方服务',
+  // —— 面板 v4：状态栏 + 服务起停 + 开关按钮 + 确认弹窗 ——
+  embeddingModeBuiltinNote: '内置 = 零安装、零网络，随检索自动生效，不下载任何模型',
+  embeddingServiceRunning: '服务运行中',
+  embeddingServiceManaged: '面板启动',
+  embeddingNotInstalled: '未安装 Ollama',
+  embeddingServiceStart: '启动服务',
+  embeddingServiceStop: '停止服务',
+  embeddingServiceRestart: '重启服务',
+  embeddingServiceLocalOnly: '仅「本地 Ollama」需要',
+  embeddingServiceHint: '本机 127.0.0.1:7997 上没有服务在跑：点上面的「启动服务」拉起或复用本机 Ollama',
+  embeddingServiceStarted: '服务已就绪',
+  embeddingServiceReused: '复用已在跑的服务',
+  embeddingServiceStopped: '服务已停止',
+  embeddingStart: '启用语义召回',
+  embeddingStop: '关闭语义召回',
+  embeddingStartHint: '开启后按“意思相近”找卡；首次建缓存只需一次，卡片内容不受影响',
+  embeddingStopHint: '关闭后不再做向量检索；卡片内容不受影响，随时可以再开启',
+  embeddingBuiltinAlwaysOn: '内置语义随检索自动生效，无需开关',
+  cloudSection: '云端连接（实验性）',
+  cloudSectionSub: '连到 memory-eternal-cloud 实例：每人一个独立库。仍在验证中，可能不稳定；不影响本地使用',
+  cloudExperimentalHint: '实验性功能：接口与行为可能变动。遇到问题请回「反馈异常」，不影响本地记忆库',
+  cloudSwitchTitle: '运行位置',
+  cloudSwitchHint: '切换本地 / 云端。云端用你自己的密钥，各人独立一个库',
+  cloudModeLocal: '本地运行',
+  cloudModeLocalHint: '用这台机器上的记忆库，不走网络',
+  cloudModeCloud: '连接云端',
+  cloudModeCloudHint: '连到云端实例（地址 + 密钥，或 MengBot 登录换来的令牌）',
+  cloudUrlLabel: '云端地址',
+  cloudTokenLabel: '访问密钥',
+  cloudUrlInvalid: '地址要以 http(s):// 开头',
+  cloudTest: '测试连接',
+  cloudTestOk: '连接成功 · {owner}',
+  cloudTestFail: '连接失败',
+  cloudSave: '保存并切换',
+  backupSection: '备份',
+  backupSectionSub: '备份节奏 / 保留天数 / 库损坏自动还原 —— 出事先回到最近一份好的库',
+  embeddingAskTitle: '确认操作',
+  embeddingAskOk: '确定',
+  embeddingAskCancel: '取消',
+  embeddingAskEnableBody: '通道：{mode}（{where}）。{size}开启后会为现有卡片建一次向量缓存，之后新卡自动补齐。',
+  embeddingAskDisableBody: '会关闭向量检索并清空「向量覆盖」；卡片数据本身不受影响，随时可以再开启。',
+  embeddingAskStartBody: '会拉起本机 Ollama（127.0.0.1:7997）并等到就绪，通常 2–5 秒；已在运行就直接复用。',
+  embeddingAskStopBody: '只会停掉「面板启动」的那个 Ollama 进程；你自己在终端启动的服务不受影响。',
+  embeddingAskRestartBody: '先停掉面板启动的 Ollama，再重新拉起并等到就绪（通常 2–5 秒）。',
+  embeddingEnabled: '语义召回已启用',
+  embeddingDisabled: '语义召回已关闭',
+  embeddingModeSwitched: '部署方式已切换，正在建缓存',
+  embeddingModeSaved: '部署方式已保存',
+  embeddingNeedDownload: '模型 {model} 还没下载：先点「下载模型」，下好再切换',
+  embeddingEndpoint: '接口地址（baseUrl）',
+  embeddingApiKeyLabel: 'API Key',
+  embeddingNeedOnline: '在线 API 需要填「接口地址」和「模型名」',
+  embeddingNeedModel: '先选一个模型',
+  embeddingNoBinary: '没找到 ollama 可执行文件：点「安装 Ollama」，或把路径写进 MEMORY_OLLAMA_EXE 后点「启动服务」',
+  embeddingNoDownload: '无需下载；',
+  embeddingNeedDownloadMB: '需先下载约 {mb} MB 模型；',
+  embeddingMore: '更多信息（机器条件 / 模型明细 / 任务进度）',
+  embeddingOnThisMachine: '模型跑在本机，数据不出本机',
+  embeddingOnCloud: '调用云端 API，卡片文本会发到对方服务',
+  embeddingOnLocalFree: '零安装、零网络、零费用',
+  embeddingStepsLabel: '步骤',
+  embeddingStep1: '① 服务',
+  embeddingStep2: '② 模型',
+  embeddingStep3: '③ 启用',
+  embeddingStepLockStart: '先启动服务',
+  embeddingStartAndEnable: '启动服务并启用',
+  embeddingServiceTimeout: '服务启动超时：进程已拉起但还没就绪，稍后会自动刷新状态',
+  embeddingModeKeepFail: '部署方式没切成，已还原：{error}',
+  embeddingBuiltinSimple: '零安装、零网络，随检索自动生效',
+  embeddingAutoStartHint: '点一次就好：先拉起本地服务，再按当前模型建向量缓存',
   mergePairs: '相似卡对（可合并）',
   staleCards: '陈旧卡（>90 天未更新）',
   noOptimize: '暂无可整理项，很健康 🎉',
@@ -520,6 +694,8 @@ export const ZH = {
   configPageSub: '写入、路由、审核与服务的本地配置',
   paneGeneral: '通用',
   paneMemory: '记忆',
+  paneExperimental: '实验性',
+  paneExperimentalSub: '云端连接等尚在验证中的功能',
   paneAdvanced: '高级',
   paneService: '服务',
   paneGeneralSub: '一键方案、基础开关与日常偏好',
@@ -721,6 +897,15 @@ export const ZH = {
   insightRoot: '根因',
   insightLesson: '教训',
   insightSummary: '摘要',
+  // —— 搜索命中说明：语义召回没有字面词，字面命中要标出「命中在哪」 ——
+  matchSemantic: '语义相关',
+  matchSemanticHint: '语义召回：卡片正文里没有这个字面词，按意思相近被召回',
+  matchWhere: '命中',
+  matchTitle: '标题',
+  matchTags: '标签',
+  matchSummary: '摘要',
+  matchBody: '正文',
+  matchScoreHint: '相关性分数（越大越相关）',
   pinCard: '固定这张卡',
   unpinCard: '取消固定',
   pinnedOnly: '已固定',
@@ -809,7 +994,7 @@ export const ZH = {
   saveConfig: '保存配置',
   saveFail: '保存失败',
   savedOk: '已保存',
-  savedDirect: '本机没有 DSH 宿主在运行，已直接写入共享配置（hooks / MCP / 独立页立即生效）',
+  savedDirect: '已直接写入共享配置（宿主未确认应用）—— hooks / MCP / 独立页立即生效，重启 DSH 后宿主侧也同步',
   savedApplied: '已保存并生效（宿主已在请求上下文里应用）',
   saveQueued: '已交给 DSH 宿主同步，尚未确认生效',
   saveHostGuard: '该宿主不允许插件从自己的回调上下文里写配置；请在「DSH 设置 → 记忆」里改同一项，或编辑 profile 的配置补丁层',
@@ -878,6 +1063,53 @@ export const ZH = {
   healthCapFail: '最近一次失败',
   healthRunAlign: '运行「版本对齐检查」后显示',
   healthVersion: '版本',
+  chipGroupKind: '类型',
+  chipGroupFilter: '筛选',
+  chipGroupSort: '排序',
+  backupEntry: '备份与迁移',
+  backupEntryHint: '导入 / 导出 / 还原都在「设置 → 备份」里（首页不再放迁移按钮）',
+  backupExport: '导出备份',
+  backupImport: '导入还原',
+  backupImportHint: '选一个 .db 备份文件：先用它校验，再把当前库改名留证后替换（原库不会删）',
+  backupImportBusy: '导入中…',
+  backupImportDone: '已导入还原：{cards} 张卡',
+  backupImportFail: '导入失败',
+  backupExportFail: '导出失败',
+  disasterTitle: '备份',
+  disasterHint: '自动备份（默认开启，每天 03:00–03:59 一次，保留 30 天）；库损坏自动还原（默认开启）；也可导出/导入还原',
+  backupAuto: '自动备份',
+  backupAutoRestore: '库损坏自动还原',
+  backupAutoRestoreHint: '库打不开/校验失败时，用最近一份能读的备份自动换回（原库留副本）',
+  backupInterval: '备份周期（小时）',
+  backupKeepDays: '保留天数（天）',
+  backupSave: '保存设置',
+  backupSaved: '容灾配置已保存',
+  backupSaveFail: '保存失败',
+  backupLoadFail: '读取备份状态失败',
+  backupLast: '上次备份',
+  backupNone: '还没有备份',
+  backupCount: '现有备份',
+  backupNext: '下次备份',
+  backupNever: '—',
+  backupNow: '立即备份',
+  backupRunning: '备份中…',
+  backupDone: '备份完成：{cards} 张卡 · 清理过期备份 {pruned} 份',
+  backupFail: '备份失败',
+  backupOff: '自动备份已关闭',
+  backupNeedRestart: '宿主仍是旧版 API（没有 /backup/* 路由）：完全退出并重开 DSH 后，容灾面板才会生效',
+  backupUnit: '份',
+  typeMore: '更多类型 ▾',
+  typeCollapse: '收起类型 ▴',
+  typeMoreN: '更多类型 ▾（+{n}）',
+  typeOther: '其他',
+  moreKinds: '更多',
+  moreKindsHint: '提示词 / 业务 / 工具 / 教训这些低频类型折在这里，避免类型行铺成两行',
+  collapseMore: '收起',
+  typeFilterHint: '按卡片类型筛选',
+  typeRowTitle: '卡片类型',
+  typeKindKnowledge: '知识类型',
+  typeKindSkill: '技能类型',
+  typeRowHint: '知识类型与技能类型混排（高频优先）：点一下按类型筛，再点取消；知识类型对全部卡片生效',
   ledgerTitle: '记忆账本（近 7 天）',
   ledgerHint: '召回注入了多少、蒸馏调用了多少次 —— 判断「到底省不省 token」的第一块数据',
   ledgerRecalls: '召回次数',
@@ -1234,6 +1466,21 @@ export const EN = {
   tabOptimize: 'Optimize',
   adminLoadFail: 'Load failed: fully restart dsh-desktop so the host picks up the new /memory-eternal routes',
   retry: 'Retry',
+  cardsEmptyTitle: 'Memory library is empty',
+  cardsEmptyHint: 'Import Markdown or create one by hand; after a few conversations, valuable content is auto-captured too.',
+  cardsNoMatchTitle: 'No matching cards',
+  cardsNoMatchHint: 'Clear the filters or try another keyword (search, type, tag and status all narrow the result).',
+  otherTypeHint: 'Type tags can be filled in with “Sync skills / backfill types”.',
+  clearAllFilters: 'Clear filters',
+  cardsLoadingSkeleton: 'Loading cards…',
+  auditEmptyTitle: 'Nothing to review',
+  auditEmptyHint: 'Newly captured cards land here first and enter the main library after review.',
+  auditNoMatchHint: 'Try another keyword, or clear the search and type filter.',
+  auditClearSearch: 'Clear search',
+  auditBodyFailHint: 'Read the card body again.',
+  readerEmptyTitle: 'No content',
+  readerEmptyHint: 'This card has no content — likely an empty file at import time.',
+  readerRenderFail: 'Failed to render content',
   mergeSimilar: 'Merge similar',
   trendLabel: 'Last 30 days trend',
   cleanStale: '🗑️ Clean stale',
@@ -1280,7 +1527,7 @@ export const EN = {
   embeddingBackfillDone: 'cache built',
   embeddingMode: 'Deployment',
   embeddingModeLocal: 'Local Ollama',
-  embeddingModeBuiltin: 'Built-in semantics (no Ollama)',
+  embeddingModeBuiltin: 'Built-in semantics (zero install)',
   embeddingModeOnline: 'Online API',
   embeddingBuiltinHint: 'No install, no network, no cost: built-in synonym expansion as semantic fallback (R@5 ~95.4%).',
   embeddingBuiltinOn: 'Built-in semantics active (automatic)',
@@ -1314,6 +1561,75 @@ export const EN = {
   embeddingCustom: 'Custom',
   embeddingLocalNote: 'Local = model runs on this machine; no API cost, data stays here',
   embeddingOnlineNote: 'Online = third-party API; pay per use, card text leaves this machine',
+  embeddingModeBuiltinNote: 'Built-in = zero install, zero network, always on; downloads nothing',
+  embeddingServiceRunning: 'Service running',
+  embeddingServiceManaged: 'started by panel',
+  embeddingNotInstalled: 'Ollama not installed',
+  embeddingServiceStart: 'Start service',
+  embeddingServiceStop: 'Stop service',
+  embeddingServiceRestart: 'Restart service',
+  embeddingServiceLocalOnly: 'Local Ollama only',
+  embeddingServiceHint: 'Nothing listens on 127.0.0.1:7997 yet: click "Start service" above to launch or reuse local Ollama',
+  embeddingServiceStarted: 'Service ready',
+  embeddingServiceReused: 'reused running service',
+  embeddingServiceStopped: 'Service stopped',
+  embeddingStart: 'Enable semantic recall',
+  embeddingStop: 'Turn off semantic recall',
+  embeddingStartHint: 'Finds cards by meaning; the first cache build runs once and never touches card content',
+  embeddingStopHint: 'Stops vector search; card content is untouched and you can re-enable anytime',
+  embeddingBuiltinAlwaysOn: 'Built-in semantics are always active — no switch needed',
+  cloudSection: 'Cloud connection (experimental)',
+  cloudSectionSub: 'Connect to a memory-eternal-cloud instance: one isolated database per user. Still under validation; local usage is unaffected',
+  cloudExperimentalHint: 'Experimental: endpoints and behaviour may change. Report issues via "Feedback"; your local vault is untouched',
+  cloudSwitchTitle: 'Run location',
+  cloudSwitchHint: 'Switch between local and cloud. Cloud uses your own key; each user gets an isolated database',
+  cloudModeLocal: 'Local',
+  cloudModeLocalHint: 'Use the memory vault on this machine (no network)',
+  cloudModeCloud: 'Cloud',
+  cloudModeCloudHint: 'Connect to a cloud instance (URL + key, or a MengBot token)',
+  cloudUrlLabel: 'Cloud URL',
+  cloudTokenLabel: 'Access key',
+  cloudUrlInvalid: 'URL must start with http(s)://',
+  cloudTest: 'Test connection',
+  cloudTestOk: 'Connected · {owner}',
+  cloudTestFail: 'Connection failed',
+  cloudSave: 'Save & switch',
+  backupSection: 'Backup',
+  backupSectionSub: 'Schedule / retention / auto-restore — get back to the last good copy',
+  embeddingAskTitle: 'Confirm',
+  embeddingAskOk: 'OK',
+  embeddingAskCancel: 'Cancel',
+  embeddingAskEnableBody: 'Channel: {mode} ({where}). {size}Enabling builds the vector cache once, then new cards follow automatically.',
+  embeddingAskDisableBody: 'Turns off vector search and clears "vector coverage"; card data is untouched and you can re-enable anytime.',
+  embeddingAskStartBody: 'Launches local Ollama on 127.0.0.1:7997 and waits until ready (usually 2-5s); an already running service is reused.',
+  embeddingAskStopBody: 'Only stops the Ollama process the panel started; a service you launched in a terminal is left alone.',
+  embeddingAskRestartBody: 'Stops the panel-started Ollama, then launches it again and waits until ready (usually 2-5s).',
+  embeddingEnabled: 'Semantic recall enabled',
+  embeddingDisabled: 'Semantic recall disabled',
+  embeddingModeSwitched: 'Deployment switched, building cache',
+  embeddingModeSaved: 'Deployment saved',
+  embeddingNeedDownload: 'Model {model} is not downloaded yet: click "Download model" first',
+  embeddingEndpoint: 'Endpoint (baseUrl)',
+  embeddingApiKeyLabel: 'API key',
+  embeddingNeedOnline: 'Online API needs an endpoint and a model name',
+  embeddingNeedModel: 'Pick a model first',
+  embeddingNoBinary: 'ollama binary not found: click "Install Ollama", or set MEMORY_OLLAMA_EXE then click "Start service"',
+  embeddingNoDownload: 'no download needed; ',
+  embeddingNeedDownloadMB: 'downloads about {mb} MB first; ',
+  embeddingMore: 'More (hardware / model details / job progress)',
+  embeddingOnThisMachine: 'model runs on this machine, data stays here',
+  embeddingOnCloud: 'cloud API, card text leaves this machine',
+  embeddingOnLocalFree: 'zero install, zero network, zero cost',
+  embeddingStepsLabel: 'Steps',
+  embeddingStep1: '① Service',
+  embeddingStep2: '② Model',
+  embeddingStep3: '③ Enable',
+  embeddingStepLockStart: 'Start the service first',
+  embeddingStartAndEnable: 'Start service & enable',
+  embeddingServiceTimeout: 'Service start timed out: the process is up but not ready yet — status refreshes automatically',
+  embeddingModeKeepFail: 'Deployment mode not switched, reverted: {error}',
+  embeddingBuiltinSimple: 'Zero install, zero network — applies automatically with search',
+  embeddingAutoStartHint: 'One click: starts the local service, then builds the vector cache for the current model',
   mergePairs: 'Similar pairs (mergeable)',
   staleCards: 'Stale (>90d)',
   noOptimize: 'Nothing to organize, healthy 🎉',
@@ -1399,6 +1715,8 @@ export const EN = {
   configPageSub: 'Local write, routing, audit and service settings',
   paneGeneral: 'General',
   paneMemory: 'Memory',
+  paneExperimental: 'Experimental',
+  paneExperimentalSub: 'Cloud connection and other features still under validation',
   paneAdvanced: 'Advanced',
   paneService: 'Service',
   paneGeneralSub: 'Presets, core switches and daily preferences',
@@ -1600,6 +1918,15 @@ export const EN = {
   insightRoot: 'Root cause',
   insightLesson: 'Lesson',
   insightSummary: 'Summary',
+  // —— search-hit explanation: semantic recall has no literal term, literal hits say where ——
+  matchSemantic: 'Semantic match',
+  matchSemanticHint: 'Semantic recall: the literal term is not in this card — matched by meaning',
+  matchWhere: 'hit',
+  matchTitle: 'Title',
+  matchTags: 'Tags',
+  matchSummary: 'Summary',
+  matchBody: 'Body',
+  matchScoreHint: 'Relevance score (higher = closer)',
   pinCard: 'Pin this card',
   unpinCard: 'Unpin',
   pinnedOnly: 'Pinned',
@@ -1690,7 +2017,7 @@ export const EN = {
   saveConfig: 'Save config',
   saveFail: 'Save failed',
   savedOk: 'Saved',
-  savedDirect: 'No DSH host is running here, so the change went straight into the shared config (hooks / MCP / the standalone page pick it up immediately)',
+  savedDirect: 'Written straight into the shared config (the host has not confirmed it) — hooks / MCP / the standalone page pick it up now; the host syncs on restart',
   savedApplied: 'Saved and applied (the host applied it in a request context)',
   saveQueued: 'Handed to the DSH host for sync — not confirmed applied yet',
   saveHostGuard: 'This host does not let a plugin write config from its own callback context; change the same option under DSH Settings → Memory, or edit the profile patch layer',
@@ -1759,6 +2086,53 @@ export const EN = {
   healthCapFail: 'last capture failed',
   healthRunAlign: 'run Version alignment check to show',
   healthVersion: 'Versions',
+  chipGroupKind: 'Kind',
+  chipGroupFilter: 'Filter',
+  chipGroupSort: 'Sort',
+  backupEntry: 'Backup & migrate',
+  backupEntryHint: 'Import / export / restore all live in Settings → Backup (the library page only keeps search + create)',
+  backupExport: 'Export backup',
+  backupImport: 'Import & restore',
+  backupImportHint: 'Pick a .db backup: validate it first, then move the current DB aside and replace it (nothing is deleted)',
+  backupImportBusy: 'Importing…',
+  backupImportDone: 'Restored from import: {cards} cards',
+  backupImportFail: 'Import failed',
+  backupExportFail: 'Export failed',
+  disasterTitle: 'Backup',
+  disasterHint: 'Auto backup (on by default: daily 03:00–03:59, 30-day retention); auto-restore a corrupt DB (on by default); export / import-restore',
+  backupAuto: 'Automatic backup',
+  backupAutoRestore: 'Auto-restore corrupt DB',
+  backupAutoRestoreHint: 'When the database cannot be opened / fails integrity checks, swap in the newest readable backup (the broken file is kept)',
+  backupInterval: 'Interval (hours)',
+  backupKeepDays: 'Keep (days)',
+  backupSave: 'Save settings',
+  backupSaved: 'Disaster-recovery settings saved',
+  backupSaveFail: 'Save failed',
+  backupLoadFail: 'Failed to read backup status',
+  backupLast: 'Last backup',
+  backupNone: 'no backup yet',
+  backupCount: 'Backups',
+  backupNext: 'Next backup',
+  backupNever: '—',
+  backupNow: 'Back up now',
+  backupRunning: 'Backing up…',
+  backupDone: 'Backup done: {cards} cards · pruned {pruned} expired file(s)',
+  backupFail: 'Backup failed',
+  backupOff: 'Automatic backup is off',
+  backupNeedRestart: 'The host still runs an old API (no /backup/* routes): fully quit and reopen DSH for this panel to work',
+  backupUnit: 'file(s)',
+  typeMore: 'More types ▾',
+  typeCollapse: 'Collapse ▴',
+  typeMoreN: 'More types ▾ (+{n})',
+  typeOther: 'Other',
+  moreKinds: 'More',
+  moreKindsHint: 'Low-frequency kinds (prompt / business / tool / lesson) are folded here so the kind row stays one line',
+  collapseMore: 'Less',
+  typeFilterHint: 'Filter by card type',
+  typeRowTitle: 'Card types',
+  typeKindKnowledge: 'Knowledge type',
+  typeKindSkill: 'Skill type',
+  typeRowHint: 'Knowledge and skill types mixed (most used first): click to filter, click again to clear; knowledge types apply to every card kind',
   ledgerTitle: 'Memory ledger (last 7 days)',
   ledgerHint: 'How much recall injected and how many distillation calls ran — the first data point for the "does it save tokens?" question',
   ledgerRecalls: 'Recalls',
@@ -1833,6 +2207,28 @@ export const EN = {
 }
 
 const KIND_IDS = ['all', 'core', 'project', 'knowledge', 'skill', 'content', 'prompt', 'business', 'tool', 'mistake']
+// 主类型：默认只铺这 6 个高频的（全部 / 核心记忆 / 项目 / 知识 / 技能 / 内容），
+// 其余（提示词 / 业务 / 工具 / 教训）折叠进「更多」—— 10 颗挤成两行是「看着乱」的直接原因。
+const KIND_PRIMARY = ['all', 'core', 'project', 'knowledge', 'skill', 'content']
+/** 「其他」类标签：识别不到的类型统一归到这里，chip 行不单独列出（只在行尾给一个筛选入口）。 */
+const isOtherTypeLabel = (label) => /^(其他|其它|other|unknown|未分类)$/i.test(String(label || '').trim())
+// 技能类型芯片默认只铺开前 8 个高频类型（47 个红队技能能分出十来种），其余折叠进「更多类型」。
+const TYPE_CHIP_LIMIT = 8
+// 卡片「类型标签」有两种前缀：知识卡 `知识类型:根因分析`（新）与技能卡 `技能类型:侦察`（旧）。
+// 它们是 `kind` 之外的第二维度（同一 kind 里还能分出根因/决策/踩坑…），
+// 面板上统一按「卡片类型」呈现：同一行芯片混排、同一个筛选链路、同一套渲染。
+const TYPE_TAG_PREFIXES = ['知识类型:', '技能类型:']
+// 给 agent 用的机器键（knowledge-type:root-cause / skill-type:recon）不占用户注意力。
+const TYPE_KEY_PREFIXES = ['knowledge-type:', 'skill-type:']
+const prefixOf = (s, list) => list.some((p) => String(s || '').indexOf(p) === 0)
+const isTypeTag = (tag) => prefixOf(tag, TYPE_TAG_PREFIXES)
+const isTypeMachineKey = (tag) => prefixOf(tag, TYPE_KEY_PREFIXES)
+// 芯片/标签只显示「根因分析」，前缀留给 title 提示（筛选时仍用完整 tag 去问服务端）
+const typeTagLabel = (tag) => String(tag || '').replace(/^(知识类型|技能类型):/, '').trim()
+const typeTagKind = (tag) => (String(tag || '').indexOf('技能类型:') === 0 ? 'skill' : 'knowledge')
+// 卡片类型索引缓存（**模块级**：组件重新挂载、切 tab、切 kind 都还能命中，切换时零等待）。
+// key 是 'all' | 'knowledge' | 'skill' 三种上下文；知识/技能各自一份，'all' 是两者合并结果。
+const TYPE_CACHE = new Map()
 // 新建卡 / 统计里可选的普通类型（core 是审核时单独提升，不出现在普通创建下拉里）
 const FORM_KINDS = KIND_IDS.filter((k) => k !== 'all' && k !== 'core')
 const KIND_COLORS = { core: '#FF7A45', skill: '#8B5CF6', project: '#3B82F6', knowledge: '#10B981', content: '#F59E0B', prompt: '#A855F7', business: '#EC4899', tool: '#06B6D4', mistake: '#EF4444', other: '#6B7280' }
@@ -1914,7 +2310,19 @@ const CHARM_ART = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns='http:/
 </g>
 </svg>`)
 
+// 设计令牌与组件样式先进来（`ui/design-tokens.js`）：换皮肤只覆盖 --me-* 变量，
+// 新写的界面直接用 .me-btn / .me-empty / .me-error 这些语义类，不再各写一套内联色与间距。
+//
+// 为什么写成模板内插而不是 `TOKENS_CSS + COMPONENTS_CSS + \`…\``：
+// 测试（issue-46-overlay / window-controls）靠 `const CSS = \`` 这个锚点取「真正注入 <style> 的那段」，
+// 前缀一挪锚点就取空、守卫静默失效。内插既保持注入顺序（令牌 → 组件 → 本文件规则），又不破坏锚点。
 const CSS = `
+${TOKENS_CSS}
+${COMPONENTS_CSS}
+/* 次按钮的「已选中」态：分段选择（待审/已驳回、模板选择）以前借用 me-on 冒充主按钮，
+   一屏出现好几颗「主按钮」。选中是状态不是主操作 —— 用描边+浅底表达，颜色全部走令牌。 */
+.me-btn--secondary[aria-pressed="true"]{border-color:var(--me-c-accent);color:var(--me-c-accent);background:var(--me-c-accent-soft)}
+.me-btn--ghost[aria-pressed="true"]{color:var(--me-c-accent);background:var(--me-c-accent-soft)}
 .memory-eternal-root { font-family: inherit; color: var(--dsw-alias-label-primary, #1f2937); }
 .mc-card { background: var(--dsw-alias-bg-layer-1, #fff); border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; padding: 14px 16px; }
 .mc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 14px; }
@@ -1926,7 +2334,8 @@ const CSS = `
 .mc-btn { border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: transparent; color: inherit; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
 .mc-btn.me-on { background: var(--dsw-alias-accent, #2563eb) !important; color: #fff !important; border-color: transparent !important; }
 .mc-new { display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; line-height: 16px; font-weight: 600; color: #fff; background: linear-gradient(135deg, #f97316, #ef4444); vertical-align: middle; }
-.mc-hl { background: rgba(245,158,11,0.35); color: inherit; border-radius: 2px; padding: 0 1px; }
+/* 搜索高亮：浅底上原来的 rgba 底几乎看不见 → 实色底 + 深色字，深/浅皮肤各一套 */
+.mc-hl { background: #fde68a; color: #3b2f00; border-radius: 3px; padding: 0 2px; font-weight: 600; box-shadow: 0 0 0 1px rgba(180,120,0,.35); }
 .mc-btn:hover { opacity: 0.85; }
 .mc-btn:active { transform: scale(0.97); }
 .mc-btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -2223,11 +2632,29 @@ const CSS = `
 .mc-main { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; }
 .mc-tab.active { background: var(--dsw-alias-bg-layer-1, #fff); opacity: 1; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
 .mc-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+/* 筛选区分栏：类型 / 筛选 / 排序各一行 + 左侧小标题 —— 十几颗 chip 混一行时看不出哪颗干什么 */
+.mc-chip-groups { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+/* 分栏行：label 用绝对定位，chips 整列（含换行后）统一从 LABEL_W 起，
+   这样「更多类型 ▾」掉到第二行时不会缩回到行首（用户：更多先对齐不然难看）。 */
+.mc-chip-group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; position: relative; padding-left: 50px; }
+/* 分栏标题：固定宽度的左栏，四栏标题左边缘对齐 */
+.mc-chip-group-label { position: absolute; left: 0; top: 0; width: 44px; line-height: 28px; font-size: 10.5px; letter-spacing: .05em; opacity: .58; user-select: none; white-space: nowrap; }
+/* 只有「筛选分栏」这块整体往右让一点：否则「类型 / 筛选 / 排序」的小标题会糊到左侧边栏上。
+   其余区块（工具栏、卡片区…）的边距保持原样，不要在这里加全局 padding。 */
+.mc-chip-groups { padding-left: 14px; }
+/* 「更多 / 其他 / 展开」这类工具 chip：虚线边 + 更淡，和真实筛选项区分开 */
+.mc-chip--more { border-style: dashed !important; opacity: .82; }
+.mc-chip--more:hover { opacity: 1; }
+/* 知识类型 / 技能类型之间的竖向分隔 */
+.mc-chip-sep { color: rgba(127,127,127,.45); font-size: 11px; padding: 0 2px; user-select: none; }
 .mc-chip { border: 1px solid var(--dsw-alias-border-l2, #d1d5db); background: transparent; color: inherit; border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; opacity: 0.7; }
 .mc-chip.active { opacity: 1; font-weight: 600; border-color: currentColor; }
 .mc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .mc-cardrow { cursor: pointer; transition: border-color 0.15s, transform 0.15s; display: flex; flex-direction: column; gap: 6px; min-height: 110px; }
-.mc-snippet { font-size: 11.5px; line-height: 1.5; opacity: .72; margin: 2px 0 0; }
+/* 搜索命中片段：不再靠 opacity 压淡（用户反馈「太淡看不清」）→ 实色次级文字 */
+.mc-snippet { font-size: 11.5px; line-height: 1.6; opacity: 1; margin: 2px 0 0; color: #c6ccd6; }
+/* .mc-cardrow p 的 opacity:.7 会盖掉上面的 .mc-snippet（0,1,1 > 0,1,0），这里提高优先级写死 */
+.me-v5 .mc-cardrow p.mc-snippet, .mc-v5-card p.mc-snippet { opacity: 1; font-size: 11.5px; line-height: 1.6; color: #c6ccd6; -webkit-line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .mc-tag-click { cursor: pointer; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 0 4px; border-radius: 6px; }
 .mc-tag-click:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); opacity: 1; }
 .mc-cardrow:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
@@ -2245,6 +2672,9 @@ const CSS = `
 .memory-eternal-root ::-webkit-scrollbar-track { background: rgba(127,127,127,0.08); }
 .mc-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .mc-tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; background: var(--dsw-alias-border-l2, #d1d5db); opacity: 1; color: var(--dsw-alias-label-primary, #1f2937); }
+/* 技能类型标签：点一下按类型筛（与普通标签同形，但用品牌色区分「这是分类不是关键词」） */
+.mc-tag.mc-tag-type { background: transparent; border: 1px solid rgba(139,92,246,.55); color: #8b5cf6; font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-tag.mc-tag-type:hover { border-color: #8b5cf6; background: rgba(139,92,246,.10); }
 .mc-status { display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 999px; font-size: 10px; line-height: 16px; font-weight: 600; color: #fff; vertical-align: middle; }
 .mc-kind { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .mc-empty { text-align: center; padding: 40px 10px; opacity: 0.6; font-size: 13px; }
@@ -2936,7 +3366,11 @@ const CSS = `
 .me-v5 .mc-v5-card.pinned { border-color: rgba(255,122,69,.32); }
 .me-v5 .mc-v5-card.core { border-color: rgba(255,122,69,.52); box-shadow: inset 0 0 0 1px rgba(255,122,69,.16); }
 .me-v5 .mc-v5-card-insight { display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
-.me-v5 .mc-v5-insight-k { flex: none; margin-top: 1px; padding: 1px 4px; border-radius: 4px; background: rgba(255,122,69,.09); color: #ff9a72; font-size: 8.5px; line-height: 14px; white-space: nowrap; }
+.me-v5 .mc-v5-insight-k { flex: none; margin-top: 1px; padding: 1px 5px; border-radius: 4px; background: rgba(255,122,69,.18); color: #ffb38f; font-size: 9px; font-weight: 600; line-height: 15px; white-space: nowrap; }
+/* 搜索命中徽标（「为什么它在结果里」）与相关性分数（角落极小的灰字） */
+.me-v5 .mc-v5-match-hatch { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border: 1px solid rgba(255,122,69,.42); border-radius: 999px; background: rgba(255,122,69,.14); color: #ffc3a4; font-size: 9px; line-height: 15px; font-weight: 650; letter-spacing: .02em; white-space: nowrap; }
+.me-v5 .mc-v5-match-hatch.where { border-color: rgba(125,211,252,.4); background: rgba(125,211,252,.12); color: #bae6fd; }
+.me-v5 .mc-v5-match-score { flex: none; font-size: 9px; line-height: 15px; color: #7d848f; font-variant-numeric: tabular-nums; }
 .me-v5 .mc-v5-card-lead { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .me-v5 .mc-v5-mini { flex: none; opacity: .9; }
 .me-v5 .mc-v5-conn { display: inline-flex; align-items: center; gap: 3px; color: #e0a184; }
@@ -2948,7 +3382,7 @@ const CSS = `
 .me-v5 .mc-v5-card-status.rejected { color: #fb7185; background: rgba(251,113,133,.1); }
 .me-v5 .mc-v5-card-time { font-size: 9px; color: #99a1ac; white-space: nowrap; }
 .me-v5 .mc-v5-card-title { margin: 1px 0 0; font-size: 13.5px; line-height: 1.48; font-weight: 600; color: #f3f5f8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.me-v5 .mc-v5-card-lead { margin: 0; font-size: 11px; line-height: 1.65; color: #b9bfc9; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.me-v5 .mc-v5-card-lead { margin: 0; font-size: 12px; line-height: 1.6; color: #dfe3ea; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .me-v5 .mc-v5-card-tags { margin-top: 0; }
 .me-v5 .mc-v5-card-foot { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 7px; border-top: 1px solid rgba(127,127,127,.1); font-size: 9.5px; color: #99a1ac; }
 .me-v5 .mc-v5-conn { color: #e6a98c; }
@@ -3161,6 +3595,13 @@ const CSS = `
 [data-skin="light"] .mc-news-hero { background: #fff !important; }
 [data-skin="light"] .mc-tag { background: #f0f0ec !important; color: #1c1c1e !important; }
 [data-skin="light"] .mc-quote-text { color: #3f3a33; }
+/* 浅色皮肤：暗色皮肤的浅灰片段/分数在米白底上几乎不可见，单独给一套深字 */
+[data-skin="light"] .mc-v5-card p.mc-snippet { color: #46403a; }
+[data-skin="light"] .mc-v5-match-hatch { border-color: #d8c9b4; background: #f6efe4; color: #4a3c26; }
+[data-skin="light"] .mc-v5-match-hatch.where { border-color: #b9cde6; background: #eaf2fb; color: #1f3a5c; }
+[data-skin="light"] .mc-v5-match-score { color: #6b6153; }
+[data-skin="light"] .mc-v5-insight-k { background: #fbe7dc; color: #8a3c10; }
+[data-skin="light"] .mc-hl { background: #fde68a; color: #3b2f00; }
 /* 主题选择卡 */
 .mc-theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .mc-theme-card { display: flex; flex-direction: column; gap: 6px; text-align: left; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 10px; padding: 10px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
@@ -3316,7 +3757,13 @@ const CSS = `
 [data-skin="pop"] .mc-v5-feature-meta, [data-skin="pop"] .mc-v5-feature-side span { color: #ffe9c2; }
 [data-skin="pop"] .mc-v5-feature-side b { color: #ffe07a; }
 [data-skin="pop"] .mc-v5-card-title { color: #1a140b; }
-[data-skin="pop"] .mc-v5-card-lead { color: #3a3226; }
+[data-skin="pop"] .mc-v5-card-lead { color: #2a2318; }
+/* 波普：浅纸底上的片段/徽标/分数同样要保持可读（不能沿用暗色皮肤的值） */
+[data-skin="pop"] .mc-v5-card p.mc-snippet { color: #453a29; }
+[data-skin="pop"] .mc-v5-match-hatch { border-color: var(--pop-ink); background: #ffd83d; color: #1a140b; }
+[data-skin="pop"] .mc-v5-match-hatch.where { background: #d7ecff; color: #10233a; }
+[data-skin="pop"] .mc-v5-match-score { color: #6b5f4e; }
+[data-skin="pop"] .mc-hl { background: #ffd83d; color: #111; box-shadow: 0 0 0 1px #111; }
 [data-skin="pop"] .mc-v5-card-kind-name, [data-skin="pop"] .mc-v5-card-time, [data-skin="pop"] .mc-v5-card-foot { color: #6b5f4e; }
 [data-skin="pop"] .mc-v5-insight-k { background: #ffe07a; color: #1a140b; }
 [data-skin="pop"] .mc-v5-conn { color: #0f766e; }
@@ -3494,7 +3941,13 @@ const CSS = `
 [data-skin="resident"] .mc-cardrow { transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
 [data-skin="resident"] .mc-cardrow:hover { border-color: #4d9a56; box-shadow: 0 0 22px rgba(124,255,63,.12), inset 0 0 0 1px rgba(124,255,63,.08); transform: translateY(-1px); }
 [data-skin="resident"] .mc-v5-card-title { color: #d6ffd9; font-family: Consolas, 'Courier New', monospace; font-weight: 700; letter-spacing: .01em; }
-[data-skin="resident"] .mc-v5-card-lead { color: #a9c7ad; }
+[data-skin="resident"] .mc-v5-card-lead { color: #c3e2c7; }
+/* 生化危机：暗底上的片段与徽标加深一档，避免 12px 小字发灰 */
+[data-skin="resident"] .mc-v5-card p.mc-snippet { color: #b6d6ba; }
+[data-skin="resident"] .mc-v5-match-hatch { border-color: #2f5f37; background: rgba(124,255,63,.14); color: #b7ffc4; }
+[data-skin="resident"] .mc-v5-match-hatch.where { border-color: #3f6b8f; background: rgba(125,211,252,.12); color: #a9d8ff; }
+[data-skin="resident"] .mc-v5-match-score { color: #86a98c; }
+[data-skin="resident"] .mc-hl { background: #7cff3f; color: #041006; box-shadow: 0 0 0 1px rgba(124,255,63,.55); }
 [data-skin="resident"] .mc-v5-card-kind-name, [data-skin="resident"] .mc-v5-card-time, [data-skin="resident"] .mc-v5-card-foot { color: #6f9276; }
 [data-skin="resident"] .mc-v5-insight-k { background: rgba(124,255,63,.1); border: 1px solid #2f5f37; color: #7cff3f; }
 [data-skin="resident"] .mc-v5-conn { color: #9fe8a8; }
@@ -3627,7 +4080,7 @@ const CSS = `
 [data-skin="spider"] .mc-v5-top { position: relative; background: var(--sp-panel); border-bottom: 3px solid var(--sp-ink); }
 [data-skin="spider"] .mc-v5-top::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: linear-gradient(90deg, var(--sp-red) 0 50%, var(--sp-blue) 50% 100%); }
 [data-skin="spider"] .mc-v5-crumb, [data-skin="spider"] .mc-v5-crumb b { color: var(--sp-ink); }
-[data-skin="spider"] .mc-v5-sys, [data-skin="spider"] .mc-v5-ver, [data-skin="spider"] .mc-v5-star { background: #fff; border: 2px solid var(--sp-ink); color: var(--sp-blue); border-radius: 999px; }
+[data-skin="spider"] .mc-v5-sys, [data-skin="spider"] .mc-v5-ver, [data-skin="spider"] .mc-v5-star { background: #fff; border: 2px solid var(--sp-ink); color: var(--sp-ink); border-radius: 999px; font-weight: 600; }
 [data-skin="spider"] .mc-v5-pagehead h1 { display: block; width: fit-content; padding: 2px 8px; color: var(--sp-red); font-family: Impact, 'Arial Black', 'Noto Sans SC', sans-serif; font-weight: 900; letter-spacing: -.01em; text-shadow: 3px 3px 0 var(--sp-ink); }
 [data-skin="spider"] .mc-v5-eyebrow { display: inline-block; padding: 2px 9px; background: var(--sp-blue); color: #fff; border: 2px solid var(--sp-ink); font-family: Impact, 'Arial Black', sans-serif; letter-spacing: .16em; }
 [data-skin="spider"] .mc-v5-eyebrow::before { content: '🕷 '; }
@@ -3638,16 +4091,28 @@ const CSS = `
 [data-skin="spider"] .mc-cardrow { transition: transform .14s ease, box-shadow .14s ease; }
 [data-skin="spider"] .mc-cardrow:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--sp-blue); }
 [data-skin="spider"] .mc-v5-card-title { color: var(--sp-ink); font-weight: 900; }
-[data-skin="spider"] .mc-v5-card-lead { color: #3d3d46; }
+[data-skin="spider"] .mc-v5-card-lead { color: #23232b; }
+/* 蜘蛛侠：浅米底上的片段/分数/高亮统一到深墨色 + 强调色，保证 12px 小字也读得清 */
+[data-skin="spider"] .mc-v5-card p.mc-snippet { color: #2f2f39; }
+[data-skin="spider"] .mc-v5-match-hatch { border: 1px solid var(--sp-ink); background: var(--sp-yellow); color: var(--sp-ink); box-shadow: 1px 1px 0 var(--sp-ink); }
+[data-skin="spider"] .mc-v5-match-hatch.where { background: #cfe0ff; color: #10214a; }
+[data-skin="spider"] .mc-v5-match-score { color: #4a4a55; }
+[data-skin="spider"] .mc-hl { background: var(--sp-yellow); color: var(--sp-ink); box-shadow: 0 0 0 1px var(--sp-ink); }
 [data-skin="spider"] .mc-v5-card-kind-name, [data-skin="spider"] .mc-v5-card-time, [data-skin="spider"] .mc-v5-card-foot { color: #5b5b66; }
 [data-skin="spider"] .mc-v5-insight-k { background: var(--sp-yellow); border: 1px solid var(--sp-ink); color: var(--sp-ink); }
 [data-skin="spider"] .mc-v5-conn { color: var(--sp-blue); }
 [data-skin="spider"] .mc-v5-conn b { color: var(--sp-red); }
-[data-skin="spider"] .mc-btn { background: var(--sp-yellow); border: 2px solid var(--sp-ink); border-radius: 5px; color: var(--sp-ink); box-shadow: 2px 2px 0 var(--sp-ink); font-weight: 700; }
-[data-skin="spider"] .mc-btn:hover { background: #fff; box-shadow: 4px 4px 0 var(--sp-ink); }
+/* 按钮体系：主按钮红底白字，次按钮蓝描边（红蓝双色是这套皮肤的主线） */
+[data-skin="spider"] .mc-btn { background: #fff; border: 2px solid var(--sp-blue); border-radius: 5px; color: var(--sp-blue); box-shadow: 2px 2px 0 rgba(11,59,145,.28); font-weight: 700; }
+[data-skin="spider"] .mc-btn:hover { background: #eef3ff; border-color: var(--sp-blue); color: var(--sp-blue); box-shadow: 3px 3px 0 var(--sp-blue); }
 [data-skin="spider"] .mc-btn.me-on { background: var(--sp-red) !important; color: #fff !important; border-color: var(--sp-ink) !important; box-shadow: 3px 3px 0 var(--sp-blue); }
-[data-skin="spider"] .mc-chip { background: #fff; border: 2px solid var(--sp-ink); color: var(--sp-ink); border-radius: 999px; }
-[data-skin="spider"] .mc-chip.active { background: var(--sp-blue); color: #fff; }
+[data-skin="spider"] .mc-btn.mc-btn-danger { background: #fff; border-color: var(--sp-red); color: #b3121a; }
+[data-skin="spider"] .me-core-btn { background: var(--sp-red) !important; border-color: var(--sp-ink) !important; color: #fff !important; box-shadow: 3px 3px 0 var(--sp-blue) !important; }
+[data-skin="spider"] .mc-chip { background: #fff; border: 2px solid var(--sp-blue); color: var(--sp-blue); border-radius: 999px; transition: transform .12s ease, box-shadow .12s ease, background .12s ease; }
+[data-skin="spider"] .mc-chip:hover { transform: translateY(-1px) rotate(-1.4deg); box-shadow: 2px 2px 0 var(--sp-ink); background: #eef3ff; }
+[data-skin="spider"] .mc-chip.active { background: var(--sp-blue); color: #fff; border-color: var(--sp-red); box-shadow: 2px 2px 0 var(--sp-red); transform: none; }
+[data-skin="spider"] .mc-tag { transition: transform .12s ease, box-shadow .12s ease; }
+[data-skin="spider"] .mc-tag:hover { transform: translateY(-1px) rotate(-1.2deg); box-shadow: 2px 2px 0 var(--sp-ink); }
 [data-skin="spider"] .mc-toolbar input[type=text], [data-skin="spider"] .mc-field input:not([type="checkbox"]):not([type="radio"]), [data-skin="spider"] .mc-field select, [data-skin="spider"] .mc-news-search { background: #fff; border: 2px solid var(--sp-ink); color: var(--sp-ink); }
 [data-skin="spider"] .mc-field input:focus, [data-skin="spider"] .mc-field select:focus { border-color: var(--sp-red); box-shadow: 0 0 0 3px rgba(230,36,41,.2); }
 [data-skin="spider"] .mc-v5-feature { position: relative; overflow: hidden; flex: none; background: var(--sp-red); border: 3px solid var(--sp-ink); box-shadow: 6px 6px 0 var(--sp-ink); color: #fff; }
@@ -3741,6 +4206,139 @@ const CSS = `
 [data-skin="spider"] .me-audit-row-time, [data-skin="spider"] .me-audit-row-kind, [data-skin="spider"] .me-audit-row-meta { color: #5b5b66; }
 [data-skin="spider"] .me-audit-row:hover { background: #fbf3e0; }
 [data-skin="spider"] .me-audit-row.core { background: #fff6e0; border-left-color: var(--sp-red); }
+/* ===== 蜘蛛侠 v2：漫画红蓝加强（只作用于 [data-skin="spider"]，其它皮肤不受影响） =====
+   ① 卡片阅读器：红→蓝对角标题栏 + 半调网点，章节标题蛛网细纹，正文/引用/代码统一红蓝；
+   ② 列表卡片：红蓝双层描边 + hover 蛛网线；
+   ③ 按钮/芯片：主按钮红底白字、次按钮蓝描边，芯片 hover 轻微倾斜 + 硬阴影；
+   ④ 对比度优先：正文与次要信息在浅底上一律用深墨色（不靠 opacity 压淡）。 */
+/* -- ① 卡片阅读器：整体框架 -- */
+[data-skin="spider"] .me-reader-dialog {
+  background: #fffdf7;
+  border: 3px solid var(--sp-ink);
+  border-radius: 8px;
+  box-shadow: 9px 9px 0 var(--sp-red), 9px 9px 0 3px var(--sp-ink);
+  color: var(--sp-ink);
+}
+[data-skin="spider"] .me-reader-dialog > .me-dialog-head {
+  position: relative;
+  padding: 13px 18px 12px;
+  border-bottom: 3px solid var(--sp-ink);
+  background-color: var(--sp-red);
+  background-image: linear-gradient(112deg, var(--sp-red) 0 46%, var(--sp-blue) 46% 100%);
+  overflow: hidden;
+}
+/* 半调网点（漫画印刷感）：纯 CSS 径向渐变，不引入任何外部资源 */
+[data-skin="spider"] .me-reader-dialog > .me-dialog-head::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .38;
+  background-image: radial-gradient(rgba(255,255,255,.6) 1.1px, transparent 1.3px);
+  background-size: 7px 7px;
+}
+[data-skin="spider"] .me-reader-dialog > .me-dialog-head > * { position: relative; z-index: 1; }
+[data-skin="spider"] .me-reader-dialog .me-dialog-head h3 {
+  color: #fff;
+  font-family: Impact, 'Arial Black', 'Noto Sans SC', sans-serif;
+  font-size: 17px; font-weight: 900; letter-spacing: .01em;
+  text-shadow: 2px 2px 0 var(--sp-ink);
+  transform: skewX(-7deg); transform-origin: left center;
+}
+[data-skin="spider"] .me-reader-dialog .me-dialog-head .mc-btn { background: rgba(255,255,255,.95); border-color: var(--sp-ink); color: var(--sp-blue); box-shadow: 2px 2px 0 var(--sp-ink); }
+[data-skin="spider"] .me-reader-dialog .me-dialog-head .mc-btn:hover { background: #fff; color: var(--sp-red); box-shadow: 3px 3px 0 var(--sp-ink); }
+[data-skin="spider"] .me-reader-dialog .md-meta { padding-top: 10px; }
+[data-skin="spider"] .me-reader-dialog .md-chip { background: #fff; border: 2px solid var(--sp-blue); color: var(--sp-blue); font-weight: 700; }
+[data-skin="spider"] .me-reader-dialog .md-chip.md-date { border-color: rgba(11,61,145,.35); background: #f2f6ff; color: #23406e; opacity: 1; }
+[data-skin="spider"] .me-reader-dialog .md-chip-st-ok { border-color: #0b6b3a; background: #e6fbf0; color: #0b6b3a; }
+[data-skin="spider"] .me-reader-dialog .md-chip-st-warn { border-color: #8a5a00; background: #fff5d6; color: #6b4400; }
+[data-skin="spider"] .me-reader-dialog .md-chip-st-bad { border-color: var(--sp-red); background: #ffe8e9; color: #a4131a; }
+[data-skin="spider"] .me-reader-dialog > .me-read-progress { height: 4px; background: rgba(11,61,145,.14); }
+[data-skin="spider"] .me-reader-dialog > .me-read-progress > i { background: linear-gradient(90deg, var(--sp-red), var(--sp-blue)); }
+[data-skin="spider"] .me-reader-dialog .me-reader-body { background: #fffdf7; }
+[data-skin="spider"] .me-reader-dialog .me-dialog-body { color: var(--sp-ink); }
+/* -- ① 侧栏：目录 / 元信息 / 相关卡 -- */
+[data-skin="spider"] .me-reader-dialog .me-reader-side { background: #f7f4ea; border-left: 3px solid var(--sp-ink); }
+[data-skin="spider"] .me-reader-dialog .me-reader-side .side-label { opacity: 1; color: #4a4a55; font-weight: 800; letter-spacing: .16em; }
+[data-skin="spider"] .me-reader-dialog .me-reader-side-val { opacity: 1; color: #23232b; }
+[data-skin="spider"] .me-reader-dialog .me-reader-side-val.mono { color: #3a3a45; }
+[data-skin="spider"] .me-reader-dialog .me-reader-toc button { color: #2a2a33; border-radius: 4px; }
+[data-skin="spider"] .me-reader-dialog .me-reader-toc button span { opacity: .8; color: var(--sp-blue); }
+[data-skin="spider"] .me-reader-dialog .me-reader-toc button:hover { background: #eef3ff; color: var(--sp-blue); }
+[data-skin="spider"] .me-reader-dialog .me-reader-toc button.active { background: var(--sp-blue); color: #fff; font-weight: 700; }
+[data-skin="spider"] .me-reader-dialog .me-reader-toc button.active span { color: rgba(255,255,255,.82); }
+[data-skin="spider"] .me-reader-dialog .me-reader-related button { background: #fff; border: 2px solid var(--sp-ink); color: var(--sp-ink); box-shadow: 2px 2px 0 var(--sp-red); }
+[data-skin="spider"] .me-reader-dialog .me-reader-related button:hover { background: #eef3ff; border-color: var(--sp-blue); }
+[data-skin="spider"] .me-reader-dialog .me-reader-tags .mc-chip { background: #fff; border: 2px solid var(--sp-blue); color: var(--sp-blue); }
+/* -- ① 洞察摘要块：红蓝渐变卡面 -- */
+[data-skin="spider"] .me-reader-dialog .me-reader-callout { border-left: 5px solid var(--sp-red); border-radius: 0 6px 6px 0; background: linear-gradient(90deg, rgba(230,36,41,.1), rgba(11,61,145,.07)); }
+[data-skin="spider"] .me-reader-dialog .me-reader-callout-k { color: var(--sp-red); font-size: 9.5px; font-weight: 800; letter-spacing: .1em; }
+[data-skin="spider"] .me-reader-dialog .me-reader-callout p { color: var(--sp-ink); }
+[data-skin="spider"] .me-reader-dialog .me-core-banner { background: #fff6e0; border: 2px solid var(--sp-ink); }
+[data-skin="spider"] .me-reader-dialog .me-core-banner-desc { opacity: 1; color: #33333d; }
+/* -- ① 章节标题：蛛网细纹 + 半调网点背景，红蓝主色 -- */
+[data-skin="spider"] .me-reader-dialog .md-doc .md-h {
+  align-items: center;
+  margin: 16px 0 8px; padding: 4px 10px;
+  color: var(--sp-blue);
+  font-family: Impact, 'Arial Black', 'Noto Sans SC', sans-serif;
+  font-size: 14.5px; font-weight: 900; letter-spacing: .01em;
+  border-left: 5px solid var(--sp-red);
+  border-radius: 0 5px 5px 0;
+  background-color: #eef3ff;
+  background-image:
+    radial-gradient(rgba(11,61,145,.24) 1px, transparent 1.3px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%230b3d91' stroke-opacity='.5' stroke-width='1'%3E%3Cpath d='M0 0L120 120M0 30L90 120M0 60L60 120M30 0L120 90M60 0L120 60'/%3E%3Ccircle cx='0' cy='0' r='40'/%3E%3Ccircle cx='0' cy='0' r='80'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 8px 8px, 118px 118px;
+  background-position: 0 0, right -26px top -34px;
+  background-repeat: repeat, no-repeat;
+}
+[data-skin="spider"] .me-reader-dialog .md-doc .md-h::after { background: currentColor; opacity: .32; }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-h-h1 {
+  color: #fff;
+  font-size: 16px;
+  background-color: var(--sp-blue);
+  background-image:
+    radial-gradient(rgba(255,255,255,.22) 1px, transparent 1.3px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.45' stroke-width='1'%3E%3Cpath d='M0 0L120 120M0 30L90 120M0 60L60 120M30 0L120 90M60 0L120 60'/%3E%3Ccircle cx='0' cy='0' r='40'/%3E%3Ccircle cx='0' cy='0' r='80'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 8px 8px, 118px 118px;
+  background-position: 0 0, right -26px top -34px;
+  border-left-color: var(--sp-red);
+}
+/* -- ① 正文 / 引用 / 代码 / 高亮：统一红蓝 -- */
+[data-skin="spider"] .me-reader-dialog .md-doc .md-p,
+[data-skin="spider"] .me-reader-dialog .md-doc .md-ul > li,
+[data-skin="spider"] .me-reader-dialog .md-doc .md-ol > li { color: #1d1d24; }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-b { background: linear-gradient(transparent 62%, rgba(11,61,145,.28) 62%); color: #101018; }
+[data-skin="spider"] .me-reader-dialog .md-doc mark,
+[data-skin="spider"] .me-reader-dialog .md-doc .mc-hl { background: var(--sp-yellow); color: var(--sp-ink); box-shadow: 0 0 0 1px var(--sp-ink); }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-callout { border-left: 4px solid var(--sp-red); border-radius: 0 8px 8px 0; background: linear-gradient(90deg, rgba(230,36,41,.09), rgba(11,61,145,.06)); color: var(--sp-ink); }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-callout .md-ico { color: var(--sp-red); }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-code { background: #eef3ff; border: 1px solid rgba(11,61,145,.28); color: #10214a; }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-pre { background: #f2f5ff; border: 2px solid var(--sp-ink); border-radius: 6px; box-shadow: 3px 3px 0 rgba(230,36,41,.35); }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-pre code { color: #10214a; }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-link { color: var(--sp-blue); }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-k { color: #33333d; opacity: 1; }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-v { color: #1d1d24; }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-hr { border-top: 2px dashed var(--sp-red); }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-ul > li::before { background: var(--sp-red); }
+[data-skin="spider"] .me-reader-dialog .md-doc .md-ol > li::before { background: var(--sp-blue); color: #fff; }
+[data-skin="spider"] .me-reader-dialog .md-collapsed-hint { color: var(--sp-blue); border-top: 2px dashed var(--sp-ink); opacity: 1; font-weight: 700; }
+/* -- ② 列表卡片：红蓝双层描边 + hover 蛛网线 -- */
+[data-skin="spider"] .me-v5 .mc-v5-card,
+[data-skin="spider"].me-v5 .mc-v5-card {
+  border: 2px solid var(--sp-ink);
+  box-shadow: 0 0 0 2px var(--sp-blue), 0 0 0 4px var(--sp-red), 4px 6px 0 rgba(11,11,15,.2);
+}
+[data-skin="spider"] .me-v5 .mc-v5-card:hover,
+[data-skin="spider"].me-v5 .mc-v5-card:hover {
+  box-shadow: 0 0 0 2px var(--sp-red), 0 0 0 4px var(--sp-blue), 6px 8px 0 rgba(11,11,15,.26);
+  transform: translateY(-2px);
+}
+/* 蛛网线：hover 时右下角浮现（内联 SVG data URI，无外部资源；留在卡内，避免溢出被裁） */
+[data-skin="spider"] .mc-v5-card::after {
+  content: ''; position: absolute; right: 2px; bottom: 2px; width: 96px; height: 96px;
+  opacity: 0; transition: opacity .18s ease; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%230b3d91' stroke-opacity='.55' stroke-width='1'%3E%3Cpath d='M0 0L120 120M0 30L90 120M0 60L60 120M30 0L120 90M60 0L120 60'/%3E%3Ccircle cx='0' cy='0' r='40'/%3E%3Ccircle cx='0' cy='0' r='80'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: contain; background-repeat: no-repeat;
+}
+[data-skin="spider"] .mc-v5-card:hover::after { opacity: .45; }
 [data-skin="resident"] .me-audit-row-title { color: #d6ffd9; }
 [data-skin="resident"] .me-audit-row-kind, [data-skin="resident"] .me-audit-row-time, [data-skin="resident"] .me-audit-row-meta, [data-skin="resident"] .me-audit-row-reason { color: #7fa383; }
 /* ===== 角色与氛围：丧尸剪影 / 蜘蛛侠悬丝 ===== */
@@ -3887,6 +4485,157 @@ const CSS = `
 [data-skin="spider"] .mc-v5-star:hover, [data-skin="spider"] .mc-v5-help:hover { color: var(--sp-red); border-color: var(--sp-ink); }
 [data-skin="light"] .mc-v5-star:hover, [data-skin="light"] .mc-v5-help:hover { color: #b91c1c; border-color: #cfcfca; }
 [data-skin="pop"] .mc-v5-star:hover, [data-skin="pop"] .mc-v5-help:hover { color: var(--pop-red); border-color: var(--pop-ink); }
+
+/* ---- 设计令牌在浅底皮肤下的覆盖 ------------------------------------------
+   ui/design-tokens.js 的默认值是**暗色底**配色；spider/light/pop 是浅底（#fffdf7 等），
+   组件层（Btn / Status / EmptyState / Hint）如果继续用暗底令牌，就会出现「白字白底」——
+   截图里那排看不清的按钮、审核列表的副标题、运行状态的小字，都是这一个原因。
+   皮肤只覆盖变量，不改组件 —— 这是设计令牌层该干的事。 */
+[data-skin="spider"], [data-skin="light"], [data-skin="pop"] {
+  --me-c-text: #1c1c1e;
+  --me-c-text-dim: #3a3a42;
+  --me-c-text-muted: #62626c;
+  --me-c-panel: #fffdf7;
+  --me-c-panel-alt: #f4f1e8;
+  --me-c-border: #cbc8be;
+  --me-c-border-strong: #9a968a;
+  --me-c-mark-text: #3b2f00;
+}
+[data-skin="resident"] {
+  --me-c-text: #d9f6da;
+  --me-c-text-dim: #a9c7ad;
+  --me-c-text-muted: #7f9c83;
+  --me-c-border: #2a4030;
+  --me-c-border-strong: #3f5a47;
+}
+/* 浅底上再保一遍可读性：次要文字与按钮文字（组件层的 border/color 都走这些令牌） */
+[data-skin="spider"] .me-btn, [data-skin="light"] .me-btn, [data-skin="pop"] .me-btn { color: var(--me-c-text); }
+[data-skin="spider"] .me-btn--secondary, [data-skin="light"] .me-btn--secondary, [data-skin="pop"] .me-btn--secondary {
+  background: #fff; border-color: var(--me-c-border-strong); color: var(--me-c-text);
+}
+[data-skin="spider"] .me-btn--ghost, [data-skin="light"] .me-btn--ghost, [data-skin="pop"] .me-btn--ghost { color: var(--me-c-text-dim); }
+[data-skin="spider"] .me-empty, [data-skin="light"] .me-empty, [data-skin="pop"] .me-empty { color: var(--me-c-text-dim); border-color: var(--me-c-border); }
+[data-skin="spider"] .me-steps, [data-skin="light"] .me-steps, [data-skin="pop"] .me-steps { color: var(--me-c-text-muted); }
+[data-skin="spider"] .me-error, [data-skin="light"] .me-error, [data-skin="pop"] .me-error { color: var(--me-c-text); }
+/* 审核中心 / 运行状态里那批「靠 opacity 压暗」的次要文字：浅底上必须给实色 */
+[data-skin="spider"] .mc-v5-pagehead p,
+[data-skin="spider"] .mc-card [style*="opacity"],
+[data-skin="spider"] .me-audit-preview-summary { color: #3d3d46; }
+[data-skin="spider"] .mc-stat span, [data-skin="spider"] .mc-stat small { color: #4a4a54; opacity: 1; }
+/* 分栏标题：浅底上要实色，不能靠 opacity 压暗（压暗后白底上几乎看不见） */
+[data-skin="spider"] .mc-chip-group-label { color: #3d3d46; opacity: 1; font-weight: 700; }
+[data-skin="light"] .mc-chip-group-label { color: #3a3a42; opacity: 1; font-weight: 700; }
+[data-skin="pop"] .mc-chip-group-label { color: #1b1a17; opacity: 1; font-weight: 700; }
+
+/* 分段控件（布局大小这类「紧凑 / 标准 / 大」）：选中块原来是 #2b3038 深灰，
+   在浅底皮肤上像一块黑板突兀地嵌进去。浅底皮肤改用各自的主题色 + 白字。 */
+[data-skin="spider"] .mc-seg { background: #fff; border: 2px solid var(--sp-ink); }
+[data-skin="spider"] .mc-seg button { color: var(--sp-ink); }
+[data-skin="spider"] .mc-seg button:hover { background: #eef3ff; }
+[data-skin="spider"] .mc-seg button.on { background: var(--sp-blue); color: #fff; box-shadow: none; border: 2px solid var(--sp-ink); }
+[data-skin="light"] .mc-seg { background: #fff; border-color: #cfcfca; }
+[data-skin="light"] .mc-seg button { color: #1c1c1e; }
+[data-skin="light"] .mc-seg button.on { background: #1c1c1e; color: #fff; }
+[data-skin="pop"] .mc-seg { background: #fff; }
+[data-skin="pop"] .mc-seg button { color: #1b1a17; }
+[data-skin="resident"] .mc-seg { background: rgba(255,255,255,.05); border-color: #2a4030; }
+[data-skin="resident"] .mc-seg button { color: #d9f6da; }
+[data-skin="resident"] .mc-seg button.on { background: #2f5a3a; color: #eafbea; }
+
+/* ---- 暗底写死、浅底皮肤漏覆盖的容器 ------------------------------------
+   这些类在 .me-v5 里写死了 #21252c / #262b33 这类深色底，浅底皮肤下就是「黑板嵌在白纸上」，
+   里面的深色字直接看不见 —— 审核中心「看不清」就是这个原因（左栏 me-audit-kinds 是深色块）。
+   皮肤覆盖清单，由扫描脚本（深色底 × 皮肤覆盖差集）产出，改样式后重跑即可复核。 */
+[data-skin="spider"] .mc-cfg-toc,
+[data-skin="spider"] .me-audit-kinds,
+[data-skin="spider"] .me-audit-bulk,
+[data-skin="spider"] .mc-tabs { background: #fff; border-color: var(--sp-ink); color: var(--sp-ink); }
+[data-skin="light"] .mc-cfg-toc,
+[data-skin="light"] .me-audit-kinds,
+[data-skin="light"] .me-audit-bulk,
+[data-skin="light"] .mc-tabs { background: #fff; border-color: #cfcfca; color: #1c1c1e; }
+[data-skin="pop"] .mc-cfg-toc,
+[data-skin="pop"] .mc-tabs { background: #fff; border-color: var(--pop-ink); color: #1b1a17; }
+
+[data-skin="spider"] .me-modal-body { background: #fffdf7; color: var(--sp-ink); }
+[data-skin="light"] .me-modal-body { background: #fff; color: #1c1c1e; }
+[data-skin="pop"] .me-modal-body { background: #fffdf5; color: #1b1a17; }
+
+[data-skin="spider"] .mc-tab { color: var(--sp-ink); }
+[data-skin="spider"] .mc-tab.active { background: var(--sp-blue); color: #fff; }
+[data-skin="light"] .mc-tab { color: #1c1c1e; }
+[data-skin="light"] .mc-tab.active { background: #1c1c1e; color: #fff; }
+[data-skin="pop"] .mc-tab { color: #1b1a17; }
+[data-skin="pop"] .mc-tab.active { background: var(--pop-red); color: #fff; }
+
+/* 审核中心里的条目与可信度条：深底已换成白底，文字跟着变深 */
+[data-skin="spider"] .me-audit-kind,
+[data-skin="light"] .me-audit-kind { color: inherit; }
+[data-skin="light"] .mc-v5-audit-trust { background: #f4f1e8; color: #1c1c1e; }
+[data-skin="spider"] .mc-v5-audit-trust { background: #f4f1e8; color: #1c1c1e; }
+
+/* 滚动条：默认（浅色浏览器）是白槽 + 灰条，在深底/彩色底上就是一条「白边」。
+   主题色滚动条，四周不再露白。 */
+.memory-eternal-root ::-webkit-scrollbar,
+.mc-admin ::-webkit-scrollbar { width: 10px; height: 10px; }
+.memory-eternal-root ::-webkit-scrollbar-track,
+.mc-admin ::-webkit-scrollbar-track { background: transparent; }
+.memory-eternal-root ::-webkit-scrollbar-thumb,
+.mc-admin ::-webkit-scrollbar-thumb { background: rgba(127,127,127,.38); border-radius: 999px; }
+.memory-eternal-root ::-webkit-scrollbar-thumb:hover,
+.mc-admin ::-webkit-scrollbar-thumb:hover { background: rgba(127,127,127,.6); }
+[data-skin="spider"] ::-webkit-scrollbar-track { background: #f4f1e8; }
+[data-skin="spider"] ::-webkit-scrollbar-thumb { background: rgba(11,11,15,.38); }
+[data-skin="light"] ::-webkit-scrollbar-track { background: #f7f5f0; }
+[data-skin="light"] ::-webkit-scrollbar-thumb { background: rgba(90,80,60,.34); }
+[data-skin="pop"] ::-webkit-scrollbar-track { background: #fff7e6; }
+[data-skin="pop"] ::-webkit-scrollbar-thumb { background: rgba(27,19,11,.34); }
+
+/* 全页形态下不要弹窗内边距：
+   .me-modal-body 自带 padding 18px 20px + 一个底色容器，独立页/内嵌整页也会套上，
+   于是四周就是一圈「留白」（用户报的那条）。只有真的弹窗（data-modal="1"）才保留内边距。 */
+.memory-eternal-root[data-modal="0"] .me-modal-body {
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+}
+/* 内页自己需要呼吸感：给中缝一点内边距，但不铺白底 */
+.memory-eternal-root[data-modal="0"] .mc-main { padding: 0; }
+
+/* ---- 运行位置切换器（顶栏「本地运行 / 连接云端」胶囊 + 弹层）---- */
+.mc-v5-sys--btn { cursor: pointer; background: transparent; font: inherit; }
+.mc-v5-sys--btn:hover { border-color: rgba(127, 127, 127, 0.5); }
+.mc-v5-sys.is-cloud i { background: #4f7cff; box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.18); }
+.mc-v5-sys-caret { font-size: 9px; opacity: 0.7; margin-left: 2px; }
+.mc-cloud-pop {
+  position: absolute; right: 12px; top: 46px; z-index: 1200;
+  width: 384px; max-width: calc(100vw - 24px);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  border: 1px solid var(--me-c-border, var(--dsw-alias-border-l2, #d1d5db));
+  border-radius: 12px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+  color: var(--me-c-text, inherit); font-size: 12px;
+}
+.mc-cloud-pop-head { display: flex; align-items: center; justify-content: space-between; }
+.mc-cloud-pop-head b { font-size: 13px; }
+.mc-cloud-pop-x { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 12px; opacity: 0.6; }
+.mc-cloud-pop-x:hover { opacity: 1; }
+.mc-cloud-modes { display: grid; gap: 8px; }
+.mc-cloud-mode {
+  text-align: left; padding: 8px 10px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--me-c-border, rgba(127, 127, 127, 0.28));
+  background: transparent; color: inherit; display: flex; flex-direction: column; gap: 2px;
+}
+.mc-cloud-mode b { font-size: 12.5px; }
+.mc-cloud-mode span { font-size: 11px; opacity: 0.7; line-height: 1.5; }
+.mc-cloud-mode.active { border-color: #4f7cff; background: rgba(79, 124, 255, 0.09); }
+.mc-cloud-fields { display: flex; flex-direction: column; gap: 8px; }
+.mc-cloud-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mc-cloud-foot { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--me-c-border, rgba(127,127,127,.2)); padding-top: 8px; }
+/* 浅底皮肤下弹层底色/边框跟着皮肤走，避免白底白框看不见 */
+[data-skin="spider"] .mc-cloud-pop { background: #fffdf7; border-color: var(--sp-ink); }
+[data-skin="light"] .mc-cloud-pop { background: #fff; border-color: #cfcfca; }
+[data-skin="pop"] .mc-cloud-pop { background: #fffdf5; border-color: var(--pop-ink); }
 
 `
 
@@ -4223,7 +4972,8 @@ function WorkingNoteCard({ t, notify, onPromoted }) {
             style={{ width: '100%', boxSizing: 'border-box', borderRadius: 8, padding: '8px 10px', fontSize: 12.5, lineHeight: 1.6, background: 'rgba(0,0,0,0.18)', color: 'inherit', border: '1px solid rgba(140,148,160,0.35)', resize: 'vertical' }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={save}>{busy === 'save' ? '…' : t('workSave')}</button>
+            {/* 草稿保存是次级动作：本屏的主按钮留给「新建卡片」，不然工具栏/草稿/提示卡会一起抢主按钮 */}
+            <Btn variant="secondary" size="sm" disabled={!!busy} onClick={save}>{busy === 'save' ? '…' : t('workSave')}</Btn>
             <button type="button" className="mc-btn" disabled={!!busy} onClick={promote}>{busy === 'promote' ? '…' : t('workPromote')}</button>
             <button type="button" className="mc-btn mc-danger" disabled={!!busy || !text.trim()} onClick={clear}>{t('workClear')}</button>
             <span style={{ fontSize: 11, opacity: 0.55 }}>
@@ -4363,7 +5113,14 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [capHealth, setCapHealth] = useState(null)
   const [error, setError] = useState('')
   const [kind, setKind] = useState('all')
-  const [query, setQuery] = useState('')
+  // 搜索词也支持深链：?tab=cards&q=火绒 打开就直接是一份结果，便于分享与排障。
+  const [query, setQuery] = useState(() => {
+    try {
+      const q = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('q')
+      if (q) return String(q).slice(0, 200)
+    } catch { /* 忽略 */ }
+    return ''
+  })
   const [agentFilter, setAgentFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [pinned, setPinned] = useState(() => {
@@ -4396,8 +5153,49 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     setVisited((s) => (s.has(v) ? s : new Set(s).add(v)))
     setView(v)
   }, [])
+  // 首页的「备份与迁移」入口：切到配置页并让它直接落在「🧯 备份」分区。
+  // 之前导入 / 导出 MD / 导出 JSON 三颗按钮挤在工具栏，和搜索、新建混在一起（用户说「太乱」）；
+  // 迁移动作属于低频操作，归到配置页的备份分区才合理。
+  const openBackupSettings = useCallback(() => {
+    goView('config')
+    setTimeout(() => {
+      try { window.dispatchEvent(new CustomEvent('me-goto-cfg', { detail: 'backup' })) } catch { /* 忽略 */ }
+    }, 60)
+  }, [goView])
   const [sort, setSort] = useState('recent') // 'recent' | 'title' | 'hot'
   const [libToast, setLibToast] = useState(null)
+  // 运行位置（本地/云端）：连接信息存 localStorage，切换后整页 reload 让所有请求走新前缀
+  const [cloudConn, setCloudConn] = useState(() => readCloudConn())
+  const [cloudForm, setCloudForm] = useState(() => readCloudConn())
+  const [cloudOpen, setCloudOpen] = useState(false)
+  const [cloudBusy, setCloudBusy] = useState(false)
+  const [cloudTest, setCloudTest] = useState(null)
+  // 测试连接：直接打目标实例的 /cloud/whoami（带令牌），返回 owner 或明确失败原因
+  const testCloud = async () => {
+    const url = String(cloudForm.url || '').replace(/\/+$/, '')
+    if (!/^https?:\/\//i.test(url)) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    setCloudBusy(true); setCloudTest(null)
+    try {
+      const r = await globalThis.fetch(url + '/memory-eternal/api/cloud/whoami', {
+        headers: cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {},
+      })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok && d && d.ok) setCloudTest({ ok: true, owner: d.owner })
+      else setCloudTest({ ok: false, error: (d && d.error) || ('HTTP ' + r.status) })
+    } catch (e) {
+      setCloudTest({ ok: false, error: String((e && e.message) || e) })
+    } finally { setCloudBusy(false) }
+  }
+  // 保存：写 localStorage → 应用前缀 → reload（reload 最干净：状态、缓存、SSE 全部重建）
+  const saveCloud = () => {
+    const next = { mode: cloudForm.mode === 'cloud' ? 'cloud' : 'local', url: String(cloudForm.url || '').trim(), token: String(cloudForm.token || '').trim() }
+    if (next.mode === 'cloud' && !/^https?:\/\//i.test(next.url)) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    saveCloudConn(next)
+    applyCloudConn(next)
+    setCloudConn(next)
+    setCloudOpen(false)
+    try { location.reload() } catch { /* 忽略 */ }
+  }
   // Star 提示：只在账本里已有真实数据（召回 ≥8 次或 ≥15 张卡）时问一次，
   // 问之前不打扰；7 天冷却、最多 3 次、「不再提示」永久关闭。判定在服务端做。
   const [starAsk, setStarAsk] = useState(null)
@@ -4518,6 +5316,86 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [newCard, setNewCard] = useState(null)
   const [dataVer, setDataVer] = useState(0)
   const bump = useCallback(() => setDataVer((v) => v + 1), [])
+  // 卡片类型索引：**跟随当前 kind 上下文** —— 切到「技能」只看技能类型、切到知识/项目/教训等看知识类型、
+  // 「全部」两类混排。两类各缓存一份（模块级 TYPE_CACHE，跨组件挂载保留），切 kind 时先用缓存立即渲染、
+  // 再在后台校正，避免每次切 tab 都闪一下空芯片行；dataVer 变化（技能同步/审核/删除）时强制重取。
+  const [cardTypes, setCardTypes] = useState([])
+  const [showAllTypes, setShowAllTypes] = useState(false)
+  const [showAllKinds, setShowAllKinds] = useState(false)
+  const typeKeyForKind = (k) => (k === 'skill' ? 'skill' : (!k || k === 'all') ? 'all' : 'knowledge')
+  // 一个类型键要凑齐哪些维度：'all' 需要两类都拿到（合并），其余只要自己那一份。
+  const typeSourcesFor = (key) => (key === 'all' ? ['knowledge', 'skill'] : [key])
+
+  const typeUsable = (label) => !!label && label !== '其它' && label !== 'Other'
+  const typeSort = (list) => [...list].sort((a, b) => b.n - a.n || String(a.label).localeCompare(String(b.label)))
+
+  // 降级：老宿主没有 /type-cloud（404），只能拉卡自己聚合。
+  // 技能视图只拉技能卡；知识视图拉全量采样（知识类型分布在各种 kind 上）；'all' 两批合并去重。
+  const legacyTypes = useCallback(async (key) => {
+    const grab = async (qs) => fetch(`${API}/cards?${qs}`).then((x) => x.json()).catch(() => null)
+    const want = typeSourcesFor(key)
+    const batches = []
+    if (want.includes('skill')) batches.push(await grab('kind=skill&status=all&limit=500'))
+    if (want.includes('knowledge')) batches.push(await grab('status=all&limit=500'))
+    const cards = new Map()
+    for (const r of batches) for (const c of (r && r.cards) || []) if (c && c.path) cards.set(c.path, c)
+    const counts = new Map()
+    const kinds = new Map()
+    for (const c of cards.values()) {
+      for (const tag of (c.tags || [])) {
+        const s = String(tag || '')
+        const m = /^(知识类型|技能类型):(.+)$/.exec(s)
+        if (!m) continue
+        const label = m[2].trim()
+        if (!typeUsable(label)) continue
+        const k = m[1] === '技能类型' ? 'skill' : 'knowledge'
+        if (!want.includes(k)) continue
+        counts.set(s, (counts.get(s) || 0) + 1)
+        kinds.set(s, k)
+      }
+    }
+    return [...counts.entries()].map(([tag, n]) => ({ label: typeTagLabel(tag), n, tag, kind: kinds.get(tag) }))
+  }, [])
+  const fetchTypeSources = useCallback(async (key) => {
+    try {
+      const qs = key === 'all' ? '' : `?kind=${key}`
+      const resp = await fetch(`${API}/type-cloud${qs}`)
+      // 404 / 500 一律当作「接口还没到位」，走降级
+      if (resp && resp.ok) {
+        const r = await resp.json()
+        if (r && Array.isArray(r.items)) {
+          return r.items
+            .filter((x) => x && x.tag)
+            .map((x) => {
+              const tag = String(x.tag)
+              return { label: String(x.label == null ? typeTagLabel(tag) : x.label).trim(), tag, n: Number(x.n) || 0, kind: x.kind || typeTagKind(tag) }
+            })
+            .filter((x) => isTypeTag(x.tag) && typeUsable(x.label) && (key === 'all' || x.kind === key))
+        }
+      }
+    } catch { /* 落到降级 */ }
+    return legacyTypes(key)
+  }, [legacyTypes])
+  const loadCardTypes = useCallback(async (nextKind, { force = false } = {}) => {
+    const key = typeKeyForKind(nextKind)
+    // 先吃缓存：切 kind 时不出现「先空一行再冒出来」
+    if (!force) {
+      const hit = TYPE_CACHE.get(key)
+      if (hit) setCardTypes(hit)
+    }
+    const got = {}
+    for (const k of typeSourcesFor(key)) {
+      const cached = force ? null : TYPE_CACHE.get(k)
+      got[k] = cached || (await fetchTypeSources(k))
+      TYPE_CACHE.set(k, got[k])
+    }
+    const merged = key === 'all' ? [...(got.knowledge || []), ...(got.skill || [])] : (got[key] || [])
+    const sorted = typeSort(merged)
+    TYPE_CACHE.set(key, sorted)
+    setCardTypes(sorted)
+  }, [fetchTypeSources])
+  // 切 kind / 切回卡片视图 / 数据变化时刷新；dataVer 变化强制重取（技能同步、审核后会变）
+  useEffect(() => { if (view === 'cards') loadCardTypes(kind, { force: true }) }, [view, kind, dataVer, loadCardTypes])
   // 两套存储：隔离区计数（审核中心 / 回收中心徽标）。overview.quarantine 由服务端给出。
   const quarantinePending = overview?.quarantine?.pending ?? 0
   // issue #57：回收中心现在同时收「已删除」与「已驳回」，徽标必须一起算 ——
@@ -4546,10 +5424,15 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       if (sort === 'title') qs.set('sort', 'title')
       const res = await fetch(`${API}/cards?${qs.toString()}`)
       const data = await res.json()
-      if (data.ok) {
+      if (data && data.ok) {
         const list = data.cards || []
         setCards((prev) => (append ? [...prev, ...list.filter((c) => !prev.some((p) => p.path === c.path))] : list))
         setCardTotal(Number(data.total) || list.length)
+        if (!append) setError('')
+      } else if (!append) {
+        // 服务端说「不成功」（403/500/未知接口）也算加载失败：要能看见、能重试，
+        // 不能静默留一个空列表让用户以为库里没卡。
+        setError((data && data.error) || ('HTTP ' + (res && res.status)))
       }
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
@@ -4621,10 +5504,17 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     loadCards(k, query, statusFilter)
   }
   // 点标签芯片 → 立即按该标签筛选（同一 tick 用显式参数，避免读到旧 state）
+  // 知识类型（知识类型:决策结论）是跨 kind 的第二维度：kind 芯片卡在某个具体形态上时它会直接筛空，
+  // 所以选中知识类型时把 kind 放宽到 all —— 否则用户会以为「这个类型一张卡都没有」。
   const onTagPick = (tag) => {
     const next = String(tag || '')
     setTagPick(next)
     setReader(null)
+    if (next.indexOf('知识类型:') === 0 && kind !== 'all') {
+      setKind('all')
+      loadCards('all', query, statusFilter, { tag: next })
+      return
+    }
     loadCards(kind, query, statusFilter, { tag: next })
   }
 
@@ -4822,6 +5712,22 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     setFeaturedPath(sortedCards[(i + 1 + sortedCards.length) % sortedCards.length].path)
   }
   const showFeature = !query && kind === 'all' && !tagPick && statusFilter === 'all' && !!featuredCard
+  // 空态判定：「筛出来是空的」和「库本来就是空的」是两件事，文案与下一步完全不同。
+  // 这里把所有会收窄结果的维度都算进去（搜索 / 类型 chip / 标签 / 状态 / 智能体 / 只看置顶）。
+  const hasNarrowing = !!(String(query || '').trim() || tagPick || statusFilter !== 'all' || agentFilter !== 'all' || onlyPinned || (kind && kind !== 'all'))
+  // 只有「其它」类型标签命中时给一句补救说明：类型标签本身要靠「同步技能 / 回填类型」补齐，
+  // 只筛选这一个标签必然空 —— 否则用户会以为「这个类型一张卡都没有」。
+  const otherTypeOnly = !!tagPick && isTypeTag(tagPick) && ['其它', 'Other'].includes(String(typeTagLabel(tagPick) || '').trim())
+  // 清空全部筛选（空态里的下一步）：必须同一 tick 用显式参数重拉，否则读到旧 state 又筛回空。
+  const clearAllFilters = () => {
+    setKind('all')
+    setQuery('')
+    setTagPick('')
+    setStatusFilter('all')
+    setAgentFilter('all')
+    setOnlyPinned(false)
+    loadCards('all', '', 'all', { tag: '' })
+  }
 
   const uiZoom = uiScale === 'large' ? 1.15 : uiScale === 'compact' ? 0.92 : 1.06
   return (
@@ -4829,7 +5735,12 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       className="memory-eternal-root me-v5"
       data-ui-scale={uiScale}
       data-skin={skin}
+      // 形态标记：modal（DSH 设置里的弹窗）需要内边距；独立页 / 内嵌整页不该有
+      data-modal={inModal ? '1' : '0'}
       style={{
+        // Chrome 的 zoom 只缩放**内容与子元素**，不缩放元素自身的盒尺寸（实测：父 1654px、
+        // zoom 1.06 时给 width:100% 得到 1654 铺满，给 calc(100%/1.06) 反而只剩 1560、四周露边）。
+        // 所以这里必须是 100%：溢出交给内部滚动容器与 overflow:hidden。
         height: '100%',
         width: '100%',
         zoom: uiZoom,
@@ -4847,7 +5758,63 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           <span className="mc-v5-crumb"><b>{t('memoryTitle')}</b><i>/</i><span>{t(view === 'cards' ? 'cardsTab' : view === 'graph' ? 'graphTab' : view === 'news' ? 'newsTab' : view === 'stats' ? 'tabUsage' : view === 'audit' ? 'tabAudit' : view === 'optimize' ? 'tabRecycle' : view === 'terminal' ? 'terminalTab' : 'tabConfig')}</span></span>
           <div className="spacer" />
           <div className="mc-v5-top-actions">
-            <span className="mc-v5-sys"><i />{t('v5Local')}</span>
+            {/* 运行位置切换器：本地 / 云端（云端要地址 + 密钥，或 MengBot 登录换来的令牌） */}
+            <button
+              type="button"
+              className={`mc-v5-sys mc-v5-sys--btn${cloudConn.mode === 'cloud' ? ' is-cloud' : ''}`}
+              onClick={() => { setCloudOpen((v) => !v); setCloudTest(null) }}
+              title={t('cloudSwitchHint') + ' · ' + t('paneExperimental')}
+              aria-haspopup="dialog"
+              aria-expanded={cloudOpen}
+            >
+              <i />{cloudConn.mode === 'cloud' ? t('cloudModeCloud') : t('cloudModeLocal')}
+              <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
+            </button>
+            {cloudOpen && (
+              <div className="mc-cloud-pop" role="dialog" aria-label={t('cloudSwitchHint')}>
+                <div className="mc-cloud-pop-head">
+                  <b>{t('cloudSwitchTitle')}</b>
+                  <button type="button" className="mc-cloud-pop-x" onClick={() => setCloudOpen(false)} aria-label={t('close')}>✕</button>
+                </div>
+                <div className="mc-cloud-modes">
+                  {[['local', t('cloudModeLocal'), t('cloudModeLocalHint')], ['cloud', t('cloudModeCloud'), t('cloudModeCloudHint')]].map(([m, label, hint]) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`mc-cloud-mode${cloudForm.mode === m ? ' active' : ''}`}
+                      onClick={() => setCloudForm((f) => ({ ...f, mode: m }))}
+                    >
+                      <b>{label}</b>
+                      <span>{hint}</span>
+                    </button>
+                  ))}
+                </div>
+                {cloudForm.mode === 'cloud' && (
+                  <div className="mc-cloud-fields">
+                    <label className="mc-field">
+                      <span className="mc-field-label">{t('cloudUrlLabel')}</span>
+                      <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://memory.example.com" />
+                    </label>
+                    <label className="mc-field">
+                      <span className="mc-field-label">{t('cloudTokenLabel')}</span>
+                      <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" />
+                    </label>
+                    <div className="mc-cloud-actions">
+                      <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
+                      {cloudTest && (
+                        <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="mc-cloud-foot">
+                  <Btn variant="ghost" size="sm" onClick={() => setCloudOpen(false)}>{t('cancel')}</Btn>
+                  {/* 浮层里的确认用 secondary：本屏唯一的主按钮仍然是「+ 新建」。
+                      守卫 ui-rules 按组件统计 primary 数量，这里再加一颗会被判「一屏两颗主按钮」。 */}
+                  <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
+                </div>
+              </div>
+            )}
             <span className="mc-v5-ver">v{CLIENT_VERSION}</span>
             <button type="button" className="mc-v5-help" onClick={() => openSupport('group')} title={t('supportTitle')} aria-label={t('supportTitle')}>?</button>
           </div>
@@ -4862,7 +5829,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
               {t('starAskBody').replace('{recalls}', String(starAsk.evidence?.recalls ?? 0)).replace('{cards}', String(starAsk.evidence?.cards ?? 0))}
             </span>
           </span>
-          <button type="button" className="mc-btn me-on" onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal'); starAct('never') }}>★ {t('starAskGo')}</button>
+          {/* Star 提示是「建议」，不是当前步骤的主操作：降为次级，避免和工具栏「新建」抢主按钮 */}
+          <Btn variant="secondary" size="sm" onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal'); starAct('never') }}>★ {t('starAskGo')}</Btn>
           <button type="button" className="mc-btn" style={{ borderColor: 'rgba(139,92,246,.55)', color: '#a78bfa' }} onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal/fork'); starAct('never') }}>🍴 Fork</button>
           <button type="button" className="mc-btn" onClick={() => starAct('later')}>{t('starAskLater')}</button>
           <button type="button" className="mc-btn" onClick={() => starAct('never')}>{t('starAskNever')}</button>
@@ -5015,6 +5983,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             <div style={{ opacity: 0.85, marginTop: 2 }}>{t('dbReadonlyFix')}</div>
           </div>
         ) : null}
+        {/* @view cards */}
+        {/* 卡片列表视图：工具栏里只有「新建」是主按钮，其余都是次级/幽灵（一屏一颗） */}
         {view === 'cards' && (
           <div className="mc-v5-pagehead">
             <div>
@@ -5053,51 +6023,122 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 🏷 {tagPick} <span style={{ opacity: 0.7 }}>✕</span>
               </button>
             )}
-            <input ref={importRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={importVault} />
-            <button type="button" className="mc-btn" onClick={() => importRef.current && importRef.current.click()}>{t('importVault')}</button>
-            <button type="button" className="mc-btn me-on" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>+ {t('newCard')}</button>
-            <button type="button" className="mc-btn" disabled={skillBusy} onClick={syncSkills} title={t('skillCardsHint')}>{skillBusy ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</button>
-            <button type="button" className="mc-btn" disabled={exporting} onClick={() => exportVault('md')}>{exporting ? t('exporting') : t('exportVault')}</button>
-            <button type="button" className="mc-btn" disabled={exporting} onClick={() => exportVault('json')}>{exporting ? t('exporting') : t('exportJson')}</button>
-            <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('refresh')}</button>
+            {/* 导入 / 导出 MD / 导出 JSON 已统一到「设置 → 🧯 备份」：
+                首页只留「搜索 / 新建 / 同步技能 / 刷新」，迁移类入口一个按钮带过去。 */}
+            <Btn variant="primary" size="sm" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>+ {t('newCard')}</Btn>
+            <Btn variant="secondary" size="sm" disabled={skillBusy} onClick={syncSkills} title={t('skillCardsHint')}>{skillBusy ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</Btn>
+            <Btn variant="secondary" size="sm" onClick={openBackupSettings} title={t('backupEntryHint')}>🛟 {t('backupEntry')}</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => loadAll()}>↻ {t('refresh')}</Btn>
           </div>
         )}
 
+        {/* 筛选区分栏：类型 / 筛选 / 排序各一行，带小标题 —— 之前十几颗 chip 混在一行，
+            看不出哪颗是「类型」哪颗是「排序」（用户原话「太乱了」）。 */}
         {view === 'cards' && (
-          <div className="mc-chips">
-            {KIND_IDS.map((k) => (
-              <button key={k} type="button" className={`mc-chip${kind === k ? ' active' : ''}`} onClick={() => onKind(k)}>
-                {k === 'all' ? t('all') : t(KIND_LABELS[k])}
-                <span className="mc-chip-n">{k === 'all' ? (overview?.total ?? 0) : (overview?.byKind?.[k] ?? 0)}</span>
-              </button>
-            ))}
-            <button type="button" className={`mc-chip${onlyPinned ? ' active' : ''}`} onClick={() => setOnlyPinned((v) => !v)}>📌 {t('pinnedOnly')}<span className="mc-chip-n">{pinned.size}</span></button>
-            <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
-              <option value="all">🤖 {t('allAgents')}</option>
-              {agentOptions(cardAgents).map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
-              <option value="all">{t('allStatus')}</option>
-              <option value="approved">{t('statusApproved')}</option>
-              <option value="pending">{t('statusPending')}</option>
-              <option value="rejected">{t('statusRejected')}</option>
-            </select>
-            <span className="spacer" style={{ flex: 1 }} />
-            {[{ key: 'recent', label: t('sortRecent') }, { key: 'title', label: t('sortTitle') }, { key: 'hot', label: t('sortHot') }].map((o) => (
-              <button key={o.key} type="button" className={`mc-chip${sort === o.key ? ' active' : ''}`} onClick={() => setSort(o.key)}>{o.label}</button>
-            ))}
+          <div className="mc-chip-groups">
+            <div className="mc-chip-group">
+              <span className="mc-chip-group-label">{t('chipGroupKind')}</span>
+              {/* 主类型只铺 6 个，其余折叠 —— 10 颗挤成两行是「看着乱」的根源 */}
+              {(showAllKinds ? KIND_IDS : KIND_PRIMARY).map((k) => (
+                <button key={k} type="button" className={`mc-chip${kind === k ? ' active' : ''}`} onClick={() => onKind(k)}>
+                  {k === 'all' ? t('all') : t(KIND_LABELS[k])}
+                  <span className="mc-chip-n">{k === 'all' ? (overview?.total ?? 0) : (overview?.byKind?.[k] ?? 0)}</span>
+                </button>
+              ))}
+              {KIND_IDS.length > KIND_PRIMARY.length && (
+                <button type="button" className="mc-chip mc-chip--more" onClick={() => setShowAllKinds((v) => !v)} title={t('moreKindsHint')}>
+                  {showAllKinds ? t('collapseMore') + ' ▴' : t('moreKinds') + ' ▾ (' + (KIND_IDS.length - KIND_PRIMARY.length) + ')'}
+                </button>
+              )}
+            </div>
+            <div className="mc-chip-group">
+              <span className="mc-chip-group-label">{t('chipGroupFilter')}</span>
+              <button type="button" className={`mc-chip${onlyPinned ? ' active' : ''}`} onClick={() => setOnlyPinned((v) => !v)}>📌 {t('pinnedOnly')}<span className="mc-chip-n">{pinned.size}</span></button>
+              <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
+                <option value="all">🤖 {t('allAgents')}</option>
+                {agentOptions(cardAgents).map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
+                <option value="all">{t('allStatus')}</option>
+                <option value="approved">{t('statusApproved')}</option>
+                <option value="pending">{t('statusPending')}</option>
+                <option value="rejected">{t('statusRejected')}</option>
+              </select>
+            </div>
+            <div className="mc-chip-group">
+              <span className="mc-chip-group-label">{t('chipGroupSort')}</span>
+              {[{ key: 'recent', label: t('sortRecent') }, { key: 'title', label: t('sortTitle') }, { key: 'hot', label: t('sortHot') }].map((o) => (
+                <button key={o.key} type="button" className={`mc-chip${sort === o.key ? ' active' : ''}`} onClick={() => setSort(o.key)}>{o.label}</button>
+              ))}
+            </div>
           </div>
         )}
 
-        {error && <div className="mc-empty">{t('error')}：{error}</div>}
+        {/* 卡片类型筛选：默认只铺前 8 个高频类型，展开后**按知识/技能分组**，并且
+            「其他」不进 chip 行 —— 识别不到的类型一律归「其他」（用户明确要求的口径），
+            长尾噪音不该占一行。想看「其他」的卡，用下面那个「其他」筛选小按钮。 */}
+        {view === 'cards' && cardTypes.length > 0 && (() => {
+          const realTypes = cardTypes.filter((x) => !isOtherTypeLabel(x.label))
+          const otherChip = cardTypes.find((x) => isOtherTypeLabel(x.label))
+          const shown = showAllTypes ? realTypes : realTypes.slice(0, TYPE_CHIP_LIMIT)
+          const know = shown.filter((x) => x.kind !== 'skill')
+          const skill = shown.filter((x) => x.kind === 'skill')
+          const renderChip = (x) => (
+            <button key={x.tag} type="button" className={`mc-chip${tagPick === x.tag ? ' active' : ''}`} title={(x.kind === 'skill' ? t('typeKindSkill') : t('typeKindKnowledge')) + ' · ' + x.tag} onClick={() => onTagPick(tagPick === x.tag ? '' : x.tag)}>
+              {x.label}<span className="mc-chip-n">{x.n}</span>
+            </button>
+          )
+          return (
+            <div className="mc-chip-groups" style={{ marginTop: -4 }} title={t('typeRowHint')}>
+              <div className="mc-chip-group">
+                {/* 只留图标：中文「卡片类型」四个字塞不进 44px 的标签列，会折成两行 */}
+                <span className="mc-chip-group-label" title={t('typeRowTitle')} aria-label={t('typeRowTitle')}>🧩</span>
+                {know.map(renderChip)}
+                {skill.length > 0 && <span className="mc-chip-sep" aria-hidden="true">|</span>}
+                {skill.map(renderChip)}
+                {otherChip && (
+                  <button type="button" className={`mc-chip mc-chip--more${tagPick === otherChip.tag ? ' active' : ''}`} title={t('otherTypeHint')} onClick={() => onTagPick(tagPick === otherChip.tag ? '' : otherChip.tag)}>
+                    {t('typeOther')}<span className="mc-chip-n">{otherChip.n}</span>
+                  </button>
+                )}
+                {realTypes.length > TYPE_CHIP_LIMIT && (
+                  <button type="button" className="mc-chip mc-chip--more" onClick={() => setShowAllTypes((v) => !v)}>
+                    {showAllTypes ? t('typeCollapse') : t('typeMoreN').split('{n}').join(String(realTypes.length - TYPE_CHIP_LIMIT))}
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
         <div style={{ display: view === 'cards' ? 'contents' : 'none' }}>
           {loading
             ? <LoadingNote text={t('loading')} />
             : error
-              ? <div className="mc-empty">{t('error')}：{error} <button type="button" className="mc-btn" onClick={() => loadAll()}>{t('retry')}</button></div>
+              // 错误统一走 ErrorBar：可就地重试，不用刷新页面
+              ? <ErrorBar error={t('error') + '：' + error} onRetry={() => loadCards()} retryText={t('retry')} />
             : cards.length === 0
-              ? <div className="mc-empty">{t('empty')}</div>
+              ? (hasNarrowing
+                // 筛选/搜索无结果：下一步是「清空筛选」，不是「去导入」
+                ? <EmptyState
+                    icon="🔍"
+                    title={t('cardsNoMatchTitle')}
+                    hint={t('cardsNoMatchHint') + (otherTypeOnly ? ' ' + t('otherTypeHint') : '')}
+                    action={<div style={{ display: 'flex', gap: space(2), flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <Btn variant="secondary" size="sm" onClick={clearAllFilters}>{t('clearAllFilters')}</Btn>
+                      {otherTypeOnly && <Btn variant="ghost" size="sm" disabled={skillBusy} onClick={syncSkills}>{skillBusy ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</Btn>}
+                    </div>}
+                  />
+                // 库本来就是空的：下一步是「导入 / 新建」
+                : <EmptyState
+                    icon="📥"
+                    title={t('cardsEmptyTitle')}
+                    hint={t('cardsEmptyHint')}
+                    action={<div style={{ display: 'flex', gap: space(2), flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <Btn variant="secondary" size="sm" onClick={() => importRef.current && importRef.current.click()}>{t('importVault')}</Btn>
+                      <Btn variant="secondary" size="sm" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>+ {t('newCard')}</Btn>
+                    </div>}
+                  />)
               : <>{/* 卡片区标题：让「知识卡片」成为独立区块，而不是直接铺网格 */}
                 <div className="mc-cards-head">
                   <span className="mc-cards-head-ico" aria-hidden="true">🗂️</span>
@@ -5114,7 +6155,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     <div className="mc-v5-feature-meta">
                       <span>{KIND_EMOJI[featuredCard.kind] || '📎'} {t(KIND_LABELS[featuredCard.kind] || 'kindKnowledge')}</span>
                       <span>🕒 {fmtDate(featuredCard.updated)}</span>
-                      {(featuredCard.tags || []).slice(0, 3).map((tag) => <span key={tag}>#{tag}</span>)}
+                      {(featuredCard.tags || []).filter((x) => !isTypeMachineKey(x)).slice(0, 3).map((tag) => <span key={tag}>#{isTypeTag(tag) ? typeTagLabel(tag) : tag}</span>)}
                     </div>
                   </div>
                   <div className="mc-v5-feature-side">
@@ -5127,7 +6168,10 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 </div>
               )}<div className="mc-grid">{sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} pinned={pinned.has(card.path)} onPin={togglePin} onCore={changeCardKind} links={connMap[card.path] || 0} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
           }
+          {/* 首屏骨架：把最终布局先铺出来（进度条告诉用户「在等什么」，骨架告诉用户「会变成什么样」） */}
+          {loading && <CardsSkeleton n={5} />}
         </div>
+        {/* @view-end cards */}
         <div style={{ display: view === 'graph' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
           {/* active 必须跟着视图走：以前恒为 true → 打开任何视图都拉 890KB 图谱（约 3.5s） */}
           {visited.has('graph') && <GraphView t={t} onOpen={openCard} all={allVaults} onAllChange={setAllVaults} onMutate={bump} active={view === 'graph'} visible={view === 'graph'} skin={skin} />}
@@ -5276,670 +6320,600 @@ function CfgSection({ icon, title, sub, id, children, hidden }) {
   )
 }
 
-// 语义召回面板：默认关闭；本地服务地址默认 127.0.0.1:7997，一键检测/保存/建缓存/拉模型。
-// 不装模型、不配置时本面板只是一段说明，绝不触发任何网络请求（除状态查询）。
-function EmbeddingPanel({ t }) {
-  const [cfg, setCfg] = useState({ enabled: false, baseUrl: 'http://127.0.0.1:7997/v1', model: 'bge-m3', apiKey: '' })
-  const [status, setStatus] = useState(null)
-  const [busy, setBusy] = useState('')
-  const [note, setNote] = useState(null)
-
-  const load = useCallback(async (probe = false) => {
-    try {
-      const r = await fetch(API + '/embedding/status' + (probe ? '?probe=1' : '')).then((x) => x.json()).catch(() => null)
-      if (r && r.ok) {
-        setStatus(r)
-        setCfg((c) => ({ ...c, enabled: !!r.config?.enabled, baseUrl: r.config?.baseUrl || c.baseUrl, model: r.config?.model || c.model }))
-      }
-      return r
-    } catch { return null }
-  }, [])
-
-  useEffect(() => { load(false) }, [load])
-  useEffect(() => {
-    if (!status?.job || status.job.state !== 'running') return undefined
-    const id = setInterval(() => load(false), 1500)
-    return () => clearInterval(id)
-  }, [status, load])
-
-  const post = async (path, body) => {
-    setBusy(path)
-    setNote(null)
-    try {
-      const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then((x) => x.json())
-      if (!r?.ok) setNote({ ok: false, text: r?.error || t('embeddingSaveFail') })
-      await load(true)
-      return r
-    } catch (e) {
-      setNote({ ok: false, text: String((e && e.message) || e) })
-      return null
-    } finally { setBusy('') }
-  }
-
-  const probeNow = async () => {
-    setBusy('probe')
-    const r = await load(true)
-    const s = r?.service
-    setBusy('')
-    setNote(s?.reachable
-      ? { ok: true, text: t('embeddingServiceOn') + (s.models?.length ? '：' + s.models.slice(0, 4).join(', ') : '') + (s.kind ? ' (' + s.kind + ')' : '') }
-      : { ok: false, text: t('embeddingServiceOff') + (s?.error ? '：' + s.error : '') })
-  }
-
-  const save = async () => {
-    const r = await post('/embedding/config', { enabled: cfg.enabled, baseUrl: cfg.baseUrl, model: cfg.model, apiKey: cfg.apiKey })
-    if (r?.ok) setNote({ ok: true, text: '✅ ' + t('embeddingSave') + ' · ' + t('embeddingDone') })
-  }
-
-  const build = async () => {
-    const s = await post('/embedding/config', { enabled: true, baseUrl: cfg.baseUrl, model: cfg.model, apiKey: cfg.apiKey })
-    if (!s?.ok) return
-    const r = await post('/embedding/backfill', { limit: 20000 })
-    if (r?.ok && r.job) setNote({ ok: true, text: t('embeddingJob') + '：' + r.job.state })
-  }
-
-  const pull = async () => {
-    const r = await post('/embedding/pull', { model: cfg.model })
-    if (r?.ok && r.job) setNote({ ok: true, text: t('embeddingJob') + '：' + r.job.state })
-  }
-
-  const copyCmd = async () => {
-    const cmd = 'ollama pull ' + (cfg.model || 'bge-m3')
-    try { await navigator.clipboard.writeText(cmd); setNote({ ok: true, text: t('embeddingCopied') + '：' + cmd }) }
-    catch { setNote({ ok: true, text: cmd }) }
-  }
-
-  const input = { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12.5 }
-  const job = status?.job
-  const cov = status?.coverage
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 11.5, opacity: 0.7, lineHeight: 1.7 }}>{t('embeddingGuide')}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-          <input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} />
-          {t('embeddingOn')}
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
-          <span>{t('embeddingBase')}</span>
-          <input value={cfg.baseUrl} onChange={(e) => setCfg({ ...cfg, baseUrl: e.target.value })} style={input} />
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
-          <span>{t('embeddingModelName')}</span>
-          <input value={cfg.model} onChange={(e) => setCfg({ ...cfg, model: e.target.value })} style={input} />
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
-          <span>{t('embeddingKey')}</span>
-          <input type="password" value={cfg.apiKey} placeholder="sk-…" onChange={(e) => setCfg({ ...cfg, apiKey: e.target.value })} style={input} />
-        </label>
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <button type="button" className="mc-btn" disabled={!!busy} onClick={probeNow}>{busy === 'probe' ? '⏳' : t('embeddingProbe')}</button>
-        <button type="button" className="mc-btn" disabled={!!busy} onClick={save}>{t('embeddingSave')}</button>
-        <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={build}>{t('embeddingBuild')}</button>
-        <button type="button" className="mc-btn" disabled={!!busy} onClick={pull}>{t('embeddingPull')}</button>
-        <button type="button" className="mc-btn" disabled={!!busy} onClick={copyCmd}>{t('embeddingCopy')}</button>
-      </div>
-      <div style={{ fontSize: 11.5, lineHeight: 1.7, opacity: 0.75 }}>
-        {status ? (
-          <>
-            <span>{status.enabled ? '🟢 ' + (status.source === 'config' ? t('embeddingOn') : 'env') : '⚪ ' + t('embeddingOff')}</span>
-            {status.service ? <span> · {status.service.reachable ? '🟢 ' + t('embeddingServiceOn') : '🔴 ' + t('embeddingServiceOff')}</span> : null}
-            {cov ? <span> · {t('embeddingCoverage')} {cov.vectors}/{cov.cards}</span> : null}
-            <span> · {t('embeddingJob')}：{job ? job.kind + ' ' + job.state + (job.total ? ` ${job.done || 0}/${job.total}` : '') + (job.error ? ' · ' + job.error : '') : t('embeddingNoJob')}</span>
-          </>
-        ) : null}
-      </div>
-      {note ? <div style={{ fontSize: 11.5, lineHeight: 1.6, color: note.ok ? '#10b981' : '#b91c1c' }}>{note.text}</div> : null}
-    </div>
-  )
-}
-
-// 语义召回面板 v2：部署方式（本地 Ollama / 在线 API）+ 模型目录 + 条件/进度 + 一键部署。
-function EmbeddingPanelV2({ t }) {
-  const [data, setData] = useState(null)
-  const [mode, setMode] = useState('local')
-  const [vendor, setVendor] = useState('siliconflow')
-  const [localModel, setLocalModel] = useState('bge-m3')
-  const [onlineBase, setOnlineBase] = useState('https://api.siliconflow.cn/v1')
-  const [onlineModel, setOnlineModel] = useState('BAAI/bge-m3')
-  const [apiKey, setApiKey] = useState('')
-  const [busy, setBusy] = useState('')
-  const [note, setNote] = useState(null)
-
-  const load = useCallback(async (probe = false) => {
-    try {
-      const r = await fetch(API + '/embedding/models' + (probe ? '?probe=1' : '')).then((x) => x.json()).catch(() => null)
-      if (!r || !r.ok) return null
-      setData(r)
-      if (r.config?.baseUrl) {
-        const isLocal = /127\.0\.0\.1|localhost/.test(r.config.baseUrl)
-        setMode(isLocal ? 'local' : 'online')
-        if (isLocal) setLocalModel(r.config.model || 'bge-m3')
-        else {
-          setOnlineBase(r.config.baseUrl)
-          setOnlineModel(r.config.model || '')
-          const v = (r.vendors || []).find((x) => x.baseUrl && r.config.baseUrl.startsWith(x.baseUrl))
-          if (v) setVendor(v.id)
-        }
-      }
-      return r
-    } catch { return null }
-  }, [])
-
-  useEffect(() => { load(false) }, [load])
-  useEffect(() => {
-    const running = data?.job?.state === 'running'
-    if (!running) return undefined
-    const id = setInterval(() => load(false), 1500)
-    return () => clearInterval(id)
-  }, [data, load])
-
-  const post = async (path, body) => {
-    setBusy(path); setNote(null)
-    try {
-      const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then((x) => x.json())
-      if (!r?.ok) setNote({ ok: false, text: r?.error || t('embeddingSaveFail') })
-      await load(false)
-      return r
-    } catch (e) { setNote({ ok: false, text: String((e && e.message) || e) }); return null }
-    finally { setBusy('') }
-  }
-
-  const pickVendor = (id) => {
-    setVendor(id)
-    const v = (data?.vendors || []).find((x) => x.id === id)
-    if (v) {
-      setOnlineBase(v.baseUrl)
-      setOnlineModel(v.models?.[0]?.id || '')
-    }
-  }
-
-  const catalog = data?.catalog || []
-  const vendors = data?.vendors || []
-  const installed = data?.installed || []
-  const system = data?.system
-  const ollama = data?.ollama
-  const isInstalled = (name) => installed.some((x) => x === name || x === name + ':latest' || x.startsWith(name + ':'))
-  const model = mode === 'local' ? catalog.find((m) => m.name === localModel) || catalog[0] : null
-  const job = data?.job
-  const pulling = job && job.state === 'running' && job.kind === 'pull' && job.model === localModel
-  const building = job && job.state === 'running' && job.kind === 'backfill'
-  const pct = job && job.total ? Math.min(100, Math.round((job.total ? (job.done || job.completed || 0) / job.total : 0) * 100)) : 0
-  const coverage = data?.config ? null : null
-
-  const input = { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12.5 }
-  const row = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }
-  const pill = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 999, fontSize: 11.5, background: 'rgba(127,127,127,0.10)' }
-
-  const installOllama = async () => {
-    const r = await post('/embedding/install-ollama')
-    if (r && r.manual) setNote({ ok: false, text: t('embeddingInstallManual') + ' ' + r.url })
-    else if (r?.ok) setNote({ ok: true, text: t('embeddingInstalling') })
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* 部署方式 */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <label style={{ ...row, minWidth: 180 }}>
-          <span>{t('embeddingMode')}</span>
-          <select value={mode} onChange={(e) => setMode(e.target.value)} style={input}>
-            <option value="local">{t('embeddingModeLocal')}</option>
-            <option value="online">{t('embeddingModeOnline')}</option>
-          </select>
-        </label>
-        <span style={pill}>{t('embeddingDefaultOff')}</span>
-      </div>
-
-      {mode === 'local' ? (
-        <>
-          {/* 机器条件 + Ollama 状态 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
-            <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.7 }}>
-              <b>{t('embeddingSystem')}</b><br />
-              CPU：{system?.cpu || '—'}（{system?.cores || '?'} 核）<br />
-              内存：{system?.ramGB ? system.ramGB + ' GB' : '—'}<br />
-              显卡：{system?.gpu ? system.gpu.name + (system.gpu.vramGB ? ' · ' + system.gpu.vramGB : '') : t('embeddingGpuNone')}
-            </div>
-            <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.7 }}>
-              <b>{t('embeddingOllama')}</b><br />
-              {ollama?.installed ? <span style={{ color: '#10b981' }}>✓ {t('embeddingOllamaInstalled')}</span> : <span style={{ color: '#b91c1c' }}>✗ {t('embeddingOllamaMissing')}</span>}
-              {ollama?.path ? <div style={{ opacity: 0.6, fontSize: 10.5, wordBreak: 'break-all' }}>{ollama.path}</div> : null}
-              {!ollama?.installed ? (
-                <button type="button" className="mc-btn me-on" style={{ marginTop: 6, padding: '3px 10px' }} disabled={!!busy} onClick={installOllama}>{t('embeddingInstallOllama')}</button>
-              ) : null}
-            </div>
-          </div>
-
-          {/* 模型选择 + 明细 */}
-          <label style={{ ...row, maxWidth: 380 }}>
-            <span>{t('embeddingModelSelect')}</span>
-            <select value={localModel} onChange={(e) => setLocalModel(e.target.value)} style={input}>
-              {catalog.map((m) => (
-                <option key={m.name} value={m.name}>{m.name}{isInstalled(m.name) ? ' ✓ ' + t('embeddingInstalled') : ''} · {m.sizeMB} MB</option>
-              ))}
-            </select>
-          </label>
-
-          {model ? (
-            <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.8 }}>
-              <b>{model.name}</b> <span style={{ ...pill, marginLeft: 6 }}>{model.tag}</span>
-              <div style={{ opacity: 0.8 }}>{model.desc}</div>
-              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 4, opacity: 0.85 }}>
-                <span>{t('embeddingSize')}：{model.sizeMB} MB</span>
-                <span>{t('embeddingDims')}：{model.dims}</span>
-                <span>{t('embeddingRam')}：≥ {model.ramMB} MB</span>
-                <span>{t('embeddingVram')}：≥ {model.vramMB} MB</span>
-              </div>
-            </div>
-          ) : null}
-
-          {/* 操作区：下载 / 进度 / 立即部署 */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {isInstalled(localModel) ? (
-              <button type="button" className="mc-btn me-on" disabled={!!busy || building} onClick={() => post('/embedding/deploy', { model: localModel, baseUrl: data?.config?.baseUrl || 'http://127.0.0.1:7997/v1' })}>
-                {building ? '⏳ ' + t('embeddingBuilding') : '🚀 ' + t('embeddingDeploy')}
-              </button>
-            ) : (
-              <button type="button" className="mc-btn me-on" disabled={!!busy || pulling || !ollama?.installed} onClick={() => post('/embedding/pull', { model: localModel })}>
-                {pulling ? '⏳ ' + t('embeddingDownloading') : '⬇️ ' + t('embeddingDownload')}
-              </button>
-            )}
-            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => load(true)}>{busy === '' ? t('embeddingRefresh') : '⏳'}</button>
-          </div>
-
-          {pulling && job ? (
-            <div>
-              <div style={{ fontSize: 11.5, marginBottom: 4, opacity: 0.8 }}>{t('embeddingDownloading')} {job.status || ''} {job.completed ? Math.round(job.completed / 1024 / 1024) + ' MB' : ''}{job.total ? ' / ' + Math.round(job.total / 1024 / 1024) + ' MB' : ''}</div>
-              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden' }}>
-                <div style={{ width: Math.max(2, Math.min(100, pct)) + '%', height: '100%', background: 'var(--dsw-alias-brand-primary, #4f7cff)', transition: 'width .3s' }} />
-              </div>
-            </div>
-          ) : null}
-          {building ? (
-            <div>
-              <div style={{ fontSize: 11.5, marginBottom: 4, opacity: 0.8 }}>{t('embeddingBuilding')} {job.done}/{job.total || '?'}</div>
-              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden' }}>
-                <div style={{ width: Math.max(2, Math.min(100, pct)) + '%', height: '100%', background: '#10b981', transition: 'width .3s' }} />
-              </div>
-            </div>
-          ) : null}
-        </>
-      ) : (
-        <>
-          {/* 在线 API：厂商 + 模型 + Key */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
-            <label style={row}>
-              <span>{t('embeddingVendor')}</span>
-              <select value={vendor} onChange={(e) => pickVendor(e.target.value)} style={input}>
-                {vendors.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-              </select>
-            </label>
-            <label style={row}>
-              <span>{t('embeddingModelSelect')}</span>
-              {(() => {
-                const v = vendors.find((x) => x.id === vendor)
-                return v && v.models?.length ? (
-                  <select value={onlineModel} onChange={(e) => setOnlineModel(e.target.value)} style={input}>
-                    {v.models.map((m) => <option key={m.id} value={m.id}>{m.id} · {m.dims}d</option>)}
-                  </select>
-                ) : (
-                  <input value={onlineModel} onChange={(e) => setOnlineModel(e.target.value)} placeholder="text-embedding-3-small" style={input} />
-                )
-              })()}
-            </label>
-            <label style={row}>
-              <span>{t('embeddingBase')}</span>
-              <input value={onlineBase} onChange={(e) => setOnlineBase(e.target.value)} style={input} />
-            </label>
-            <label style={row}>
-              <span>{t('embeddingKey')}</span>
-              <input type="password" value={apiKey} placeholder="sk-…" onChange={(e) => setApiKey(e.target.value)} style={input} />
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => load(true)}>{t('embeddingProbe')}</button>
-            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => post('/embedding/config', { enabled: true, baseUrl: onlineBase, model: onlineModel, apiKey })}>{t('embeddingSave')}</button>
-            <button type="button" className="mc-btn me-on" disabled={!!busy || building} onClick={() => post('/embedding/deploy', { model: onlineModel, baseUrl: onlineBase, apiKey })}>{building ? '⏳ ' + t('embeddingBuilding') : '🚀 ' + t('embeddingDeploy')}</button>
-          </div>
-          {building ? (
-            <div>
-              <div style={{ fontSize: 11.5, marginBottom: 4, opacity: 0.8 }}>{t('embeddingBuilding')} {job.done}/{job.total || '?'}</div>
-              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 420 }}>
-                <div style={{ width: Math.max(2, Math.min(100, pct)) + '%', height: '100%', background: '#10b981', transition: 'width .3s' }} />
-              </div>
-            </div>
-          ) : null}
-        </>
-      )}
-
-      {/* 状态行 */}
-      <div style={{ fontSize: 11.5, lineHeight: 1.7, opacity: 0.8 }}>
-        <span>{data?.config?.enabled ? '🟢 ' + t('embeddingOn') : '⚪ ' + t('embeddingOff')}</span>
-        <span> · {t('embeddingService')}: {data?.service ? (data.service.reachable ? '🟢 ' + t('embeddingServiceOn') : '🔴 ' + t('embeddingServiceOff')) : '—'}</span>
-        <span> · {t('embeddingCoverage')}: {data?.coverage ? `${data.coverage.vectors}/${data.coverage.cards}` : '—'}</span>
-        <span> · {t('embeddingJob')}: {job ? job.kind + ' ' + job.state + (job.error ? ' · ' + job.error : '') : t('embeddingNoJob')}</span>
-        {installed.length ? <span> · {t('embeddingInstalled')}: {installed.slice(0, 4).join(', ')}</span> : null}
-      </div>
-      {note ? <div style={{ fontSize: 11.5, color: note.ok ? '#10b981' : '#b91c1c' }}>{note.text}</div> : null}
-    </div>
-  )
-}
-
-// 语义召回面板 v3：两种部署方式（本地 Ollama / 在线厂商）+ 常用模型 + 自定义 + 条件/进度/部署。
-function EmbeddingPanelV3({ t }) {
-  const [data, setData] = useState(null)
+// 语义召回面板（唯一入口）：一条流程走完 —— 标题右侧就是「部署方式」下拉（选中即生效），
+// 本地 Ollama 走「① 服务 → ② 模型 → ③ 启用」三步；内置 / 在线两种模式**不出现任何「服务」字样**。
+// 整块只有一个主按钮（me-on）= 当前步骤该点的那一个：③ 的「启动服务并启用 / 启用 / 关闭」，
+// ① 里的启停只是小号次级按钮（关掉语义检索不停服务，停服务用 ①）。
+function EmbeddingPanel({ t, hidden }) {
+  const [st, setSt] = useState(null)      // /embedding/status：enabled / config / coverage / service / job
+  const [md, setMd] = useState(null)      // /embedding/models：模型目录 / 已装列表 / 机器条件
+  const [svc, setSvc] = useState(null)    // /embedding/service：是否面板托管 / pid / exe
   const [apiOld, setApiOld] = useState(false)
-  const [mode, setMode] = useState('local')
+  const [mode, setMode] = useState('builtin')
   const [common, setCommon] = useState('bge-m3')
   const [custom, setCustom] = useState('')
-  const [vendor, setVendor] = useState('siliconflow')
-  const [oModel, setOModel] = useState('')
-  const [oBase, setOBase] = useState('')
+  const [oBase, setOBase] = useState('https://api.siliconflow.cn/v1')
+  const [oModel, setOModel] = useState('BAAI/bge-m3')
   const [apiKey, setApiKey] = useState('')
   const [busy, setBusy] = useState('')
   const [note, setNote] = useState(null)
+  const [more, setMore] = useState(false)
+  // 危险动作的确认弹层：{ kind: 'disable'|'stop'|'restart', run: () => Promise }
+  // 文案复用 i18n 的 embeddingAsk* 系列；确认层里只有一颗 primary。
+  const [ask, setAsk] = useState(null)
+  // 只用服务端配置初始化一次下拉：否则每次刷新都会把用户刚选的值弹回去
+  const initedRef = useRef(false)
+
+  const getJson = useCallback(async (path) => {
+    try {
+      const r = await fetch(API + path)
+      if (!r) return null
+      if (r.status === 404) return { __missing: true }
+      return await r.json()
+    } catch { return null }
+  }, [])
 
   const load = useCallback(async () => {
-    const res = await fetch(API + '/embedding/models').catch(() => null)
-    if (!res || !res.ok) { setApiOld(true); return null }
-    const r = await res.json().catch(() => null)
-    if (!r || !r.ok) { setApiOld(true); return null }
+    const [s, m, v] = await Promise.all([
+      getJson('/embedding/status'),
+      getJson('/embedding/models'),
+      getJson('/embedding/service'),
+    ])
+    // 只有「接口根本不存在」才算服务端太旧；单次读失败不锁面板（点刷新重试即可）
+    if ((s && s.__missing) || (m && m.__missing)) { setApiOld(true); return null }
     setApiOld(false)
-    setData(r)
-    const savedMode = r.config?.mode
-    const base = r.config?.baseUrl || ''
-    if (savedMode === 'builtin') {
-      setMode('builtin')
-    } else if (base) {
-      const local = /127\.0\.0\.1|localhost/.test(base)
-      setMode(savedMode === 'online' ? 'online' : (local ? 'local' : 'online'))
-      if (local) {
-        const name = r.config?.model || 'bge-m3'
-        if ((r.catalog || []).some((m) => m.name === name)) setCommon(name)
-        else { setCommon('__custom'); setCustom(name) }
-      } else {
-        setOBase(base)
-        setOModel(r.config?.model || '')
-        const v = (r.vendors || []).find((x) => x.baseUrl && base.startsWith(x.baseUrl))
-        setVendor(v ? v.id : 'custom')
+    if (s && s.ok) setSt(s)
+    if (v && v.ok !== false) setSvc(v)
+    if (m && m.ok) {
+      setMd(m)
+      if (!initedRef.current) {
+        initedRef.current = true
+        const saved = m.config || {}
+        const savedMode = ['local', 'builtin', 'online'].includes(saved.mode) ? saved.mode : 'builtin'
+        setMode(savedMode)
+        const name = saved.model || ''
+        if (savedMode === 'local') {
+          if ((m.catalog || []).some((x) => x.name === name)) setCommon(name)
+          else if (name) { setCommon('__custom'); setCustom(name) }
+        } else if (savedMode === 'online') {
+          if (saved.baseUrl) setOBase(saved.baseUrl)
+          if (name) setOModel(name)
+        }
       }
     }
-    return r
-  }, [])
+    return { s, m, v }
+  }, [getJson])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    if (data?.job?.state !== 'running') return undefined
-    const id = setInterval(load, 1500)
+    if (!st?.job || st.job.state !== 'running') return undefined
+    const id = setInterval(() => load(), 1500)
     return () => clearInterval(id)
-  }, [data, load])
+  }, [st, load])
 
   const post = async (path, body) => {
     setBusy(path); setNote(null)
     try {
-      const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then((x) => x.json())
-      if (!r?.ok) setNote({ ok: false, text: r?.error || t('embeddingSaveFail') })
-      await load()
-      return r
-    } catch (e) { setNote({ ok: false, text: String((e && e.message) || e) }); return null }
+      const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then((x) => x.json()).catch(() => null)
+      const fresh = await load()
+      return { r, fresh }
+    } catch (e) { setNote({ ok: false, text: String((e && e.message) || e) }); return { r: null, fresh: null } }
     finally { setBusy('') }
   }
 
-  const pickVendor = (id) => {
-    setVendor(id)
-    const v = (data?.vendors || []).find((x) => x.id === id)
-    if (v) { setOBase(v.baseUrl); setOModel(v.models?.[0]?.id || '') }
-  }
-
-  const localModel = common === '__custom' ? custom.trim() : common
-  const installed = data?.installed || []
+  // ---- 派生状态：①②③ 的可用性全从这三份数据算，动作后 load() 一刷就一致 ----
+  const cfg = st?.config || {}
+  const enabled = !!cfg.enabled
+  const catalog = md?.catalog || []
+  const installed = md?.installed || []
   const isInstalled = (n) => !!n && installed.some((x) => x === n || x.startsWith(n + ':'))
-  const info = (data?.catalog || []).find((m) => m.name === localModel)
-  const ollama = data?.ollama
-  const job = data?.job
+  const localModel = common === '__custom' ? custom.trim() : common
+  const info = catalog.find((m) => m.name === localModel)
+  // 「服务不可达」的老误报：status 现在默认探测，service.reachable 才是准的
+  const running = !!svc?.running || !!(st?.service && st.service.reachable)
+  const managed = !!svc?.managed
+  const svcInstalled = svc ? svc.installed !== false : md?.ollama?.installed !== false
+  const job = st?.job || md?.job || null
   const pulling = job?.state === 'running' && job.kind === 'pull'
   const building = job?.state === 'running' && job.kind === 'backfill'
-  const pct = job?.total ? Math.max(1, Math.min(100, Math.round(((job.completed || job.done || 0) / job.total) * 100))) : 0
-  const canDeploy = isInstalled(localModel)
-  const cov = data?.coverage
-  const normBase = (u) => String(u || '').replace(/\/+$/, '')
-  const deployedLocal = !!(data?.config?.enabled && data.config.model === localModel &&
-    cov && cov.cards > 0 && cov.vectors >= cov.cards)
-  const deployedOnline = !!(data?.config?.enabled && data.config.model === oModel &&
-    normBase(data.config.baseUrl) === normBase(oBase) && cov && cov.cards > 0 && cov.vectors >= cov.cards)
+  const pct = job?.total ? Math.max(2, Math.min(100, Math.round(((job.completed || job.done || 0) / job.total) * 100))) : 0
+  const cov = st?.coverage
+  const localBase = /127\.0\.0\.1|localhost/.test(cfg.baseUrl || '') ? cfg.baseUrl : 'http://127.0.0.1:7997/v1'
+  const modelReady = mode !== 'local' ? true : isInstalled(localModel)
+  const step = mode !== 'local' ? 3 : (!running ? 1 : (!modelReady ? 2 : 3))
+  const deploying = busy === '/embedding/deploy' || busy === '/embedding/config' || busy === '/embedding/service'
 
   const input = { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', fontSize: 12.5 }
   const row = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }
-  const hint = { fontSize: 11, opacity: 0.65, lineHeight: 1.6 }
+  const hint = { fontSize: 11, opacity: 0.62, lineHeight: 1.6 }
+  const box = { display: 'flex', flexDirection: 'column', gap: 7, padding: '9px 11px', borderRadius: 10, border: '1px solid rgba(127,127,127,0.22)', background: 'rgba(127,127,127,0.04)' }
+  const off = { opacity: 0.5 }
+  const small = { padding: '2px 8px', fontSize: 11, opacity: 0.8 }
+  const pill = (done, cur) => ({
+    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, fontSize: 11.5,
+    fontWeight: cur ? 650 : 500,
+    background: cur ? 'var(--dsw-alias-brand-primary, #4f7cff)' : done ? 'rgba(16,185,129,0.16)' : 'rgba(127,127,127,0.12)',
+    color: cur ? '#fff' : done ? '#0f766e' : 'inherit',
+    border: cur ? '1px solid transparent' : '1px solid rgba(127,127,127,0.2)',
+  })
+  const bar = (color) => (
+    <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 520 }}>
+      <div style={{ width: pct + '%', height: '100%', background: color, transition: 'width .3s' }} />
+    </div>
+  )
+
+  const humanError = (r) => {
+    if (!r) return t('embeddingSaveFail')
+    if (r.code === 'NO_BINARY') return t('embeddingNoBinary')
+    if (r.code === 'TIMEOUT') return t('embeddingServiceTimeout')
+    return r.error || t('embeddingSaveFail')
+  }
+
+  // 任何一步抛异常也要在原位置说人话（静默失败 = 用户点了没反应，最伤）
+  const guard = async (fn) => {
+    try { return await fn() } catch (e) {
+      setNote({ ok: false, text: t('embeddingSaveFail') + '：' + String((e && e.message) || e) })
+      return null
+    }
+  }
+
+  // 服务起来后可能还要一两秒才就绪（TIMEOUT 也是这个场景）：轮询到 running 再往下走
+  const waitReady = async (tries = 8) => {
+    for (let i = 0; i < tries; i += 1) {
+      const f = await load()
+      if (f && ((f.v && f.v.running) || (f.s && f.s.service && f.s.service.reachable))) return true
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+    return false
+  }
+
+  const startService = async (quiet) => {
+    const { r } = await post('/embedding/service', { action: 'start' })
+    if (r && r.ok) {
+      if (!quiet) setNote({ ok: true, text: t('embeddingServiceStarted') + (r.reused ? ' · ' + t('embeddingServiceReused') : '') + (r.baseUrl ? ' · ' + r.baseUrl : '') })
+      return r
+    }
+    if (!quiet) setNote({ ok: false, text: humanError(r) })
+    return r
+  }
+  const stopService = async () => {
+    const { r } = await post('/embedding/service', { action: 'stop' })
+    if (r && r.ok) setNote({ ok: true, text: t('embeddingServiceStopped') })
+    else setNote({ ok: false, text: humanError(r) })
+  }
+  const restartService = async () => {
+    const { r } = await post('/embedding/service', { action: 'restart' })
+    if (r && r.ok) setNote({ ok: true, text: t('embeddingServiceStarted') + (r.baseUrl ? ' · ' + r.baseUrl : '') })
+    else setNote({ ok: false, text: humanError(r) })
+  }
+  // 一键安装 Ollama：下载官方安装器 → 静默安装 → 等 exe 出现，全在后台跑，这里轮询进度。
+  // 原来只给一个下载链接 + 要求用户把路径写进环境变量，等于手动挡；现在「没装」也能点完就好。
+  const installOllama = async () => {
+    const { r } = await post('/embedding/install-ollama', { action: 'auto' })
+    if (r && r.already) { setNote({ ok: true, text: t('embeddingOllamaInstalled') }); await load(); return }
+    if (r && (r.started || r.busy)) {
+      setNote({ ok: true, text: t('embeddingInstalling') })
+      for (let i = 0; i < 160; i += 1) {
+        await new Promise((res) => setTimeout(res, 1500))
+        const s = await getJson('/embedding/install-ollama')
+        if (!s) break
+        if (s.phase === 'downloading') {
+          const pct = s.total ? Math.round((s.bytes / s.total) * 100) + '%' : Math.round(s.bytes / 1048576) + ' MB'
+          setNote({ ok: true, text: t('embeddingDownloading') + ' ' + pct })
+        } else if (s.phase === 'installing' || s.phase === 'verifying') {
+          setNote({ ok: true, text: t('embeddingInstalling') + ' · ' + s.phase })
+        } else if (s.phase === 'done') {
+          setNote({ ok: true, text: t('embeddingOllamaInstalled') }); await load(); break
+        } else if (s.phase === 'failed') {
+          setNote({ ok: false, text: s.error || t('embeddingSaveFail') }); break
+        }
+      }
+      return
+    }
+    if (r && r.manual) setNote({ ok: false, text: r.hint })
+    else setNote({ ok: false, text: humanError(r) })
+  }
+  const downloadModel = async () => {
+    if (!localModel) { setNote({ ok: false, text: t('embeddingNeedModel') }); return }
+    const { r } = await post('/embedding/pull', { model: localModel })
+    if (r && r.ok) setNote({ ok: true, text: t('embeddingJob') + '：' + (r.job ? r.job.state : t('embeddingNoJob')) })
+    else setNote({ ok: false, text: humanError(r) })
+  }
+
+  // ③ 主按钮：一键到底 —— 服务没起就先起（等就绪）→ 建向量 → 刷新；失败在原位置说人话
+  const enable = async () => {
+    if (mode === 'local') {
+      if (!running) {
+        const s = await startService(true)
+        if (!s || !s.ok) { setNote({ ok: false, text: humanError(s) }); await waitReady(4); return }
+        const ready = await waitReady(8)
+        if (!ready) { setNote({ ok: false, text: t('embeddingServiceTimeout') }); return }
+      }
+      // 服务就绪后才知道装了什么模型：用刚刷到的列表判断，别用这轮闭包里的旧值
+      const fresh = await load()
+      const nowInstalled = (fresh && fresh.m && fresh.m.installed) || []
+      const has = !!localModel && nowInstalled.some((x) => x === localModel || x.startsWith(localModel + ':'))
+      if (!has) { setNote({ ok: false, text: t('embeddingNeedDownload').replace('{model}', localModel || '—') }); return }
+      const { r } = await post('/embedding/deploy', { mode: 'local', model: localModel, baseUrl: localBase })
+      if (r && r.ok) setNote({ ok: true, text: t('embeddingEnabled') + (r.job ? ' · ' + t('embeddingJob') + ' ' + r.job.state : '') })
+      else setNote({ ok: false, text: humanError(r) })
+      return
+    }
+    if (mode === 'online') {
+      if (!oBase || !oModel) { setNote({ ok: false, text: t('embeddingNeedOnline') }); return }
+      const { r } = await post('/embedding/deploy', { mode: 'online', baseUrl: oBase, model: oModel, apiKey })
+      if (r && r.ok) setNote({ ok: true, text: t('embeddingEnabled') })
+      else setNote({ ok: false, text: humanError(r) })
+      return
+    }
+    const { r } = await post('/embedding/deploy', { mode: 'builtin' })
+    if (r && r.ok) setNote({ ok: true, text: t('embeddingEnabled') })
+    else setNote({ ok: false, text: humanError(r) })
+  }
+
+  // 关闭只关语义检索，**不停服务**（停服务是 ① 里的小按钮）
+  const disable = async () => {
+    const { r } = await post('/embedding/config', { enabled: false })
+    if (r && r.ok) setNote({ ok: true, text: t('embeddingDisabled') })
+    else setNote({ ok: false, text: humanError(r) })
+  }
+
+  // 部署方式：选中即生效（写配置 + 刷状态）；写失败就把下拉还原成服务端的值
+  const switchMode = async (v) => {
+    if (v === mode || busy) return
+    const prev = mode
+    setMode(v); setNote(null)
+    let res = null
+    if (v === 'builtin') res = await post('/embedding/deploy', { mode: 'builtin' })
+    else if (v === 'local') res = await post('/embedding/config', { mode: 'local', baseUrl: localBase, model: localModel || undefined })
+    else {
+      if (!oBase || !oModel) { setMode(prev); setNote({ ok: false, text: t('embeddingNeedOnline') }); return }
+      res = await post('/embedding/config', { mode: 'online', baseUrl: oBase, model: oModel, apiKey })
+    }
+    const r = res && res.r
+    if (r && r.ok) setNote({ ok: true, text: v === 'builtin' ? t('embeddingModeSaved') + ' · ' + t('embeddingBuiltinSimple') : t('embeddingModeSaved') })
+    else {
+      setMode(prev)
+      setNote({ ok: false, text: t('embeddingModeKeepFail').replace('{error}', humanError(r)) })
+    }
+  }
+
+  // 全面板唯一的主按钮：关闭 > （服务未起）启动服务并启用 > 启用
+  const lockedByModel = !enabled && mode === 'local' && running && (!modelReady || !localModel)
+  const lockedByOnline = !enabled && mode === 'online' && (!oBase || !oModel)
+  const primaryDisabled = !!busy || lockedByModel || lockedByOnline
+  const primaryText = enabled
+    ? '■ ' + t('embeddingStop')
+    : mode === 'local' && !running
+      ? '▶ ' + t('embeddingStartAndEnable')
+      : '▶ ' + t('embeddingStart')
+  const primaryHint = enabled ? t('embeddingStopHint')
+    : mode === 'builtin' ? t('embeddingBuiltinSimple')
+      : mode === 'local' && !running ? t('embeddingAutoStartHint')
+        : lockedByModel ? t('embeddingNeedDownload').replace('{model}', localModel || '—')
+          : lockedByOnline ? t('embeddingNeedOnline')
+            : t('embeddingStartHint')
+  // 开启前的人话：用哪条通道 / 是否本机 / 要不要先下模型（大小从目录里取）
+  const enableAskBody = () => {
+    if (mode === 'builtin') return t('embeddingAskEnableBody')
+      .replace('{mode}', t('embeddingModeBuiltin'))
+      .replace('{where}', t('embeddingOnLocalFree'))
+      .replace('{size}', t('embeddingNoDownload'))
+    const chName = mode === 'local' ? t('embeddingModeLocal') : t('embeddingModeOnline')
+    const where = mode === 'local' ? t('embeddingOnThisMachine') : t('embeddingOnCloud')
+    const size = mode === 'local' && !modelReady
+      ? t('embeddingNeedDownloadMB').replace('{mb}', String(info?.sizeMB || '—'))
+      : t('embeddingNoDownload')
+    return t('embeddingAskEnableBody').replace('{mode}', chName).replace('{where}', where).replace('{size}', size)
+  }
+
+  const primaryBtn = (
+    <button
+      type="button"
+      className={'mc-btn' + (primaryDisabled || busy ? '' : ' me-on')}
+      style={{ padding: '6px 14px', fontSize: 12.5 }}
+      disabled={primaryDisabled}
+      // 开 / 关都会改变运行状态：两个方向都先确认（确认层里写清通道、是否本机、要不要下模型）
+      onClick={() => { if (enabled) setAsk({ kind: 'disable', run: disable }); else setAsk({ kind: 'enable', body: enableAskBody(), run: enable }) }}
+    >
+      {deploying ? '⏳ ' : ''}{primaryText}
+    </button>
+  )
+
+  const head = (
+    <div className="mc-cfg-sec-head" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="mc-cfg-sec-ico">🔍</div>
+      <div style={{ minWidth: 0, flex: '1 1 200px' }}>
+        <div className="mc-cfg-sec-title">{t('embeddingTitle')}</div>
+        <div className="mc-cfg-sec-sub">{t('embeddingHint')}</div>
+      </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none', marginLeft: 'auto' }}>
+        <span style={hint}>{t('embeddingMode')}</span>
+        <select
+          className="me-emb-mode"
+          value={mode}
+          onChange={(e) => guard(() => switchMode(e.target.value))}
+          disabled={!!busy}
+          style={{ ...input, width: 'auto', maxWidth: 220 }}
+        >
+          <option value="builtin">{t('embeddingModeBuiltin')}</option>
+          <option value="local">{t('embeddingModeLocal')}</option>
+          <option value="online">{t('embeddingModeOnline')}</option>
+        </select>
+      </label>
+    </div>
+  )
 
   if (apiOld) {
     return (
-      <div className="mc-card" style={{ padding: 10, fontSize: 12, color: '#b91c1c', lineHeight: 1.7 }}>
-        ⚠️ {t('embeddingApiOld')}
-      </div>
+      <section className="mc-card mc-cfg-sec" id="sec-embed" data-cfg-sec="sec-embed" hidden={hidden || undefined}>
+        {head}
+        <div className="mc-cfg-sec-body" style={{ color: '#b91c1c', fontSize: 12, lineHeight: 1.7 }}>⚠️ {t('embeddingApiOld')}</div>
+      </section>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* 部署方式 + 总开关 */}
-      <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ ...row, minWidth: 200 }}>
-          <span>{t('embeddingMode')}</span>
-          <select
-            value={mode}
-            onChange={(e) => {
-              const v = e.target.value
-              setMode(v)
-              post('/embedding/config', v === 'builtin' ? { mode: 'builtin', enabled: false } : { mode: v })
-            }}
-            style={input}
-          >
-            <option value="builtin">{t('embeddingModeBuiltin')}</option>
-            <option value="local">{t('embeddingModeLocal')}</option>
-            <option value="online">{t('embeddingModeOnline')}</option>
-          </select>
-        </label>
-        {mode === 'builtin' ? (
-          <span style={{ ...hint, color: '#10b981' }}>🟢 {t('embeddingBuiltinOn')}</span>
-        ) : (
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: 'pointer', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
-            <input
-              type="checkbox"
-              checked={!!data?.config?.enabled}
-              disabled={!!busy}
-              onChange={(e) => post('/embedding/config', { enabled: e.target.checked })}
-            />
-            <b>{t('embeddingOn')}</b>
-            <span style={{ color: data?.config?.enabled ? '#10b981' : 'rgba(127,127,127,0.75)', fontSize: 11.5 }}>
-              {data?.config?.enabled ? t('embeddingOn') : t('embeddingOff')}
-            </span>
-          </label>
-        )}
-        <span style={hint}>{mode === 'builtin' ? t('embeddingBuiltinHint') : mode === 'local' ? t('embeddingLocalNote') : t('embeddingOnlineNote')}</span>
-        <button type="button" className="mc-btn" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => { try { localStorage.removeItem('me-onboarded-v2') } catch { /* ignore */ } location.reload() }}>🧭 引导</button>
-      </div>
+    <section className="mc-card mc-cfg-sec" id="sec-embed" data-cfg-sec="sec-embed" hidden={hidden || undefined}>
+      {head}
+      <div className="mc-cfg-sec-body" style={{ gap: 10 }}>
+        {mode === 'local' ? (
+          <>
+            {/* 步骤指示：当前步高亮，做过的打勾 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={hint}>{t('embeddingStepsLabel')}</span>
+              {[
+                { label: t('embeddingStep1'), done: running },
+                { label: t('embeddingStep2'), done: modelReady },
+                { label: t('embeddingStep3'), done: enabled },
+              ].map((s, i) => (
+                <span key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {i ? <span style={{ opacity: 0.45, fontSize: 11.5 }}>→</span> : null}
+                  <span style={pill(s.done, step === i + 1 && !s.done)}>{s.label}{s.done ? ' ✓' : ''}</span>
+                </span>
+              ))}
+            </div>
 
-      {mode === 'builtin' ? (
-        <div className="mc-card" style={{ padding: '10px 12px', fontSize: 12, lineHeight: 1.9 }}>
-          <b>🧠 {t('embeddingModeBuiltin')}</b>
-          <div style={{ opacity: 0.85, marginTop: 4 }}>{t('embeddingBuiltinHint')}</div>
-          <div style={{ marginTop: 6, opacity: 0.7, fontSize: 11.5 }}>
-            实测：R@5 95.4% · 改写题 30% · 延迟约 4 ms · 零依赖零网络
+            {/* ① 服务 */}
+            <div style={box}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <b style={{ fontSize: 12.5 }}>{t('embeddingStep1')}</b>
+                {/* 状态统一走 <Status>：色点 + **文字**一起着色（绿=运行中 / 红=不可达 / 灰=未安装），
+                    只靠一个小圆点在密集面板里看不清 */}
+                <Status
+                  tone={running ? 'ok' : svcInstalled ? 'bad' : 'idle'}
+                  text={running
+                    ? t('embeddingServiceRunning') + (managed ? ' · ' + t('embeddingServiceManaged') : '')
+                    : svcInstalled ? t('embeddingServiceOff') : t('embeddingNotInstalled')}
+                />
+                {running && svc?.baseUrl ? <span style={hint}>{svc.baseUrl}{svc?.pid ? ' · pid ' + svc.pid : ''}</span> : null}
+                <span style={{ flex: 1 }} />
+                {!running ? (
+                  <button type="button" className="mc-btn" style={small} disabled={!!busy} onClick={() => setAsk({ kind: 'start', run: () => startService() })}>
+                    {busy === '/embedding/service' ? '⏳' : '▶ ' + t('embeddingServiceStart')}
+                  </button>
+                ) : null}
+                {running && managed ? (
+                  <>
+                    <button type="button" className="mc-btn" style={{ ...small, opacity: 0.55 }} disabled={!!busy} onClick={() => setAsk({ kind: 'restart', run: restartService })}>{t('embeddingServiceRestart')}</button>
+                    <button type="button" className="mc-btn" style={{ ...small, opacity: 0.55 }} disabled={!!busy} onClick={() => setAsk({ kind: 'stop', run: stopService })}>{t('embeddingServiceStop')}</button>
+                  </>
+                ) : null}
+                {!svcInstalled && !running ? (
+                  <button type="button" className="mc-btn" style={{ ...small, opacity: 0.55 }} disabled={!!busy} onClick={() => guard(installOllama)}>{t('embeddingInstallOllama')}</button>
+                ) : null}
+              </div>
+              {/* 技术错误（fetch failed 之类）不进正文，放 title；正文只说该点哪个按钮 */}
+              {!running && st?.service?.error ? <div style={hint} title={String(st.service.error)}>{t('embeddingServiceHint')}</div> : null}
+            </div>
+
+            {/* ② 模型 */}
+            <div style={{ ...box, ...(step === 1 ? off : null) }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <b style={{ fontSize: 12.5 }}>{t('embeddingStep2')}</b>
+                <select value={common} onChange={(e) => setCommon(e.target.value)} disabled={!!busy || step === 1} style={{ ...input, width: 'auto', maxWidth: 320 }}>
+                  {catalog.map((m) => (
+                    <option key={m.name} value={m.name}>
+                      {m.name} · {m.sizeMB} MB{m.tag ? ' · ' + m.tag : ''}{isInstalled(m.name) ? ' ✓' : ''}
+                    </option>
+                  ))}
+                  <option value="__custom">{t('embeddingCustomModel')}</option>
+                </select>
+                {common === '__custom' ? (
+                  <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="bge-m3:latest" disabled={!!busy || step === 1} style={{ ...input, maxWidth: 200 }} />
+                ) : null}
+                {modelReady ? (
+                  <span style={{ ...hint, color: '#10b981' }}>✓ {t('embeddingInstalled')}</span>
+                ) : (
+                  <button type="button" className="mc-btn" style={small} disabled={!!busy || step === 1 || pulling || !localModel} onClick={() => guard(downloadModel)}>
+                    {pulling ? '⏳ ' + t('embeddingDownloading') : '⬇ ' + t('embeddingDownload')}
+                  </button>
+                )}
+              </div>
+              {step === 1 ? <div style={hint}>{t('embeddingStepLockStart')}</div> : null}
+              {pulling && job ? (
+                <div>
+                  <div style={hint}>{t('embeddingDownloading')} {job.status || ''} {job.completed ? Math.round(job.completed / 1024 / 1024) + ' MB' : ''}{job.total ? ' / ' + Math.round(job.total / 1024 / 1024) + ' MB' : ''}</div>
+                  {bar('var(--dsw-alias-brand-primary, #4f7cff)')}
+                </div>
+              ) : null}
+            </div>
+
+            {/* ③ 启用：全面板唯一的主按钮 */}
+            <div style={box}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <b style={{ fontSize: 12.5 }}>{t('embeddingStep3')}</b>
+                {primaryBtn}
+                <span style={{ ...hint, flex: 1, minWidth: 180 }}>{primaryHint}</span>
+              </div>
+              {building && job ? (
+                <div>
+                  <div style={hint}>{t('embeddingBuilding')} {job.done || 0}/{job.total || '?'}</div>
+                  {bar('#10b981')}
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* 内置 / 在线：**不出现任何「服务」字样 */}
+            {mode === 'builtin' ? <div style={{ ...hint, fontSize: 12, opacity: 0.8 }}>🧩 {t('embeddingBuiltinSimple')}</div> : null}
+            {mode === 'online' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
+                <label style={row}>
+                  <span>{t('embeddingEndpoint')}</span>
+                  <input value={oBase} onChange={(e) => setOBase(e.target.value)} placeholder="https://api.openai.com/v1" style={input} />
+                </label>
+                <label style={row}>
+                  <span>{t('embeddingModelName')}</span>
+                  <input value={oModel} onChange={(e) => setOModel(e.target.value)} placeholder="text-embedding-3-small" style={input} />
+                </label>
+                <label style={row}>
+                  <span>{t('embeddingApiKeyLabel')}</span>
+                  <input type="password" value={apiKey} placeholder="sk-…" onChange={(e) => setApiKey(e.target.value)} style={input} />
+                </label>
+              </div>
+            ) : null}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {primaryBtn}
+              <span style={{ ...hint, flex: 1, minWidth: 180 }}>{primaryHint}</span>
+            </div>
+            {building && job ? (
+              <div>
+                <div style={hint}>{t('embeddingBuilding')} {job.done || 0}/{job.total || '?'}</div>
+                {bar('#10b981')}
+              </div>
+            ) : null}
+          </>
+        )}
+
+        {note ? <div style={{ fontSize: 11.5, lineHeight: 1.7, color: note.ok ? '#10b981' : '#b91c1c' }}>{note.text}</div> : null}
+
+        {/* 折叠区：机器条件 / 模型明细 / 任务进度 */}
+        <button type="button" className="mc-btn" style={{ alignSelf: 'flex-start', padding: '2px 10px', fontSize: 11.5 }} onClick={() => setMore(!more)}>{more ? '▾ ' : '▸ '}{t('embeddingMore')}</button>
+        {more ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={hint}>
+              {t('embeddingCoverage')}：{cov ? cov.vectors + '/' + cov.cards + (cov.model ? ' · ' + cov.model : '') : '—'}
+              <span> · {t('embeddingJob')}：{job ? job.kind + ' ' + job.state + (job.total ? ' ' + (job.done || 0) + '/' + job.total : '') + (job.error ? ' · ' + job.error : '') : t('embeddingNoJob')}</span>
+            </div>
+            {mode === 'local' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
+                <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.7 }}>
+                  <b>{t('embeddingSystem')}</b><br />
+                  CPU：{md?.system?.cpu || '—'}（{md?.system?.cores || '?'} 核）<br />
+                  内存：{md?.system?.ramGB ? md.system.ramGB + ' GB' : '—'}<br />
+                  显卡：{md?.system?.gpu ? md.system.gpu.name + (md.system.gpu.vramGB ? ' · ' + md.system.gpu.vramGB : '') : t('embeddingGpuNone')}
+                </div>
+                <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.7 }}>
+                  <b>{t('embeddingOllama')}</b><br />
+                  {md?.ollama?.installed
+                    ? <span style={{ color: '#10b981' }}>✓ {t('embeddingOllamaInstalled')}{md.ollama.version ? ' · ' + md.ollama.version : ''}</span>
+                    : md?.ollama?.serviceReachable
+                      ? <span style={{ color: '#10b981' }}>✓ {t('embeddingOllamaService')}</span>
+                      : <span style={{ color: '#b91c1c' }}>✗ {t('embeddingOllamaMissing')}</span>}
+                  {svc?.exe || md?.ollama?.path ? <div style={{ opacity: 0.55, fontSize: 10.5, wordBreak: 'break-all' }}>{svc?.exe || md?.ollama?.path}</div> : null}
+                  {svc?.pid ? <div style={{ opacity: 0.55, fontSize: 10.5 }}>pid {svc.pid}{svc.baseUrl ? ' · ' + svc.baseUrl : ''}</div> : null}
+                </div>
+              </div>
+            ) : null}
+            {mode === 'local' && info ? (
+              <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.8 }}>
+                <b>{info.name}</b> <span style={{ opacity: 0.65 }}>· {info.tag}</span>
+                <div style={{ opacity: 0.8 }}>{info.desc}</div>
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', opacity: 0.85 }}>
+                  <span>{t('embeddingSize')}：{info.sizeMB} MB</span>
+                  <span>{t('embeddingDims')}：{info.dims}</span>
+                  <span>{t('embeddingRam')}：≥ {info.ramMB} MB</span>
+                  <span>{t('embeddingVram')}：≥ {info.vramMB} MB</span>
+                </div>
+              </div>
+            ) : null}
+            {mode === 'local' && installed.length ? <div style={hint}>{t('embeddingInstalled')}：{installed.join(', ')}</div> : null}
+            <button type="button" className="mc-btn" style={{ alignSelf: 'flex-start', padding: '2px 10px', fontSize: 11.5 }} disabled={!!busy} onClick={() => load()}>{busy ? '⏳' : '⟲ ' + t('embeddingRefresh')}</button>
+          </div>
+        ) : null}
+      </div>
+      {/* 危险动作确认层：只在这里渲染一次，确认层里只有一颗 primary（确定），取消是 ghost。
+          ESC / 点遮罩都取消；确认后按钮进入 busy 状态直到请求返回。 */}
+      {ask ? (
+        <div
+          role="dialog" aria-modal="true"
+          style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setAsk(null)}
+        >
+          <div
+            className="mc-card"
+            style={{ maxWidth: 420, width: '92vw', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <b style={{ fontSize: 13 }}>{t('embeddingAskTitle')}</b>
+            <div style={{ fontSize: 12, lineHeight: 1.65, opacity: 0.86 }}>
+              {ask.body || t(ask.kind === 'disable' ? 'embeddingAskDisableBody' : ask.kind === 'start' ? 'embeddingAskStartBody' : ask.kind === 'stop' ? 'embeddingAskStopBody' : t('embeddingAskRestartBody'))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" className="me-btn me-btn--ghost" onClick={() => setAsk(null)} disabled={!!busy}>{t('embeddingAskCancel')}</button>
+              <button
+                type="button"
+                className="me-btn me-btn--primary"
+                disabled={!!busy}
+                onClick={() => { const run = ask.run; setAsk(null); if (run) guard(run) }}
+              >
+                {t('embeddingAskOk')}
+              </button>
+            </div>
           </div>
         </div>
-      ) : mode === 'local' ? (
-        <>
-          {/* Ollama 状态 */}
-          <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.8 }}>
-            <b>{t('embeddingOllama')}</b>：
-            {ollama?.installed
-              ? <span style={{ color: '#10b981' }}>✓ {t('embeddingOllamaInstalled')}{ollama.version ? ' · ' + ollama.version : ''}</span>
-              : ollama?.serviceReachable
-                ? <span style={{ color: '#10b981' }}>✓ {t('embeddingOllamaService')}（{t('embeddingNoFile')}）</span>
-                : <span style={{ color: '#b91c1c' }}>✗ {t('embeddingOllamaMissing')}</span>}
-            {ollama?.path ? <span style={{ opacity: 0.55, marginLeft: 8, fontSize: 10.5, wordBreak: 'break-all' }}>{ollama.path}</span> : null}
-            {!ollama?.installed && !ollama?.serviceReachable ? (
-              <div style={{ marginTop: 6 }}>
-                <button type="button" className="mc-btn me-on" style={{ padding: '3px 10px' }} disabled={!!busy} onClick={async () => {
-                  const r = await post('/embedding/install-ollama')
-                  if (r && r.manual) setNote({ ok: false, text: t('embeddingInstallManual') + ' ' + r.url })
-                  else if (r?.ok) setNote({ ok: true, text: t('embeddingInstalling') })
-                }}>{t('embeddingInstallOllama')}</button>
-                <div style={hint}>{t('embeddingInstallManual')} https://ollama.com/download</div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* 模型：常用 / 自定义 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
-            <label style={row}>
-              <span>{t('embeddingModelSelect')}</span>
-              <select value={common} onChange={(e) => setCommon(e.target.value)} style={input}>
-                {(data?.catalog || []).map((m) => (
-                  <option key={m.name} value={m.name}>
-                    {m.name} · {m.sizeMB} MB{m.tag ? ' · ' + m.tag : ''}{isInstalled(m.name) ? ' ✓' : ''}
-                  </option>
-                ))}
-                <option value="__custom">{t('embeddingCustomModel')}</option>
-              </select>
-            </label>
-            {common === '__custom' ? (
-              <label style={row}>
-                <span>{t('embeddingCustom')}</span>
-                <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="例如 bge-m3:latest" style={input} />
-              </label>
-            ) : null}
-          </div>
-
-          {info ? (
-            <div className="mc-card" style={{ padding: '8px 10px', fontSize: 12, lineHeight: 1.8 }}>
-              <b>{info.name}</b> <span style={{ opacity: 0.65 }}>· {info.tag}</span>
-              <div style={{ opacity: 0.8 }}>{info.desc}</div>
-              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', opacity: 0.85 }}>
-                <span>{t('embeddingSize')}：{info.sizeMB} MB</span>
-                <span>{t('embeddingDims')}：{info.dims}</span>
-                <span>{t('embeddingRam')}：≥ {info.ramMB} MB</span>
-                <span>{t('embeddingVram')}：≥ {info.vramMB} MB</span>
-              </div>
-            </div>
-          ) : null}
-
-          {/* 操作 */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {canDeploy ? (
-              deployedLocal ? (
-                <button type="button" className="mc-btn" disabled>✅ {t('embeddingDeployed')}</button>
-              ) : (
-                <button type="button" className="mc-btn me-on" disabled={!!busy || building || !localModel} onClick={() => post('/embedding/deploy', { model: localModel, baseUrl: data?.config?.baseUrl || 'http://127.0.0.1:7997/v1' })}>
-                  {building ? '⏳ ' + t('embeddingBuilding') : '🚀 ' + t('embeddingDeploy')}
-                </button>
-              )
-            ) : (
-              <button type="button" className="mc-btn me-on" disabled={!!busy || pulling || !localModel || (!ollama?.installed && !ollama?.serviceReachable)} onClick={() => post('/embedding/pull', { model: localModel })}>
-                {pulling ? '⏳ ' + t('embeddingDownloading') : '⬇️ ' + t('embeddingDownload')}
-              </button>
-            )}
-            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => load()}>{t('embeddingRefresh')}</button>
-          </div>
-
-          {pulling ? (
-            <div>
-              <div style={hint}>{t('embeddingDownloading')} {job.status || ''} {job.completed ? Math.round(job.completed / 1048576) + ' MB' : ''}{job.total ? ' / ' + Math.round(job.total / 1048576) + ' MB' : ''}</div>
-              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 520 }}>
-                <div style={{ width: pct + '%', height: '100%', background: 'var(--dsw-alias-brand-primary, #4f7cff)', transition: 'width .3s' }} />
-              </div>
-            </div>
-          ) : null}
-          {building ? (
-            <div>
-              <div style={hint}>{t('embeddingBuilding')} {job.done}/{job.total || '?'}</div>
-              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 520 }}>
-                <div style={{ width: pct + '%', height: '100%', background: '#10b981', transition: 'width .3s' }} />
-              </div>
-            </div>
-          ) : null}
-        </>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
-            <label style={row}>
-              <span>{t('embeddingVendor')}</span>
-              <select value={vendor} onChange={(e) => pickVendor(e.target.value)} style={input}>
-                {(data?.vendors || []).map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-              </select>
-            </label>
-            <label style={row}>
-              <span>{t('embeddingModelSelect')}</span>
-              {(() => {
-                const v = (data?.vendors || []).find((x) => x.id === vendor)
-                return v && v.models?.length ? (
-                  <select value={oModel} onChange={(e) => setOModel(e.target.value)} style={input}>
-                    {v.models.map((m) => <option key={m.id} value={m.id}>{m.id} · {m.dims}d</option>)}
-                  </select>
-                ) : (
-                  <input value={oModel} onChange={(e) => setOModel(e.target.value)} placeholder="text-embedding-3-small" style={input} />
-                )
-              })()}
-            </label>
-            <label style={row}>
-              <span>{t('embeddingBase')}</span>
-              <input value={oBase} onChange={(e) => setOBase(e.target.value)} style={input} />
-            </label>
-            <label style={row}>
-              <span>{t('embeddingKey')}</span>
-              <input type="password" value={apiKey} placeholder="sk-…" onChange={(e) => setApiKey(e.target.value)} style={input} />
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => load()}>{t('embeddingProbe')}</button>
-            <button type="button" className="mc-btn" disabled={!!busy} onClick={() => post('/embedding/config', { enabled: true, baseUrl: oBase, model: oModel, apiKey })}>{t('embeddingSave')}</button>
-            {deployedOnline ? (
-              <button type="button" className="mc-btn" disabled>✅ {t('embeddingDeployed')}</button>
-            ) : (
-              <button type="button" className="mc-btn me-on" disabled={!!busy || building || !oModel} onClick={() => post('/embedding/deploy', { model: oModel, baseUrl: oBase, apiKey })}>{building ? '⏳ ' + t('embeddingBuilding') : '🚀 ' + t('embeddingDeploy')}</button>
-            )}
-          </div>
-          {building ? (
-            <div>
-              <div style={hint}>{t('embeddingBuilding')} {job.done}/{job.total || '?'}</div>
-              <div style={{ height: 8, borderRadius: 999, background: 'rgba(127,127,127,0.18)', overflow: 'hidden', maxWidth: 520 }}>
-                <div style={{ width: pct + '%', height: '100%', background: '#10b981', transition: 'width .3s' }} />
-              </div>
-            </div>
-          ) : null}
-        </>
-      )}
-
-      {/* 状态 */}
-      <div style={{ ...hint, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <span>{data?.config?.enabled ? '🟢 ' + t('embeddingOn') : '⚪ ' + t('embeddingOff')}</span>
-        <span>{t('embeddingService')}：{data?.service ? (data.service.reachable ? '🟢 ' + t('embeddingServiceOn') : '🔴 ' + t('embeddingServiceOff')) : '—'}</span>
-        <span>{t('embeddingCoverage')}：{data?.coverage ? data.coverage.vectors + '/' + data.coverage.cards : '—'}</span>
-        <span>{t('embeddingJob')}：{job ? job.kind + ' ' + job.state + (job.error ? ' · ' + job.error : '') : t('embeddingNoJob')}</span>
-        {installed.length ? <span>{t('embeddingInstalled')}：{installed.slice(0, 4).join(', ')}</span> : null}
-      </div>
-      {note ? <div style={{ fontSize: 11.5, color: note.ok ? '#10b981' : '#b91c1c' }}>{note.text}</div> : null}
-    </div>
+      ) : null}
+    </section>
   )
 }
 
 function ConfigPanel({ t, onReload, version, compact }) {
-  // 弹窗形态：分页导航（只保留 4 个核心分类）
+  // 弹窗形态：分页导航（保留 5 个分类，第 5 个是「实验性」）
   const [page, setPage] = useState('general')
+  // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudForm is not defined）。
+  // 落盘与探测走模块级 persistCloud / probeCloud，两处入口最终写同一份 localStorage。
+  const [cloudForm, setCloudForm] = useState(() => readCloudConn())
+  const [cloudBusy, setCloudBusy] = useState(false)
+  const [cloudTest, setCloudTest] = useState(null)
+  const testCloud = async () => {
+    if (!/^https?:\/\//i.test(String(cloudForm.url || ''))) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    setCloudBusy(true); setCloudTest(null)
+    const r = await probeCloud(cloudForm)
+    setCloudTest(r.ok ? { ok: true, owner: r.owner } : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error })
+    setCloudBusy(false)
+  }
+  const saveCloud = () => {
+    const r = persistCloud(cloudForm)
+    if (!r.ok) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    try { location.reload() } catch { /* 忽略 */ }
+  }
+  // 首页「备份与迁移」按钮会发这个事件，让配置面板直接跳到备份分区（低频迁移动作归到这里）
+  useEffect(() => {
+    const onGo = (e) => {
+      const want = e && e.detail
+      if (want === 'backup') setPage('memory')
+    }
+    window.addEventListener('me-goto-cfg', onGo)
+    return () => window.removeEventListener('me-goto-cfg', onGo)
+  }, [])
   const PAGE_OF = {
     'sec-preset': 'general', 'sec-theme': 'general', 'sec-basic': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
     'sec-memory': 'memory', 'sec-embed': 'memory', 'sec-core': 'memory', 'sec-vault': 'memory',
+    'sec-backup': 'memory',
     'sec-cost': 'advanced', 'sec-audit': 'advanced',
     'sec-service': 'service',
+    'sec-cloud': 'experimental',
   }
   const PAGES = [
     ['general', t('paneGeneral'), t('paneGeneralSub'), '⚙️'],
     ['memory', t('paneMemory'), t('paneMemorySub'), '🧠'],
     ['advanced', t('paneAdvanced'), t('paneAdvancedSub'), '✨'],
     ['service', t('paneService'), t('paneServiceSub'), '🛠'],
+    // 实验性功能单独一页：云端连接等「还在验证中」的能力放这里，
+    // 不占主流程（避免用户误以为是稳定功能，也避免影响正常本地业务）。
+    ['experimental', t('paneExperimental'), t('paneExperimentalSub'), '🧪'],
   ]
   const curPage = PAGES.find((x) => x[0] === page) || PAGES[0]
   const gotoPage = (p) => {
@@ -6504,10 +7478,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="recallEmbedding" label={t('recallEmbedding')} wide />
               </div>
             </CfgSection>
-            {/* 语义召回（可选，默认关闭；本地 HTTP 服务默认 7997） */}
-            <CfgSection {...secProps('sec-embed')} id="sec-embed" icon="🔍" title={t('embeddingTitle')} sub={t('embeddingHint')}>
-              <EmbeddingPanelV3 t={t} />
-            </CfgSection>
+            {/* 语义召回（可选）：标题右侧就是「部署方式」下拉，一个面板一条流程走完 */}
+            <EmbeddingPanel t={t} hidden={PAGE_OF['sec-embed'] !== page} />
             {/* 核心记忆（前置强制注入） */}
             <CfgSection {...secProps('sec-core')} id="sec-core" icon="⭐" title={t('coreMemory')} sub={t('coreMemoryHint')}>
               <div className="mc-cfg-switches">
@@ -6549,6 +7521,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   } catch (e) { notify(t('skillsSyncFail'), false) } finally { setBusy('') }
                 }}>{busy === 'skills' ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</button>
               </div>
+            </CfgSection>
+            {/* 备份：只保留这一处（BackupCard 内含开关/周期/保留天数/立即备份/导出/导入）。
+                旧版本这里还有一个 `sec-backup` 的 CfgSection（只有开关+数字），和新块重复 —— 已删。 */}
+            <CfgSection {...secProps('sec-backup')} id="sec-backup" icon="🧯" title={t('backupSection')} sub={t('backupSectionSub')}>
+              <BackupCard t={t} notify={notify} />
             </CfgSection>
             {/* 关注摘要：默认关闭，开启后由宿主按间隔抓取并注入 systemPrompt */}
             <CfgSection {...secProps('sec-digest')} id="sec-digest" icon="📬" title={t('newsDigest')} sub={t('newsDigestHint')}>
@@ -6732,6 +7709,48 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <F k="webMaxRestart" label={t('webMaxRestart')} hint={t('unitTimes')} type="number" />
               </div>
             </CfgSection>
+            {/* ---- 实验性功能：云端连接 ------------------------------------------
+                单独一页，不混进「记忆 / 服务」这些主流程：云端能力还在验证期
+                （mengbot 授权控制面未上线、配额与授权校验未完成），放实验区既能让想用的人用上，
+                又不会让普通用户误以为是稳定功能、更不会影响本地使用。 */}
+            <CfgSection {...secProps('sec-cloud')} id="sec-cloud" icon="🧪" title={t('cloudSection')} sub={t('cloudSectionSub')}>
+              <div className="mc-cloud-modes" style={{ marginBottom: 10 }}>
+                {[['local', t('cloudModeLocal'), t('cloudModeLocalHint')], ['cloud', t('cloudModeCloud'), t('cloudModeCloudHint')]].map(([m, label, hint]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`mc-cloud-mode${cloudForm.mode === m ? ' active' : ''}`}
+                    onClick={() => setCloudForm((f) => ({ ...f, mode: m }))}
+                  >
+                    <b>{label}</b>
+                    <span>{hint}</span>
+                  </button>
+                ))}
+              </div>
+              {cloudForm.mode === 'cloud' && (
+                <div className="mc-cloud-fields">
+                  <label className="mc-field">
+                    <span className="mc-field-label">{t('cloudUrlLabel')}</span>
+                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://memory.example.com" />
+                  </label>
+                  <label className="mc-field">
+                    <span className="mc-field-label">{t('cloudTokenLabel')}</span>
+                    <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" />
+                  </label>
+                </div>
+              )}
+              <div className="mc-cloud-actions" style={{ marginTop: 10 }}>
+                {cloudForm.mode === 'cloud' && (
+                  <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
+                )}
+                <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
+                {cloudTest && <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />}
+              </div>
+              <Hint text={t('cloudExperimentalHint')} />
+            </CfgSection>
+            {/* 备份只在「记忆」页出现一次（上面 7256 那一处）。这里原来还有一份同样的
+                `sec-backup` + `<BackupCard>`（从运行状态页搬过来时留下的），
+                同一个组件被渲染两遍 → 用户看到「两个🧯备份」。已删。 */}
             <div className="mc-cfg-actions">
               {dirty ? <span className="mc-cfg-dirty">{t('cfgDirty')}</span> : <span className="mc-cfg-clean">✓ {t('cfgClean')}</span>}
               <span className="mc-cfg-spacer" />
@@ -6774,10 +7793,16 @@ function AuditPanel({ t, onReload, version }) {
   const [busy, setBusy] = useState('')
   const [toast, setToast] = useState(null)
   const [tab, setTab] = useState('pending')
+  // 列表加载失败：以前 catch{} 吞掉，界面就是「一片空白 + 没有待审」，用户以为真的没卡。
+  const [loadErr, setLoadErr] = useState('')
   const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000) }
   const agents = [...new Set([...pending, ...rejected].map((c) => c.submittedBy).filter(Boolean))]
   const load = useCallback(async () => {
-    try { const r = await fetch(`${API}/audit/list`).then((x) => x.json()); if (r.ok) { setPending(r.pending || []); setRejected(r.rejected || []); setSel(new Set()); setBodies({}) } } catch {}
+    try {
+      const r = await fetch(`${API}/audit/list`).then((x) => x.json())
+      if (r && r.ok) { setPending(r.pending || []); setRejected(r.rejected || []); setSel(new Set()); setBodies({}); setLoadErr('') }
+      else setLoadErr((r && r.error) || 'HTTP')
+    } catch (e) { setLoadErr(String((e && e.message) || e)) }
   }, [])
   useEffect(() => { load() }, [version, load])
   const items = (tab === 'pending' ? pending : rejected).filter((c) => {
@@ -6833,19 +7858,24 @@ function AuditPanel({ t, onReload, version }) {
   const toggled = [...sel]
   const previewCard = items.find((c) => c.path === previewPath) || items[0] || null
   const previewSt = previewCard ? bodyState(previewCard.path) : {}
+  // 正文按需拉取。抽成函数是为了让错误条上的「重试」能真的再拉一次 ——
+  // 原来只有 effect 里内联的一份，删掉 body 缓存也不会重新触发 effect（依赖没变）。
+  const fetchBody = useCallback(async (c, status) => {
+    if (!c || !c.path) return
+    const p = c.path
+    setBodies((b) => ({ ...b, [p]: { loading: true } }))
+    try {
+      const r = await fetch(`${API}/card?path=${encodeURIComponent(p)}&status=${encodeURIComponent(status || 'pending')}`).then((x) => x.json())
+      if (r && r.ok) setBodies((b) => ({ ...b, [p]: { text: r.text || '' } }))
+      else setBodies((b) => ({ ...b, [p]: { error: (r && r.error) || 'HTTP' } }))
+    } catch (e) {
+      setBodies((b) => ({ ...b, [p]: { error: String((e && e.message) || e) } }))
+    }
+  }, [])
   useEffect(() => {
     const c = previewCard
     if (!c || bodies[c.path]) return
-    let alive = true
-    const p = c.path
-    setBodies((b) => ({ ...b, [p]: { loading: true } }))
-    const status = c.status || (tab === 'pending' ? 'pending' : 'rejected')
-    fetch(`${API}/card?path=${encodeURIComponent(p)}&status=${status}`).then((x) => x.json()).then((r) => {
-      if (!alive) return
-      if (r && r.ok) setBodies((b) => ({ ...b, [p]: { text: r.text || '' } }))
-      else setBodies((b) => ({ ...b, [p]: { error: (r && r.error) || 'HTTP' } }))
-    }).catch((e) => { if (alive) setBodies((b) => ({ ...b, [p]: { error: String((e && e.message) || e) } })) })
-    return () => { alive = false }
+    fetchBody(c, c.status || (tab === 'pending' ? 'pending' : 'rejected'))
   }, [previewCard && previewCard.path, tab])
   const reclassify = async () => {
     if (!window.confirm(t('reclassify') + '？只处理自动沉淀的待审原文卡，不改人工卡。')) return
@@ -6881,6 +7911,7 @@ function AuditPanel({ t, onReload, version }) {
       <style>{CSS}</style>
       <div style={{ overflow: 'auto', padding: 4 }}>
         <InlineToast toast={toast} />
+        {/* @view audit */}
         <div className="mc-v5-pagehead mc-v5-audithead">
           <div>
             <div className="mc-v5-eyebrow">REVIEW INBOX</div>
@@ -6890,6 +7921,8 @@ function AuditPanel({ t, onReload, version }) {
           <span className="mc-v5-pagecount">{pending.length} 张</span>
           <span className="mc-v5-audit-trust">🛡 {t('auditUndo')}</span>
         </div>
+        {/* 列表拉取失败：说清是「没拉到」而不是「真的没有待审卡」，并给重试 */}
+        {loadErr && <div style={{ marginBottom: space(3) }}><ErrorBar error={t('error') + '：' + loadErr} onRetry={() => load()} retryText={t('retry')} /></div>}
         <div className="me-audit">
           <div className="mc-card mc-audit-filtercard" style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="me-audit-filter-row">
@@ -6925,18 +7958,21 @@ function AuditPanel({ t, onReload, version }) {
           </div>
           <div className="me-audit-main">
             <div className="me-audit-queue">
+            {/* 批量操作按钮等级（一屏一颗主按钮）：
+                批准/恢复 = primary；驳回/永久删除 = danger（描边）；全选/取消 = ghost；
+                页签「待审/已驳回」与「重新分类」是次级动作 —— 选中用 aria-pressed 表达，不再冒充主按钮。 */}
             <div className="mc-card mc-audit-batchcard" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button type="button" className={`mc-btn${tab === 'pending' ? ' me-on' : ''}`} onClick={() => switchTab('pending')}>{t('pending')}（{pending.length}）</button>
-              <button type="button" className={`mc-btn${tab === 'rejected' ? ' me-on' : ''}`} onClick={() => switchTab('rejected')}>{t('rejected')}（{rejected.length}）</button>
+              <Btn variant="secondary" size="sm" aria-pressed={tab === 'pending'} onClick={() => switchTab('pending')}>{t('pending')}（{pending.length}）</Btn>
+              <Btn variant="secondary" size="sm" aria-pressed={tab === 'rejected'} onClick={() => switchTab('rejected')}>{t('rejected')}（{rejected.length}）</Btn>
               <div style={{ flex: 1 }} />
               <label style={{ fontSize: 12 }}><input type="checkbox" checked={items.length > 0 && toggled.length === items.length} onChange={(e) => { if (e.target.checked) { setSel(new Set(items.map((c) => c.path))) } else { setSel(new Set()) } }} /> {t('selectAll')}（{items.length}）</label>
               <span style={{ fontSize: 11, opacity: 0.65 }}>{t('auditSelected')} {toggled.length}</span>
-              {tab === 'pending' && <button type="button" className="mc-btn" disabled={!!busy} onClick={reclassify}>🔧 {t('reclassify')}</button>}
-              <button type="button" className="mc-btn me-on" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</button>
+              {tab === 'pending' && <Btn variant="secondary" size="sm" disabled={!!busy} onClick={reclassify}>🔧 {t('reclassify')}</Btn>}
+              <Btn variant="primary" size="sm" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</Btn>
               {tab === 'pending'
-                ? <button type="button" className="mc-btn mc-btn-danger" disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</button>
-                : <button type="button" className="mc-btn mc-btn-danger" disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete')}</button>}
-              {toggled.length > 0 && <button type="button" className="mc-btn" onClick={clearSel}>{t('auditClearSelection')}</button>}
+                ? <Btn variant="danger" size="sm" disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</Btn>
+                : <Btn variant="danger" size="sm" disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete')}</Btn>}
+              {toggled.length > 0 && <Btn variant="ghost" size="sm" onClick={clearSel}>{t('auditClearSelection')}</Btn>}
             </div>
             {items.length ? (
               <div className="mc-card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -6963,16 +7999,17 @@ function AuditPanel({ t, onReload, version }) {
                           </div>
                         </div>
                         <div className="me-audit-row-actions" onClick={(e) => e.stopPropagation()}>
+                          {/* 行内操作是次级动作（主按钮留给批量条），危险动作走 danger 描边 */}
                           {tab === 'pending' ? (
                             <>
-                              {isRawCard(c) && <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('redistill')} disabled={!!busy} onClick={() => redistill(c.path)}>🔁</button>}
-                              <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                              <button type="button" className="mc-btn mc-btn-danger" style={{ padding: '2px 8px' }} onClick={() => applyStatus('rejected', [c.path])}>✕</button>
+                              {isRawCard(c) && <Btn variant="ghost" size="sm" title={t('redistill')} disabled={!!busy} onClick={() => redistill(c.path)}>🔁</Btn>}
+                              <Btn variant="secondary" size="sm" onClick={() => applyStatus('approved', [c.path])}>✓</Btn>
+                              <Btn variant="danger" size="sm" onClick={() => applyStatus('rejected', [c.path])}>✕</Btn>
                             </>
                           ) : (
                             <>
-                              <button type="button" className="mc-btn" style={{ padding: '2px 8px' }} title={t('restore')} onClick={() => applyStatus('approved', [c.path])}>✓</button>
-                              <button type="button" className="mc-btn mc-btn-danger" style={{ padding: '2px 8px' }} title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</button>
+                              <Btn variant="secondary" size="sm" title={t('restore')} onClick={() => applyStatus('approved', [c.path])}>✓</Btn>
+                              <Btn variant="danger" size="sm" title={t('restoreDelete')} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [c.path]) }}>🗑</Btn>
                             </>
                           )}
                         </div>
@@ -6981,7 +8018,18 @@ function AuditPanel({ t, onReload, version }) {
                   )
                 })}
               </div>
-            ) : <div style={{ opacity: 0.6, fontSize: 12, padding: 20, textAlign: 'center' }}>{search ? t('auditNoMatch') : t('noAuditItems')}</div>}
+            ) : (search
+              // 搜索/筛选无结果：下一步是「清空搜索」，不是「等新卡沉淀」
+              ? <EmptyState
+                  icon="🔍"
+                  title={t('auditNoMatch')}
+                  hint={t('auditNoMatchHint')}
+                  action={<Btn variant="secondary" size="sm" onClick={() => { setSearch(''); setKindF('all'); setAgentF('all'); setDateF(''); clearSel(); setPreviewPath(null) }}>{t('auditClearSearch')}</Btn>}
+                />
+              : tab === 'pending'
+                ? <EmptyState icon="📥" title={t('auditEmptyTitle')} hint={t('auditEmptyHint')} />
+                // 已驳回/回收侧为空：说清「这里会收什么、多久清理」
+                : <EmptyState icon="🗑️" title={t('noAuditItems')} hint={t('recycleEmptyHint').split('{days}').join('30')} />)}
             </div>
             <aside className="me-audit-preview">
               {previewCard ? (
@@ -7003,31 +8051,45 @@ function AuditPanel({ t, onReload, version }) {
                   </div>
                   <div className="me-audit-preview-body">
                     {previewSt.loading && <div className="me-audit-preview-empty">{t('loading')}</div>}
-                    {previewSt.error && <div className="me-audit-preview-empty" style={{ color: '#f87171' }}>⚠ {t('auditBodyFail')}：{previewSt.error}</div>}
+                    {/* 正文读取失败不再是一行红字：就地重试（重新拉这张卡的正文） */}
+                    {previewSt.error && (
+                      <ErrorBar
+                        error={t('auditBodyFail') + '：' + previewSt.error}
+                        onRetry={() => fetchBody(previewCard, previewCard.status || (tab === 'pending' ? 'pending' : 'rejected'))}
+                        retryText={t('retry')}
+                        extra={<span style={{ fontSize: 11, opacity: 0.75 }}>{t('auditBodyFailHint')}</span>}
+                      />
+                    )}
                     {previewSt.text != null
                       ? <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(stripRepeatedTitle(splitFrontmatter(previewSt.text).body, previewCard.title)) }} />
                       : (!previewSt.loading && <p className="me-audit-preview-summary">{previewCard.summary || ''}</p>)}
                   </div>
                   <div className="me-audit-preview-actions">
+                    {/* 批准/恢复在批量条上已是本屏唯一主按钮，这里降为次级；驳回/删除走 danger */}
                     {tab === 'pending' && isRawCard(previewCard) && (
-                      <button type="button" className="mc-btn" disabled={!!busy} onClick={() => redistill(previewCard.path)}>🔁 {t('redistill')}</button>
+                      <Btn variant="ghost" size="sm" disabled={!!busy} onClick={() => redistill(previewCard.path)}>🔁 {t('redistill')}</Btn>
                     )}
-                    <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path])}>✓ {tab === 'rejected' ? t('restore') : previewCard.kind === 'core' ? t('approveCore') : t('approve')}</button>
+                    <Btn variant="secondary" size="sm" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path])}>✓ {tab === 'rejected' ? t('restore') : previewCard.kind === 'core' ? t('approveCore') : t('approve')}</Btn>
                     {tab === 'pending' && previewCard.kind !== 'core' && !previewCard.revision && (
-                      <button type="button" className="mc-btn me-core-btn" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'core' })}>⭐ {t('approveAndCore')}</button>
+                      <Btn variant="ghost" size="sm" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'core' })}>⭐ {t('approveAndCore')}</Btn>
                     )}
                     {tab === 'pending' && previewCard.kind === 'core' && (
-                      <button type="button" className="mc-btn" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'knowledge' })}>{t('approveAsNormal')}</button>
+                      <Btn variant="ghost" size="sm" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'knowledge' })}>{t('approveAsNormal')}</Btn>
                     )}
                     {tab === 'pending'
-                      ? <button type="button" className="mc-btn mc-btn-danger" disabled={!!busy} onClick={() => applyStatus('rejected', [previewCard.path])}>✕ {t('reject')}</button>
-                      : <button type="button" className="mc-btn mc-btn-danger" disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>🗑 {t('restoreDelete')}</button>}
+                      ? <Btn variant="danger" size="sm" disabled={!!busy} onClick={() => applyStatus('rejected', [previewCard.path])}>✕ {t('reject')}</Btn>
+                      : <Btn variant="danger" size="sm" disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>🗑 {t('restoreDelete')}</Btn>}
                   </div>
                 </>
-              ) : <div className="me-audit-preview-empty">{search ? t('auditNoMatch') : t('noAuditItems')}</div>}
+              ) : (search
+                ? <EmptyState icon="🔍" title={t('auditNoMatch')} hint={t('auditNoMatchHint')} action={<Btn variant="secondary" size="sm" onClick={() => { setSearch(''); setKindF('all'); setAgentF('all'); setDateF(''); clearSel(); setPreviewPath(null) }}>{t('auditClearSearch')}</Btn>} />
+                : tab === 'pending'
+                  ? <EmptyState icon="📥" title={t('auditEmptyTitle')} hint={t('auditEmptyHint')} />
+                  : <EmptyState icon="🗑️" title={t('noAuditItems')} hint={t('recycleEmptyHint').split('{days}').join('30')} />)}
             </aside>
           </div>
         </div>
+        {/* @view-end audit */}
       </div>
     </div>
   )
@@ -7913,10 +8975,16 @@ function MyNewsPanel({ t, version, onUnreadChange }) {
 function RecoverPanel({ t, onReload, version }) {
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState('')
+  // 列表拉取失败不再静默（静默时界面 = 「回收站是空的」，用户会以为卡被删干净了）
+  const [loadErr, setLoadErr] = useState('')
   const [toast, setToast] = useState(null)
   const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3200) }
   const load = useCallback(async () => {
-    try { const r = await fetch(`${API}/recycle/list`).then((x) => x.json()); if (r.ok) setItems(r.items || []) } catch {}
+    try {
+      const r = await fetch(`${API}/recycle/list`).then((x) => x.json())
+      if (r && r.ok) { setItems(r.items || []); setLoadErr('') }
+      else setLoadErr((r && r.error) || 'HTTP')
+    } catch (e) { setLoadErr(String((e && e.message) || e)) }
   }, [])
   useEffect(() => { load() }, [version, load])
   const action = async (act, p) => {
@@ -7937,6 +9005,7 @@ function RecoverPanel({ t, onReload, version }) {
       <style>{CSS}</style>
       <div style={{ overflow: 'auto', padding: 4 }}>
         <InlineToast toast={toast} />
+        {/* @view optimize */}
         <div className="mc-v5-pagehead">
           <div>
             <div className="mc-v5-eyebrow">RECYCLE CENTER</div>
@@ -7949,7 +9018,7 @@ function RecoverPanel({ t, onReload, version }) {
               ② 调的是 purge-expired?days=0，而服务端 `|| 30` 把 0 吞成 30，只清过期项；
               ③ 无二次确认，也从不显示清掉了几张。
               现在改成显式 purge-all + 确认 + 回显数量。 */}
-          <button type="button" className="mc-btn mc-danger" disabled={!!busy || items.length === 0} title={items.length ? t('recyclePurgeAllConfirm').split('{n}').join(String(items.length)) : t('emptyRecycle')} onClick={async () => {
+          <Btn variant="danger" disabled={!!busy || items.length === 0} title={items.length ? t('recyclePurgeAllConfirm').split('{n}').join(String(items.length)) : t('emptyRecycle')} onClick={async () => {
             if (!items.length) return
             if (!window.confirm(t('recyclePurgeAllConfirm').split('{n}').join(String(items.length)))) return
             setBusy('purgeAll')
@@ -7960,9 +9029,10 @@ function RecoverPanel({ t, onReload, version }) {
               if (r.ok && (!d || d.ok !== false)) notify(t('toastPurgeAll').split('{n}').join(String(d && d.purged != null ? d.purged : items.length)), true)
               else notify(t('toastFailed') + '：' + ((d && d.error) || ('HTTP ' + r.status)), false)
             } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') }
-          }}>🗑 {t('recyclePurgeAll')}{items.length ? '（' + items.length + '）' : ''}</button>
+          }}>🗑 {t('recyclePurgeAll')}{items.length ? '（' + items.length + '）' : ''}</Btn>
         </div>
         <div className="mc-v5-recycle-hint">{t('recycleHint')}</div>
+        {loadErr && <div style={{ marginBottom: space(3) }}><ErrorBar error={t('error') + '：' + loadErr} onRetry={() => load()} retryText={t('retry')} /></div>}
         {items.length ? (
           <div className="mc-card mc-v5-recycle">
             {items.map((c) => {
@@ -7975,15 +9045,17 @@ function RecoverPanel({ t, onReload, version }) {
                     <span>{t(KIND_LABELS[c.kind] || 'kindKnowledge')} · {c.status === 'rejected' ? t('rejected') : t('bucketDeleted')} · {localDateKey(c.deletedAt || c.updated) || '-'}</span>
                   </div>
                   <div className="mc-v5-recycle-actions">
-                    <button type="button" className="mc-btn" disabled={!!busy} title={c.status === 'rejected' ? t('restoreToQueue') : t('restore')} onClick={() => action('restore', c.path)}>{c.status === 'rejected' ? t('restoreToQueue') : t('restore')}</button>
-                    <button type="button" className="mc-btn mc-danger" disabled={!!busy} onClick={() => { if (window.confirm(t('purgeConfirm'))) action('purge', c.path) }}>{t('purge')}</button>
+                    {/* 行内动作：恢复 = 次级（主按钮留给上面「清空」之外的场景，不做成一排主按钮），删除 = danger 描边 */}
+                    <Btn variant="secondary" size="sm" disabled={!!busy} title={c.status === 'rejected' ? t('restoreToQueue') : t('restore')} onClick={() => action('restore', c.path)}>{c.status === 'rejected' ? t('restoreToQueue') : t('restore')}</Btn>
+                    <Btn variant="danger" size="sm" disabled={!!busy} onClick={() => { if (window.confirm(t('purgeConfirm'))) action('purge', c.path) }}>{t('purge')}</Btn>
                   </div>
                 </div>
               )
             })}
           </div>
-        ) : <div className="mc-card mc-v5-empty-state">🗑️ <b>{t('emptyRecycle')}</b><span>{t('recycleEmptyHint').split('{days}').join('30')}</span></div>}
+        ) : <EmptyState icon="🗑️" title={t('emptyRecycle')} hint={t('recycleEmptyHint').split('{days}').join('30')} />}
       </div>
+      {/* @view-end optimize */}
     </div>
   )
 }
@@ -8029,6 +9101,31 @@ const cardInsightKey = (card) => {
   if (/教训|避免|lesson/.test(s)) return 'insightLesson'
   return 'insightSummary'
 }
+/**
+ * 卡片列表首屏骨架（3–5 张）。
+ * 为什么不是「加载中…」：一行字既不说明会加载出什么，也会在数据回来时整页跳动；
+ * 骨架按最终网格布局先占位，视觉上是「正在变出卡片」而不是「白屏 + 一行字」。
+ * 尺寸全部走令牌（space()/Skeleton），不写死 7/9/11px。
+ */
+function CardsSkeleton({ n = 4 }) {
+  const count = Math.max(3, Math.min(5, Number(n) || 4))
+  return (
+    <div className="mc-grid" aria-busy="true" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="mc-card" style={{ display: 'flex', flexDirection: 'column', gap: space(2), padding: space(4) }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space(2) }}>
+            <Skeleton h={26} w={26} />
+            <Skeleton h={12} w="42%" />
+          </div>
+          <Skeleton h={16} w="78%" />
+          <Skeleton h={12} w="100%" />
+          <Skeleton h={12} w="86%" />
+          <Skeleton h={12} w="56%" />
+        </div>
+      ))}
+    </div>
+  )
+}
 const MiniGraph = ({ n = 0, color = '#ff9a72', size = 30 }) => {
   const count = Math.max(2, Math.min(6, Number(n) || 2))
   const pts = Array.from({ length: count }, (_, i) => {
@@ -8044,20 +9141,41 @@ const MiniGraph = ({ n = 0, color = '#ff9a72', size = 30 }) => {
     </svg>
   )
 }
+// 命中位置 → i18n 键（后端 _match.where 的取值）
+const MATCH_WHERE_KEY = { title: 'matchTitle', tags: 'matchTags', summary: 'matchSummary', body: 'matchBody' }
 const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, onCore, links }) => {
   const color = KIND_COLORS[card.kind] || KIND_COLORS.other
   const linkCount = Number(links ?? card.links ?? card.weight ?? 0)
   const tags = tagsOf(card)
+  // 卡片类型标签（知识类型:决策结论 / 技能类型:侦察）：单独渲染成可点标签（点一下按类型筛），
+  // 并把给 agent 用的机器键 knowledge-type:decision / skill-type:recon 从显示里隐掉。
+  const typeTag = tags.find((x) => isTypeTag(x)) || ''
+  const plainTags = tags.filter((x) => x !== typeTag && !isTypeMachineKey(x))
+  const plainMax = typeTag ? 1 : 2
+  // ---- 搜索命中说明（后端契约：cards 里多带 _match + score） ----
+  // FTS + 向量混合检索：语义召回的条目「内容里根本没有这个词」，硬做高亮会误导用户，
+  // 所以只有字面命中（title/tags/summary/body）才给 mark，语义命中只挂「语义相关」徽标。
+  const match = query && card && card._match ? card._match : null
+  const matchWhere = match && match.where ? String(match.where) : ''
+  const semantic = matchWhere === 'semantic'
+  const literal = !!query && !semantic
+  const term = String((match && match.term) || '') || query
+  const matchLabel = MATCH_WHERE_KEY[matchWhere] || ''
+  const score = Number(card && card.score)
+  const showScore = !!query && Number.isFinite(score) && score > 0
   return (
     <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}${card.kind === 'core' ? ' core' : ''}`} style={{ '--card-accent': color }} onClick={() => onOpen(card)}>
       <div className="mc-v5-card-top">
         <span className="mc-v5-card-tile" style={{ color, background: color + '18', borderColor: color + '38' }}>{KIND_EMOJI[card.kind] || '📎'}</span>
         <span className="mc-v5-card-kind-name">{card.kind === 'core' ? '⭐ ' + t('kindCore') : t(KIND_LABELS[card.kind] || 'kindKnowledge')}</span>
+        {semantic && <span className="mc-v5-match-hatch semantic" title={t('matchSemanticHint')}>✨ {t('matchSemantic')}</span>}
+        {literal && matchLabel && <span className="mc-v5-match-hatch where" title={term ? t('matchWhere') + ' · ' + term : t('matchWhere')}>{t('matchWhere')} · {t(matchLabel)}</span>}
         {card.kind === 'core' && <span className="mc-v5-core-badge">⭐ {t('kindCore')}</span>}
         {card.status === 'pending' && <span className="mc-v5-card-status pending">⏳ {t('statusPending')}</span>}
         {card.status === 'rejected' && <span className="mc-v5-card-status rejected">⛔ {t('statusRejected')}</span>}
         {isNewCard(card.updated) && <span className="mc-new">{t('newBadge')}</span>}
         <span className="spacer" style={{ flex: 1 }} />
+        {showScore && <span className="mc-v5-match-score" title={t('matchScoreHint')}>{score.toFixed(1)}</span>}
         <span className="mc-v5-card-time">{fmtDate(card.updated)}</span>
         {onCore && card.status !== 'pending' && card.status !== 'rejected' && (
           <button type="button" className={`mc-v5-core${card.kind === 'core' ? ' on' : ''}`} title={t(card.kind === 'core' ? 'unsetCore' : 'setCore')} onClick={(e) => { e.stopPropagation(); onCore(card.path, card.kind === 'core' ? 'knowledge' : 'core') }}>
@@ -8066,19 +9184,23 @@ const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, 
         )}
         {onPin && <button type="button" className={`mc-v5-pin${pinned ? ' on' : ''}`} title={t(pinned ? 'unpinCard' : 'pinCard')} aria-label={t(pinned ? 'unpinCard' : 'pinCard')} onClick={(e) => { e.stopPropagation(); onPin(card.path) }}>📌</button>}
       </div>
-      <h4 className="mc-v5-card-title">{query ? highlightMatches(card.title, query) : card.title}</h4>
+      <h4 className="mc-v5-card-title">{literal ? highlightMatches(card.title, term) : card.title}</h4>
       <div className="mc-v5-card-insight">
         <span className="mc-v5-insight-k">{t(cardInsightKey(card))}</span>
-        <span className="mc-v5-card-lead">{query ? highlightMatches(card.summary || '', query) : cardLead(card)}</span>
+        <span className="mc-v5-card-lead">{literal ? highlightMatches(card.summary || '', term) : cardLead(card)}</span>
       </div>
-      {query && (() => {
-        const sn = snippetAround(card.body || '', query)
-        return sn ? <p className="mc-snippet">{highlightMatches(sn, query)}</p> : null
+      {/* 命中片段：优先用后端 _match.snippet（FTS 直接在命中位置截好，含高亮词），
+          它为空时（语义召回 / 老后端）才退回自己从正文里截——正文里没这个词时自然不显示。 */}
+      {literal && (() => {
+        const sn = (match && match.snippet ? String(match.snippet) : '') || snippetAround(card.body || '', term)
+        return sn ? <p className="mc-snippet">{highlightMatches(sn, term)}</p> : null
       })()}
-      {tagsOf(card).length > 0 && (
+      {(typeTag || plainTags.length > 0) && (
         <div className="mc-tags mc-v5-card-tags">
-          {tagsOf(card).slice(0, 2).map((tag) => <button key={tag} type="button" className="mc-tag mc-tag-click" title={tag} onClick={(e) => { e.stopPropagation(); onTagClick && onTagClick(tag) }}>#{tag}</button>)}
-          {tags.length > 2 && <span className="mc-tag more">+{tags.length - 2}</span>}
+          {typeTag && <button type="button" className="mc-tag mc-tag-click mc-tag-type" title={(typeTagKind(typeTag) === 'skill' ? t('typeKindSkill') : t('typeKindKnowledge')) + ' · ' + typeTag} onClick={(e) => { e.stopPropagation(); onTagClick && onTagClick(typeTag) }}>{typeTagLabel(typeTag)}</button>}
+          {/* 有类型标签时它已经占了首位，普通标签就只补一个；没有类型标签（普通知识卡）保持原来的前两个 */}
+          {plainTags.slice(0, plainMax).map((tag) => <button key={tag} type="button" className="mc-tag mc-tag-click" title={tag} onClick={(e) => { e.stopPropagation(); onTagClick && onTagClick(tag) }}>#{tag}</button>)}
+          {plainTags.length > plainMax && <span className="mc-tag more">+{plainTags.length - plainMax}</span>}
         </div>
       )}
       <footer className="mc-v5-card-foot">
@@ -8091,10 +9213,215 @@ const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, 
   )
 }
 
+// 容灾备份卡片：备份节奏 / 保留天数 / 「库损坏自动还原」+ 立即备份。
+// 接口契约（后端）：
+//   GET  /backup/status → { ok, config:{enabled,intervalHours,keepDays,autoRestore},
+//                           lastBackup:{name,at,cards,sizeMB}|null, backups:[{name,at,sizeMB}],
+//                           nextAt, retentionDays }
+//   POST /backup/config {enabled?,intervalHours?,keepDays?,autoRestore?} → { ok, config }
+//   POST /backup        → { ok, path, cards, kept, pruned }
+// 开关状态一律以接口为准（本地不缓存），避免面板和服务端各说一套。
+function BackupCard({ t, notify }) {
+  const [status, setStatus] = useState(null)
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState('')
+  const [intervalHours, setIntervalHours] = useState('')
+  const [keepDays, setKeepDays] = useState('')
+  // 导入还原用的隐藏文件选择器（导出走下载流，不需要 ref）
+  const importDbRef = useRef(null)
+  // at / nextAt 可能是 ISO 字符串，也可能是毫秒时间戳，统一兜住。
+  const fmtWhen = (v) => {
+    if (v == null || v === '') return t('backupNever')
+    const d = typeof v === 'number' ? new Date(v) : new Date(String(v))
+    if (Number.isNaN(d.getTime())) return String(v)
+    return fmtDate(d.toISOString())
+  }
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(API + '/backup/status').then((x) => x.json())
+      if (!r || !r.ok) {
+        // 老宿主还没有 /backup/* 路由（404 / 未知接口）→ 说清是「要重启」而不是「备份坏了」
+        const msg = String((r && r.error) || '')
+        setErr(/未知接口|404|not found/i.test(msg) ? t('backupNeedRestart') : (msg || t('backupLoadFail')))
+        return
+      }
+      setErr('')
+      setStatus(r)
+      const c = r.config || {}
+      setIntervalHours(c.intervalHours == null ? '' : String(c.intervalHours))
+      setKeepDays(c.keepDays == null ? '30' : String(c.keepDays))
+    } catch (e) { setErr(t('backupLoadFail')) }
+  }, [t])
+  useEffect(() => { load() }, [load])
+  const saveConfig = async (patch) => {
+    setBusy('config')
+    try {
+      const r = await fetch(API + '/backup/config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch || {}),
+      }).then((x) => x.json())
+      if (r && r.ok) { notify(t('backupSaved')); await load() }
+      else notify((r && r.error) || t('backupSaveFail'), false)
+    } catch { notify(t('backupSaveFail'), false) } finally { setBusy('') }
+  }
+  const saveNumbers = () => {
+    const patch = {}
+    const h = Number(intervalHours)
+    if (Number.isFinite(h) && h > 0) patch.intervalHours = h
+    const d = Number(keepDays)
+    if (Number.isFinite(d) && d > 0) patch.keepDays = d
+    if (!Object.keys(patch).length) { notify(t('backupSaveFail'), false); return }
+    saveConfig(patch)
+  }
+  const backupNow = async () => {
+    setBusy('backup')
+    try {
+      const r = await fetch(API + '/backup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      }).then((x) => x.json())
+      if (r && r.ok) {
+        // 提示里说清这次清理了几份过期备份（pruned），否则用户不知道保留天数生效没有。
+        notify(t('backupDone').replace('{cards}', String(r.cards || 0)).replace('{pruned}', String(r.pruned || 0)))
+        await load()
+      } else notify((r && r.error) || t('backupFail'), false)
+    } catch { notify(t('backupFail'), false) } finally { setBusy('') }
+  }
+  // 导出：直接命中下载流（服务端先做一份自洽快照再回传，不读正在写的库）
+  const exportDb = async () => {
+    setBusy('export')
+    try {
+      const a = document.createElement('a')
+      a.href = API + '/backup/export'
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      notify(t('backupExport') + ' · ' + t('backupDone').replace('{cards}', '—').replace('{pruned}', '—'))
+      await load()
+    } catch { notify(t('backupExportFail'), false) } finally { setBusy('') }
+  }
+  // 导入还原：先本地校验文件头，再走服务端（校验 → 留证 → 替换 → 复核）
+  const importDb = async (e) => {
+    const file = e && e.target && e.target.files && e.target.files[0]
+    if (e && e.target) e.target.value = ''
+    if (!file) return
+    setBusy('import')
+    try {
+      const buf = await file.arrayBuffer()
+      const head = new TextDecoder('latin1').decode(new Uint8Array(buf.slice(0, 15)))
+      if (head !== 'SQLite format 3') { notify(t('backupImportFail') + '：不是 SQLite 数据库', false); return }
+      // 大文件 base64 会吃内存：超过 200MB 先拦一下（正常库 20–120MB）
+      if (buf.byteLength > 200 * 1024 * 1024) { notify(t('backupImportFail') + '：文件超过 200MB', false); return }
+      let bin = ''
+      const bytes = new Uint8Array(buf)
+      const chunk = 0x8000
+      for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
+      const data = btoa(bin)
+      const r = await fetch(API + '/backup/import', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, name: file.name }),
+      }).then((x) => x.json()).catch(() => null)
+      if (r && r.ok) {
+        notify(t('backupImportDone').replace('{cards}', String((r.imported && r.imported.cards) || 0)))
+        await load()
+        setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 1200)
+      } else notify(t('backupImportFail') + '：' + ((r && r.error) || '未知错误'), false)
+    } catch (err) {
+      notify(t('backupImportFail') + '：' + String((err && err.message) || err), false)
+    } finally { setBusy('') }
+  }
+  const cfg = (status && status.config) || {}
+  const last = status && status.lastBackup
+  const backups = (status && status.backups) || []
+  const toggle = (key, label, hint) => {
+    const on = cfg[key] === true // 开关状态只认接口返回，不做本地猜测
+    // 开关是「状态」不是「主操作」：用次级按钮 + aria-pressed 表示选中（以前 on 就变 me-on 主按钮，
+    // 一屏里「自动备份 / 自动还原 / 立即备份」三颗主按钮，用户不知道先点谁）。
+    return (
+      <Btn
+        variant="secondary"
+        size="sm"
+        disabled={!!busy}
+        title={hint || label}
+        aria-pressed={on}
+        onClick={() => saveConfig({ [key]: !on })}
+      >
+        {on ? '●' : '○'} {label}
+      </Btn>
+    )
+  }
+  // @view stats
+  return (
+    <div className="mc-card" style={{ marginBottom: 10 }}>
+      {/* 标题由外层 CfgSection 提供（「🧯 备份」），这里不再自己渲染一遍标题/副标题 ——
+          否则同一屏出现两个「🧯 备份」，看起来像两个重复的备份模块。 */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1 }} />
+        <Btn variant="ghost" size="sm" onClick={load}>↻ {t('refresh')}</Btn>
+        {/* 本屏唯一的主按钮：立即备份（其余开关/保存/刷新都是次级） */}
+        <Btn variant="primary" size="sm" disabled={!!busy} onClick={backupNow}>{busy === 'backup' ? t('backupRunning') : '💾 ' + t('backupNow')}</Btn>
+      </div>
+      {err
+        ? <div style={{ marginTop: space(2) }}><ErrorBar error={err} onRetry={load} retryText={t('retry')} /></div>
+        : !status
+          ? <div style={{ marginTop: space(2), display: 'flex', flexDirection: 'column', gap: space(2) }}>
+              <Skeleton h={14} w="46%" />
+              <Skeleton h={14} w="70%" />
+            </div>
+          : (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                {toggle('enabled', t('backupAuto'))}
+                {toggle('autoRestore', t('backupAutoRestore'), t('backupAutoRestoreHint'))}
+                <span style={{ fontSize: 11, opacity: 0.55 }}>{t('backupAutoRestoreHint')}</span>
+              </div>
+              {/* 导出 / 导入还原：迁移类动作统一放这里（首页的导入、导出 MD/JSON 已移除） */}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                <Btn variant="secondary" size="sm" disabled={!!busy} onClick={exportDb}>{busy === 'export' ? t('loading') : '⤓ ' + t('backupExport')}</Btn>
+                <input ref={importDbRef} type="file" accept=".db,application/octet-stream" style={{ display: 'none' }} onChange={importDb} />
+                <Btn variant="secondary" size="sm" disabled={!!busy} onClick={() => importDbRef.current && importDbRef.current.click()}>{busy === 'import' ? t('backupImportBusy') : '⤒ ' + t('backupImport')}</Btn>
+                <span style={{ fontSize: 11, opacity: 0.55 }}>{t('backupImportHint')}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                <label style={{ fontSize: 11, opacity: 0.8, display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {t('backupInterval')}
+                  <input type="number" min="1" step="1" value={intervalHours} onChange={(e) => setIntervalHours(e.target.value)} style={{ width: 72, fontSize: 12, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit' }} />
+                </label>
+                <label style={{ fontSize: 11, opacity: 0.8, display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {t('backupKeepDays')}
+                  <input type="number" min="1" step="1" value={keepDays} onChange={(e) => setKeepDays(e.target.value)} style={{ width: 72, fontSize: 12, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit' }} />
+                </label>
+                <Btn variant="secondary" size="sm" disabled={!!busy} onClick={saveNumbers}>{busy === 'config' ? t('loading') : t('backupSave')}</Btn>
+              </div>
+              {[
+                { k: t('backupLast'), v: last ? fmtWhen(last.at) + (last.cards != null ? ' · ' + last.cards + ' ' + t('cardsUnit') : '') : t('backupNone') },
+                { k: t('backupCount'), v: backups.length + ' ' + t('backupUnit') },
+                { k: t('backupNext'), v: cfg.enabled === false ? t('backupOff') : fmtWhen(status.nextAt) },
+              ].map((r) => (
+                <div key={r.k} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12, padding: '3px 0', borderTop: '1px solid rgba(127,127,127,0.10)' }}>
+                  <b style={{ minWidth: 62, flex: '0 0 auto', opacity: 0.85 }}>{r.k}</b>
+                  <span style={{ opacity: 0.82, wordBreak: 'break-word' }}>{r.v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+    </div>
+  )
+  // @view-end stats
+}
+
 // 管理面板：用量/今日 + 整理建议（非破坏预览）+ 会话预算。
 function LibraryAdmin({ t, tab, onReload, version }) {
   const [stats, setStats] = useState(null)
   const [err, setErr] = useState('')
+  // 面板内提示条：这个组件里的 notify 一直只有调用、没有定义（点「检查/整理」就 ReferenceError），
+  // 顺手补上 —— 容灾卡片的「保存 / 立即备份」也复用它。
+  const [toast, setToast] = useState(null)
+  const toastTimer = useRef(null)
+  const notify = (msg, ok = true) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast({ msg, ok })
+    toastTimer.current = setTimeout(() => setToast(null), 3200)
+  }
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
   const [opt, setOpt] = useState(null)
   const [budget, setBudget] = useState(null)
   const [captureLog, setCaptureLog] = useState(null)
@@ -8290,11 +9617,10 @@ function LibraryAdmin({ t, tab, onReload, version }) {
   return (
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1, minHeight: 0 }}>
       <style>{CSS}</style>
+      {toast && <InlineToast toast={toast} />}
       <div style={{ overflow: 'auto' }}>
-          {err && <div className="mc-card" style={{ borderLeft: '4px solid #ef4444', background: 'rgba(239,68,68,0.08)', padding: '12px 14px', marginBottom: 10 }}>
-            <div style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600, marginBottom: 6 }}>⚠ {err}</div>
-            <button type="button" className="mc-btn" onClick={fetchAll}>↻ {t('retry')}</button>
-          </div>}
+          {err && <div style={{ marginBottom: 10 }}><ErrorBar error={err} onRetry={() => fetchAll()} retryText={t('retry')} /></div>}
+          {/* @view stats */}
           {tab === 'stats' && (
             <div>
               <div className="mc-v5-pagehead">
@@ -8304,7 +9630,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   <p>{t('runtimeSub')}</p>
                 </div>
                 <span className="mc-v5-pagecount">{health ? `${health.total || 0} ${t('cardsUnit')}` : ''}</span>
-                <button type="button" className="mc-btn" onClick={() => fetchAll()}>↻ {t('refresh')}</button>
+                <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>↻ {t('refresh')}</Btn>
               </div>
               <div className="mc-v5-statusgrid">
                 <div className="mc-v5-statuscard">
@@ -8338,9 +9664,15 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   <b style={{ fontSize: 12 }}>🩺 {t('healthTitle')}</b>
                   <span style={{ fontSize: 11, opacity: 0.6 }}>{t('healthHint')}</span>
                   <div style={{ flex: 1 }} />
-                  <button type="button" className="mc-btn" onClick={() => fetchAll()}>↻ {t('refresh')}</button>
+                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>↻ {t('refresh')}</Btn>
                 </div>
-                {!health ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('loading')}</div> : (() => {
+                {!health
+                  ? <div style={{ marginTop: space(2), display: 'flex', flexDirection: 'column', gap: space(2) }}>
+                      <Skeleton h={14} w="52%" />
+                      <Skeleton h={14} w="64%" />
+                      <Skeleton h={14} w="44%" />
+                    </div>
+                  : (() => {
                   const db = health.db || {}
                   const dbOk = db.writable !== false && !db.corrupt
                   const bk = health.backups || { count: 0, newestAt: 0 }
@@ -8351,7 +9683,9 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   const ver = align && align.findings ? (
                     align.onDisk && align.residentServed === align.onDisk && align.hostVersion === align.onDisk ? 'ok' : 'warn'
                   ) : 'none'
-                  const ICO = { ok: ['✅', '#10b981'], warn: ['⚠', '#f59e0b'], bad: ['✗', '#ef4444'], none: ['•', 'inherit'] }
+                  // 状态统一走 <Status>（色点 + 文案），不再每处手写 emoji + 色值。
+                  // 'none' 是「还没测」，映射到 idle 灰点，避免用红色谎报故障。
+                  const TONE = { ok: 'ok', warn: 'warn', bad: 'bad', none: 'idle' }
                   const rows = [
                     {
                       label: t('healthDb'),
@@ -8384,11 +9718,10 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   return (
                     <div style={{ marginTop: 6 }}>
                       {rows.map((r) => (
-                        <div key={r.label} className="me-health-row" style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12, padding: '3px 0', borderTop: '1px solid rgba(127,127,127,0.10)' }}>
-                          <span style={{ width: 14, flex: '0 0 auto', color: ICO[r.level][1] }}>{ICO[r.level][0]}</span>
-                          <b style={{ minWidth: 62, flex: '0 0 auto', opacity: 0.85 }}>{r.label}</b>
+                        <div key={r.label} className="me-health-row" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, padding: '3px 0', borderTop: '1px solid rgba(127,127,127,0.10)' }}>
+                          <span style={{ minWidth: 62, flex: '0 0 auto' }}><Status tone={TONE[r.level] || 'idle'} text={r.label} /></span>
                           <span style={{ opacity: 0.82, wordBreak: 'break-word' }}>{r.text}</span>
-                          {r.action && <button type="button" className="mc-btn" style={{ marginLeft: 6, padding: '0 6px', fontSize: 11 }} disabled={!!busy} onClick={r.action.run}>{r.action.label}</button>}
+                          {r.action && <Btn variant="ghost" size="sm" disabled={!!busy} onClick={r.action.run}>{r.action.label}</Btn>}
                         </div>
                       ))}
                     </div>
@@ -8401,14 +9734,17 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   <b style={{ fontSize: 12 }}>🧾 {t('ledgerTitle')}</b>
                   <span style={{ fontSize: 11, opacity: 0.6 }}>{t('ledgerHint')}</span>
                   <div style={{ flex: 1 }} />
-                  <button type="button" className="mc-btn" onClick={() => fetchAll()}>↻ {t('refresh')}</button>
+                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>↻ {t('refresh')}</Btn>
                 </div>
                 {!ledger
-                  ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('loading')}</div>
+                  ? <div style={{ marginTop: space(2), display: 'flex', flexDirection: 'column', gap: space(2) }}>
+                      <Skeleton h={14} w="58%" />
+                      <Skeleton h={14} w="36%" />
+                    </div>
                   : ledger.ok === false
-                    ? <div style={{ color: '#f59e0b', fontSize: 12, padding: '8px 0', lineHeight: 1.7 }}>⚠ {(/未知接口|404|not found/i.test(String(ledger.error || '')) ? t('ledgerNeedRestart') : (ledger.error || t('adminLoadFail')))}</div>
+                    ? <div style={{ marginTop: space(2) }}><ErrorBar error={(/未知接口|404|not found/i.test(String(ledger.error || '')) ? t('ledgerNeedRestart') : (ledger.error || t('adminLoadFail')))} onRetry={() => fetchAll()} retryText={t('retry')} /></div>
                     : (ledger.totals.recalls + ledger.totals.captures === 0
-                      ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('ledgerNoData')}</div>
+                      ? <EmptyState icon="🧾" title={t('ledgerNoData')} hint={t('ledgerHint')} />
                       : (
                         <div style={{ marginTop: 8 }}>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
@@ -8433,9 +9769,9 @@ function LibraryAdmin({ t, tab, onReload, version }) {
               <div className="mc-card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <b style={{ fontSize: 12 }}>🔧 {t('alignTitle')}</b>
-                  <button type="button" className="mc-btn" disabled={!!busy} onClick={runAlign}>{busy === 'align' ? t('exporting') : t('alignRun')}</button>
+                  <Btn variant="secondary" size="sm" disabled={!!busy} onClick={runAlign}>{busy === 'align' ? t('exporting') : t('alignRun')}</Btn>
                   {align && align.counts && align.counts.fix > 0 && (
-                    <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={fixWiring}>{busy === 'alignfix' ? t('exporting') : t('alignFix')}</button>
+                    <Btn variant="secondary" size="sm" disabled={!!busy} onClick={fixWiring}>{busy === 'alignfix' ? t('exporting') : t('alignFix')}</Btn>
                   )}
                   <span style={{ fontSize: 11, opacity: 0.6 }}>{t('alignHint')}</span>
                 </div>
@@ -8464,14 +9800,17 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   <b style={{ fontSize: 12 }}>🪵 {t('captureLog')}</b>
                   <span style={{ fontSize: 11, opacity: 0.6 }}>{t('captureLogHint')}</span>
                   <div style={{ flex: 1 }} />
-                  <button type="button" className="mc-btn" onClick={() => fetchAll()}>↻ {t('refresh')}</button>
+                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>↻ {t('refresh')}</Btn>
                 </div>
                 {!captureLog
-                  ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('loading')}</div>
+                  ? <div style={{ marginTop: space(2), display: 'flex', flexDirection: 'column', gap: space(2) }}>
+                      <Skeleton h={14} w="72%" />
+                      <Skeleton h={14} w="48%" />
+                    </div>
                   : captureLog.available === false
-                    ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('captureLogUnavailable')}</div>
+                    ? <EmptyState icon="🪵" title={t('captureLogUnavailable')} hint={t('captureLogHint')} />
                     : (captureLog.entries || []).length === 0
-                      ? <div style={{ opacity: 0.6, fontSize: 12, padding: '8px 0' }}>{t('captureLogEmpty')}</div>
+                      ? <EmptyState icon="🪵" title={t('captureLogEmpty')} hint={t('captureLogHint')} />
                       : (
                         <div style={{ maxHeight: 260, overflow: 'auto', marginTop: 8 }}>
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -8505,7 +9844,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                       </li>
                     ))}
                   </ul>
-                ) : <div style={{ opacity: 0.6, fontSize: 12 }}>{t('noCards')}</div>}
+                ) : <EmptyState icon="🤖" title={t('noCards')} hint={t('captureLogHint')} />}
               </div>
               {stats && (
                 <>
@@ -8547,6 +9886,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
               )}
             </div>
           )}
+          {/* @view-end stats */}
           {tab === 'optimize' && (
             <div>
               {/* 手动触发工具条：搜索扫描 + 一键优化（不自动执行） */}
@@ -9014,6 +10354,8 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
   const [progress, setProgress] = useState(0)
   // 复制反馈（1.5s 自动消失）：没有它用户点了按钮不知道成没成
   const [copyTip, setCopyTip] = useState('')
+  // 复制是否成功（决定提示条是绿还是红 —— 失败必须看得见）
+  const [copyTipOk, setCopyTipOk] = useState(true)
   // 阅读宽度（窄/中/宽）—— 存在 localStorage，跨会话记住偏好
   const [widthMode, setWidthMode] = useState(() => {
     try { const v = localStorage.getItem('me-read-width'); return ['narrow', 'mid', 'wide'].includes(v) ? v : 'mid' } catch { return 'mid' }
@@ -9033,6 +10375,8 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
   }, [onClose, onNavigate])
   const copyText = async (text, label) => {
     const ok = await copyToClipboard(String(text || ''))
+    // 失败要明确红字提示（iframe 里剪贴板会被拒），不能只是一句灰字糊过去
+    setCopyTipOk(ok)
     setCopyTip(ok ? t('copied') + ' · ' + label : t('copyFail'))
     setTimeout(() => setCopyTip(''), 1500)
   }
@@ -9053,6 +10397,16 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
     return s.length > 150 ? s.slice(0, 148) + '…' : s
   }, [card, cleanBody])
   const toc = useMemo(() => tocOfMarkdown(cleanBody), [cleanBody])
+  // 正文可能为空（导入空文件），也可能渲染抛错 —— 两种情况都要「说清 + 给下一步」，
+  // 不能静默吐一块空白（用户会以为卡丢了）。
+  const bodyRender = useMemo(() => {
+    if (!String(cleanBody || '').trim()) return { html: '', empty: true, err: '' }
+    try {
+      return { html: renderMd(cleanBody), empty: false, err: '' }
+    } catch (e) {
+      return { html: '', empty: false, err: String((e && e.message) || e) }
+    }
+  }, [cleanBody])
   const related = useMemo(() => {
     const set = new Set(tags)
     return (allCards || []).filter((c) => c.path !== card.path && (c.tags || []).some((x) => set.has(x))).slice(0, 3)
@@ -9127,6 +10481,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
     }
     setActiveHeading(active)
   }
+  // @view reader
   return (
     <div className="me-overlay" onClick={onClose}>
       <style>{CSS}</style>
@@ -9134,7 +10489,8 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
         <div className="me-dialog-head">
           <h3 title={card.title}><span style={{ marginRight: 6, flex: 'none' }}>{KIND_EMOJI[kind] || '📎'}</span>{card.title}</h3>
           <div className="me-head-actions">
-            {copyTip && <span style={{ fontSize: 11.5, color: '#10b981', whiteSpace: 'nowrap' }}>{copyTip}</span>}
+            {/* 复制成功/失败都要看得见（失败是 Hint bad，不是静默） */}
+            {copyTip && <Hint tone={copyTipOk ? 'ok' : 'bad'}>{copyTip}</Hint>}
             <button type="button" className="mc-btn" title={t('copyBody')} onClick={() => copyText(body, t('copyBody'))}>📋 {t('copyBody')}</button>
             <button type="button" className="mc-btn" title={t('copyPath')} onClick={() => copyText(card.path, t('copyPath'))}>🔗 {t('copyPath')}</button>
             <button type="button" className="mc-btn" title={t('editCard')} onClick={editing ? cancelEdit : startEdit}>{editing ? '✖ ' + t('editCancel') : '✏️ ' + t('editCard')}</button>
@@ -9163,7 +10519,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
         <div className="md-meta">
           <span className="md-chip md-chip-kind" style={{ color: kindColor, borderColor: kindColor + '59', background: kindColor + '1a' }}>{KIND_EMOJI[kind] || '📎'} {t(KIND_LABELS[kind] || 'kindKnowledge')}</span>
           <span className={'md-chip ' + (status === 'approved' ? 'md-chip-st-ok' : status === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad')}>{status === 'approved' ? '✅' : status === 'pending' ? '⏳' : '⛔'} {t(status === 'approved' ? 'statusApproved' : status === 'pending' ? 'statusPending' : 'statusRejected')}</span>
-          {(Array.isArray(tags) ? tags : []).slice(0, 8).map((tag) => <button key={tag} type="button" className="md-chip md-chip-tag mc-tag-click" title={tag} onClick={() => onTagClick && onTagClick(tag)}>🏷 {tag}</button>)}
+          {(Array.isArray(tags) ? tags.filter((x) => !isTypeMachineKey(x)) : []).slice(0, 8).map((tag) => <button key={tag} type="button" className="md-chip md-chip-tag mc-tag-click" title={tag} onClick={() => onTagClick && onTagClick(tag)}>🏷 {isTypeTag(tag) ? typeTagLabel(tag) : tag}</button>)}
           {!!metaOf('updated') && <span className="md-chip md-date">🕒 {t('updated')} {fmtDate(metaOf('updated'))}</span>}
           {!!metaOf('source') && <span className="md-chip md-date">📥 {metaOf('source')}</span>}
         </div>
@@ -9190,16 +10546,32 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
                 <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }} htmlFor="me-edit-body">{t('editBody')}</label>
                 <textarea id="me-edit-body" value={eBody} onChange={(e) => setEBody(e.target.value)} spellCheck={false} rows={18}
                   style={{  width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: 13, boxSizing: 'border-box' , resize: 'vertical', minHeight: 260, lineHeight: 1.7, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }} />
-                {saveErr && <div style={{ color: '#f87171', fontSize: 12 }}>{saveErr}</div>}
+                {saveErr && <ErrorBar error={saveErr} onRetry={saveEdit} retryText={t('retry')} />}
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
                   <span style={{ marginRight: 'auto', fontSize: 11.5, opacity: 0.55 }}>{card.path}</span>
-                  <button type="button" className="mc-btn" onClick={cancelEdit} disabled={saving}>{t('editCancel')}</button>
-                  <button type="button" className="mc-btn" onClick={saveEdit} disabled={saving} style={{ borderColor: 'var(--dsw-alias-brand-primary, #3b82f6)', color: 'var(--dsw-alias-brand-primary, #3b82f6)', fontWeight: 600 }}>{saving ? t('editSaving') : t('editSave')}</button>
+                  <Btn variant="secondary" onClick={cancelEdit} disabled={saving}>{t('editCancel')}</Btn>
+                  {/* 编辑状态下本屏唯一的主按钮：保存 */}
+                  <Btn variant="primary" onClick={saveEdit} disabled={saving}>{saving ? t('editSaving') : t('editSave')}</Btn>
                 </div>
               </div>
-            ) : (
-              <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(cleanBody) }} />
-            )}
+            ) : bodyRender.err
+              // 渲染抛错：告诉用户是渲染的问题（内容还在），并给出可走的路
+              ? <div style={{ display: 'flex', flexDirection: 'column', gap: space(3) }}>
+                  <ErrorBar error={t('readerRenderFail') + '：' + bodyRender.err} extra={<Btn variant="secondary" size="sm" onClick={() => copyText(body, t('copyBody'))}>{t('copyBody')}</Btn>} />
+                  <Hint tone="warn">{t('readerEmptyHint')}</Hint>
+                </div>
+              : bodyRender.empty
+                // 正文为空（导入空文件最常见）：不要吐一块空白
+                ? <EmptyState
+                    icon="📄"
+                    title={t('readerEmptyTitle')}
+                    hint={t('readerEmptyHint')}
+                    action={<div style={{ display: 'flex', gap: space(2), flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <Btn variant="secondary" size="sm" onClick={startEdit}>{t('editCard')}</Btn>
+                      <Btn variant="ghost" size="sm" onClick={onClose}>{t('close')}</Btn>
+                    </div>}
+                  />
+                : <div className="md-doc" dangerouslySetInnerHTML={{ __html: bodyRender.html }} />}
           </div>
           <aside className="me-reader-side">
             {toc.length > 0 && (
@@ -9247,6 +10619,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
       </div>
     </div>
   )
+  // @view-end reader
 }
 // -- Enhanced knowledge graph ------------------------------------------------
 
@@ -9768,7 +11141,11 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       edges: edges.map((e) => ({ sourceNodeId: e.source, targetNodeId: e.target, weight: Math.max(1, Number(e.weight) || 1) })),
       panX: 0, panY: 0, zoom: 1, running: true, raf: 0, tickCount: 0, quietTicks: 0, dragNode: null, selectedId: null, mouseX: 0, mouseY: 0, w: 0, h: 0, dpr, ctx, multi: [], marquee: null,
       planetLayer, levelId,
+      // 公转开关：预热期间关着（节点还在铺开，转动会让布局收不拢），预热结束由 warmStep 打开
+      orbitOn: false,
     }
+    // 每颗大球各自分配方向/速度/相位（正反各半）——不分配就是整盘同向，看起来像刚体旋转
+    if (planetLayer) assignOrbitRandom(sim.nodes, Math.random)
     sim.domain = nodes
     sim.domainById = nodes.reduce((m, n) => (m[n.id] = n, m), {})
     // 边弹簧每 tick 都要按 id 找两端：预先把边转成节点下标（Int32Array），
@@ -10352,7 +11729,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
         }
       }
       for (const p of planets) {
-        const moat = 12
+        const moat = planetMoat(p.r)
         for (const c of sim.nodes) {
           if (c.planet || c === sim.dragNode) continue
           const dx = c.x - p.x
@@ -10390,6 +11767,12 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
     const tick = () => {
       const t0 = performance.now()
       const result = stepSimulation(sim, { params: sim.forceParams, alphaFloor: sim.drift ? 1 : 0, damping: sim.drift ? 0.8 : undefined })
+      // 大球公转：只改角度、不改半径。必须放在 stepSimulation 之后 —— 力模型会往重心拉，
+      // 先转后算力会把公转吃掉（表现就是「大球不动」，正是用户反馈的那条）。
+      // 开关 sim.orbitOn 在预热结束时打开：预热期间节点还在铺开，这时旋转会让布局永远收不拢。
+      if (planetLayer && sim.orbitOn) {
+        orbitPlanets(sim.nodes, { speed: 0.008, tick: sim.tickCount, skip: (n) => n === sim.dragNode })
+      }
       // 大球是否在动不能依赖 quietTicks（护城河会持续给小球速度，可能永远等不到静置）。
       separateCollisions()
       sim.lastTickMs = performance.now() - t0
@@ -10665,6 +12048,8 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
       if (!sim.running) return
       const t0 = performance.now()
       while (warmLeft > 0 && performance.now() - t0 < WARM_FRAME_BUDGET_MS) { tick(); warmLeft-- }
+      // 预热结束才开公转：预热期间还在铺开，旋转会让布局收不拢
+      if (warmLeft === 0) sim.orbitOn = true
       setWarming(warmLeft > 0 ? Math.min(99, warmPct()) : 100)
       if (renderMarks.length && warmLeft <= renderMarks[0]) {
         renderMarks.shift()
@@ -11011,14 +12396,37 @@ function darken(hex, amt) {
 const kindKey = (k) => KIND_LABELS[k] || 'kindKnowledge'
 
 /** 点击展开的多选下拉（勾选 checkbox），用于免审智能体/免审类型等配置。value 为数组，__all__ 表示免审全部。 */
-function MultiDD({ label, value = [], options, onChange, placeholder, z = 20 }) {
+function MultiDD({ label, value = [], options, onChange, placeholder, z = 1200 }) {
   const [open, setOpen] = useState(false)
+  // 展开方向与可用高度：配置卡片外面有 sticky 底栏（重置/保存），浮层原来只有 z=20，
+  // 展开后底部几行会被底栏盖住（用户看到的就是「下拉看不全」）。这里做两件事：
+  //   ① z-index 提到面板浮层级别（1200）；
+  //   ② 下方空间不足时**向上弹**，并按视口剩余空间算 maxHeight，永远不出屏。
+  const [drop, setDrop] = useState({ flip: false, maxH: 240 })
   const boxRef = useRef(null)
+  const measure = () => {
+    const el = boxRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const vh = window.innerHeight || 800
+    const below = vh - r.bottom - 12
+    const above = r.top - 12
+    const flip = below < 200 && above > below
+    setDrop({ flip, maxH: Math.max(140, Math.min(320, flip ? above : below)) })
+  }
   useEffect(() => {
     if (!open) return
+    measure()
     const onDoc = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
+    const onResize = () => measure()
     document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    window.addEventListener('resize', onResize)
+    window.addEventListener('scroll', onResize, true)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onResize, true)
+    }
   }, [open])
   const val = Array.isArray(value) ? value : []
   const hasAll = val.includes('__all__')
@@ -11042,7 +12450,19 @@ function MultiDD({ label, value = [], options, onChange, placeholder, z = 20 }) 
           <span style={{ fontSize: 10, opacity: 0.7 }}>▾</span>
         </button>
         {open && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: z, marginTop: 2, borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', boxShadow: '0 6px 20px rgba(0,0,0,0.14)', maxHeight: 180, overflow: 'auto' }}>
+          <div style={{
+            position: 'absolute',
+            left: 0, right: 0, zIndex: z,
+            ...(drop.flip ? { bottom: '100%', marginBottom: 2 } : { top: '100%', marginTop: 2 }),
+            borderRadius: 8,
+            border: '1px solid var(--dsw-alias-border-l2, #d1d5db)',
+            background: 'var(--dsw-alias-bg-layer-1, #fff)',
+            color: 'inherit',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
+            maxHeight: drop.maxH,
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+          }}>
             {allOpt && (
               <label onClick={(e) => e.stopPropagation()} className="mc-dd-opt" style={{ borderBottom: '1px solid rgba(127,127,127,0.12)' }}>
                 <input type="checkbox" checked={hasAll} onChange={(e) => setSelected(allOpt, e.target.checked)} />

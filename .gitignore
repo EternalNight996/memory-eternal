@@ -19,3 +19,8 @@ docs/sessions/
 .shots/
 *-out.json
 bench/longmemeval/*.json
+
+runs/
+dist/
+.tmp-cloud-pack/
+*.stale-*

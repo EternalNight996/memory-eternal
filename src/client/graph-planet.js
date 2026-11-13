@@ -101,6 +101,92 @@ export function planetLayerParams(base) {
 }
 
 /**
+ * 护城河：大球把小球推开的最小间距。
+ *
+ * 用户反馈原话是「小的球数量多紧贴着大的，丑」。硬性把小球挡在 `球半径 + 基础间距` 之外，
+ * 且间距随半径单调增大（大球推得更远），否则 240px 的大球周围会贴满小点。
+ * 纯函数，便于单测。
+ * @param {number} r 半径
+ * @returns {number} 护城河宽度（像素）
+ */
+export function planetMoat(r) {
+  const radius = Math.max(0, Number(r) || 0)
+  return 12 + radius * 0.55
+}
+
+/**
+ * 大球公转：只改角度、不改半径，绕当前重心缓慢转动。
+ *
+ * 为什么要「各自方向 + 各自速度」：整盘同向同速看起来像整张图在转，不像天体在公转。
+ * 每颗球的 `orbitDir / orbitScale / orbitPhase` 由 `assignOrbitRandom` 提前分配；
+ * 大球角速度更小（有质量感），靠 `1 / sqrt(r)` 的权重实现。
+ *
+ * @param {Array} nodes 节点列表（只处理 planet 节点，原地修改 x/y）
+ * @param {{speed?:number, tick?:number, random?:boolean, skip?:(n:any)=>boolean}} [opts]
+ * @returns {{cx:number, cy:number}|null} 重心；不足两颗可动球时返回 null
+ */
+export function orbitPlanets(nodes, { speed = 0.01, tick = 0, random = true, skip = null } = {}) {
+  if (!Array.isArray(nodes)) return null
+  const planets = nodes.filter((n) => n && n.planet)
+  if (planets.length < 2) return null
+  const s = Number(speed) || 0
+  if (s === 0) return null
+  let cx = 0
+  let cy = 0
+  for (const p of planets) { cx += p.x; cy += p.y }
+  cx /= planets.length
+  cy /= planets.length
+  for (let i = 0; i < planets.length; i++) {
+    const p = planets[i]
+    // 拖拽中的球跳过（它有自己的位移来源），但重心仍按全量算 —— 否则拖一颗会把整层重心带跑
+    if (skip && skip(p)) continue
+    // 未分配方向时按 id/x 派生一个稳定的伪随机（同一次会话里不会每帧翻向）
+    if (p.orbitDir === undefined) {
+      p.orbitDir = random ? ((i % 2 === 0) ? 1 : -1) : 1
+    }
+    if (p.orbitScale === undefined) p.orbitScale = 1
+    if (p.orbitPhase === undefined) p.orbitPhase = 0
+    const dx = p.x - cx
+    const dy = p.y - cy
+    const radius = Math.hypot(dx, dy)
+    if (radius < 1e-6) continue
+    const base = angleAt(dx, dy)
+    // 大球转得慢：半径越大角速度越小（1/sqrt(r)），再叠各自的 scale/phase 做慢摆
+    const mass = 1 / Math.sqrt(Math.max(PLANET_MIN_RADIUS, p.r || PLANET_MIN_RADIUS))
+    const wobble = 1 + 0.35 * Math.sin((p.orbitPhase || 0) + tick * 0.004)
+    const next = base + p.orbitDir * s * (p.orbitScale || 1) * mass * 34 * wobble
+    p.x = cx + Math.cos(next) * radius
+    p.y = cy + Math.sin(next) * radius
+  }
+  return { cx, cy }
+}
+
+const angleAt = (dx, dy) => Math.atan2(dy, dx)
+
+/**
+ * 给每颗大球分配「方向 / 速度倍率 / 相位」。
+ * 方向正反各半（洗牌），速度倍率 0.55–1.65，相位 0–2π —— 这样整盘不会同向同速。
+ * @param {Array} nodes
+ * @param {() => number} [rand] 可注入的随机源（测试用）
+ */
+export function assignOrbitRandom(nodes, rand = Math.random) {
+  if (!Array.isArray(nodes)) return
+  const planets = nodes.filter((n) => n && n.planet)
+  if (!planets.length) return
+  // 正反各半：先造一个减半的数组再打乱，保证方向分布均匀（纯随机会出现 8 颗全同向）
+  const dirs = planets.map((_, i) => (i % 2 === 0 ? 1 : -1))
+  for (let i = dirs.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    const t = dirs[i]; dirs[i] = dirs[j]; dirs[j] = t
+  }
+  planets.forEach((p, i) => {
+    p.orbitDir = dirs[i]
+    p.orbitScale = 0.55 + rand() * 1.1
+    p.orbitPhase = rand() * Math.PI * 2
+  })
+}
+
+/**
  * 层加载失败的归类：超时（AbortError 或耗时越过预算）单独标出来 —— UI 上要提示「可重试」，
  * 而不是把两者混成一句「加载失败」。纯函数，便于单测。
  */
