@@ -84,10 +84,18 @@ token 一过期用户就得重新跳一次登录。
 
 我方 `lib/oidc.js` 的 `oidcClientRegistration({ baseUrl, clientSecret })` 就是生成这个形状，可以直接 `node -e` 打印后贴过去，避免手抄出错。
 
-### 1.2 我方会发的授权请求（标准 authorization_code + PKCE）
+### 1.2 我方会发的授权请求（端点由 discovery 决定，不硬编码）
+
+**先拉 discovery**：
 
 ```
-GET {issuer}/oidc/auth
+GET {issuer}/.well-known/openid-configuration
+```
+
+从这里取 `authorization_endpoint` / `token_endpoint` / `userinfo_endpoint`，然后：
+
+```
+GET <discovery.authorization_endpoint>          # 预期为 https://accounts.mengbot.com.cn/auth
   ?response_type=code
   &client_id=memory-eternal-cloud
   &redirect_uri=https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback
@@ -98,11 +106,16 @@ GET {issuer}/oidc/auth
   &code_challenge_method=S256
 ```
 
-**实测**（我方本机 8023 起实例，未跟随跳转）：
+> **已按你们提醒修正**：之前我方文档写的是 `{issuer}/oidc/auth`，那是硬编码猜测，**错的**。
+> 现在 `lib/oidc.js` 的 `discoverOidc()` 只认 `.well-known/openid-configuration`，
+> endpoint 一律来自它（缓存 1 小时）；`buildAuthorizeUrl()` 缺少 endpoints 会直接报错，不允许硬编码。
+> 显式覆盖（`MEMORY_OIDC_AUTHORIZE_PATH` 等）保留但默认不用。
+
+**实测**（我方本机起实例，未跟随跳转，discovery 指向本地假 provider）：
 
 ```
 GET /memory-eternal/api/cloud/auth/start?redirect_uri=https://app.example/done
-→ 302  https://cloud.mengbot.com.cn/oidc/auth
+→ 302  <discovery.authorization_endpoint>
         ?response_type=code
         &client_id=memory-eternal-cloud
         &redirect_uri=https%3A%2F%2Fmem.mengbot.com.cn%2Fmemory-eternal%2Fapi%2Fcloud%2Fauth%2Fcallback
@@ -113,7 +126,7 @@ GET /memory-eternal/api/cloud/auth/start?redirect_uri=https://app.example/done
 ### 1.3 我方会发的换 token 请求
 
 ```
-POST {issuer}/oidc/token
+POST <discovery.token_endpoint>          # 预期为 https://accounts.mengbot.com.cn/token
 Authorization: Basic base64("memory-eternal-cloud:<client_secret>")
 Content-Type: application/x-www-form-urlencoded
 
@@ -126,45 +139,65 @@ grant_type=authorization_code
 拿到 `access_token` 后：
 
 ```
-GET {issuer}/oidc/me   Authorization: Bearer <access_token>
+GET <discovery.userinfo_endpoint>        # 预期为 https://accounts.mengbot.com.cn/me
+Authorization: Bearer <access_token>
 ```
 
 **我方用 `email`（优先）或 `sub` 作为租户标识**（一人一个独立数据库，目录名由它决定）。如果你们规划里 email 可变，请告知，我改用 `sub`。
 
 ### 1.4 请你们确认三件事
 
-- [ ] **issuer 用哪个域**：`https://cloud.mengbot.com.cn` 还是 `https://accounts.mengbot.com.cn`？
-      我方按 `<issuer>/oidc/auth`、`/oidc/token`、`/oidc/me` 拼；若不在 `/oidc` 前缀下，请给实际路径。
+- [x] ~~issuer 用哪个域~~ → 已定：**`https://accounts.mengbot.com.cn`**（按你们提醒，端点全部走 discovery，不再硬编码路径）
 - [ ] **回跳带什么**：只给 `code`（标准做法，推荐），还是也会直接带会话 `token`？
       两种我方都支持（`completeMengbotAuth` 同时认 `code` 与 `token`），但标准 `code` 更安全。
 - [ ] **`http://127.0.0.1:7999/...` 这条 redirect 是否放行**？不放行我删掉，只保留生产地址。
+- [ ] **discovery 文档是否可公开访问**（无需鉴权）？我方启动时会拉一次，拉不到会报 `oidc_discovery_failed`。
 
 ---
 
 ## 2. `mbt_` API Token
 
-### 2.1 我方处理逻辑（已实现）
+### 2.1 我方处理逻辑（已按你们提醒改）
 
 ```
 Authorization: Bearer mbt_xxxxxxxx
         ↓
-① 首次见到 → 401 + { code: "needs_verify" }，引导走 OIDC 登录或 /cloud/login/mengbot
-② 校验通过后写入 cloud-keys.json（**只存 sha256**，24h TTL，最近 200 个）
-③ 之后同一 token 直接放行，不再每请求打 MengBot
+① 缓存未命中 → 当场向 MengBot 校验一次（GET /api/v1/me），通过就直接放行
+② 校验通过写进 cloud-keys.json（**只存 sha256**，**15 分钟** TTL，最近 200 个）
+③ 缓存期内直接放行，不再每请求打你们
+④ 校验失败（401）→ 401 invalid_token，且不缓存
 ```
+
+**为什么 TTL 从 24h 改成 15 分钟**（采纳你们的建议）：
+
+- `mbt_` 可随时撤销，24h 会让「撤销」滞后一整天；
+- 15 分钟 ≈ 每分钟 4 次校验，对你们 **300 次/分钟**的单 token 限流可以忽略。
+
+**校验端点**（按你们给的）：
+
+```
+GET {API_BASE}/api/v1/me          Authorization: Bearer mbt_...
+→ 200 { ok, scope, tokenId, rateLimit }     # 有效
+→ 401                                        # 无效/已撤销
+```
+
+- `owner` 取值优先级：`account` > `email` > `subject` > `tokenId`（都没有则拒绝，避免无法分租户）；
+- `rateLimit` 会记进日志，便于对账你们的 300/min。
 
 **实测**：
 
 ```
 mbt_ 未校验 : needsVerify=true
-cacheMbtToken(...) 后 : owner=yg@example.com via=mengbot-token
+校验通过后  : owner=tok_1 via=mengbot-token | 缓存有效期 15.0 分钟
+401         : invalid=true，不进缓存
 ```
 
 ### 2.2 请你们给三样
 
 1. **一个 `mbt_` 前缀的 client token**（建议为我方单独建一把，便于按 token 限流与撤销，不影响 desktop 那把）；
-2. **校验端点**：`mbt_` 能否直接调 `GET /v1/me`？如果它是另一套道印灵钥，请给等价端点（如 `/v1/token/introspect`），并说明返回字段；
-3. **限流阈值**（每秒/每分钟多少次）—— 我按这个设缓存 TTL，避免触发你们的限流。
+2. ~~校验端点~~ → **已确认**：`GET {API_BASE}/api/v1/me`（Bearer `mbt_`），200 有效 / 401 无效，返回 `{ ok, scope, tokenId, rateLimit }`。
+   只剩一个待确认：**`API_BASE` 是 `https://accounts.mengbot.com.cn` 还是 `https://cloud.mengbot.com.cn`**？
+3. ~~限流阈值~~ → **已确认**：300 次/分钟（单 token），我方按 15 分钟缓存对齐。
 
 ### 2.3 为什么 `mbt_` 和 OIDC access_token 要分开
 
