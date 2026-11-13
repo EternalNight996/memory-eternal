@@ -807,6 +807,16 @@ export const ZH = {
   junkArchivedCount: '已归档 {n} 张',
   junkRestoreAll: '全部恢复',
   junkArchiveHint: '归档卡不会出现在日常检索里，数据完整保留；恢复后立刻重新可搜到',
+  junkAutoTitle: '定时自动体检',
+  junkAutoHint: '开启后每小时检查一次，到周期就自动扫描并**归档**「从未被召回 / 长期未更新」的卡。只归档不删除 —— 归档可随时在下面「全部恢复」',
+  junkAutoEnabled: '启用定时自动体检',
+  junkAutoInterval: '周期',
+  junkAutoHoursUnit: '小时',
+  junkAutoMax: '单次最多归档',
+  junkAutoCardsUnit: '张',
+  junkAutoDryRun: '预演一次（不改数据）',
+  junkAutoLast: '上次运行：{when} · 归档 {n} 张',
+  junkAutoPreview: '预演结果：本次会归档 {n} 张',
   backupSection: '备份',
   backupSectionSub: '备份节奏 / 保留天数 / 库损坏自动还原 —— 出事先回到最近一份好的库',
   embeddingAskTitle: '确认操作',
@@ -1869,6 +1879,16 @@ export const EN = {
   junkArchivedCount: '{n} archived',
   junkRestoreAll: 'Restore all',
   junkArchiveHint: 'Archived cards stay out of daily search but are fully kept; restoring makes them searchable again immediately',
+  junkAutoTitle: 'Scheduled health check',
+  junkAutoHint: 'When on, checks hourly and auto-ARCHIVES cards that were never recalled or long untouched. Archive only — never delete; you can restore them all below',
+  junkAutoEnabled: 'Enable scheduled health check',
+  junkAutoInterval: 'Every',
+  junkAutoHoursUnit: 'hours',
+  junkAutoMax: 'Max per run',
+  junkAutoCardsUnit: 'cards',
+  junkAutoDryRun: 'Dry run (no changes)',
+  junkAutoLast: 'Last run: {when} · archived {n}',
+  junkAutoPreview: 'Dry run: would archive {n} cards',
   backupSection: 'Backup',
   backupSectionSub: 'Schedule / retention / auto-restore — get back to the last good copy',
   embeddingAskTitle: 'Confirm',
@@ -7219,6 +7239,28 @@ function ConfigPanel({ t, onReload, version, compact }) {
     if (!list.length) return
     setJunkConfirm({ action: 'restore', reason: 'archived', paths: list })
   }
+  /** 自动体检状态（GET /junk/auto） */
+  const [autoState, setAutoState] = useState(null)
+  const [autoDry, setAutoDry] = useState(null)
+  /** 预演一次自动体检（只看会归档多少，不动数据） */
+  const runAutoDryRun = async () => {
+    setJunkBusy(true); setJunkErr(''); setAutoDry(null)
+    try {
+      const r = await fetch(API + '/junk/auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: true }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) setJunkErr((d && d.error) || ('HTTP ' + r.status))
+      else {
+        setAutoDry(d)
+        const s = await (await fetch(API + '/junk/auto')).json().catch(() => null)
+        if (s && s.ok) setAutoState({ lastRunAt: s.lastRunAt, lastReport: s.lastReport })
+      }
+    } catch (e) { setJunkErr(String((e && e.message) || e)) }
+    finally { setJunkBusy(false) }
+  }
   /** 扫描垃圾候选（只读，不动数据） */
   const scanJunkNow = async () => {
     setJunkBusy(true); setJunkErr(''); setJunkLast(null)
@@ -8057,6 +8099,45 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       </div>
                     )}
                     <Hint text={t('junkArchiveHint')} />
+                  </div>
+
+                  {/* 定时自动体检：默认关闭。开启后由 web server 每小时检查一次，
+                      到周期就跑一遍 —— **只归档，绝不删除**（归档可逆，删除不可逆）。 */}
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--mc-line, rgba(128,128,128,.2))' }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{t('junkAutoTitle')}</div>
+                    <Hint text={t('junkAutoHint')} />
+                    <div className="mc-cfg-switches is-single" style={{ marginTop: 8 }}>
+                      <Bool k="junkAutoEnabled" label={t('junkAutoEnabled')} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, fontSize: 12 }}>
+                      <span style={{ opacity: 0.8 }}>{t('junkAutoInterval')}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={720}
+                        value={String((form && form.junkAutoIntervalHours) ?? 24)}
+                        onChange={(e) => set('junkAutoIntervalHours', Number(e.target.value) || 24)}
+                        style={{ width: 80 }}
+                      />
+                      <span style={{ opacity: 0.7 }}>{t('junkAutoHoursUnit')}</span>
+                      <span style={{ opacity: 0.8, marginLeft: 12 }}>{t('junkAutoMax')}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={2000}
+                        value={String((form && form.junkAutoMaxPerRun) ?? 200)}
+                        onChange={(e) => set('junkAutoMaxPerRun', Number(e.target.value) || 200)}
+                        style={{ width: 90 }}
+                      />
+                      <span style={{ opacity: 0.7 }}>{t('junkAutoCardsUnit')}</span>
+                    </div>
+                    <div className="mc-cloud-actions" style={{ marginTop: 10 }}>
+                      <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={runAutoDryRun}>
+                        {t('junkAutoDryRun')}
+                      </Btn>
+                      {autoState && <Status tone="idle" text={t('junkAutoLast').replace('{when}', autoState.lastRunAt ? new Date(autoState.lastRunAt).toLocaleString() : '—').replace('{n}', String((autoState.lastReport && autoState.lastReport.archived) || 0))} />}
+                      {autoDry && <Status tone="ok" text={t('junkAutoPreview').replace('{n}', String(autoDry.candidates || 0))} />}
+                    </div>
                   </div>
                 </>
               )}
