@@ -94,22 +94,48 @@ let API_TARGET_URL = ''
 
 /**
  * 测试云端连接（模块级，**顶栏切换器与设置页共用**）。
- * 为什么要抽出来：云端设置同时出现在两个组件里（顶栏胶囊弹层 / 设置→实验性），
- * 直接引用另一个组件的 state 会 `cloudForm is not defined`（真的白屏过一次）。
+ *
+ * 两步，分别回答两个问题：
+ *   ① `GET /cloud/health`（公开，不需要令牌）→ 服务端在不在？版本多少？
+ *   ② 只有带了令牌才再问 `whoami` → 这个令牌是谁的？
+ *
+ * 之前只打 whoami，没登录时得到「缺少 Authorization: Bearer <token>」，
+ * 用户会以为地址填错了 —— 其实服务端好得很。
  */
 async function probeCloud(form) {
   const url = String((form && form.url) || '').replace(/\/+$/, '')
   if (!/^https?:\/\//i.test(url)) return { ok: false, error: 'url-invalid' }
   const token = String((form && form.token) || '').trim()
+
+  // ① 可达性（不需要令牌）
+  let health
+  try {
+    const r = await globalThis.fetch(url + '/memory-eternal/api/cloud/health', { signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined })
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok || !d || d.ok === false) {
+      return { ok: false, error: (d && d.error) || ('HTTP ' + r.status) }
+    }
+    health = d
+  } catch (e) {
+    // 网络层失败：DNS / CORS / 证书 / 超时
+    const msg = String((e && e.message) || e)
+    return { ok: false, error: '连不上服务端（' + msg + '）—— 检查地址是否正确、域名能否解析' }
+  }
+
+  // ② 有令牌才验身份
+  if (!token) {
+    return { ok: true, reachable: true, authenticated: false, owner: '', version: health.version || '' }
+  }
   try {
     const r = await globalThis.fetch(url + '/memory-eternal/api/cloud/whoami', {
-      headers: token ? { Authorization: 'Bearer ' + token } : {},
+      headers: { Authorization: 'Bearer ' + token },
+      signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
     })
     const d = await r.json().catch(() => ({}))
-    if (r.ok && d && d.ok) return { ok: true, owner: d.owner, via: d.via }
-    return { ok: false, error: (d && d.error) || ('HTTP ' + r.status) }
+    if (r.ok && d && d.ok) return { ok: true, reachable: true, authenticated: true, owner: d.owner, via: d.via, version: health.version || '' }
+    return { ok: false, reachable: true, error: (d && d.error) || ('HTTP ' + r.status) }
   } catch (e) {
-    return { ok: false, error: String((e && e.message) || e) }
+    return { ok: false, reachable: true, error: String((e && e.message) || e) }
   }
 }
 
@@ -740,6 +766,7 @@ export const ZH = {
   cloudUrlInvalid: '地址要以 http(s):// 开头',
   cloudTest: '测试连接',
   cloudTestOk: '连接成功 · {owner}',
+  cloudTestReachable: '服务端可达（{version}），尚未登录 —— 点「用 MengBot 账号登录」',
   cloudTestFail: '连接失败',
   cloudLoginButton: '用 MengBot 账号登录',
   cloudLoginDone: '已登录 · {owner}',
@@ -1768,6 +1795,7 @@ export const EN = {
   cloudUrlInvalid: 'URL must start with http(s)://',
   cloudTest: 'Test connection',
   cloudTestOk: 'Connected · {owner}',
+  cloudTestReachable: 'Server reachable ({version}), not signed in — use "Sign in with MengBot"',
   cloudTestFail: 'Connection failed',
   cloudLoginButton: 'Sign in with MengBot',
   cloudLoginDone: 'Signed in · {owner}',
@@ -5376,21 +5404,18 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [cloudOpen, setCloudOpen] = useState(false)
   const [cloudBusy, setCloudBusy] = useState(false)
   const [cloudTest, setCloudTest] = useState(null)
-  // 测试连接：直接打目标实例的 /cloud/whoami（带令牌），返回 owner 或明确失败原因
+  // 测试连接：走 probeCloud（先 health 测可达，再 whoami 验身份）
   const testCloud = async () => {
-    const url = String(cloudForm.url || '').replace(/\/+$/, '')
-    if (!/^https?:\/\//i.test(url)) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
     setCloudBusy(true); setCloudTest(null)
-    try {
-      const r = await globalThis.fetch(url + '/memory-eternal/api/cloud/whoami', {
-        headers: cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {},
-      })
-      const d = await r.json().catch(() => ({}))
-      if (r.ok && d && d.ok) setCloudTest({ ok: true, owner: d.owner })
-      else setCloudTest({ ok: false, error: (d && d.error) || ('HTTP ' + r.status) })
-    } catch (e) {
-      setCloudTest({ ok: false, error: String((e && e.message) || e) })
-    } finally { setCloudBusy(false) }
+    const r = await probeCloud(cloudForm)
+    setCloudTest(
+      r.ok
+        ? (r.authenticated === false
+          ? { ok: true, authenticated: false, version: r.version || '' }
+          : { ok: true, authenticated: true, owner: r.owner || '' })
+        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error },
+    )
+    setCloudBusy(false)
   }
   // 保存：写 localStorage → 应用前缀 → reload（reload 最干净：状态、缓存、SSE 全部重建）
   /**
@@ -6032,7 +6057,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                   <div className="mc-cloud-actions">
                     <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
                     {cloudTest && (
-                      <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />
+                      <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? t('cloudTestReachable').replace('{version}', cloudTest.version || '') : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
                     )}
                   </div>
                 </div>
@@ -7109,10 +7134,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [cloudBusy, setCloudBusy] = useState(false)
   const [cloudTest, setCloudTest] = useState(null)
   const testCloud = async () => {
-    if (!/^https?:\/\//i.test(String(cloudForm.url || ''))) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
     setCloudBusy(true); setCloudTest(null)
     const r = await probeCloud(cloudForm)
-    setCloudTest(r.ok ? { ok: true, owner: r.owner } : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error })
+    setCloudTest(
+      r.ok
+        ? (r.authenticated === false
+          ? { ok: true, authenticated: false, version: r.version || '' }
+          : { ok: true, authenticated: true, owner: r.owner || '' })
+        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error },
+    )
     setCloudBusy(false)
   }
   /**
@@ -8022,7 +8052,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {/* 状态行：当前实际在用什么 + 上次失败原因（配置没丢，可重试） */}
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {cloudTest && (
-                  <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />
+                  <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? t('cloudTestReachable').replace('{version}', cloudTest.version || '') : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
                 )}
                 {cloudFromHash && cloudFromHash.owner && (
                   <Status tone="ok" text={t('cloudLoginDone').replace('{owner}', cloudFromHash.owner)} />
