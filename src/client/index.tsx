@@ -49,20 +49,40 @@ const API = '/memory-eternal/api'
 let LOCAL_PREFIX = API
 let cloudToken = ''
 const CLOUD_CFG_KEY = 'me-cloud-conn'
-/** 读本地保存的云端连接（{url, token, mode}）。 */
+
+/**
+ * 云端连接配置。
+ *
+ * **重要**：`mode` 是「用户意图」，`active` 是「本次是否真的在用云端」。
+ * 两者分开，是为了满足一条硬要求：**验证失败也不能把用户填的地址/密钥弄丢**。
+ *   · 用户填了云端并保存 → mode='cloud'；验证通过 active=true，否则 active=false（配置仍在）
+ *   · 运行中熔断 → 只把 active 置 false，url/token 原样保留，下次刷新自动重试
+ *   · 只有用户主动选「本地运行」才真正清空 url/token
+ */
 function readCloudConn() {
   try {
     const raw = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || '{}')
-    return { mode: raw.mode === 'cloud' ? 'cloud' : 'local', url: String(raw.url || ''), token: String(raw.token || '') }
-  } catch { return { mode: 'local', url: '', token: '' } }
+    const mode = raw.mode === 'cloud' ? 'cloud' : 'local'
+    return {
+      mode,
+      url: String(raw.url || ''),
+      token: String(raw.token || ''),
+      active: mode === 'cloud' ? raw.active !== false : false,
+      lastError: String(raw.lastError || ''),
+      lastCheckAt: raw.lastCheckAt || null,
+    }
+  } catch {
+    return { mode: 'local', url: '', token: '', active: false, lastError: '', lastCheckAt: null }
+  }
 }
 function saveCloudConn(c) {
   try { localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(c)) } catch { /* 隐私模式 */ }
 }
-/** 应用连接配置：改 API 前缀 + 记下令牌（fetch 包装据此注入头）。 */
+/** 应用连接配置：改 API 前缀 + 记下令牌（fetch 包装据此注入头）。**只有 active 才切到云端**。 */
 function applyCloudConn(c) {
   const url = String((c && c.url) || '').replace(/\/+$/, '')
-  if (c && c.mode === 'cloud' && /^https?:\/\//i.test(url)) {
+  const wantCloud = c && c.mode === 'cloud' && c.active !== false && /^https?:\/\//i.test(url)
+  if (wantCloud) {
     API_TARGET_URL = url
     cloudToken = String(c.token || '')
   } else {
@@ -93,17 +113,40 @@ async function probeCloud(form) {
   }
 }
 
-/** 落盘并应用云端连接（不 reload，调用方决定）。 */
+/** 落盘并应用云端连接（不 reload，调用方决定）。**失败不删配置**。 */
 function persistCloud(form) {
+  const prev = readCloudConn()
+  const wantCloud = form && form.mode === 'cloud'
+  const url = String((form && form.url) || '').trim().replace(/\/+$/, '')
+  const token = String((form && form.token) || '').trim()
+  if (wantCloud && !/^https?:\/\//i.test(url)) return { ok: false, error: 'url-invalid' }
   const next = {
-    mode: form && form.mode === 'cloud' ? 'cloud' : 'local',
-    url: String((form && form.url) || '').trim(),
-    token: String((form && form.token) || '').trim(),
+    mode: wantCloud ? 'cloud' : 'local',
+    // 切本地时也不清空：用户可能只是临时回本地，地址还留着方便切回去
+    url: wantCloud ? url : (url || prev.url || ''),
+    token: wantCloud ? token : (token || prev.token || ''),
+    active: false,             // 先不激活，等调用方验证通过再置 true
+    lastError: '',
+    lastCheckAt: new Date().toISOString(),
   }
-  if (next.mode === 'cloud' && !/^https?:\/\//i.test(next.url)) return { ok: false, error: 'url-invalid' }
   saveCloudConn(next)
-  applyCloudConn(next)
   return { ok: true, next }
+}
+
+/** 验证通过后正式启用云端（这一步才真正切前缀）。 */
+function activateCloud(next) {
+  const merged = { ...readCloudConn(), ...next, mode: 'cloud', active: true, lastError: '' }
+  saveCloudConn(merged)
+  applyCloudConn(merged)
+  return merged
+}
+
+/** 验证失败：**保留配置**，只标记 active=false 并记录原因。 */
+function markCloudFailed(next, reason) {
+  const merged = { ...readCloudConn(), ...next, mode: 'cloud', active: false, lastError: String(reason || '连接失败') }
+  saveCloudConn(merged)
+  applyCloudConn(merged)   // active=false → 前缀保持本地
+  return merged
 }
 
 /**
@@ -150,7 +193,15 @@ function fallbackToLocal(reason) {
   cloudFallbackDone = true
   API_TARGET_URL = ''
   cloudToken = ''
-  try { saveCloudConn({ mode: 'local', url: '', token: '' }) } catch { /* 忽略 */ }
+  // **关键：只标记 active=false，绝不删 url/token**。
+  // 之前这里写的是 {mode:'local', url:'', token:''} —— 用户填的地址和密钥被一次报错清空，
+  // 想再连得从头填。现在失败只是"本次不生效"，配置一直留着，下次刷新会自动重试。
+  try {
+    const prev = readCloudConn()
+    if (prev.mode === 'cloud' || prev.url) {
+      saveCloudConn({ ...prev, active: false, lastError: String(reason || '云端不可达'), lastCheckAt: new Date().toISOString() })
+    }
+  } catch { /* 忽略 */ }
   try {
     // 不 reload：先切回本地前缀，让后续请求立刻打本地；再给一条明确提示
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
@@ -177,7 +228,7 @@ function markModeReady() {
 }
 
 /** 探一次云端：可用返回 true；不可用则回退本地并返回 false。最多等 3 秒。 */
-function probeCloud(timeoutMs = 3000) {
+function probeCloudBoot(timeoutMs = 3000) {
   const target = API_TARGET_URL
   if (!target) return Promise.resolve(true)
   const pingUrl = target + LOCAL_PREFIX + '/overview'
@@ -237,7 +288,7 @@ applyCloudConn(readCloudConn())
 const cloudFromHash = typeof location !== 'undefined' && location.hash ? consumeCloudTokenFromHash() : null
 // 启动探活：配置了云端就先 ping 一次；连不上直接退回本地，**首屏请求会等它出结果**
 if (API_TARGET_URL) {
-  probeCloud()
+  probeCloudBoot()
 } else {
   markModeReady()
 }
@@ -692,6 +743,9 @@ export const ZH = {
   cloudTestFail: '连接失败',
   cloudLoginButton: '用 MengBot 账号登录',
   cloudLoginDone: '已登录 · {owner}',
+  cloudNowActive: '当前在用云端：{url}',
+  cloudKeptButInactive: '云端暂不可用（{err}）—— 配置已保留，未切换；修好后点「测试连接」重试',
+  cloudNowLocal: '当前在用本地记忆库',
   cloudSave: '保存并切换',
   backupSection: '备份',
   backupSectionSub: '备份节奏 / 保留天数 / 库损坏自动还原 —— 出事先回到最近一份好的库',
@@ -1717,6 +1771,9 @@ export const EN = {
   cloudTestFail: 'Connection failed',
   cloudLoginButton: 'Sign in with MengBot',
   cloudLoginDone: 'Signed in · {owner}',
+  cloudNowActive: 'Currently on cloud: {url}',
+  cloudKeptButInactive: 'Cloud unavailable ({err}) — config kept, not switched. Fix it, then hit "Test connection"',
+  cloudNowLocal: 'Currently using the local vault',
   cloudSave: 'Save & switch',
   backupSection: 'Backup',
   backupSectionSub: 'Schedule / retention / auto-restore — get back to the last good copy',
@@ -5336,12 +5393,34 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     } finally { setCloudBusy(false) }
   }
   // 保存：写 localStorage → 应用前缀 → reload（reload 最干净：状态、缓存、SSE 全部重建）
-  const saveCloud = () => {
-    const next = { mode: cloudForm.mode === 'cloud' ? 'cloud' : 'local', url: String(cloudForm.url || '').trim(), token: String(cloudForm.token || '').trim() }
-    if (next.mode === 'cloud' && !/^https?:\/\//i.test(next.url)) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
-    saveCloudConn(next)
-    applyCloudConn(next)
-    setCloudConn(next)
+  /**
+   * 保存并切换（顶栏弹层）。**先验证，通过才切换**：
+   *   · 选本地 → 直接切（不动云端配置）
+   *   · 选云端 → 先 /cloud/whoami 探活；通了才 activateCloud，失败就只标记不切换、也不删配置
+   */
+  const saveCloud = async () => {
+    const wantCloud = cloudForm.mode === 'cloud'
+    const prepared = persistCloud(cloudForm)
+    if (!prepared.ok) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    if (!wantCloud) {
+      setCloudConn(readCloudConn())
+      setCloudOpen(false)
+      try { location.reload() } catch { /* 忽略 */ }
+      return
+    }
+    // 云端：先验证
+    setCloudBusy(true); setCloudTest(null)
+    const r = await probeCloud(cloudForm)
+    setCloudBusy(false)
+    if (!r.ok) {
+      // 失败：保留配置、标记失败、**不切换**
+      markCloudFailed(prepared.next, r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error)
+      setCloudConn(readCloudConn())
+      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error })
+      return
+    }
+    activateCloud(prepared.next)
+    setCloudConn(readCloudConn())
     setCloudOpen(false)
     try { location.reload() } catch { /* 忽略 */ }
   }
@@ -5938,26 +6017,25 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     </button>
                   ))}
                 </div>
-                {cloudForm.mode === 'cloud' && (
-                  <div className="mc-cloud-fields">
-                    <label className="mc-field">
-                      <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                      <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
-                      <span className="mc-field-hint">{t('cloudUrlHint')}</span>
-                    </label>
-                    <label className="mc-field">
-                      <span className="mc-field-label">{t('cloudTokenLabel')}</span>
-                      <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" />
-                      <span className="mc-field-hint">{t('cloudTokenHint')}</span>
-                    </label>
-                    <div className="mc-cloud-actions">
-                      <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? t('loading') : t('cloudTest')}</Btn>
-                      {cloudTest && (
-                        <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />
-                      )}
-                    </div>
+                {/* 顶栏弹层同样常驻显示字段（本地模式下禁用变灰），与设置页保持一致 */}
+                <div className="mc-cloud-fields" style={{ opacity: cloudForm.mode === 'cloud' ? 1 : 0.55 }}>
+                  <label className="mc-field">
+                    <span className="mc-field-label">{t('cloudUrlLabel')}</span>
+                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" disabled={cloudForm.mode !== 'cloud'} />
+                    <span className="mc-field-hint">{t('cloudUrlHint')}</span>
+                  </label>
+                  <label className="mc-field">
+                    <span className="mc-field-label">{t('cloudTokenLabel')}</span>
+                    <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" disabled={cloudForm.mode !== 'cloud'} />
+                    <span className="mc-field-hint">{t('cloudTokenHint')}</span>
+                  </label>
+                  <div className="mc-cloud-actions">
+                    <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
+                    {cloudTest && (
+                      <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />
+                    )}
                   </div>
-                )}
+                </div>
                 <div className="mc-cloud-foot">
                   <Btn variant="ghost" size="sm" onClick={() => setCloudOpen(false)}>{t('cancel')}</Btn>
                   {/* 浮层里的确认用 secondary：本屏唯一的主按钮仍然是「+ 新建」。
@@ -7023,9 +7101,11 @@ function EmbeddingPanel({ t, hidden }) {
 function ConfigPanel({ t, onReload, version, compact }) {
   // 弹窗形态：分页导航（保留 5 个分类，第 5 个是「实验性」）
   const [page, setPage] = useState('general')
-  // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudForm is not defined）。
-  // 落盘与探测走模块级 persistCloud / probeCloud，两处入口最终写同一份 localStorage。
+  // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudConn is not defined）。
+  // 落盘与探测走模块级 persistCloud / probeCloud / markCloudFailed / activateCloud。
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
+  /** 已落盘的连接状态（用于状态行显示「当前在用云端/本地」「上次失败原因」）。 */
+  const [cloudConn, setCloudConn] = useState(() => readCloudConn())
   const [cloudBusy, setCloudBusy] = useState(false)
   const [cloudTest, setCloudTest] = useState(null)
   const testCloud = async () => {
@@ -7035,9 +7115,30 @@ function ConfigPanel({ t, onReload, version, compact }) {
     setCloudTest(r.ok ? { ok: true, owner: r.owner } : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error })
     setCloudBusy(false)
   }
-  const saveCloud = () => {
-    const r = persistCloud(cloudForm)
-    if (!r.ok) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+  /**
+   * 保存并切换（设置页·实验性）。与顶栏弹层同一套规则：
+   * 验证通过才切云端；失败只标记+保留配置，绝不把用户填的东西清掉。
+   */
+  const saveCloud = async () => {
+    const wantCloud = cloudForm.mode === 'cloud'
+    const prepared = persistCloud(cloudForm)
+    if (!prepared.ok) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    if (!wantCloud) {
+      setCloudTest(null)
+      try { location.reload() } catch { /* 忽略 */ }
+      return
+    }
+    setCloudBusy(true); setCloudTest(null)
+    const r = await probeCloud(cloudForm)
+    setCloudBusy(false)
+    if (!r.ok) {
+      const saved = markCloudFailed(prepared.next, r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error)
+      setCloudConn(saved)          // 状态行立刻反映「配置已保留、未切换」
+      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error })
+      return
+    }
+    const saved = activateCloud(prepared.next)
+    setCloudConn(saved)
     try { location.reload() } catch { /* 忽略 */ }
   }
   /** 跳转登录：到云端实例的 /cloud/auth/start，登录完自动回跳（令牌走 fragment） */
@@ -7873,7 +7974,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 （mengbot 授权控制面未上线、配额与授权校验未完成），放实验区既能让想用的人用上，
                 又不会让普通用户误以为是稳定功能、更不会影响本地使用。 */}
             <CfgSection {...secProps('sec-cloud')} id="sec-cloud" icon="🧪" title={t('cloudSection')} sub={t('cloudSectionSub')}>
-              <div className="mc-cloud-modes" style={{ marginBottom: 10 }}>
+              {/* 运行位置：点卡片只改「意图」，真正切换在保存时验证通过后发生 */}
+              <div className="mc-cloud-modes" style={{ marginBottom: 12 }}>
                 {[['local', t('cloudModeLocal'), t('cloudModeLocalHint')], ['cloud', t('cloudModeCloud'), t('cloudModeCloudHint')]].map(([m, label, hint]) => (
                   <button
                     key={m}
@@ -7886,29 +7988,53 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   </button>
                 ))}
               </div>
-              {cloudForm.mode === 'cloud' && (
-                <div className="mc-cloud-fields">
-                  <label className="mc-field">
-                    <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
-                    <span className="mc-field-hint">{t('cloudUrlHint')}</span>
-                  </label>
-                  <label className="mc-field">
-                    <span className="mc-field-label">{t('cloudTokenLabel')}</span>
-                    <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" />
-                    <span className="mc-field-hint">{t('cloudTokenHint')}</span>
-                  </label>
-                </div>
-              )}
-              <div className="mc-cloud-actions" style={{ marginTop: 10 }}>
-                {cloudForm.mode === 'cloud' && (
-                  <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? t('loading') : t('cloudTest')}</Btn>
-                )}
+              {/* 云端字段**常驻显示**：之前只有选「连接云端」才出现，
+                  想切换得先点卡片才看到输入框、填完再保存 —— 三步且容易以为没地方填。
+                  现在一直可见，选本地时只是禁用变灰，值照样保留。 */}
+              <div className="mc-cloud-fields" style={{ opacity: cloudForm.mode === 'cloud' ? 1 : 0.55 }}>
+                <label className="mc-field">
+                  <span className="mc-field-label">{t('cloudUrlLabel')}</span>
+                  <input
+                    value={cloudForm.url}
+                    onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))}
+                    placeholder="https://mem.mengbot.com.cn"
+                    disabled={cloudForm.mode !== 'cloud'}
+                  />
+                  <span className="mc-field-hint">{t('cloudUrlHint')}</span>
+                </label>
+                <label className="mc-field">
+                  <span className="mc-field-label">{t('cloudTokenLabel')}</span>
+                  <input
+                    type="password"
+                    value={cloudForm.token}
+                    onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))}
+                    placeholder="me_… / mb_…"
+                    disabled={cloudForm.mode !== 'cloud'}
+                  />
+                  <span className="mc-field-hint">{t('cloudTokenHint')}</span>
+                </label>
+              </div>
+              <div className="mc-cloud-actions" style={{ marginTop: 12 }}>
+                <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
+                <Btn variant="secondary" size="sm" disabled={!String(cloudForm.url || '').trim()} onClick={startLoginRedirect}>{t('cloudLoginButton')}</Btn>
                 <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
-                <Btn variant="secondary" size="sm" onClick={startLoginRedirect}>{t('cloudLoginButton')}</Btn>
-                {cloudTest && <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />}
+              </div>
+              {/* 状态行：当前实际在用什么 + 上次失败原因（配置没丢，可重试） */}
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {cloudTest && (
+                  <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />
+                )}
                 {cloudFromHash && cloudFromHash.owner && (
                   <Status tone="ok" text={t('cloudLoginDone').replace('{owner}', cloudFromHash.owner)} />
+                )}
+                {cloudConn.mode === 'cloud' && cloudConn.active !== false && (
+                  <Status tone="ok" text={t('cloudNowActive').replace('{url}', cloudConn.url || '')} />
+                )}
+                {cloudConn.mode === 'cloud' && cloudConn.active === false && (
+                  <Status tone="bad" text={t('cloudKeptButInactive').replace('{err}', cloudConn.lastError || '—')} />
+                )}
+                {cloudConn.mode === 'local' && (
+                  <Status tone="idle" text={t('cloudNowLocal')} />
                 )}
               </div>
               <Hint text={t('cloudExperimentalHint')} />
