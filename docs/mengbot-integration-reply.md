@@ -149,6 +149,32 @@ cacheMbtToken(...) 后 : owner=yg@example.com via=mengbot-token
 
 ## 3. Webhook 开通
 
+### 3.0 你们那个注册表单怎么填（两字段）
+
+| 字段 | 填什么 |
+|---|---|
+| **厂商名** | `memory-eternal-cloud` |
+| **地址** | `https://<我方生产域名>/memory-eternal/api/cloud/webhook/mengbot` |
+
+**⚠️ 这道题和 OIDC 那道不一样：webhook 是我方被动接收，你们服务器要主动打过来。**
+
+- 所以地址**必须公网可达**，`http://127.0.0.1:7999/...` 只有在本机做了隧道
+  （cloudflared / ngrok）时才能填，否则你们推过来会连接失败；
+- 路径固定 `/memory-eternal/api/cloud/webhook/mengbot`（`memory-eternal` 前缀 + `api` + `cloud/webhook/mengbot`）；
+- 生产必须 `https`（我方不终结 TLS，由 Caddy/Nginx 反代）；
+- 只填一个地址，不要空格分隔（这与 OIDC 的 redirect_uri 规则不同）。
+
+**如果表单还要 secret**：填你们生成的值，我方配到 `MEMORY_WEBHOOK_SECRET`，两边必须完全一致
+（我方用它对**原始请求体**算 HMAC-SHA256）。
+
+**如果表单要勾事件**：勾这三类（我方只处理这三种，其他会回 400）：
+
+- `entitlement.updated` —— 支付成功 / 续费 / 升级 / 套餐变更
+- `subscription.canceled` —— 用户取消订阅
+- `subscription.expired` —— 到期
+
+填完后请把 **secret** 通过安全渠道给我方。
+
 ### 3.1 我方端点（已实现，等你们推送）
 
 ```
