@@ -80,4 +80,4 @@ npm pack --dry-run 2>&1 | grep -E 'cloud-(auth|server)\.js|docs/CLOUD\.md' && ec
 - [x] `package.json` 的 `files` 加 `!lib/cloud-*.js` / `!docs/CLOUD.md` / `!private` / `!dist`
 - [x] 加发布守卫：[tests/private-boundary.test.mjs](../tests/private-boundary.test.mjs)（6 条：包名 / 版本 / 排除项 / 静态依赖 / 缺文件提示 / 依赖白名单）
 - [x] 私有包 `private/memory-eternal-cloud/`（`COMPAT.md` 记录兼容区间；`npm run cloud:pack` → `dist/memory-eternal-cloud-<version>.tgz`）
-- [ ] 授权校验：私有模块启动时校验 `MEMORY_SERVER_LICENSE`（JWT/离线签名），过期降级为只读或停服
+- [x] 授权校验：`lib/license.js`（ES256 离线签名）+ `scripts/license-issue.mjs` 签发 + 三档降级（warn / readonly / stop）—— 见 [LICENSE.md](LICENSE.md)
