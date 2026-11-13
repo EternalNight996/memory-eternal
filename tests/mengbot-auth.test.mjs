@@ -1,4 +1,4 @@
-﻿// MengBot 云端账号授权：**按 mengbot control-plane 的真实机制**（better-auth + 邮箱 OTP + bearer），
+// MengBot 云端账号授权：**按 mengbot control-plane 的真实机制**（better-auth + 邮箱 OTP + bearer），
 // 不是 OAuth2 的 code 换 token。守四件事：
 //   ① {email} → 代发 OTP，返回 pending（不落状态）；
 //   ② {email,otp} → 登录换 token → /v1/me 校验 → 签发本地令牌 → 解析回独立租户；
@@ -87,7 +87,8 @@ test('设备凭据 mb_install_* 走 /v1/installations/self，owner 是安装 id'
   assert.equal(r.via, 'mengbot-install')
   assert.match(r.owner, /^mb-inst-/)
   assert.match(calls[0].url, /\/v1\/installations\/self$/)
-  assert.equal(resolveTenant('Bearer ' + r.token, env).via, 'mengbot')
+  // resolveTenant 现在透传 session 里的 via（设备凭据保留 'mengbot-install'，便于区分来源）
+  assert.equal(resolveTenant('Bearer ' + r.token, env).via, 'mengbot-install')
 }))
 
 test('令牌无效 → 401 原因；allowList 之外被拒', () => withHome(async (env) => {

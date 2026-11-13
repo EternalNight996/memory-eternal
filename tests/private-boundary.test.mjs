@@ -48,7 +48,7 @@ test('云端模块缺失时给明确提示，且本地模式不受影响', () =>
 
 test('私有模块只依赖公开内部契约（api / db / capture-run）与彼此', () => {
   // 允许的依赖：公开出口 + 私有模块之间互相依赖（cloud-server ⇄ cloud-auth 是一套的）
-  const ALLOWED = ['api.js', 'db.js', 'capture-run.js', 'vault.js', 'cloud-auth.js', 'cloud-server.js', 'license.js', 'entitlement.js']
+  const ALLOWED = ['api.js', 'db.js', 'capture-run.js', 'vault.js', 'cloud-auth.js', 'cloud-server.js', 'license.js', 'entitlement.js', 'oidc.js', 'webhook.js']
   for (const f of ['lib/cloud-auth.js', 'lib/cloud-server.js']) {
     if (!fs.existsSync(f)) continue // 开源分发里没有这两个文件，跳过检查
     const src = fs.readFileSync(f, 'utf8')
