@@ -228,14 +228,39 @@ GET  /cloud/config                     → access: {"source":"mengbot","plan":"p
 
 ---
 
-## 6. 后续（我方主动做，不需要你们投入）
+## 6. OpenAPI / examples（由 MengBot 侧提供）
 
-- **OpenAPI 3.1** 描述文件（可直接导入 Postman / 生成 SDK）；
-- **`examples/` 目录**：Node + Python 两个可执行示例（登录 → 建租户 → 写卡片 → 召回 → 导出备份）。
+按你们安排，OpenAPI 3.1 描述文件与 `examples/`（Node + Python）由**你们做**，我方不再重复造。
+我方需要的只是：端点路径、鉴权头（`Authorization: Bearer <token>`）、错误码语义与我们实现一致即可。
 
-这两项是我方自身 API 的对外友好度，做完会同步给你们。
+> 我方端点全集见《docs/CLOUD.md §8 接口一览》，可直接作为你们写 OpenAPI 的底稿。
 
----
+## 7. 我方进度（截至本回复）
+
+**已完成并有实测/测试证据**：
+
+| 项 | 证据 |
+|---|---|
+| 多租户分库（每人一个 SQLite） | 独立库自动创建，`/cloud/whoami` owner 正确 |
+| 密钥签发 / 吊销 / 只存哈希 | `cloud-auth` 4/4 |
+| 标准 OIDC 客户端（code + PKCE S256） | `oidc-webhook` 10/10，302 实测 |
+| 跳转授权（start/callback，令牌走 fragment） | `redirect-auth` 5/5 |
+| `mbt_` token 识别 + 24h 缓存 | `oidc-webhook` |
+| Webhook（两种签名 + 幂等 + 事件应用） | 200 / 200(dup) / 401 实测 |
+| refresh_token 存储 + 轮换 + 失败清除 | `oidc-webhook` |
+| 离线 license + 三档降级 | `license` 11/11，readonly 写 403 实测 |
+| 三层权限编排（MengBot → license → 降级） | `entitlement` 7/7 |
+| 服务端不含客户端 UI（动态加载边界） | `private-boundary` 6/6，打包审计干净 |
+| 前端「用 MengBot 账号登录」入口 | 实验性页按钮 + fragment 回跳消费 |
+| 三端发布 `0.45.0` | npm / GitHub Release / Gitee Release 已验证 |
+
+**还没做（不阻塞联调）**：
+
+| 项 | 说明 |
+|---|---|
+| 配额与限流实际执行 | `limits` 已在 `/cloud/connect` 返回，但服务端还没真拦；等你们给 `caps` 语义后一起做 |
+| 租户实例 LRU | 几十个租户没问题，几百个要淘汰（`tenants` Map 只增不减） |
+| MengBot 真联调 | 等 §5 三样交付物 |
 
 ## 附：我方关键配置项一览
 

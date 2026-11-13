@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { buildAuthorizeUrl, readOidcConfig, exchangeCode, oidcClientRegistration, rememberPkce, takePkce } from '../lib/oidc.js'
+import { buildAuthorizeUrl, readOidcConfig, exchangeCode, oidcClientRegistration, rememberPkce, takePkce, storeRefreshToken, readRefreshStore, refreshAccessToken } from '../lib/oidc.js'
 import { signPayload, verifyWebhookSignature, applyWebhookEvent } from '../lib/webhook.js'
 import { resolveTenant, cacheMbtToken } from '../lib/cloud-auth.js'
 import { readEntitlement } from '../lib/entitlement.js'
@@ -142,4 +142,26 @@ test('事件应用：更新 / 取消 / 幂等', () => withHome((env) => {
   const bad = applyWebhookEvent({ event: 'nope', payload: {}, eventId: 'e3' }, env)
   assert.equal(bad.ok, false)
   assert.match(bad.reason, /未知事件/)
+}))
+
+test('refresh_token 存储 / 轮换 / 失败清除', () => withHome(async (env) => {
+  storeRefreshToken('yg@example.com', 'rt_1', env)
+  assert.equal(readRefreshStore(env)['yg@example.com'].refreshToken, 'rt_1')
+
+  const cfg = readOidcConfig({ ...process.env, ...oidcEnv })
+  const ok = await refreshAccessToken(cfg, 'yg@example.com', {
+    env, fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ access_token: 'at2', refresh_token: 'rt_2' }) }),
+  })
+  assert.equal(ok.ok, true)
+  assert.equal(readRefreshStore(env)['yg@example.com'].refreshToken, 'rt_2', 'refresh_token 要轮换')
+
+  const bad = await refreshAccessToken(cfg, 'yg@example.com', {
+    env, fetchImpl: async () => ({ ok: false, status: 400, json: async () => ({ error: 'invalid_grant' }) }),
+  })
+  assert.equal(bad.ok, false)
+  assert.equal(readRefreshStore(env)['yg@example.com'], undefined, '失败要清掉失效的 refresh')
+
+  const none = await refreshAccessToken(cfg, 'nobody@example.com', { env, fetchImpl: async () => ({ ok: false, status: 400, json: async () => ({}) }) })
+  assert.equal(none.ok, false)
+  assert.match(none.error, /需重新登录/)
 }))
