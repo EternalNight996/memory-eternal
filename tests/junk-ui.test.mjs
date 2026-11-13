@@ -79,3 +79,18 @@ test('执行完自动重扫（界面立刻反映真实状态）', () => {
 test('危险动作（delete）用 primary，其余用 secondary', () => {
   assert.match(src, /junkConfirm\.action === 'delete' \? 'primary' : 'secondary'/, '删除要给更强的视觉权重')
 })
+
+test('归档管理：有查看/全部恢复入口，且调对了接口', () => {
+  // 「归档 = 藏起来」但不能是"找不回来"，否则用户不敢用归档
+  assert.match(src, /junkLoadArchived/, '要有「查看归档」文案')
+  assert.match(src, /junkRestoreAll/, '要有「全部恢复」文案')
+  assert.match(src, /fetch\(API \+ '\/cards\?status=archived/, '要拉归档列表')
+  assert.match(src, /action: 'restore', reason: 'archived'/, '全部恢复要复用批量处置')
+})
+
+test('/cards 支持 status=archived（白名单 + appliedStatus 都要认）', () => {
+  const api = fs.readFileSync('lib/api.js', 'utf8')
+  assert.match(api, /KNOWN_STATUS = \[[^\]]*'archived'\]/, 'KNOWN_STATUS 要含 archived')
+  assert.match(api, /status === 'archived' \? \['archived'\]/, 'want 映射要含 archived')
+  assert.match(api, /status === 'archived' \? 'archived'/, 'appliedStatus 要回显 archived')
+})

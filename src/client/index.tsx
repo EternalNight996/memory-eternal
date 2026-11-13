@@ -803,6 +803,10 @@ export const ZH = {
   junkConfirmBody: '将对 {n} 张卡执行「{action}」（类别：{reason}）。',
   junkConfirmTip: '归档可恢复；删除会进回收站，30 天后自动清理。这一步之后还可以在回收中心撤销。',
   junkConfirmOk: '确认执行',
+  junkLoadArchived: '查看归档',
+  junkArchivedCount: '已归档 {n} 张',
+  junkRestoreAll: '全部恢复',
+  junkArchiveHint: '归档卡不会出现在日常检索里，数据完整保留；恢复后立刻重新可搜到',
   backupSection: '备份',
   backupSectionSub: '备份节奏 / 保留天数 / 库损坏自动还原 —— 出事先回到最近一份好的库',
   embeddingAskTitle: '确认操作',
@@ -1861,6 +1865,10 @@ export const EN = {
   junkConfirmBody: 'About to run "{action}" on {n} cards (category: {reason}).',
   junkConfirmTip: 'Archive is reversible; Delete goes to Recycle and is purged after 30 days. You can still undo it there.',
   junkConfirmOk: 'Run it',
+  junkLoadArchived: 'Show archived',
+  junkArchivedCount: '{n} archived',
+  junkRestoreAll: 'Restore all',
+  junkArchiveHint: 'Archived cards stay out of daily search but are fully kept; restoring makes them searchable again immediately',
   backupSection: 'Backup',
   backupSectionSub: 'Schedule / retention / auto-restore — get back to the last good copy',
   embeddingAskTitle: 'Confirm',
@@ -7192,6 +7200,25 @@ function ConfigPanel({ t, onReload, version, compact }) {
   /** 待确认的批量操作：{ action, paths, reason } —— 确认弹窗据此显示「将影响 N 条」 */
   const [junkConfirm, setJunkConfirm] = useState(null)
   const [junkLast, setJunkLast] = useState(null)  // 上次执行结果
+  /** 归档卡列表（「归档管理」用）：几条能一次看全，不做分页 */
+  const [archived, setArchived] = useState(null)
+  /** 拉归档列表（只读） */
+  const loadArchived = async () => {
+    setJunkBusy(true); setJunkErr('')
+    try {
+      const r = await fetch(API + '/cards?status=archived&limit=200')
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) { setJunkErr((d && d.error) || ('HTTP ' + r.status)); setArchived(null) }
+      else setArchived({ cards: d.cards || [], total: d.total || 0 })
+    } catch (e) { setJunkErr(String((e && e.message) || e)) }
+    finally { setJunkBusy(false) }
+  }
+  /** 批量恢复归档卡（沿用同一个确认弹窗） */
+  const askRestoreAllArchived = () => {
+    const list = (archived && archived.cards) ? archived.cards.map((c) => c.path) : []
+    if (!list.length) return
+    setJunkConfirm({ action: 'restore', reason: 'archived', paths: list })
+  }
   /** 扫描垃圾候选（只读，不动数据） */
   const scanJunkNow = async () => {
     setJunkBusy(true); setJunkErr(''); setJunkLast(null)
@@ -8002,6 +8029,35 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     </div>
                   )}
                   <Hint text={t('junkCleanHint')} />
+
+                  {/* 归档管理：归档过的卡去哪了、要不要放回来。
+                      没有这个入口的话，归档等于"藏起来找不回来"，用户不敢用。 */}
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--mc-line, rgba(128,128,128,.2))' }}>
+                    <div className="mc-cloud-actions" style={{ marginBottom: 8 }}>
+                      <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={loadArchived}>
+                        {t('junkLoadArchived')}
+                      </Btn>
+                      {archived && <Status tone="idle" text={t('junkArchivedCount').replace('{n}', String(archived.total))} />}
+                      {archived && archived.total > 0 && (
+                        <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={askRestoreAllArchived}>
+                          {t('junkRestoreAll')}
+                        </Btn>
+                      )}
+                    </div>
+                    {archived && archived.total > 0 && (
+                      <div style={{ maxHeight: 200, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {archived.cards.slice(0, 50).map((c) => (
+                          <div key={c.path} style={{ fontSize: 11.5, lineHeight: 1.6, opacity: 0.85 }}>
+                            {c.title || c.path} <span style={{ opacity: 0.5 }}>— {c.path}</span>
+                          </div>
+                        ))}
+                        {archived.total > 50 && (
+                          <div style={{ fontSize: 11.5, opacity: 0.6 }}>… {t('junkMore').replace('{n}', String(archived.total - 50))}</div>
+                        )}
+                      </div>
+                    )}
+                    <Hint text={t('junkArchiveHint')} />
+                  </div>
                 </>
               )}
 
