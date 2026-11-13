@@ -52,7 +52,7 @@ test('接线守卫：客户端把标签筛选接进请求、芯片可点、片�
   assert.match(src, /const \[tagPick, setTagPick\] = useState\(''\)/);
   assert.match(src, /const onTagPick = \(tag\) => \{/, '要有统一的筛选入口')
   assert.match(src, /loadCards\(kind, query, statusFilter, \{ tag: next \}\)/, '同一 tick 用显式参数（避免读到旧 state）')
-  assert.match(src, /🏷 \{tagPick\} <span style=\{\{ opacity: 0\.7 \}\}>✕<\/span>/, '工具栏要显示可清除的筛选芯片')
+  assert.match(src, /\{tagPick\} <span style=\{\{ opacity: 0\.7 \}\}>✕<\/span>/, '工具栏要显示可清除的筛选芯片（纯文字，不再带 🏷 前缀）')
   assert.match(src, /className="mc-tag mc-tag-click"/, '列表标签可点')
   assert.match(src, /className="md-chip md-chip-tag mc-tag-click"/, '阅读器标签也可点')
   // 命中片段：优先用后端 _match.snippet（FTS 在命中位置截好），为空才退回本地 snippetAround

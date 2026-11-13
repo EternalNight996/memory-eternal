@@ -5094,12 +5094,12 @@ function FirstRunWizard({ t, onDone }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <button type="button" onClick={() => openExternal('https://github.com/EternalNight996/memory-eternal')}
                 style={{ padding: '16px 10px', borderRadius: 12, border: '1px solid rgba(255,122,69,.65)', background: 'linear-gradient(135deg, rgba(255,122,69,.95), rgba(255,150,80,.85))', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 8px 24px rgba(255,122,69,.28)' }}>
-                ⭐ Star
+                Star
                 <div style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.9, marginTop: 4 }}>让更多人发现</div>
               </button>
               <button type="button" onClick={() => openExternal('https://github.com/EternalNight996/memory-eternal/fork')}
                 style={{ padding: '16px 10px', borderRadius: 12, border: '1px solid rgba(139,92,246,.65)', background: 'linear-gradient(135deg, rgba(139,92,246,.9), rgba(99,102,241,.85))', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 8px 24px rgba(99,102,241,.25)' }}>
-                🍴 Fork
+                Fork
                 <div style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.9, marginTop: 4 }}>备份 + 二次开发</div>
               </button>
             </div>
@@ -5835,7 +5835,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                       <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" />
                     </label>
                     <div className="mc-cloud-actions">
-                      <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
+                      <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? t('loading') : t('cloudTest')}</Btn>
                       {cloudTest && (
                         <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />
                       )}
@@ -5865,8 +5865,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             </span>
           </span>
           {/* Star 提示是「建议」，不是当前步骤的主操作：降为次级，避免和工具栏「新建」抢主按钮 */}
-          <Btn variant="secondary" size="sm" onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal'); starAct('never') }}>★ {t('starAskGo')}</Btn>
-          <button type="button" className="mc-btn" style={{ borderColor: 'rgba(139,92,246,.55)', color: '#a78bfa' }} onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal/fork'); starAct('never') }}>🍴 Fork</button>
+          <Btn variant="secondary" size="sm" onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal'); starAct('never') }}>{t('starAskGo')}</Btn>
+          <button type="button" className="mc-btn" style={{ borderColor: 'rgba(139,92,246,.55)', color: '#a78bfa' }} onClick={() => { openExternal('https://github.com/EternalNight996/memory-eternal/fork'); starAct('never') }}>Fork</button>
           <button type="button" className="mc-btn" onClick={() => starAct('later')}>{t('starAskLater')}</button>
           <button type="button" className="mc-btn" onClick={() => starAct('never')}>{t('starAskNever')}</button>
         </div>
@@ -5901,7 +5901,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px 16px', borderTop: '1px solid var(--dsw-alias-border-l1, #e5e7eb)' }}>
               <button type="button" className="mc-btn" onClick={() => setSkillReview(null)}>{t('skillUpdatesLater')}</button>
-              <button type="button" className="mc-btn me-on" onClick={() => { setSkillReview(null); goView('audit') }}>🛡️ {t('skillUpdatesReview')}</button>
+              <button type="button" className="mc-btn me-on" onClick={() => { setSkillReview(null); goView('audit') }}>{t('skillUpdatesReview')}</button>
             </div>
           </div>
         </div>
@@ -6055,15 +6055,15 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             />
             {tagPick && (
               <button type="button" className="mc-chip active" title={t('clearFilter')} onClick={() => onTagPick('')}>
-                🏷 {tagPick} <span style={{ opacity: 0.7 }}>✕</span>
+                {tagPick} <span style={{ opacity: 0.7 }}>✕</span>
               </button>
             )}
             {/* 导入 / 导出 MD / 导出 JSON 已统一到「设置 → 🧯 备份」：
                 首页只留「搜索 / 新建 / 同步技能 / 刷新」，迁移类入口一个按钮带过去。 */}
-            <Btn variant="primary" size="sm" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>+ {t('newCard')}</Btn>
-            <Btn variant="secondary" size="sm" disabled={skillBusy} onClick={syncSkills} title={t('skillCardsHint')}>{skillBusy ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</Btn>
-            <Btn variant="secondary" size="sm" onClick={openBackupSettings} title={t('backupEntryHint')}>🛟 {t('backupEntry')}</Btn>
-            <Btn variant="ghost" size="sm" onClick={() => loadAll()}>↻ {t('refresh')}</Btn>
+            <Btn variant="primary" size="sm" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>{t('newCard')}</Btn>
+            <Btn variant="secondary" size="sm" disabled={skillBusy} onClick={syncSkills} title={t('skillCardsHint')}>{skillBusy ? t('syncingSkills') : t('syncSkills')}</Btn>
+            <Btn variant="secondary" size="sm" onClick={openBackupSettings} title={t('backupEntryHint')}>{t('backupEntry')}</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => loadAll()}>{t('refresh')}</Btn>
           </div>
         )}
 
@@ -6088,7 +6088,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             </div>
             <div className="mc-chip-group">
               <span className="mc-chip-group-label">{t('chipGroupFilter')}</span>
-              <button type="button" className={`mc-chip${onlyPinned ? ' active' : ''}`} onClick={() => setOnlyPinned((v) => !v)}>📌 {t('pinnedOnly')}<span className="mc-chip-n">{pinned.size}</span></button>
+              <button type="button" className={`mc-chip${onlyPinned ? ' active' : ''}`} onClick={() => setOnlyPinned((v) => !v)}>{t('pinnedOnly')}<span className="mc-chip-n">{pinned.size}</span></button>
               <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }}>
                 <option value="all">🤖 {t('allAgents')}</option>
                 {agentOptions(cardAgents).map((a) => <option key={a} value={a}>{a}</option>)}
@@ -6161,7 +6161,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     hint={t('cardsNoMatchHint') + (otherTypeOnly ? ' ' + t('otherTypeHint') : '')}
                     action={<div style={{ display: 'flex', gap: space(2), flexWrap: 'wrap', justifyContent: 'center' }}>
                       <Btn variant="secondary" size="sm" onClick={clearAllFilters}>{t('clearAllFilters')}</Btn>
-                      {otherTypeOnly && <Btn variant="ghost" size="sm" disabled={skillBusy} onClick={syncSkills}>{skillBusy ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</Btn>}
+                      {otherTypeOnly && <Btn variant="ghost" size="sm" disabled={skillBusy} onClick={syncSkills}>{skillBusy ? t('syncingSkills') : t('syncSkills')}</Btn>}
                     </div>}
                   />
                 // 库本来就是空的：下一步是「导入 / 新建」
@@ -6171,7 +6171,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     hint={t('cardsEmptyHint')}
                     action={<div style={{ display: 'flex', gap: space(2), flexWrap: 'wrap', justifyContent: 'center' }}>
                       <Btn variant="secondary" size="sm" onClick={() => importRef.current && importRef.current.click()}>{t('importVault')}</Btn>
-                      <Btn variant="secondary" size="sm" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>+ {t('newCard')}</Btn>
+                      <Btn variant="secondary" size="sm" onClick={() => setNewCard({ kind: 'knowledge', title: '', body: '', tags: '', template: '' })}>{t('newCard')}</Btn>
                     </div>}
                   />)
               : <>{/* 卡片区标题：让「知识卡片」成为独立区块，而不是直接铺网格 */}
@@ -6651,7 +6651,7 @@ function EmbeddingPanel({ t, hidden }) {
       // 开 / 关都会改变运行状态：两个方向都先确认（确认层里写清通道、是否本机、要不要下模型）
       onClick={() => { if (enabled) setAsk({ kind: 'disable', run: disable }); else setAsk({ kind: 'enable', body: enableAskBody(), run: enable }) }}
     >
-      {deploying ? '⏳ ' : ''}{primaryText}
+      {deploying ? '… ' : ''}{primaryText}
     </button>
   )
 
@@ -6725,7 +6725,7 @@ function EmbeddingPanel({ t, hidden }) {
                 <span style={{ flex: 1 }} />
                 {!running ? (
                   <button type="button" className="mc-btn" style={small} disabled={!!busy} onClick={() => setAsk({ kind: 'start', run: () => startService() })}>
-                    {busy === '/embedding/service' ? '⏳' : '▶ ' + t('embeddingServiceStart')}
+                    {busy === '/embedding/service' ? '…' : t('embeddingServiceStart')}
                   </button>
                 ) : null}
                 {running && managed ? (
@@ -6761,7 +6761,7 @@ function EmbeddingPanel({ t, hidden }) {
                   <span style={{ ...hint, color: '#10b981' }}>✓ {t('embeddingInstalled')}</span>
                 ) : (
                   <button type="button" className="mc-btn" style={small} disabled={!!busy || step === 1 || pulling || !localModel} onClick={() => guard(downloadModel)}>
-                    {pulling ? '⏳ ' + t('embeddingDownloading') : '⬇ ' + t('embeddingDownload')}
+                    {pulling ? t('embeddingDownloading') : t('embeddingDownload')}
                   </button>
                 )}
               </div>
@@ -6865,7 +6865,7 @@ function EmbeddingPanel({ t, hidden }) {
               </div>
             ) : null}
             {mode === 'local' && installed.length ? <div style={hint}>{t('embeddingInstalled')}：{installed.join(', ')}</div> : null}
-            <button type="button" className="mc-btn" style={{ alignSelf: 'flex-start', padding: '2px 10px', fontSize: 11.5 }} disabled={!!busy} onClick={() => load()}>{busy ? '⏳' : '⟲ ' + t('embeddingRefresh')}</button>
+            <button type="button" className="mc-btn" style={{ alignSelf: 'flex-start', padding: '2px 10px', fontSize: 11.5 }} disabled={!!busy} onClick={() => load()}>{busy ? '…' : t('embeddingRefresh')}</button>
           </div>
         ) : null}
       </div>
@@ -7325,7 +7325,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
         {err && <div className="mc-card" style={{ borderLeft: '4px solid #ef4444', background: 'rgba(239,68,68,0.08)', padding: '12px 14px', marginBottom: 10 }}>
           <div style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600, marginBottom: 6 }}>⚠ {err}</div>
-          <button type="button" className="mc-btn" onClick={load}>↻ {t('retry')}</button>
+          <button type="button" className="mc-btn" onClick={load}>{t('retry')}</button>
         </div>}
         {readonly && <div className="mc-card" style={{ borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#b45309' }}>ℹ️ {t('configNeedsDsh')} —— {t('editInSetting')}</div>}
         {saved && <div className="mc-card" style={{ borderLeft: '4px solid #10b981', background: 'rgba(16,185,129,0.08)', padding: '10px 14px', marginBottom: 10, fontSize: 12, color: '#059669' }}>✓ {saved}</div>}
@@ -7356,7 +7356,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
             </summary>
             <div className="mc-env-rest">
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : '🔄 ' + t('vcCheck')}</button>
+                <button type="button" className="mc-btn" disabled={busy === 'version'} onClick={() => checkVersion(true)}>{busy === 'version' ? t('checking') : t('vcCheck')}</button>
               </div>
             {/* 警告块：显示哪个 key 由 versionCardState 决定（组件不再手写状态链） */}
             {vc && vstate.warn && (
@@ -7376,7 +7376,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
             {vstate.showButton && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
                 <button type="button" className={'mc-btn' + (vstate.emphasis ? ' me-on' : '')} disabled={!!busy} onClick={restartResident}>
-                  {busy === 'restart' ? '⏳ ' + t('vcRestarting') : '🔄 ' + t('vcRestart')}
+                  {busy === 'restart' ? t('vcRestarting') : t('vcRestart')}
                 </button>
                 {vc.restartCommand && <code style={{ fontSize: 11, opacity: 0.75 }}>{vc.restartCommand}</code>}
                 <span style={{ fontSize: 11, opacity: 0.65 }}>
@@ -7474,7 +7474,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     onClick={() => applyPlan(k)}
                     disabled={!!busy}
                   >
-                    <b>{appliedPlan === k ? '✅ ' : (k === 'A' ? '🟢 ' : k === 'B' ? '💰 ' : '⭐ ')}{PLANS[k].label}</b>
+                    <b>{PLANS[k].label}</b>
                     <span>{t('planDesc' + k)}</span>
                   </button>
                 ))}
@@ -7562,7 +7562,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       notify(t('skillsSyncDone') + '：' + t('skillsScanned') + ' ' + (r.total || 0) + ' · ' + t('skillsCreated') + ' ' + (r.created || 0) + ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) + ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0) + (r.pendingUpdates || r.updated ? ' · ' + t('skillUpdatesNeedReview') : ''))
                     } else notify((r && r.error) || t('skillsSyncFail'), false)
                   } catch (e) { notify(t('skillsSyncFail'), false) } finally { setBusy('') }
-                }}>{busy === 'skills' ? '⏳ ' + t('syncingSkills') : '🧩 ' + t('syncSkills')}</button>
+                }}>{busy === 'skills' ? t('syncingSkills') : t('syncSkills')}</button>
               </div>
             </CfgSection>
             {/* 备份：只保留这一处（BackupCard 内含开关/周期/保留天数/立即备份/导出/导入）。
@@ -7589,7 +7589,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       notify((r.digest && r.digest.items && r.digest.items.length) ? t('newsDigestDone') : t('newsDigestEmpty'), true)
                     } else notify((r && r.error) || t('newsDigestFail'), false)
                   } catch (e) { notify(t('newsDigestFail'), false) } finally { setBusy('') }
-                }}>{busy === 'digest' ? '⏳ ' + t('newsDigestBuilding') : '📬 ' + t('newsDigestNow')}</button>
+                }}>{busy === 'digest' ? t('newsDigestBuilding') : t('newsDigestNow')}</button>
                 <span className="mc-field-hint">{t('newsDigestNowHint')}</span>
               </div>
               {digestPreview !== null ? (
@@ -7639,7 +7639,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 </div>
               ))}
               <div className="mc-cfg-tools" style={{ marginTop: 4 }}>
-                <button type="button" className="mc-btn" onClick={addProfile} disabled={readonly}>＋ {t('vaultAdd')}</button>
+                <button type="button" className="mc-btn" onClick={addProfile} disabled={readonly}>{t('vaultAdd')}</button>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                   <span style={{ opacity: 0.6 }}>{t('vaultActive')}</span>
                   <select value={form.activeVault || ''} onChange={(e) => set('activeVault', e.target.value)} disabled={readonly} style={vaultInput}>
@@ -7702,7 +7702,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       else notify(t('llmTestFail') + '：' + ((r && (r.failure ? (r.failure.code + ' ' + r.failure.message) : r.error)) || '?'), false)
                     } catch (e) { notify(t('llmTestFail') + '：' + String((e && e.message) || e), false) }
                     finally { setBusy('') }
-                }}>{busy === 'llmtest' ? t('exporting') : '🔌 ' + t('llmTest')}</button>
+                }}>{busy === 'llmtest' ? t('exporting') : t('llmTest')}</button>
               </div>
             </CfgSection>
             {/* 自动审核配置 */}
@@ -7784,7 +7784,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               )}
               <div className="mc-cloud-actions" style={{ marginTop: 10 }}>
                 {cloudForm.mode === 'cloud' && (
-                  <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
+                  <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? t('loading') : t('cloudTest')}</Btn>
                 )}
                 <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
                 <Btn variant="secondary" size="sm" onClick={startLoginRedirect}>{t('cloudLoginButton')}</Btn>
@@ -7813,7 +7813,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 disabled={busy === 'save'}
                 title={readonly ? t('readonlyBody') : t('saveConfig')}
               >
-                {busy === 'save' ? '⏳ ' + t('saving') : (readonly ? '🔒 ' + t('readonlyBtn') : '💾 ' + t('saveConfig'))}
+                {busy === 'save' ? t('saving') : (readonly ? t('readonlyBtn') : t('saveConfig'))}
               </button>
             </div>
           </div>
@@ -8014,11 +8014,11 @@ function AuditPanel({ t, onReload, version }) {
               <div style={{ flex: 1 }} />
               <label style={{ fontSize: 12 }}><input type="checkbox" checked={items.length > 0 && toggled.length === items.length} onChange={(e) => { if (e.target.checked) { setSel(new Set(items.map((c) => c.path))) } else { setSel(new Set()) } }} /> {t('selectAll')}（{items.length}）</label>
               <span style={{ fontSize: 11, opacity: 0.65 }}>{t('auditSelected')} {toggled.length}</span>
-              {tab === 'pending' && <Btn variant="secondary" size="sm" disabled={!!busy} onClick={reclassify}>🔧 {t('reclassify')}</Btn>}
+              {tab === 'pending' && <Btn variant="secondary" size="sm" disabled={!!busy} onClick={reclassify}>{t('reclassify')}</Btn>}
               <Btn variant="primary" size="sm" disabled={!toggled.length || !!busy} onClick={() => applyStatus('approved')}>✓ {tab === 'rejected' ? t('restore') : t('approve')}</Btn>
               {tab === 'pending'
                 ? <Btn variant="danger" size="sm" disabled={!toggled.length || !!busy} onClick={() => applyStatus('rejected')}>✕ {t('reject')}</Btn>
-                : <Btn variant="danger" size="sm" disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>🗑 {t('restoreDelete')}</Btn>}
+                : <Btn variant="danger" size="sm" disabled={!toggled.length || !!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete') }}>{t('restoreDelete')}</Btn>}
               {toggled.length > 0 && <Btn variant="ghost" size="sm" onClick={clearSel}>{t('auditClearSelection')}</Btn>}
             </div>
             {items.length ? (
@@ -8114,18 +8114,18 @@ function AuditPanel({ t, onReload, version }) {
                   <div className="me-audit-preview-actions">
                     {/* 批准/恢复在批量条上已是本屏唯一主按钮，这里降为次级；驳回/删除走 danger */}
                     {tab === 'pending' && isRawCard(previewCard) && (
-                      <Btn variant="ghost" size="sm" disabled={!!busy} onClick={() => redistill(previewCard.path)}>🔁 {t('redistill')}</Btn>
+                      <Btn variant="ghost" size="sm" disabled={!!busy} onClick={() => redistill(previewCard.path)}>{t('redistill')}</Btn>
                     )}
                     <Btn variant="secondary" size="sm" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path])}>✓ {tab === 'rejected' ? t('restore') : previewCard.kind === 'core' ? t('approveCore') : t('approve')}</Btn>
                     {tab === 'pending' && previewCard.kind !== 'core' && !previewCard.revision && (
-                      <Btn variant="ghost" size="sm" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'core' })}>⭐ {t('approveAndCore')}</Btn>
+                      <Btn variant="ghost" size="sm" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'core' })}>{t('approveAndCore')}</Btn>
                     )}
                     {tab === 'pending' && previewCard.kind === 'core' && (
                       <Btn variant="ghost" size="sm" disabled={!!busy} onClick={() => applyStatus('approved', [previewCard.path], { kind: 'knowledge' })}>{t('approveAsNormal')}</Btn>
                     )}
                     {tab === 'pending'
                       ? <Btn variant="danger" size="sm" disabled={!!busy} onClick={() => applyStatus('rejected', [previewCard.path])}>✕ {t('reject')}</Btn>
-                      : <Btn variant="danger" size="sm" disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>🗑 {t('restoreDelete')}</Btn>}
+                      : <Btn variant="danger" size="sm" disabled={!!busy} onClick={() => { if (window.confirm(t('recycleDeleteConfirm'))) applyStatus('delete', [previewCard.path]) }}>{t('restoreDelete')}</Btn>}
                   </div>
                 </>
               ) : (search
@@ -8618,7 +8618,7 @@ function NewsFeedPanel({ t, mode, version }) {
           <button type="button" className="mc-news-hero-go" onClick={() => useSearch(query)}>{t('newsSearchGo')}</button>
           {query.trim() ? (
             <button type="button" className="mc-news-hero-follow" disabled={followBusy} onClick={previewFollow} title={t('newsFollowPreview')}>
-              ＋ {t('newsFollow')}
+              {t('newsFollow')}
             </button>
           ) : null}
         </div>
@@ -8652,7 +8652,7 @@ function NewsFeedPanel({ t, mode, version }) {
           {follows.map((f) => (
             <span key={f.id} className={'mc-news-follow-chip' + (followFilter === f.id ? ' on' : '')}>
               <button type="button" className="chip-main" onClick={() => setFollowFilter((v) => (v === f.id ? '' : f.id))} title={(f.domains || []).join(' / ')}>
-                🔔 {f.label}<i>{f.count || 0}</i>
+                {f.label}<i>{f.count || 0}</i>
               </button>
               <button type="button" className="chip-x" title={t('delete')} aria-label={t('delete')} onClick={() => dropFollow(f.id)}>✕</button>
             </span>
@@ -8917,7 +8917,7 @@ function MyNewsPanel({ t, version, onUnreadChange }) {
       <InlineToast toast={toast} />
       <div className="mc-news-toolbar">
         <span className="mc-news-feed-meta" style={{ marginLeft: 0 }}>{counts.all} {t('newsCountUnit')} · {counts.unread} {t('newsUnread')}</span>
-        <button type="button" className="mc-btn me-on" onClick={() => openEditor(null)}>＋ {t('newsNew')}</button>
+        <button type="button" className="mc-btn me-on" onClick={() => openEditor(null)}>{t('newsNew')}</button>
         <input className="mc-news-search" type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('newsSearch')} aria-label={t('newsSearch')} />
         <button type="button" className={'mc-chip' + (category === '' ? ' active' : '')} onClick={() => setCategory('')}>{t('all')}</button>
         {categories.map((c) => (
@@ -8932,7 +8932,7 @@ function MyNewsPanel({ t, version, onUnreadChange }) {
           {items.length === 0 ? (
             <div className="mc-card mc-news-empty">
               {query || category || unreadOnly ? t('newsNoMatch') : t('newsEmpty')}
-              {!query && !category && !unreadOnly && <div style={{ marginTop: 10 }}><button type="button" className="mc-btn me-on" onClick={() => openEditor(null)}>＋ {t('newsNew')}</button></div>}
+              {!query && !category && !unreadOnly && <div style={{ marginTop: 10 }}><button type="button" className="mc-btn me-on" onClick={() => openEditor(null)}>{t('newsNew')}</button></div>}
             </div>
           ) : (
             <>
@@ -9076,7 +9076,7 @@ function RecoverPanel({ t, onReload, version }) {
               if (r.ok && (!d || d.ok !== false)) notify(t('toastPurgeAll').split('{n}').join(String(d && d.purged != null ? d.purged : items.length)), true)
               else notify(t('toastFailed') + '：' + ((d && d.error) || ('HTTP ' + r.status)), false)
             } catch (e) { notify(t('toastFailed') + '：' + String((e && e.message) || e), false) } finally { setBusy('') }
-          }}>🗑 {t('recyclePurgeAll')}{items.length ? '（' + items.length + '）' : ''}</Btn>
+          }}>{t('recyclePurgeAll')}{items.length ? '（' + items.length + '）' : ''}</Btn>
         </div>
         <div className="mc-v5-recycle-hint">{t('recycleHint')}</div>
         {loadErr && <div style={{ marginBottom: space(3) }}><ErrorBar error={t('error') + '：' + loadErr} onRetry={() => load()} retryText={t('retry')} /></div>}
@@ -9226,7 +9226,7 @@ const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, 
         <span className="mc-v5-card-time">{fmtDate(card.updated)}</span>
         {onCore && card.status !== 'pending' && card.status !== 'rejected' && (
           <button type="button" className={`mc-v5-core${card.kind === 'core' ? ' on' : ''}`} title={t(card.kind === 'core' ? 'unsetCore' : 'setCore')} onClick={(e) => { e.stopPropagation(); onCore(card.path, card.kind === 'core' ? 'knowledge' : 'core') }}>
-            {card.kind === 'core' ? '⭐ ' + t('coreShort') : '☆ ' + t('setCoreShort')}
+            {card.kind === 'core' ? t('coreShort') : t('setCoreShort')}
           </button>
         )}
         {onPin && <button type="button" className={`mc-v5-pin${pinned ? ' on' : ''}`} title={t(pinned ? 'unpinCard' : 'pinCard')} aria-label={t(pinned ? 'unpinCard' : 'pinCard')} onClick={(e) => { e.stopPropagation(); onPin(card.path) }}>📌</button>}
@@ -9402,9 +9402,9 @@ function BackupCard({ t, notify }) {
           否则同一屏出现两个「🧯 备份」，看起来像两个重复的备份模块。 */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }} />
-        <Btn variant="ghost" size="sm" onClick={load}>↻ {t('refresh')}</Btn>
+        <Btn variant="ghost" size="sm" onClick={load}>{t('refresh')}</Btn>
         {/* 本屏唯一的主按钮：立即备份（其余开关/保存/刷新都是次级） */}
-        <Btn variant="primary" size="sm" disabled={!!busy} onClick={backupNow}>{busy === 'backup' ? t('backupRunning') : '💾 ' + t('backupNow')}</Btn>
+        <Btn variant="primary" size="sm" disabled={!!busy} onClick={backupNow}>{busy === 'backup' ? t('backupRunning') : t('backupNow')}</Btn>
       </div>
       {err
         ? <div style={{ marginTop: space(2) }}><ErrorBar error={err} onRetry={load} retryText={t('retry')} /></div>
@@ -9677,7 +9677,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   <p>{t('runtimeSub')}</p>
                 </div>
                 <span className="mc-v5-pagecount">{health ? `${health.total || 0} ${t('cardsUnit')}` : ''}</span>
-                <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>↻ {t('refresh')}</Btn>
+                <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>{t('refresh')}</Btn>
               </div>
               <div className="mc-v5-statusgrid">
                 <div className="mc-v5-statuscard">
@@ -9711,7 +9711,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   <b style={{ fontSize: 12 }}>🩺 {t('healthTitle')}</b>
                   <span style={{ fontSize: 11, opacity: 0.6 }}>{t('healthHint')}</span>
                   <div style={{ flex: 1 }} />
-                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>↻ {t('refresh')}</Btn>
+                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>{t('refresh')}</Btn>
                 </div>
                 {!health
                   ? <div style={{ marginTop: space(2), display: 'flex', flexDirection: 'column', gap: space(2) }}>
@@ -9781,7 +9781,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   <b style={{ fontSize: 12 }}>🧾 {t('ledgerTitle')}</b>
                   <span style={{ fontSize: 11, opacity: 0.6 }}>{t('ledgerHint')}</span>
                   <div style={{ flex: 1 }} />
-                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>↻ {t('refresh')}</Btn>
+                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>{t('refresh')}</Btn>
                 </div>
                 {!ledger
                   ? <div style={{ marginTop: space(2), display: 'flex', flexDirection: 'column', gap: space(2) }}>
@@ -9847,7 +9847,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                   <b style={{ fontSize: 12 }}>🪵 {t('captureLog')}</b>
                   <span style={{ fontSize: 11, opacity: 0.6 }}>{t('captureLogHint')}</span>
                   <div style={{ flex: 1 }} />
-                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>↻ {t('refresh')}</Btn>
+                  <Btn variant="ghost" size="sm" onClick={() => fetchAll()}>{t('refresh')}</Btn>
                 </div>
                 {!captureLog
                   ? <div style={{ marginTop: space(2), display: 'flex', flexDirection: 'column', gap: space(2) }}>
@@ -9940,7 +9940,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
               <div className="mc-card mc-audit-batchcard" style={{ marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <b style={{ fontSize: 12 }}>{t('organizeTitle')}</b>
                 <div style={{ flex: 1 }} />
-                <button type="button" className="mc-btn" disabled={!!busy} onClick={scanOptimize}>{busy === 'scan' ? t('exporting') : '🔍 ' + t('scanAndOrganize')}</button>
+                <button type="button" className="mc-btn" disabled={!!busy} onClick={scanOptimize}>{busy === 'scan' ? t('exporting') : t('scanAndOrganize')}</button>
                 {opt && opt.merge?.length > 0 && (
                   <button type="button" className="mc-btn me-on" disabled={!!busy} onClick={async () => {
                     if (!window.confirm(t('oneClickOptimizeConfirm'))) return
@@ -9955,7 +9955,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                       } else { notify(t('mergeFail'), false) }
                     } catch { notify(t('mergeFail'), false) }
                     finally { setBusy('') }
-                  }}>{busy === 'oneclick' ? t('exporting') : '⚡ ' + t('oneClickOptimize')}</button>
+                  }}>{busy === 'oneclick' ? t('exporting') : t('oneClickOptimize')}</button>
                 )}
                 {opt && opt.merge?.length > 0 && (
                   <label style={{ fontSize: 11, opacity: 0.7, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -10232,9 +10232,9 @@ function FeedbackModal({ t, onClose }) {
             <pre style={preStyle}>{loading ? t('fbLoading') : (failed ? t('fbDiagFail') : diag)}</pre>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button type="button" className="mc-btn" onClick={() => { if (!text.trim()) { notify(t('fbNeedDesc')); return } openIssue() }} style={{ borderColor: 'var(--dsw-alias-brand-primary, #3b82f6)', color: 'var(--dsw-alias-brand-primary, #3b82f6)', fontWeight: 600 }}>🚀 {t('fbOpenIssue')}</button>
+            <button type="button" className="mc-btn" onClick={() => { if (!text.trim()) { notify(t('fbNeedDesc')); return } openIssue() }} style={{ borderColor: 'var(--dsw-alias-brand-primary, #3b82f6)', color: 'var(--dsw-alias-brand-primary, #3b82f6)', fontWeight: 600 }}>{t('fbOpenIssue')}</button>
             <span style={{ opacity: 0.5, fontSize: 12 }}>{t('fbOr')}</span>
-            <button type="button" className="mc-btn" onClick={copyPrompt}>🤖 {t('fbCopyPrompt')}</button>
+            <button type="button" className="mc-btn" onClick={copyPrompt}>{t('fbCopyPrompt')}</button>
           </div>
           {toast && <div style={{ fontSize: 12, color: 'var(--dsw-alias-brand-primary, #3b82f6)' }}>{toast}</div>}
           {/* 复制被拦截时的兜底：把内容摊开，用户点「全选」再 Ctrl+C 一定能成 */}
@@ -10327,8 +10327,8 @@ function SupportModal({ t, tab, onTab, onClose, onFeedback, onReplay }) {
           )}
         </div>
         <div className="me-support-actions" style={{ padding: '0 18px 16px', marginTop: 0 }}>
-          <button type="button" className="mc-btn" onClick={onFeedback}>🐞 {t('supportFeedback')}</button>
-          <button type="button" className="mc-btn" onClick={onReplay}>✨ {t('supportReplay')}</button>
+          <button type="button" className="mc-btn" onClick={onFeedback}>{t('supportFeedback')}</button>
+          <button type="button" className="mc-btn" onClick={onReplay}>{t('supportReplay')}</button>
         </div>
       </div>
       {zoom && (
@@ -10373,7 +10373,7 @@ function Onboarding({ t, onDone }) {
           <p>{steps[step].body}</p>
           {step === 0 && (
             <div className="me-guide-github">
-              <button type="button" className="mc-btn me-on" onClick={() => openExternal(repo)}>★ {t('onboardStar')}</button>
+              <button type="button" className="mc-btn me-on" onClick={() => openExternal(repo)}>{t('onboardStar')}</button>
               <button type="button" className="mc-btn" onClick={() => openExternal(repo + '/fork')}>⑂ {t('onboardFork')}</button>
               <span className="me-guide-github-hint">{t('onboardStarHint')}</span>
             </div>
@@ -10538,17 +10538,17 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
           <div className="me-head-actions">
             {/* 复制成功/失败都要看得见（失败是 Hint bad，不是静默） */}
             {copyTip && <Hint tone={copyTipOk ? 'ok' : 'bad'}>{copyTip}</Hint>}
-            <button type="button" className="mc-btn" title={t('copyBody')} onClick={() => copyText(body, t('copyBody'))}>📋 {t('copyBody')}</button>
-            <button type="button" className="mc-btn" title={t('copyPath')} onClick={() => copyText(card.path, t('copyPath'))}>🔗 {t('copyPath')}</button>
-            <button type="button" className="mc-btn" title={t('editCard')} onClick={editing ? cancelEdit : startEdit}>{editing ? '✖ ' + t('editCancel') : '✏️ ' + t('editCard')}</button>
+            <button type="button" className="mc-btn" title={t('copyBody')} onClick={() => copyText(body, t('copyBody'))}>{t('copyBody')}</button>
+            <button type="button" className="mc-btn" title={t('copyPath')} onClick={() => copyText(card.path, t('copyPath'))}>{t('copyPath')}</button>
+            <button type="button" className="mc-btn" title={t('editCard')} onClick={editing ? cancelEdit : startEdit}>{editing ? t('editCancel') : t('editCard')}</button>
             <button type="button" className="mc-btn" title={t('readWidth')} onClick={() => { const order = ['narrow', 'mid', 'wide']; const next = order[(order.indexOf(widthMode) + 1) % order.length]; setWidthMode(next); try { localStorage.setItem('me-read-width', next) } catch { /* 隐私模式忽略 */ } }}>{t('readWidth')} · {t(widthMode === 'narrow' ? 'widthNarrow' : widthMode === 'wide' ? 'widthWide' : 'widthMid')}</button>
-            <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>👍 {t('fbUseful')}</button>
-            <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>👎 {t('fbIrr')}</button>
+            <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(true)}>{t('fbUseful')}</button>
+            <button type="button" className="mc-btn" onClick={() => onFeedback && onFeedback(false)}>{t('fbIrr')}</button>
             {long && <button type="button" className="mc-btn" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>{expanded ? t('collapse') : t('expand')}</button>}
             <button type="button" className="mc-btn mc-btn-danger" onClick={() => { if (window.confirm(t('deleteConfirm'))) onDelete && onDelete(card.path) }}>{t('delete')}</button>
             {onKindChange && status === 'approved' && (kind === 'core'
               ? <button type="button" className="mc-btn" onClick={() => onKindChange(card.path, 'knowledge')}>{t('unsetCore')}</button>
-              : <button type="button" className="mc-btn" onClick={() => onKindChange(card.path, 'core')}>⭐ {t('setCore')}</button>)}
+              : <button type="button" className="mc-btn" onClick={() => onKindChange(card.path, 'core')}>{t('setCore')}</button>)}
             <button type="button" className="mc-btn" onClick={onClose}>{t('close')}</button>
           </div>
         </div>
@@ -10558,7 +10558,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
             <div className="me-core-banner-desc">{kind === 'core' ? t('coreActiveHint') : t('coreInactiveHint')}</div>
             {status === 'approved'
               ? <button type="button" className="mc-btn me-core-btn" onClick={() => onKindChange(card.path, kind === 'core' ? 'knowledge' : 'core')}>
-                  {kind === 'core' ? t('unsetCore') : '⭐ ' + t('setCore')}
+                  {kind === 'core' ? t('unsetCore') : t('setCore')}
                 </button>
               : <span className="me-core-banner-desc" style={{ flex: 'none', opacity: .6 }}>{t('coreNeedApproval')}</span>}
           </div>
@@ -10566,7 +10566,7 @@ function CardReader({ t, card, query, onClose, onDelete, onFeedback, onNavigate,
         <div className="md-meta">
           <span className="md-chip md-chip-kind" style={{ color: kindColor, borderColor: kindColor + '59', background: kindColor + '1a' }}>{KIND_EMOJI[kind] || '📎'} {t(KIND_LABELS[kind] || 'kindKnowledge')}</span>
           <span className={'md-chip ' + (status === 'approved' ? 'md-chip-st-ok' : status === 'pending' ? 'md-chip-st-warn' : 'md-chip-st-bad')}>{status === 'approved' ? '✅' : status === 'pending' ? '⏳' : '⛔'} {t(status === 'approved' ? 'statusApproved' : status === 'pending' ? 'statusPending' : 'statusRejected')}</span>
-          {(Array.isArray(tags) ? tags.filter((x) => !isTypeMachineKey(x)) : []).slice(0, 8).map((tag) => <button key={tag} type="button" className="md-chip md-chip-tag mc-tag-click" title={tag} onClick={() => onTagClick && onTagClick(tag)}>🏷 {isTypeTag(tag) ? typeTagLabel(tag) : tag}</button>)}
+          {(Array.isArray(tags) ? tags.filter((x) => !isTypeMachineKey(x)) : []).slice(0, 8).map((tag) => <button key={tag} type="button" className="md-chip md-chip-tag mc-tag-click" title={tag} onClick={() => onTagClick && onTagClick(tag)}>{isTypeTag(tag) ? typeTagLabel(tag) : tag}</button>)}
           {!!metaOf('updated') && <span className="md-chip md-date">🕒 {t('updated')} {fmtDate(metaOf('updated'))}</span>}
           {!!metaOf('source') && <span className="md-chip md-date">📥 {metaOf('source')}</span>}
         </div>
@@ -12170,7 +12170,7 @@ function GraphCanvas({ level, crumbs, onOpen, onDelete, onMerge, onDrill, onNavi
                 </button>
               ))}
               <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '5px 0' }} />
-              <button type="button" className={`lg${timeMode ? ' active' : ''}`} onClick={() => setTimeMode((v) => !v)}>⏱ {t('timeDim')}</button>
+              <button type="button" className={`lg${timeMode ? ' active' : ''}`} onClick={() => setTimeMode((v) => !v)}>{t('timeDim')}</button>
               {allTags.length > 0 && (
                 <>
                   <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '5px 0' }} />
