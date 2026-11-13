@@ -122,7 +122,110 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 2. 或本机 MengBot 客户端先用账号登录 → 从客户端拿到 `mb_install_*` 设备道印灵钥 → `{ token: 'mb_install_…' }`
    走 `/v1/installations/self` 校验（这条不需要用户会话）。
 
-## 5. 接口一览
+## 6. 授权与续期（License）
+
+云端服务端的商用授权走**离线签名 license**，与本文件的部署流程解耦：部署不需要联网校验，
+续期只需换一个环境变量。完整说明见 [LICENSE.md](LICENSE.md)，这里只讲运维要做的三件事。
+
+### 6.1 首次部署
+
+```bash
+# 服务端只认公钥（已内嵌在 lib/license.js）；私钥在签发方手里，不进仓库
+MEMORY_SERVER_LICENSE=eyJhbGciOiJFUzI1NiIs...
+MEMORY_LICENSE_DEGRADE=readonly      # warn（默认）| readonly | stop
+```
+
+启动即打印状态：
+
+```
+[memory-eternal-cloud] license 有效 · plan=pro · 剩 365 天
+[memory-eternal-cloud] license expired（到期 2026-12-13T11:20:39.000Z，剩 -3 天）· 降级策略=readonly
+```
+
+### 6.2 续期（不用停服改代码）
+
+```bash
+# 签发方（你）跑：
+node scripts/license-issue.mjs --key private/license-private.pem \
+  --sub acme --plan pro --seats 5 --days 365 --features cloud,backup
+
+# 客户侧：改环境变量 + 重启进程
+sed -i "s|^MEMORY_SERVER_LICENSE=.*|MEMORY_SERVER_LICENSE=<新 token>|" /etc/memory-eternal.env
+systemctl restart memory-eternal
+```
+
+> license 是**进程启动时读一次**（`createCloudServer` 构造期），所以续期后必须重启进程。
+> 想做到「不重启就生效」的话，把 `licenseState(env)` 改成每次请求读取（代价是每请求一次 ECDSA 验签，
+> 量级 ~0.1ms，可接受）；目前没这么做是因为 license 变动频率极低。
+
+### 6.3 过期后客户还能做什么
+
+| 策略 | 到期后的行为 |
+|---|---|
+| `warn`（默认） | 照常服务，只在 `/cloud/config` 与日志里标记 `expired` |
+| `readonly` | 读、检索、**导出备份**（`/backup/export`）全部可用；写接口 403 `license_readonly` |
+| `stop` | 除 `/cloud/config`、`/cloud/whoami` 等诊断外全 503 `license_stop` |
+
+`readonly` 是推荐的生产策略：既不让人继续白用，也保证客户能把数据拿走（不人质化）。
+
+## 7. 与 MengBot 的关系（账号 / 支付 / 验证）
+
+**结论：账号、支付、套餐验证三套体系都接 MengBot，不自己另造一套。**
+
+### 7.1 MengBot 已经有什么（实测路由）
+
+| 能力 | MengBot 路由 | 我们怎么用 |
+|---|---|---|
+| 邮箱 OTP 登录 | `POST /api/auth/email-otp/send-verification-otp`、`/sign-in/email-otp` | 已接（`/cloud/login/mengbot {email,otp}`） |
+| 会话与身份 | `GET /v1/me`（Bearer） | 已接（拿 `user.email` 当租户标识） |
+| **设备授权** | `POST /api/cloud/desktop/authorize` → `POST /api/cloud/desktop/token` | 待接（桌面客户端「一次登录长期免登」，配 `mb_install_*`） |
+| **套餐与有效期** | `GET /api/cloud/desktop/session` → `entitlement{plan,status,expiresAt,version,caps}` | 待接（映射成本地权限，见 §7.3） |
+| **支付下单** | `POST /api/cloud/desktop/checkout {plan,source}` | 待接（跳 MengBot 收银台，我们不做支付） |
+| **升级 / 取消** | `POST /api/cloud/desktop/upgrade/preview`、`/upgrade`、`/clouds/:id/cancel` | 待接（套餐变更全交给 MengBot） |
+
+### 7.2 为什么不自己造
+
+- **支付**：涉及收单、对账、退款、发票、税；自建等于重新踩一遍合规坑，而 MengBot 侧已有 `checkout/upgrade/cancel` 全链路；
+- **账号**：已经有 OTP + 设备码 + 会话，再建一套就是两个密码体系；
+- **套餐**：MengBot 的 `entitlement{plan,status,expiresAt,version,caps}` 就是现成的权威源，直接消费即可。
+
+我们只做一件事：**把 entitlement 翻译成本地能用的权限位**，外加**离线兜底**。
+
+### 7.3 落地形态：三层权限来源
+
+```
+① MengBot entitlement（主）      在线时以它为准；带 version 防回退、带 expiresAt 判到期
+        ↓ 缓存到 $DSH_HOME/cloud-entitlement.json
+② 本地 license（离线兜底）        MengBot 不可达 / 私有内网部署时用；ES256 离线签名
+        ↓
+③ 降级策略（warn/readonly/stop）  两者都失效时按策略收敛
+```
+
+判定顺序（`lib/entitlement.js` 待实现）：
+
+```
+entitlement 有效（plan=pro && status=active && expiresAt>now）
+  → 全功能
+否则 license 有效（本地离线签名）
+  → 全功能（标记 source=license）
+否则
+  → 按 MEMORY_LICENSE_DEGRADE 降级
+```
+
+### 7.4 需要 MengBot 侧确认/提供
+
+1. **`/api/cloud/desktop/*` 的调用前提**：目前从服务器直连会 403
+   （`forbidden: this request came through a proxy (pair this device to use the server remotely)`），
+   即**必须先设备配对**。请确认：服务端对服务端（partner）有没有免配对通道？
+2. **entitlement 的刷新频率与 webhook**：套餐变更（支付/取消）后，我们靠轮询还是能有推送？
+   如果没有推送，建议给一个 `GET /api/cloud/desktop/session` 的最小 TTL 约定（我们按 `version` 单调递增缓存）。
+3. **`caps` 字段语义**：`planCaps(input.caps)` 的具体键（席位？卡片数？并发？）—— 我们要用它设配额。
+4. **`tier` 与 `plan` 的关系**：新套餐名（`TIER` 正则允许的）如何映射到我们的 `features`。
+
+在那之前，**MengBot 不可用时的行为已确定**：整个云端实例退回「本地 license 模式」，
+不影响已部署客户的正常使用（这也是为什么 `license` 和 `entitlement` 要并存，而不是二选一）。
+
+## 8. 接口一览
 
 | 方法 | 路径 | 作用 |
 |---|---|---|

@@ -27,7 +27,7 @@ test('开源包排除 private/ 与 dist/（私有产物不进公共发布）', (
 
 test('package.json 的 files 显式排除私有模块', () => {
   const excluded = pkg.files.filter((f) => f.startsWith('!'))
-  for (const must of ['!lib/cloud-auth.js', '!lib/cloud-server.js', '!docs/CLOUD.md', '!docs/LICENSE.md']) {
+  for (const must of ['!lib/cloud-auth.js', '!lib/cloud-server.js', '!lib/license.js', '!lib/entitlement.js', '!docs/CLOUD.md', '!docs/LICENSE.md']) {
     assert.ok(excluded.includes(must), `files 里缺少排除项：${must}`)
   }
   // 白名单目录（lib）本身在里面，排除项必须排在后面才生效（npm 按顺序应用）
@@ -48,7 +48,7 @@ test('云端模块缺失时给明确提示，且本地模式不受影响', () =>
 
 test('私有模块只依赖公开内部契约（api / db / capture-run）与彼此', () => {
   // 允许的依赖：公开出口 + 私有模块之间互相依赖（cloud-server ⇄ cloud-auth 是一套的）
-  const ALLOWED = ['api.js', 'db.js', 'capture-run.js', 'vault.js', 'cloud-auth.js', 'cloud-server.js', 'license.js']
+  const ALLOWED = ['api.js', 'db.js', 'capture-run.js', 'vault.js', 'cloud-auth.js', 'cloud-server.js', 'license.js', 'entitlement.js']
   for (const f of ['lib/cloud-auth.js', 'lib/cloud-server.js']) {
     if (!fs.existsSync(f)) continue // 开源分发里没有这两个文件，跳过检查
     const src = fs.readFileSync(f, 'utf8')
