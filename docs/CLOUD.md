@@ -151,7 +151,7 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 ```
 GET /cloud/auth/start?redirect_uri=https://app.example/done
 → 302  Location: https://cloud.mengbot.com.cn/login
-       ?redirect_uri=https%3A%2F%2Fmem.example.com%2Fmemory-eternal%2Fapi%2Fcloud%2Fauth%2Fcallback
+       ?redirect_uri=https%3A%2F%2Fmem.mengbot.com.cn%2Fmemory-eternal%2Fapi%2Fcloud%2Fauth%2Fcallback
        &state=kRyobslmNsjSF_w5bsPvODWR
 ```
 
