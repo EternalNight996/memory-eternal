@@ -774,6 +774,35 @@ export const ZH = {
   cloudKeptButInactive: '云端暂不可用（{err}）—— 配置已保留，未切换；修好后点「测试连接」重试',
   cloudNowLocal: '当前在用本地记忆库',
   cloudSave: '保存并切换',
+  // ── 垃圾清理 ──
+  junkSection: '垃圾清理',
+  junkSectionSub: '扫描重复/过短/从未召回/陈旧/积压的卡，批量归档或删除。先扫只读，处置前会二次确认',
+  junkScanBtn: '扫描垃圾候选',
+  junkScanned: '已扫描 {total} 张卡',
+  junkDuplicate: '完全重复',
+  junkDuplicateHint: '内容与另一张卡完全相同，保留最早的那张',
+  junkTooShort: '正文过短',
+  junkTooShortHint: '不足 20 字，多半是碎片或噪音',
+  junkNeverRecalled: '从未被召回',
+  junkNeverRecalledHint: '创建超过 90 天、一次都没被搜到过 —— 建议归档而非删除',
+  junkStale: '长期未更新',
+  junkStaleHint: '180 天没动过。陈旧不等于垃圾，建议归档',
+  junkBlankTitle: '标题占位',
+  junkBlankTitleHint: '标题为空或「导入记忆」，影响召回可读性，建议手动补标题',
+  junkQuarantineStale: '待审积压',
+  junkQuarantineStaleHint: '待审超过 30 天，大概率永远不会审了',
+  junkActionDelete: '删除',
+  junkActionArchive: '归档',
+  junkActionReject: '驳回',
+  junkCandidateList: '查看候选明细（{n} 条）',
+  junkMore: '还有 {n} 条未显示',
+  junkBulkDone: '已完成 {action}：{n} 条',
+  junkFailed: '{n} 条失败',
+  junkCleanHint: '归档 = 从日常检索里藏起来，数据完整保留，随时可在「回收中心」恢复；删除 = 进回收站，30 天后自动清理',
+  junkConfirmTitle: '确认批量处置',
+  junkConfirmBody: '将对 {n} 张卡执行「{action}」（类别：{reason}）。',
+  junkConfirmTip: '归档可恢复；删除会进回收站，30 天后自动清理。这一步之后还可以在回收中心撤销。',
+  junkConfirmOk: '确认执行',
   backupSection: '备份',
   backupSectionSub: '备份节奏 / 保留天数 / 库损坏自动还原 —— 出事先回到最近一份好的库',
   embeddingAskTitle: '确认操作',
@@ -1803,6 +1832,35 @@ export const EN = {
   cloudKeptButInactive: 'Cloud unavailable ({err}) — config kept, not switched. Fix it, then hit "Test connection"',
   cloudNowLocal: 'Currently using the local vault',
   cloudSave: 'Save & switch',
+  // ── junk cleanup ──
+  junkSection: 'Junk cleanup',
+  junkSectionSub: 'Scan for duplicates / too-short / never-recalled / stale cards, then bulk archive or delete. Scan is read-only; every action needs confirmation',
+  junkScanBtn: 'Scan for junk',
+  junkScanned: 'Scanned {total} cards',
+  junkDuplicate: 'Exact duplicates',
+  junkDuplicateHint: 'Identical to another card; the earliest one is kept',
+  junkTooShort: 'Body too short',
+  junkTooShortHint: 'Under 20 chars — usually fragments or noise',
+  junkNeverRecalled: 'Never recalled',
+  junkNeverRecalledHint: 'Older than 90 days and never matched a search — archive rather than delete',
+  junkStale: 'Long untouched',
+  junkStaleHint: '180 days without changes. Stale is not junk — archiving is enough',
+  junkBlankTitle: 'Placeholder title',
+  junkBlankTitleHint: 'Empty or "Imported memory" — hurts recall readability, fix the title manually',
+  junkQuarantineStale: 'Stale pending',
+  junkQuarantineStaleHint: 'Pending for over 30 days — likely never going to be reviewed',
+  junkActionDelete: 'Delete',
+  junkActionArchive: 'Archive',
+  junkActionReject: 'Reject',
+  junkCandidateList: 'Show candidates ({n})',
+  junkMore: '{n} more not shown',
+  junkBulkDone: 'Done — {action}: {n}',
+  junkFailed: '{n} failed',
+  junkCleanHint: 'Archive = hidden from daily search, data fully kept, restorable from Recycle; Delete = moves to Recycle and is purged after 30 days',
+  junkConfirmTitle: 'Confirm bulk action',
+  junkConfirmBody: 'About to run "{action}" on {n} cards (category: {reason}).',
+  junkConfirmTip: 'Archive is reversible; Delete goes to Recycle and is purged after 30 days. You can still undo it there.',
+  junkConfirmOk: 'Run it',
   backupSection: 'Backup',
   backupSectionSub: 'Schedule / retention / auto-restore — get back to the last good copy',
   embeddingAskTitle: 'Confirm',
@@ -7126,6 +7184,54 @@ function EmbeddingPanel({ t, hidden }) {
 function ConfigPanel({ t, onReload, version, compact }) {
   // 弹窗形态：分页导航（保留 5 个分类，第 5 个是「实验性」）
   const [page, setPage] = useState('general')
+  // ── 垃圾清理（「记忆」页）──────────────────────────────────────────────
+  // 全部是本组件自己的 state：借用主面板的会白屏（cloudConn is not defined 那类事故）。
+  const [junk, setJunk] = useState(null)          // scanJunk 的结果
+  const [junkBusy, setJunkBusy] = useState(false)
+  const [junkErr, setJunkErr] = useState('')
+  /** 待确认的批量操作：{ action, paths, reason } —— 确认弹窗据此显示「将影响 N 条」 */
+  const [junkConfirm, setJunkConfirm] = useState(null)
+  const [junkLast, setJunkLast] = useState(null)  // 上次执行结果
+  /** 扫描垃圾候选（只读，不动数据） */
+  const scanJunkNow = async () => {
+    setJunkBusy(true); setJunkErr(''); setJunkLast(null)
+    try {
+      const r = await fetch(API + '/junk/scan?limit=200')
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) { setJunkErr((d && d.error) || ('HTTP ' + r.status)); setJunk(null) }
+      else setJunk(d)
+    } catch (e) {
+      setJunkErr(String((e && e.message) || e))
+    } finally { setJunkBusy(false) }
+  }
+  /** 点「批量处置」：先弹确认（dryRun 由后端默认把关，这里是二次确认 UI） */
+  const askJunkAction = (action, reason) => {
+    const list = (junk && junk.candidates) ? junk.candidates.filter((c) => c.reason === reason).map((c) => c.path) : []
+    if (!list.length) return
+    setJunkConfirm({ action, reason, paths: list })
+  }
+  /** 真执行（已经过弹窗确认） */
+  const runJunkAction = async () => {
+    const c = junkConfirm
+    if (!c) return
+    setJunkConfirm(null)
+    setJunkBusy(true); setJunkErr('')
+    try {
+      const r = await fetch(API + '/cards/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: c.action, paths: c.paths, dryRun: false }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) setJunkErr((d && d.error) || ('HTTP ' + r.status))
+      else {
+        setJunkLast({ action: c.action, done: d.done || 0, failed: (d.failed || []).length })
+        await scanJunkNow() // 执行后自动重扫，界面立刻反映真实状态
+      }
+    } catch (e) {
+      setJunkErr(String((e && e.message) || e))
+    } finally { setJunkBusy(false) }
+  }
   // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudConn is not defined）。
   // 落盘与探测走模块级 persistCloud / probeCloud / markCloudFailed / activateCloud。
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
@@ -7192,6 +7298,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     'sec-preset': 'general', 'sec-theme': 'general', 'sec-basic': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
     'sec-memory': 'memory', 'sec-embed': 'memory', 'sec-core': 'memory', 'sec-vault': 'memory',
     'sec-backup': 'memory',
+    'sec-junk': 'memory',   // 垃圾清理跟着备份放「记忆」页（同一类操作：维护记忆库）
     'sec-cost': 'advanced', 'sec-audit': 'advanced',
     'sec-service': 'service',
     'sec-cloud': 'experimental',
@@ -7816,6 +7923,118 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 旧版本这里还有一个 `sec-backup` 的 CfgSection（只有开关+数字），和新块重复 —— 已删。 */}
             <CfgSection {...secProps('sec-backup')} id="sec-backup" icon="🧯" title={t('backupSection')} sub={t('backupSectionSub')}>
               <BackupCard t={t} notify={notify} />
+            </CfgSection>
+            {/* 垃圾清理：几万条记忆的"体检 + 批量处置"。
+                先扫（只读）→ 按类看 → 选一类批量处置 → 弹窗确认 → 执行后自动重扫。
+                默认只给 archive/reject（数据保留），delete 要额外确认。 */}
+            <CfgSection {...secProps('sec-junk')} id="sec-junk" icon="🧹" title={t('junkSection')} sub={t('junkSectionSub')}>
+              <div className="mc-cloud-actions" style={{ marginBottom: 10 }}>
+                <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={scanJunkNow}>
+                  {junkBusy ? '⏳ ' + t('loading') : t('junkScanBtn')}
+                </Btn>
+                {junk && <Status tone="ok" text={t('junkScanned').replace('{total}', String(junk.summary.total))} />}
+                {junkErr && <Status tone="bad" text={junkErr} />}
+              </div>
+
+              {junk && (
+                <>
+                  {/* 概览：每类一行，带「批量处置」按钮 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[
+                      ['duplicate', t('junkDuplicate'), t('junkDuplicateHint'), 'delete', true],
+                      ['tooShort', t('junkTooShort'), t('junkTooShortHint'), 'reject', false],
+                      ['neverRecalled', t('junkNeverRecalled'), t('junkNeverRecalledHint'), 'archive', false],
+                      ['stale', t('junkStale'), t('junkStaleHint'), 'archive', false],
+                      ['blankTitle', t('junkBlankTitle'), t('junkBlankTitleHint'), '', false],
+                      ['quarantineStale', t('junkQuarantineStale'), t('junkQuarantineStaleHint'), 'reject', false],
+                    ].map(([reason, label, hint, action, danger]) => {
+                      const n = junk.summary[reason] || 0
+                      return (
+                        <div
+                          key={reason}
+                          className="mc-field"
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--mc-line, rgba(128,128,128,.25))', borderRadius: 8, opacity: n ? 1 : 0.5 }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                              {label} <span style={{ opacity: 0.75 }}>{n}</span>
+                            </div>
+                            <div className="mc-field-hint">{hint}</div>
+                          </div>
+                          {action && n > 0 && (
+                            <Btn
+                              variant={danger ? 'primary' : 'secondary'}
+                              size="sm"
+                              disabled={junkBusy}
+                              onClick={() => askJunkAction(action, reason)}
+                            >
+                              {action === 'delete' ? t('junkActionDelete') : action === 'archive' ? t('junkActionArchive') : t('junkActionReject')}
+                            </Btn>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* 候选明细（最多列 20 条，避免长列表把面板撑爆） */}
+                  {junk.candidates.length > 0 && (
+                    <details style={{ marginTop: 10 }}>
+                      <summary style={{ cursor: 'pointer', fontSize: 12.5, opacity: 0.85 }}>
+                        {t('junkCandidateList').replace('{n}', String(junk.candidates.length))}
+                      </summary>
+                      <div style={{ marginTop: 8, maxHeight: 260, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {junk.candidates.slice(0, 20).map((c, i) => (
+                          <div key={c.path + i} style={{ fontSize: 11.5, lineHeight: 1.6, opacity: 0.85 }}>
+                            <span style={{ opacity: 0.6 }}>[{c.reason}]</span> {c.title || c.path}
+                            <span style={{ opacity: 0.55 }}> — {c.detail}</span>
+                          </div>
+                        ))}
+                        {junk.candidates.length > 20 && (
+                          <div style={{ fontSize: 11.5, opacity: 0.6 }}>… {t('junkMore').replace('{n}', String(junk.candidates.length - 20))}</div>
+                        )}
+                      </div>
+                    </details>
+                  )}
+
+                  {junkLast && (
+                    <div style={{ marginTop: 8 }}>
+                      <Status tone="ok" text={t('junkBulkDone').replace('{action}', junkLast.action).replace('{n}', String(junkLast.done)) + (junkLast.failed ? ' · ' + t('junkFailed').replace('{n}', String(junkLast.failed)) : '')} />
+                    </div>
+                  )}
+                  <Hint text={t('junkCleanHint')} />
+                </>
+              )}
+
+              {/* 确认弹窗：明确写出「将影响 N 条」+ 动作说明。
+                  用 `.mc-card` 而不是自定义 background —— 它跟随皮肤变量，
+                  自己写 var(--mc-panel, #1b1b1f) 在浅色皮肤下会变成黑底黑字（踩过）。 */}
+              {junkConfirm && (
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.45)' }}
+                  onClick={() => setJunkConfirm(null)}
+                >
+                  <div
+                    className="mc-card"
+                    style={{ maxWidth: 460, width: '92vw', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, borderRadius: 12 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <b style={{ fontSize: 13 }}>{t('junkConfirmTitle')}</b>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.7 }}>
+                      {t('junkConfirmBody')
+                        .replace('{action}', junkConfirm.action)
+                        .replace('{n}', String(junkConfirm.paths.length))
+                        .replace('{reason}', junkConfirm.reason)}
+                    </div>
+                    <div style={{ fontSize: 11.5, opacity: 0.7, lineHeight: 1.6 }}>{t('junkConfirmTip')}</div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                      <Btn variant="ghost" size="sm" onClick={() => setJunkConfirm(null)}>{t('cancel')}</Btn>
+                      <Btn variant={junkConfirm.action === 'delete' ? 'primary' : 'secondary'} size="sm" onClick={runJunkAction}>
+                        {t('junkConfirmOk')}
+                      </Btn>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CfgSection>
             {/* 关注摘要：默认关闭，开启后由宿主按间隔抓取并注入 systemPrompt */}
             <CfgSection {...secProps('sec-digest')} id="sec-digest" icon="📬" title={t('newsDigest')} sub={t('newsDigestHint')}>
