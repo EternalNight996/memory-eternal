@@ -1,9 +1,24 @@
 ## 🧪 v0.45.0 — 实验性功能分级 + 云端连接 + 备份/检索体验修复
 
 ### 安装 / 升级
+
+**方式一：本页附件（推荐，立即可用）**
+```bash
+# 下载下方 memory-eternal-0.45.0.tgz 后
+npm i -g ./memory-eternal-0.45.0.tgz
+# 或在 DSH 插件里指向该 tgz 安装
+```
+
+**方式二：npm**
 ```bash
 npm i -g memory-eternal@0.45.0
-# 或 DSH 插件市场更新
+```
+> npm registry 的 0.45.0 正在处理中（发布被 staged 冲突挡住，待回收后自动生效）；
+> 在此之前请用方式一，或先装 0.40.1 再覆盖。
+
+文件校验（SHA256）：
+```
+e7ba43496f826d8ca40f8b07f5b4899044a1a44649522c6bb672dc872a96abb2  memory-eternal-0.45.0.tgz
 ```
 
 ### 本次改动
@@ -25,5 +40,6 @@ npm i -g memory-eternal@0.45.0
 - **UI**：浅底皮肤文字色、分段控件配色、筛选分栏对齐、去弹窗四周留白
 
 ### 说明
+- GitHub Release 已附 `memory-eternal-0.45.0.tgz`（14 MB，142 文件）
 - 云端服务端是独立私有组件，不在本开源包内（见 docs/PRIVATE.md）
 - 完整改动见 docs/CHANGELOG.md
