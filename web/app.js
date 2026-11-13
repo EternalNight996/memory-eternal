@@ -870,6 +870,9 @@ ${tg}
 .me-footer-btn:active { transform: translateY(0.5px); }
 .me-footer-ico { display: inline-flex; flex: none; width: 18px; height: 18px; align-items: center; justify-content: center; }
 .me-footer-ico svg { width: 18px; height: 18px; }
+/* footer \u7528**\u54C1\u724C\u56FE\u6807**\uFF08assets/icon.png\uFF1A\u7EA2\u9F7F\u8F6E\u767D\u9E3D\uFF09\uFF0C\u4E0D\u518D\u662F\u81EA\u7ED8\u7684\u6A59\u8272\u5927\u8111 SVG\u3002
+   object-fit:contain \u4FDD\u8BC1\u5728 18px \u65B9\u6846\u91CC\u4E0D\u53D8\u5F62\uFF1B\u5706\u89D2\u8BA9\u5B83\u5728\u6DF1\u8272\u5E95\u4E0A\u4E0D\u663E\u751F\u786C\u3002 */
+.me-footer-ico img { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; display: block; }
 .me-footer-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .me-footer.rail .me-footer-btn { justify-content: center; padding: 7px 0; }
 .me-footer.rail .me-footer-label { display: none; }

@@ -2975,6 +2975,9 @@ ${COMPONENTS_CSS}
 .me-footer-btn:active { transform: translateY(0.5px); }
 .me-footer-ico { display: inline-flex; flex: none; width: 18px; height: 18px; align-items: center; justify-content: center; }
 .me-footer-ico svg { width: 18px; height: 18px; }
+/* footer 用**品牌图标**（assets/icon.png：红齿轮白鸽），不再是自绘的橙色大脑 SVG。
+   object-fit:contain 保证在 18px 方框里不变形；圆角让它在深色底上不显生硬。 */
+.me-footer-ico img { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; display: block; }
 .me-footer-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .me-footer.rail .me-footer-btn { justify-content: center; padding: 7px 0; }
 .me-footer.rail .me-footer-label { display: none; }
@@ -4706,7 +4709,7 @@ function MemoryFooterButton({ t, locale, wide }) {
     <div className={`me-footer${wide ? '' : ' rail'}`}>
       <style>{CSS}</style>
       <button type="button" className="me-footer-btn" onClick={() => setOpen(true)} aria-label={t('nav')} title={t('nav')}>
-        <span className="me-footer-ico" aria-hidden="true"><DatabaseIcon /></span>
+        <span className="me-footer-ico" aria-hidden="true"><img src={brandIcon} alt="" /></span>
         <span className="me-footer-label">{t('nav')}</span>
       </button>
       {open && <WebModal t={t} locale={locale} onClose={() => setOpen(false)} />}
