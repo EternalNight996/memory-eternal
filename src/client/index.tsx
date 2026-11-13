@@ -164,6 +164,39 @@ function cloudFailureStatus(status) {
   return status === 0 || status === 401 || status === 403 || status >= 500
 }
 
+// 首屏闸门：**所有 API 请求先等探活结果**，避免「先失败一片、再回退重载」的糟糕首屏。
+// 探活本身 3 秒超时；超时/失败就回退本地，后续请求直接打本地，用户看不到 Failed to fetch。
+let modeReadyResolve
+let modeReady = new Promise((r) => { modeReadyResolve = r })
+/** 探活是否已完成（未配置云端时立刻为 true） */
+let modeReadyDone = false
+function markModeReady() {
+  if (modeReadyDone) return
+  modeReadyDone = true
+  try { modeReadyResolve() } catch { /* 忽略 */ }
+}
+
+/** 探一次云端：可用返回 true；不可用则回退本地并返回 false。最多等 3 秒。 */
+function probeCloud(timeoutMs = 3000) {
+  const target = API_TARGET_URL
+  if (!target) return Promise.resolve(true)
+  const pingUrl = target + LOCAL_PREFIX + '/overview'
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timer = setTimeout(() => { try { ctrl && ctrl.abort() } catch { /* 忽略 */ } }, timeoutMs)
+  return Promise.resolve()
+    .then(() => globalThis.fetch(pingUrl, { method: 'GET', signal: ctrl ? ctrl.signal : undefined }))
+    .then((r) => {
+      if (r && !cloudFailureStatus(r.status)) return true
+      fallbackToLocal('启动探活失败（HTTP ' + (r && r.status) + '）')
+      return false
+    })
+    .catch((e) => {
+      fallbackToLocal('启动探活网络失败：' + String((e && e.message) || e))
+      return false
+    })
+    .finally(() => { clearTimeout(timer); markModeReady() })
+}
+
 // 包装 fetch：云端模式下把相对 API 路径**重写成云端绝对地址**并补 Authorization。
 // 这样 200 多处 `fetch(API + '/xxx')` 一行都不用改：调用点写的仍是 `/memory-eternal/api/...`。
 try {
@@ -172,22 +205,26 @@ try {
     globalThis.__meFetchPatched = true
     globalThis.fetch = (input, init) => {
       if (API_TARGET_URL && typeof input === 'string' && input.startsWith(LOCAL_PREFIX)) {
-        const headers = { ...((init && init.headers) || {}) }
-        if (cloudToken && !headers.Authorization && !headers.authorization) headers.Authorization = 'Bearer ' + cloudToken
-        const target = API_TARGET_URL + input
-        return _fetch(target, { ...(init || {}), headers }).then((r) => {
-          if (cloudFailureStatus(r.status)) {
+        // 首屏闸门：等探活决定走云端还是已回退本地（最多 3 秒，之后一定放行）
+        return modeReady.then(() => {
+          // 探活期间可能已回退：回退后这个请求改打本地
+          if (!API_TARGET_URL) return _fetch(input, init)
+          const headers = { ...((init && init.headers) || {}) }
+          if (cloudToken && !headers.Authorization && !headers.authorization) headers.Authorization = 'Bearer ' + cloudToken
+          const target = API_TARGET_URL + input
+          return _fetch(target, { ...(init || {}), headers }).then((r) => {
+            if (cloudFailureStatus(r.status)) {
+              cloudFailCount += 1
+              if (cloudFailCount >= CLOUD_FAIL_LIMIT) fallbackToLocal('云端返回 ' + r.status)
+            } else {
+              cloudFailCount = 0
+            }
+            return r
+          }, (err) => {
             cloudFailCount += 1
-            if (cloudFailCount >= CLOUD_FAIL_LIMIT) fallbackToLocal('云端返回 ' + r.status)
-          } else {
-            cloudFailCount = 0
-          }
-          return r
-        }, (err) => {
-          // 网络层失败（CORS / DNS / 证书 / 超时）：立刻计数
-          cloudFailCount += 1
-          if (cloudFailCount >= CLOUD_FAIL_LIMIT) fallbackToLocal('网络失败：' + String((err && err.message) || err))
-          throw err
+            if (cloudFailCount >= CLOUD_FAIL_LIMIT) fallbackToLocal('网络失败：' + String((err && err.message) || err))
+            throw err
+          })
         })
       }
       return _fetch(input, init)
@@ -198,15 +235,11 @@ try {
 applyCloudConn(readCloudConn())
 // 跳转登录刚回来：从 #fragment 里取令牌（读完立刻清地址栏）
 const cloudFromHash = typeof location !== 'undefined' && location.hash ? consumeCloudTokenFromHash() : null
-// 启动探活：配置了云端就先 ping 一次，连不上直接退回本地（避免首屏全 401）
+// 启动探活：配置了云端就先 ping 一次；连不上直接退回本地，**首屏请求会等它出结果**
 if (API_TARGET_URL) {
-  try {
-    const ping = fetch(apiPrefix() + '/overview', { method: 'GET' })
-    if (ping && typeof ping.then === 'function') {
-      ping.then((r) => { if (!r || cloudFailureStatus(r.status)) fallbackToLocal('启动探活失败（HTTP ' + (r && r.status) + '）') })
-        .catch((e) => fallbackToLocal('启动探活网络失败：' + String((e && e.message) || e)))
-    }
-  } catch { /* 忽略 */ }
+  probeCloud()
+} else {
+  markModeReady()
 }
 
 // 《蛊真人》作者语录：左侧栏底部轮播，README 底部同源。
