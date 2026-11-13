@@ -11,7 +11,7 @@ import path from 'node:path'
 import { ensureVault, writeCard, search, deleteCard } from '../lib/vault.js'
 import { closeAllDb } from '../lib/db.js'
 import { embeddingSettings, settingsFor, backfill, vectorStats, denseSearch, denseBonus, cosine, probeService } from '../lib/embeddings.js'
-import { readEmbeddingConfig, writeEmbeddingConfig, embeddingConfigFile } from '../lib/embedding-config.js'
+import { readEmbeddingConfig, writeEmbeddingConfig, embeddingConfigFile, legacyEmbeddingConfigFile } from '../lib/embedding-config.js'
 
 // 语义类：同类的词落在同一维度，模拟「同义/近义」被 embedding 拉到一起
 const CLASSES = [
@@ -171,7 +171,9 @@ test('配置面板：写入/读取/校验 + 默认关闭 7997', async () => {
     assert.equal(def.mode, 'builtin', '新装默认内置语义（零安装）')
     assert.equal(def.baseUrl, 'http://127.0.0.1:7997/v1', '默认端口 7997')
     assert.equal(def.model, 'bge-m3')
-    assert.ok(embeddingConfigFile().endsWith('.embedding.json'))
+    // v2 文件名是与旧宿主进程的隔离（旧进程会重写 .embedding.json，把用户存的内置+关闭盖回 local）
+    assert.ok(embeddingConfigFile().endsWith('.embedding.v2.json'), '配置落在 v2 文件，避开旧宿主的写入路径')
+    assert.ok(legacyEmbeddingConfigFile().endsWith('.embedding.json'), '旧路径只用于一次性迁移')
 
     const w = writeEmbeddingConfig({ enabled: true, model: 'bge-m3' })
     assert.equal(w.enabled, true)

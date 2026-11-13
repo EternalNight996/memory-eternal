@@ -18,7 +18,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.40.1-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.45.0-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
@@ -44,7 +44,7 @@
 - 🔍 **先审核，再入库** —— 新卡先进待审队列，Web 或终端里批准/驳回；每次状态变更写入不可篡改的审计日志。
 - ✏️ **可编辑、可修订** —— 在阅读器里直接改卡片，或让 agent 提交**修改副本**（`memory_revise`）；审核中心把它标成「✏️ 修改」，人批准后才覆盖原卡。
 - 🧾 **记忆账本** —— 召回注入了多少、蒸馏调了几次、召回到底有没有用，全部可查。
-- 🏠 **本地优先，零云端** —— SQLite + Markdown 存在你自己的磁盘上。没有第三方记忆框架、不需要账号；记忆数据不外发，只有「动态」资讯会按需请求公开 RSS / Hacker News（只取标题、摘要与外链）。
+- 🏠 **本地优先，零云端** —— SQLite + Markdown 存在你自己的磁盘上。没有第三方记忆框架、不需要账号；记忆数据不外发，只有「动态」资讯会按需请求公开 RSS / 技术资讯源（只取标题、摘要与外链）。
 - ⭐ **核心记忆** —— 已批准的卡可提升为「每次会话强制注入」的核心记忆；自动沉淀可以建议，但最终仍由审核中心决定。
 - 🧭 **阅读与布局** —— 卡片目录可点击跳转；记忆界面支持紧凑 / 标准 / 大三种布局大小。
 
@@ -369,6 +369,31 @@ dsh-memory ledger --days 30 --json        # 召回注入 / 沉淀调用 / 有用
 LongMemEval-S 500 题全量：词法 95.2%、语义 **97.2%** R@5（检索口径，非 QA）。
 
 细节见 [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md) 与 [bench/FINAL-REPORT.md](bench/FINAL-REPORT.md)。
+
+## 🧪 实验性功能（v0.45.0）
+
+设置页左侧栏新增 **「🧪 实验性」** 一页：**还在验证中的能力集中放这里**，不混进主流程，
+不影响本地正常使用（本地记忆、检索、审核、备份都不依赖它）。
+
+| 现在的实验性功能 | 状态 |
+|---|---|
+| **云端连接**（连到 `memory-eternal-cloud` 实例） | 每人一个独立 SQLite 库；密钥鉴权已可用，MengBot 账号授权等对方控制面上线 |
+
+怎么用（不想用可以完全忽略）：
+
+```
+设置 → 🧪 实验性 → 云端连接
+  ○ 本地运行（默认，用这台机器的库）
+  ● 连接云端 → 填地址 + 密钥 → [测试连接] → [保存并切换]
+```
+
+- 顶栏那颗「本地运行 ▾」胶囊也能切换（`title` 里标了「实验性」）；
+- 密钥在云端实例上签发：`POST /memory-eternal/api/cloud/keys {"owner":"you"}`（明文只返回一次）；
+- 切到云端后所有请求走云端地址，本地只留缓存；切回来即恢复本地模式，数据互不影响；
+- 设计边界：云端服务端（多租户 + 鉴权）是**独立私有组件** `memory-eternal-cloud`，不随本开源包发布 ——
+  见 [docs/CLOUD.md](docs/CLOUD.md) 与 [docs/PRIVATE.md](docs/PRIVATE.md)。
+
+> 实验性 = 接口与行为可能变动、可能不稳定。遇到问题请走「反馈异常」；**本地记忆库不受任何影响**。
 
 ## 📚 文档与链接
 

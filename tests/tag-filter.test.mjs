@@ -55,7 +55,9 @@ test('接线守卫：客户端把标签筛选接进请求、芯片可点、片�
   assert.match(src, /🏷 \{tagPick\} <span style=\{\{ opacity: 0\.7 \}\}>✕<\/span>/, '工具栏要显示可清除的筛选芯片')
   assert.match(src, /className="mc-tag mc-tag-click"/, '列表标签可点')
   assert.match(src, /className="md-chip md-chip-tag mc-tag-click"/, '阅读器标签也可点')
-  assert.match(src, /const sn = snippetAround\(card\.body \|\| '', query\)/, '列表要渲染命中片段')
+  // 命中片段：优先用后端 _match.snippet（FTS 在命中位置截好），为空才退回本地 snippetAround
+  assert.match(src, /match\.snippet \? String\(match\.snippet\) : ''\) \|\| snippetAround\(card\.body \|\| '', term\)/, '列表要渲染命中片段（后端 _match 优先，本地截取兜底）')
+  assert.match(src, /where: 'semantic'|'"semantic"'|matchWhere === 'semantic'/, '语义召回要单独标记（不做字面高亮）')
   const api = read('lib/api.js')
   assert.match(api, /const tag = \(query\.get\('tag'\) \|\| ''\)\.trim\(\)/)
   assert.match(api, /countCards\(vaultRoot, \{ status: want, kind, agent, tag \}\)/)

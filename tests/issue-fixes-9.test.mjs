@@ -130,7 +130,12 @@ test('撞锁用「应用层异步重试」而不是 busy_timeout（评审：同�
   const api = read('lib/api.js')
   assert.match(api, /withDbRetry\(async \(\) => \{/, '写路由要接上重试')
   assert.match(api, /e\.noRetry = true/, '响应已发出时禁止重试')
-  assert.match(api, /import \{ backupDb, dbStatus, rebuildGuidance, withDbRetry \} from '\.\/db\.js'/, '要从 db.js 引入')
+  // 只守「这些能力必须来自 db.js」，不绑定 import 的花括号内容逐字顺序 ——
+  // 备份/容灾后续往同一行加符号（listBackupFiles 等）时不该把这条守卫判红。
+  assert.match(api, /import \{[^}]*\bbackupDb\b[^}]*\} from '\.\/db\.js'/, '要从 db.js 引入 backupDb')
+  for (const sym of ['dbStatus', 'rebuildGuidance', 'withDbRetry']) {
+    assert.match(api, new RegExp(`import \\{[^}]*\\b${sym}\\b[^}]*\\} from '\\.\\/db\\.js'`), '要从 db.js 引入 ' + sym)
+  }
 })
 
 test('刻意不做的那两件：不许偷偷加 busy_timeout / WAL 自动降级（评审结论已记录）', () => {

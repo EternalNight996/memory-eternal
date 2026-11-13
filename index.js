@@ -28,7 +28,7 @@ import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { workingPrompt, readWorking, writeWorking, clearWorking, archiveStaleWorking } from './lib/working-memory.js'
 import { ensureVault, search } from './lib/vault.js'
-import { migrateFromMarkdown, setAuditConfig, backupDb } from './lib/db.js'
+import { migrateFromMarkdown, setAuditConfig, backupDb, lastBackupAt } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { createHub } from './lib/sse.js'
@@ -150,6 +150,16 @@ export const Config = z.object({
   autoRestartOnDrift: z.boolean().default(true),
   // 回收站保留天数：软删卡超过此天数自动永久删除（默认 30）
   recycleRetentionDays: z.number().min(1).max(3650).default(30),
+  // ── 容灾：自动备份 / 保留期 / 库损坏时自动还原（全部默认开启，缺省即可用） ──
+  // backupEnabled：总开关。关掉 = 定时器不备份（手动点「立即备份」仍然可用）。
+  backupEnabled: z.boolean().default(true),
+  // backupIntervalHours：定期备份周期（小时，最小 1）。判定依据是「上次成功备份时间」，
+  // 持久化在 <vault>/backups/.last-backup.json —— 进程重启不会把周期清零。
+  backupIntervalHours: z.number().min(1).max(8760).default(24),
+  // backupKeepDays：备份保留天数（按备份文件名里的日期算；同日去重后一天最多一份）
+  backupKeepDays: z.number().min(1).max(3650).default(30),
+  // backupAutoRestore：探测到库**结构性损坏**时，用最新一份可用备份自动重建
+  backupAutoRestore: z.boolean().default(true),
   // 自动审核配置
   //   auditMode: 'all'=全部要审(默认) | 'none'=全部免审直接入库
   //   auditExemptAgents: 免审的智能体名列表（如 codex / claude-code / 本地 DSH）
@@ -173,6 +183,81 @@ function markAllVolatile(schema) {
 }
 
 markAllVolatile(Config)
+
+/**
+ * 「现在该不该跑一次自动备份」的纯判定。
+ *
+ * 为什么单独抽出来并导出：定时器本体跑在 DSH 宿主进程里（`apply()` 内部），单测起不来；
+ * 而这段判定恰恰是最容易写错、也最容易被后来者改坏的部分 ——
+ *   · backupEnabled=false 必须**真的**一点活都不干（不能"顺便检查一下"）；
+ *   · 周期依据必须是**持久化的上次成功时间**（进程内变量一重启就归零）；
+ *   · 数字字段要能吃「空串 / 非法值」并按默认值走，不能算出 NaN 把定时器卡死。
+ *
+ * @param {object} cfg 插件配置（可缺省/为空对象 → 全默认）
+ * @param {number} [now] 当前时间（毫秒，便于测试注入）
+ * @param {number} [lastAt] 上次**成功**备份的时间（毫秒，0 = 从来没成功过）
+ * @returns {{due:boolean, reason:'disabled'|'never-backed-up'|'not-due'|'due', intervalHours:number,
+ *   keepDays:number, maxKeep:number, lastAt:number, nextAt:number}}
+ */
+/**
+ * 下一次备份的时间点：**落在备份时间窗内**（默认每天 03:00），而不是「上次 + 周期」。
+ * 面板显示「下次备份 10:57」是错的 —— 那个时刻窗口外根本不会动手。
+ * @param {{lastAt?:number, intervalHours?:number, windowStart?:number}} p
+ * @param {number} now
+ * @returns {number} 时间戳
+ */
+export function nextBackupAt({ lastAt = 0, intervalHours = 24, windowStart = 3 } = {}, now = Date.now()) {
+  const hours = Math.max(1, Math.min(Math.floor(Number(intervalHours) || 24), 24 * 365))
+  const winStart = Math.max(0, Math.min(23, Math.floor(Number(windowStart ?? 3))))
+  const last = Number(lastAt) > 0 ? Number(lastAt) : 0
+  // 每天一次（）时：今天窗口还没过、且今天还没备过 → 今天的窗口；否则明天的窗口
+  const todayWin = new Date(now)
+  todayWin.setHours(winStart, 0, 0, 0)
+  if (hours <= 24) {
+    const busyToday = last > 0 && new Date(last).toDateString() === new Date(now).toDateString()
+    if (!busyToday && todayWin.getTime() > now) return todayWin.getTime()
+    const next = new Date(todayWin)
+    next.setDate(next.getDate() + 1)
+    // 每天一次：今天备过就明天备，不再叠加「距上次够 24h」的额外顺延
+    return next.getTime()
+  }
+  const earliest = last > 0 ? last + hours * 3600000 : now
+  const d = new Date(earliest)
+  d.setHours(winStart, 0, 0, 0)
+  if (d.getTime() < earliest) d.setDate(d.getDate() + 1)
+  return d.getTime()
+}
+
+export function backupDue(cfg = {}, now = Date.now(), lastAt = 0) {
+  const hours = Math.max(1, Math.min(Math.floor(Number(cfg.backupIntervalHours) || 24), 24 * 365))
+  const keepDays = Math.max(1, Math.min(Math.floor(Number(cfg.backupKeepDays) || 30), 3650))
+  const last = Number(lastAt) > 0 ? Number(lastAt) : 0
+  // 备份窗口：**默认每天 03:00–03:59 之间备一次**。
+  // 为什么要有窗口而不是「距上次 24h 就备」：那样会在白天任意时刻备（用户正在写卡时 IO 抖动），
+  // 而凌晨三点库是静的，备份快、也不会和交互抢磁盘。窗口外即使到期也不动手，等明早窗口。
+  const winStart = Math.max(0, Math.min(23, Math.floor(Number(cfg.backupWindowStart ?? 3))))
+  const inWindow = new Date(now).getHours() === winStart
+  // maxKeep=0：不限份数（同日去重已保证一天最多一份，30 天保留期自然收敛到 ≤30 份）
+  const info = { intervalHours: hours, keepDays, maxKeep: 0, lastAt: last, windowStart: winStart, inWindow, nextAt: last ? last + hours * 3600000 : now }
+  if (cfg.backupEnabled === false) return { due: false, reason: 'disabled', ...info }
+  if (!last) {
+    // 从来没有成功备份过：窗口内立刻备；窗口外也补一次（新装用户不该等到明天凌晨才有第一份）
+    return { due: true, reason: inWindow ? 'never-backed-up' : 'never-backed-up-catchup', ...info }
+  }
+  // 口径：**每天在窗口内备一次**（不是「距上次满 24 小时」）。
+  // 用户要的是「03:00–04:00 之间备份一次即可」—— 昨天 10:57 备过，今天 03:05 也该备一份，
+  // 不能因为只隔了 16 小时就跳过一天。
+  const sameDay = new Date(last).toDateString() === new Date(now).toDateString()
+  if (hours <= 24) {
+    if (sameDay) return { due: false, reason: 'already-today', ...info }
+    if (!inWindow) return { due: false, reason: 'outside-window', ...info }
+    return { due: true, reason: 'due', ...info }
+  }
+  // 周期大于一天（如 72h）：既要满足最小间隔，也要落在窗口内
+  if (now - last < hours * 3600000) return { due: false, reason: 'not-due', ...info }
+  if (!inWindow) return { due: false, reason: 'outside-window', ...info }
+  return { due: true, reason: 'due', ...info }
+}
 
 /**
  * 取「会话自己的工作区」（issue #15 问题 1）。
@@ -1414,19 +1499,35 @@ export function apply(ctx, config) {
   const workingTimer = setInterval(archiveWorkingNow, 30 * 60 * 1000)
   ctx.effect(() => () => { clearTimeout(workingKick); clearInterval(workingTimer) }, 'memory-eternal: working archive timer')
 
-  // SQLite 定时备份：每天凌晨 3 点自动备份，保留最近 7 天。
-  let lastBackupDate = ''
-  const backupTimer = setInterval(async () => {
-    const d = new Date()
-    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    if (lastBackupDate === date || d.getHours() !== 3) return
-    lastBackupDate = date
+  // SQLite 定时备份（容灾）：按 backupIntervalHours 周期自动备份，按 backupKeepDays 保留。
+  //
+  // 三条与老实现的关键差别（老实现：每天凌晨 3 点、保留 7 份、判定依据是进程内变量）：
+  //   1. **配置驱动**：backupEnabled=false 直接不备份；周期由 backupIntervalHours 决定，
+  //      不再硬编码「凌晨 3 点」（那等于把备份窗口锁死在用户不看电脑的那一小时）。
+  //   2. **判定依据持久化**：「上次成功备份时间」写在 <vault>/backups/.last-backup.json
+  //      （见 lib/db.js 的 lastBackupAt/writeBackupState）。进程内变量一重启就归零 ——
+  //      结果是每次重启都立刻补一遍备份，或者反过来一整天不再备份。
+  //   3. **失败不置成功时间**：备份失败 → 不写状态文件 → 下一个 tick 继续重试。
+  const runBackupTick = async () => {
     try {
-      const r = await backupDb(vaultDir(), { maxKeep: 7 })
-      if (r.ok) console.error(`[memory-eternal] backup done: ${r.path}`)
+      const cfg = settings.get() ?? {}
+      const root = vaultDir()
+      const plan = backupDue(cfg, Date.now(), lastBackupAt(root))   // 0 = 从来没有成功备份过
+      if (!plan.due) return
+      const r = await backupDb(root, { keepDays: plan.keepDays, maxKeep: plan.maxKeep })
+      if (r.ok) {
+        console.error(`[memory-eternal] backup done: ${r.path} (${r.cards ?? '?'} cards, kept ${r.kept ?? '?'}, pruned ${r.pruned ?? 0})`)
+      } else {
+        // 失败**不**更新时间：下个 tick 会继续重试（备份可能连续缺口才是真风险）
+        console.error('[memory-eternal] backup failed:', r.error || 'unknown')
+      }
     } catch (e) { console.error('[memory-eternal] backup failed:', e?.message || e) }
-  }, 10 * 60 * 1000) // 每 10 分钟检查一次，命中凌晨 3 点才执行
-  ctx.effect(() => () => clearInterval(backupTimer), 'memory-eternal: backup timer')
+  }
+  const backupTimer = setInterval(runBackupTick, 10 * 60 * 1000)   // 每 10 分钟看一次「到点没有」
+  // 启动后 90 秒补跑一次（覆盖「到期了但进程刚好重启」与全新安装的首份备份）；
+  // 时间没到的话 runBackupTick 自己会 return，不会平白多备一份。
+  const backupKick = setTimeout(runBackupTick, 90 * 1000)
+  ctx.effect(() => () => { clearTimeout(backupKick); clearInterval(backupTimer) }, 'memory-eternal: backup timer')
 
   // -- 3. 知识库 JSON API（客户端设置页数据源） ----------------------------
   // 多宿主状态：web server 常驻地址（ensureWebServer 的结果，client 壳经
@@ -1482,6 +1583,14 @@ export function apply(ctx, config) {
       syncSkills: (opts) => syncSkillsNow(opts),
       // 版本对齐检查用：当前 schema 的键（用来发现共享配置里的旧键残留）
       getConfigKeys: () => Object.keys(Config.dict || {}),
+      // 容灾配置写入（POST /backup/config）：宿主有 settings 服务，直接走 settings.update，
+      // 再把全量配置同步进共享文件（独立 web / hooks / MCP 读的是那一份）。
+      // 独立 web 没有本函数 → lib/api.js 自动回落成「待应用文件 + 叫醒宿主」。
+      writeConfig: async (patch) => {
+        await settings.update(patch)
+        syncConfigFile()
+        return { applied: Object.keys(patch || {}) }
+      },
       // 自动沉淀运行轨迹 + 健康状态：供「用量/今日」页排查「为什么没写卡」，异常时页面顶部亮红。
       getCaptureLog: () => captureLog.slice().reverse(),
       getCaptureHealth: () => health.snapshot(),
@@ -1573,6 +1682,8 @@ export function apply(ctx, config) {
                 distillEnabled: cfg.distillEnabled !== false, dedupByLLM: cfg.dedupByLLM !== false, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
                 autoWeb: cfg.autoWeb !== false, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,
                 auditMode: cfg.auditMode ?? 'all', auditExemptAgents: cfg.auditExemptAgents || [], auditExemptKinds: cfg.auditExemptKinds || [], recycleRetentionDays: cfg.recycleRetentionDays ?? 30,
+                // 容灾 / 自动备份 / 自动还原（默认全开，缺省即可用）
+                backupEnabled: cfg.backupEnabled !== false, backupIntervalHours: cfg.backupIntervalHours ?? 24, backupKeepDays: cfg.backupKeepDays ?? 30, backupAutoRestore: cfg.backupAutoRestore !== false,
                 // 多库（#10）：配置页可直接编辑
                 vaultProfiles: Array.isArray(cfg.vaultProfiles) ? cfg.vaultProfiles : [],
                 activeVault: cfg.activeVault || '',
@@ -1956,10 +2067,28 @@ export function apply(ctx, config) {
     }
   }, 'memory-eternal: multi-host ensure')
 
-  // 首次激活时确保 vault 目录存在。
+  // 首次激活时：先做一次「灾难自动还原」体检，再确保 vault 目录存在。
+  //
+  // 为什么体检在 ensureVault 之前：ensureVault 会打开（必要时创建）主库。如果主库已经
+  // 被写坏，先 open 只会把「坏库」的状态烙进这一批连接与缓存里；而在它之前判定损坏并
+  // 用备份重建，后续所有逻辑拿到的就是一份健康的库。
+  // 完整的判定/还原/留证/审计逻辑在 lib/auto-restore.js（独立 web 与看门狗共用同一份）。
   ctx.effect(() => {
     const root = vaultDir()
-    ensureVault(root).catch((error) => console.error('[memory-eternal] ensureVault failed:', error))
+    ;(async () => {
+      try {
+        const { ensureHealthy } = await import('./lib/auto-restore.js')
+        const r = await ensureHealthy(root)
+        if (r && r.action === 'restored') {
+          const why = `记忆库损坏 → 已用备份自动还原：${r.from}（恢复 ${r.cards} 张卡；原现场留证 ${r.movedAside?.length ?? 0} 项）`
+          console.error('[memory-eternal] ' + why)
+          logCapture('system', 'warn', why)
+        }
+      } catch (error) {
+        console.error('[memory-eternal] auto-restore failed:', error?.message || error)
+      }
+      await ensureVault(root).catch((error) => console.error('[memory-eternal] ensureVault failed:', error))
+    })()
   }, 'memory-eternal: ensure vault')
 }
 

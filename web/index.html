@@ -36,7 +36,7 @@
       --dsw-alias-accent: #3b82f6;
     }
   }
-  html, body { margin: 0; padding: 0; height: 100%; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif; }
   #root { height: 100vh; }
   /* 首屏加载提示（用户群反馈：点开「记忆」先是白屏，不知道有没有在加载）。
      app.js 约 460KB：下载 → 解析 → 执行 → 首轮接口请求都要时间，这段纯空白会被当成「坏了」。

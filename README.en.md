@@ -18,7 +18,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.40.1-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.45.0-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
@@ -44,7 +44,7 @@
 - 🔍 **Review before it counts** — new cards wait in a review queue; approve or reject from the Web UI or terminal; every change is written to an immutable audit log.
 - ✏️ **Editable & revisable** — fix a card by hand in the reader, or let an agent submit a **revised copy** (`memory_revise`); the queue labels it a revision, and an approved card is only overwritten when you approve it.
 - 🧾 **Token ledger** — see how much recall injected, how many distillation calls ran, and how often recall was actually useful.
-- 🏠 **Local-first, no cloud** — SQLite + Markdown on your own disk. No third-party memory framework, no account. Memory data never leaves the machine; only the News page fetches public RSS / Hacker News on demand (titles, excerpts and outbound links only).
+- 🏠 **Local-first, no cloud** — SQLite + Markdown on your own disk. No third-party memory framework, no account. Memory data never leaves the machine; only the News page fetches public RSS / 技术资讯源 on demand (titles, excerpts and outbound links only).
 - ⭐ **Core memory** — promote approved cards to always-on memory; every session gets them automatically, and the review queue still decides what qualifies.
 - 🧭 **Reader & layout** — clickable table of contents in the card reader, plus a compact / normal / large layout setting for the whole memory UI.
 
@@ -369,6 +369,33 @@ Ollama upgrade: install, set `OLLAMA_HOST=127.0.0.1:7997`, run `ollama serve`, t
 LongMemEval-S (500 questions, full set): lexical 95.2%, semantic **97.2%** R@5 (retrieval metric, not QA).
 
 Details: [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md) and [bench/FINAL-REPORT.md](bench/FINAL-REPORT.md).
+
+## 🧪 Experimental features (v0.45.0)
+
+The settings sidebar has a new **"🧪 Experimental"** page: capabilities still under validation live there,
+separate from the main flow, and **nothing here affects local usage** (memory, retrieval, audit and backup
+never depend on it).
+
+| Experimental today | Status |
+|---|---|
+| **Cloud connection** (connect to a `memory-eternal-cloud` instance) | One isolated SQLite per user; key auth ready, MengBot account login waits on their control plane |
+
+How to use it (safe to ignore entirely):
+
+```
+Settings -> 🧪 Experimental -> Cloud connection
+  (o) Local (default - the vault on this machine)
+  (o) Cloud -> URL + access key -> [Test connection] -> [Save & switch]
+```
+
+- The top-right pill "本地运行 ▾" does the same (its tooltip is marked experimental);
+- Issue a key on the cloud instance: `POST /memory-eternal/api/cloud/keys {"owner":"you"}` (plaintext shown once);
+- After switching, requests go to the cloud URL and the local vault is left untouched - switch back any time;
+- Boundary: the cloud server (multi-tenant + auth) is a **separate private component** `memory-eternal-cloud`
+  and is not shipped with this open-source package - see [docs/CLOUD.md](docs/CLOUD.md) and [docs/PRIVATE.md](docs/PRIVATE.md).
+
+> Experimental means endpoints and behaviour may change, and stability is not guaranteed.
+> Report issues via "Feedback"; **your local vault is unaffected**.
 
 ## 📚 Documentation & links
 

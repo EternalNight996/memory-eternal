@@ -52,18 +52,20 @@ const calloutOf = (lines) => {
 /**
  * 行内格式：先转义，再套受控标签。
  * @param {string} raw 单行原文（未转义）
+ * @param {string|string[]} [hl] 要高亮的搜索词（可多个）；传空则与旧行为完全一致
  * @returns {string} 安全 HTML
  */
-export function renderInline(raw) {
+export function renderInline(raw, hl) {
   const text = String(raw)
+  const wrapHl = (s) => markTerms(s, hl)
   // 「键：值」→ 对齐样式（键短、无格式字符、无空格）
   // 只把「短、无空格、不像句子」的键当 key/value：中文散文里冒号很常见，
   // 一旦误判，正常段落会被排成表单字段，比不排版还难看。
   const kv = /^([^：:\s]{1,8})[：:]\s*(.+)$/.exec(text)
   if (kv && !/[是为有了吗呢着过把被和与或于]/.test(kv[1])) {
-    return '<span class="md-kv"><span class="md-k">' + esc(kv[1]) + '</span><span class="md-v">' + renderInline(kv[2]) + '</span></span>'
+    return '<span class="md-kv"><span class="md-k">' + esc(kv[1]) + '</span><span class="md-v">' + renderInline(kv[2], hl) + '</span></span>'
   }
-  let s = esc(text)
+  let s = wrapHl(esc(text))
   // 复选框只认「[x] + 空白/行尾」；否则 [x](url) 这类链接会被误当任务框吞掉
   s = s.replace(/^\[([ xX])\](?=\s|$)\s*/, (m, c) => '<span class="md-task">' + (c.toLowerCase() === 'x' ? '☑' : '☐') + '</span> ')
   s = s.replace(/`([^`\n]+)`/g, '<code class="md-code">$1</code>')
@@ -71,6 +73,29 @@ export function renderInline(raw) {
   s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, url) => (/^(https?:|\/|#)/i.test(url) ? '<a class="md-link" href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + '</a>' : label))
   return s
+}
+
+const ESC_RE = /[.*+?^${}()|[\]\\]/g
+const reEscape = (s) => String(s).replace(ESC_RE, '\\$&')
+
+/**
+ * 在**已转义**的 HTML 文本里给搜索词包 `<mark class="mc-hl">`。
+ *
+ * 为什么在转义之后做：正文里可能带 `<script>` 之类的原文，先转义再替换，替换出来的
+ * 只有自己的 `<mark>` 标签，不会把用户内容当 HTML 执行。
+ * 为什么用一条合并正则：分别替换时「内存」会被先高亮，后面「内存泄漏」就再也匹配不上，
+ * 结果出现嵌套 mark；合并 + 长词优先只包裹一次。
+ * @param {string} html 已转义文本（可能已含标签）
+ * @param {string|string[]} hl
+ */
+export function markTerms(html, hl) {
+  const raw = Array.isArray(hl) ? hl : String(hl == null ? '' : hl).split(/\s+/)
+  const parts = [...new Set(raw.map((x) => esc(String(x || '').trim())).filter(Boolean))]
+    .sort((a, b) => b.length - a.length)
+    .map(reEscape)
+  if (!parts.length) return html
+  const re = new RegExp('(' + parts.join('|') + ')', 'gi')
+  return String(html).replace(re, '<mark class="mc-hl">$1</mark>')
 }
 
 /**
@@ -107,16 +132,20 @@ export function parseTags(value) {
 /**
  * 渲染卡片正文为安全 HTML（块级 + 行内）。
  * @param {string} text 正文（可带 frontmatter，会自动跳过）
+ * @param {{highlight?:string|string[]}} [opts] highlight：搜索词，命中处包 <mark class="mc-hl">
+ *   （在阅读器里打开命中卡时保持高亮 —— 列表里有高亮、点进去就没了会让人以为找错了卡）
  * @returns {string}
  */
-export function renderMd(text) {
+export function renderMd(text, opts = {}) {
+  const hl = opts && opts.highlight
   const src = splitFrontmatter(String(text || '').replace(/\r\n?/g, '\n')).body
   if (!src.trim()) return ''
 
   // 围栏代码先抽走，避免内部的 # / - / ** 被当成排版语法
   const fences = []
   const guarded = src.replace(/```([\w+#.-]*)\n([\s\S]*?)```/g, (m, lang, code) => {
-    fences.push('<pre class="md-pre"><code>' + esc(code.replace(/\n$/, '')) + '</code></pre>')
+    // 代码块里也高亮：搜索命中的往往正是命令/路径，但要先转义再包 mark（不能破坏 <pre>）
+    fences.push('<pre class="md-pre"><code>' + markTerms(esc(code.replace(/\n$/, '')), hl) + '</code></pre>')
     return '\u0000F' + (fences.length - 1) + '\u0000'
   })
 
@@ -150,22 +179,22 @@ export function renderMd(text) {
       flushAll()
       const [ico, tone] = headOf(m[2])
       hid++
-      out.push('<div id="md-h-' + hid + '" class="md-h md-h-' + (m[1].length <= 2 ? 'h1' : 'h2') + ' md-c-' + tone + '"><span class="md-ico">' + ico + '</span><span class="md-hx">' + renderInline(m[2]) + '</span></div>')
+      out.push('<div id="md-h-' + hid + '" class="md-h md-h-' + (m[1].length <= 2 ? 'h1' : 'h2') + ' md-c-' + tone + '"><span class="md-ico">' + ico + '</span><span class="md-hx">' + renderInline(m[2], hl) + '</span></div>')
       continue
     }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { flushAll(); out.push('<hr class="md-hr"/>'); continue }
-    if ((m = /^>\s?(.*)$/.exec(line))) { flushPara(); flushList(); quote = quote || []; quote.push(renderInline(m[1])); continue }
+    if ((m = /^>\s?(.*)$/.exec(line))) { flushPara(); flushList(); quote = quote || []; quote.push(renderInline(m[1], hl)); continue }
     if ((m = /^[-*+]\s+(.+)$/.exec(line))) {
       flushPara(); flushQuote()
       if (!list || list.type !== 'ul') { flushList(); list = { type: 'ul', items: [] } }
-      list.items.push(renderInline(m[1])); continue
+      list.items.push(renderInline(m[1], hl)); continue
     }
     if ((m = /^\d+[.)]\s+(.+)$/.exec(line))) {
       flushPara(); flushQuote()
       if (!list || list.type !== 'ol') { flushList(); list = { type: 'ol', items: [] } }
-      list.items.push(renderInline(m[1])); continue
+      list.items.push(renderInline(m[1], hl)); continue
     }
-    flushList(); flushQuote(); para.push(renderInline(line))
+    flushList(); flushQuote(); para.push(renderInline(line, hl))
   }
   flushAll()
   return out.join('\n')
