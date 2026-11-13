@@ -122,6 +122,50 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 2. 或本机 MengBot 客户端先用账号登录 → 从客户端拿到 `mb_install_*` 设备道印灵钥 → `{ token: 'mb_install_…' }`
    走 `/v1/installations/self` 校验（这条不需要用户会话）。
 
+### 4.2 跳转授权（推荐：redirect + 回跳）
+
+面板里输邮箱 + 验证码要来回切窗口，体验差。改成**跳转授权**：
+
+```
+① 浏览器打开  GET /memory-eternal/api/cloud/auth/start?redirect_uri=<登录后回哪>
+                → 302 到 MengBot 登录页（带 state + 我们的 callback）
+② 用户在 MengBot 页面完成邮箱 OTP 登录
+③ MengBot 回跳  GET /memory-eternal/api/cloud/auth/callback?code=…&state=…
+                → 校验 state（一次性、5 分钟）→ 换令牌 → /v1/me 校验 → 解析租户
+④ 302 回客户端    <redirect_uri>#me_cloud_token=mb_xxx&me_cloud_owner=…&me_cloud_api=…
+```
+
+**为什么令牌放 fragment（`#`）而不是 query**：fragment 不会进服务器访问日志，也不带进 Referer。
+客户端读到后应立刻从地址栏清掉（`history.replaceState`）。
+
+配置项：
+
+| 变量 | 说明 |
+|---|---|
+| `MEMORY_CLOUD_PUBLIC_URL` | 本实例对外地址（拼 callback：`<它>/memory-eternal/api/cloud/auth/callback`） |
+| `MEMORY_MENGBOT_LOGIN_URL` | 登录页模板，支持 `{redirect_uri}` `{state}` `{client}`；不配则用 `<baseUrl>/login` 自动补参 |
+| `MEMORY_MENGBOT_EXCHANGE_URL` | `code → token` 换取端点；不配则用 `<baseUrl>/api/cloud/desktop/token` |
+
+实测（本机 8021 起实例）：
+
+```
+GET /cloud/auth/start?redirect_uri=https://app.example/done
+→ 302  Location: https://cloud.mengbot.com.cn/login
+       ?redirect_uri=https%3A%2F%2Fmem.example.com%2Fmemory-eternal%2Fapi%2Fcloud%2Fauth%2Fcallback
+       &state=kRyobslmNsjSF_w5bsPvODWR
+```
+
+三种入口并存，客户端择优：
+
+| 方式 | 端点 | 适用 |
+|---|---|---|
+| **跳转授权**（推荐） | `GET /cloud/auth/start` → `GET /cloud/auth/callback` | 桌面/浏览器，一次点击完成 |
+| 面板内登录 | `POST /cloud/login/mengbot {email}` / `{email,otp}` | 无跳转条件（CLI、内嵌小窗） |
+| 已有令牌 | `POST /cloud/login/mengbot {token}` | 客户端已登录过，复用会话 |
+
+> 需要 MengBot 侧确认：登录页是否接受 `redirect_uri` + `state`，回跳带 `code` 还是直接带会话 `token`。
+> 两种都支持（`completeMengbotAuth` 同时认 `code` 与 `token`），对方选一种就能通。
+
 ## 6. 授权与续期（License）
 
 云端服务端的商用授权走**离线签名 license**，与本文件的部署流程解耦：部署不需要联网校验，
