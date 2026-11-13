@@ -105,6 +105,32 @@ function persistCloud(form) {
   applyCloudConn(next)
   return { ok: true, next }
 }
+
+/**
+ * 消费跳转登录回来的令牌（`#me_cloud_token=…&me_cloud_owner=…&me_cloud_api=…`）。
+ *
+ * 为什么放 fragment：不会进服务器日志、也不带进 Referer。读完必须 `replaceState` 清掉，
+ * 否则刷新页面会重复消费、也会留在地址栏里被截图带走。
+ * @returns {{token:string, owner:string, api:string}|null} 消费到的连接信息（没有就 null）
+ */
+function consumeCloudTokenFromHash() {
+  try {
+    const h = String(location.hash || '').replace(/^#/, '')
+    if (!h || !h.includes('me_cloud_token=')) return null
+    const p = new URLSearchParams(h)
+    const token = p.get('me_cloud_token') || ''
+    const owner = p.get('me_cloud_owner') || ''
+    const api = p.get('me_cloud_api') || ''
+    if (!token) return null
+    // 清掉 fragment（保留其余 hash 内容的话也一并去掉，避免残留令牌）
+    try { history.replaceState(null, '', location.pathname + location.search) } catch { /* 忽略 */ }
+    const next = { mode: 'cloud', url: api.replace(/\/memory-eternal\/api\/?$/, ''), token }
+    if (!/^https?:\/\//i.test(next.url)) return { token, owner, api }
+    saveCloudConn(next)
+    applyCloudConn(next)
+    return { token, owner, api }
+  } catch { return null }
+}
 /** 当前实际使用的 API 前缀（本地相对路径 or 云端绝对地址）。 */
 const apiPrefix = () => (API_TARGET_URL ? API_TARGET_URL + LOCAL_PREFIX : LOCAL_PREFIX)
 // 包装 fetch：云端模式下把相对 API 路径**重写成云端绝对地址**并补 Authorization。
@@ -125,6 +151,8 @@ try {
 } catch { /* 非浏览器环境 */ }
 // 启动时应用已保存的连接（首次运行没有配置 = 本地模式，行为与之前完全一致）
 applyCloudConn(readCloudConn())
+// 跳转登录刚回来：从 #fragment 里取令牌（读完立刻清地址栏）
+const cloudFromHash = typeof location !== 'undefined' && location.hash ? consumeCloudTokenFromHash() : null
 
 // 《蛊真人》作者语录：左侧栏底部轮播，README 底部同源。
 // 原始粘贴里有两段互相覆盖的串行（同一句被接了两遍），这里按完整诗节归并为 6 首，去重后保留原标点。
@@ -572,6 +600,8 @@ export const ZH = {
   cloudTest: '测试连接',
   cloudTestOk: '连接成功 · {owner}',
   cloudTestFail: '连接失败',
+  cloudLoginButton: '用 MengBot 账号登录',
+  cloudLoginDone: '已登录 · {owner}',
   cloudSave: '保存并切换',
   backupSection: '备份',
   backupSectionSub: '备份节奏 / 保留天数 / 库损坏自动还原 —— 出事先回到最近一份好的库',
@@ -1593,6 +1623,8 @@ export const EN = {
   cloudTest: 'Test connection',
   cloudTestOk: 'Connected · {owner}',
   cloudTestFail: 'Connection failed',
+  cloudLoginButton: 'Sign in with MengBot',
+  cloudLoginDone: 'Signed in · {owner}',
   cloudSave: 'Save & switch',
   backupSection: 'Backup',
   backupSectionSub: 'Schedule / retention / auto-restore — get back to the last good copy',
@@ -6892,6 +6924,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
     if (!r.ok) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
     try { location.reload() } catch { /* 忽略 */ }
   }
+  /** 跳转登录：到云端实例的 /cloud/auth/start，登录完自动回跳（令牌走 fragment） */
+  const startLoginRedirect = () => {
+    const base = String(cloudForm.url || '').replace(/\/+$/, '')
+    if (!/^https?:\/\//i.test(base)) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    const back = location.origin + location.pathname
+    const url = base + '/memory-eternal/api/cloud/auth/start?redirect_uri=' + encodeURIComponent(back)
+    try { location.href = url } catch { /* 忽略 */ }
+  }
   // 首页「备份与迁移」按钮会发这个事件，让配置面板直接跳到备份分区（低频迁移动作归到这里）
   useEffect(() => {
     const onGo = (e) => {
@@ -7747,7 +7787,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
                 )}
                 <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
+                <Btn variant="secondary" size="sm" onClick={startLoginRedirect}>{t('cloudLoginButton')}</Btn>
                 {cloudTest && <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? t('cloudTestOk').replace('{owner}', cloudTest.owner || '-') : (cloudTest.error || t('cloudTestFail'))} />}
+                {cloudFromHash && cloudFromHash.owner && (
+                  <Status tone="ok" text={t('cloudLoginDone').replace('{owner}', cloudFromHash.owner)} />
+                )}
               </div>
               <Hint text={t('cloudExperimentalHint')} />
             </CfgSection>
