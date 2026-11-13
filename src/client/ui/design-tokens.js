@@ -94,6 +94,8 @@ export const COMPONENTS_CSS = `
 .me-btn--danger{background:transparent;border-color:var(--me-c-danger);color:var(--me-c-danger)}
 .me-btn--danger:hover:not([disabled]){background:var(--me-c-danger-soft)}
 .me-btn--sm{padding:4px 9px;font-size:var(--me-fs-xs);border-radius:var(--me-r-sm)}
+/* 计数徽标：数字单独放一个 span，不再拼「（4）」——括号与空格在部分字体/输入法环境下会显示成逗号 */
+.me-count{padding:0 6px;border-radius:999px;background:rgba(127,127,127,.18);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums}
 .me-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 3px rgba(127,127,127,.12)}
 .me-dot--ok{background:var(--me-c-success)} .me-dot--warn{background:var(--me-c-warn)}
 .me-dot--bad{background:var(--me-c-danger)} .me-dot--idle{background:var(--me-c-text-muted)}
