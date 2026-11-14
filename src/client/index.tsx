@@ -929,6 +929,10 @@ export const ZH = {
   vaultListLabel: '本机记忆库',
   logsTab: '日志',
   logsKeepLabel: '保留',
+  logsToday: '今天',
+  logsYesterday: '昨天',
+  logsLast7: '近 7 天',
+  logsCopyPath: '复制卡片路径',
   logsKeepUnit: '天',
   logsKeepHint: '超期的日志会自动清理（启动时 + 写入时各检查一次）；改这里会立刻按新值清一遍',
   logsKeepSaved: '保留 {n} 天 · 已清 {r} 条',
@@ -951,6 +955,7 @@ export const ZH = {
   logsColAction: '动作',
   logsColTitle: '标题',
   logsEmpty: '这一天没有日志',
+  logsEmptyRange: '这 7 天没有日志',
   logsFooterHint: '只记录标题，不含正文；保留 {n} 天，超期自动清理。日志写入是旁路，不会影响读写卡。',
   aboutTab: '关于',
   aboutVersion: '版本 {v}',
@@ -2176,6 +2181,10 @@ export const EN = {
   vaultListLabel: 'Vaults on this machine',
   logsTab: 'Logs',
   logsKeepLabel: 'Keep',
+  logsToday: 'Today',
+  logsYesterday: 'Yesterday',
+  logsLast7: 'Last 7d',
+  logsCopyPath: 'Copy card path',
   logsKeepUnit: 'd',
   logsKeepHint: 'Expired logs are pruned automatically (on boot and while logging); changing this prunes immediately',
   logsKeepSaved: 'Keeping {n} days · removed {r}',
@@ -2198,6 +2207,7 @@ export const EN = {
   logsColAction: 'Action',
   logsColTitle: 'Title',
   logsEmpty: 'No logs for this day',
+  logsEmptyRange: 'No logs in the last 7 days',
   logsFooterHint: 'Titles only, never card bodies; kept for {n} days and pruned automatically. Logging never blocks reads/writes.',
   aboutTab: 'About',
   aboutVersion: 'version {v}',
@@ -6065,6 +6075,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [aboutOpen, setAboutOpen] = useState(false)
   // 日志页：日期 / 搜索 / 分类
   const [logDate, setLogDate] = useState(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') })
+  // 范围：'day' = 只看某一天；'7d' = 以 logDate 为终点往前 7 天（跨天搜索用）
+  const [logRange, setLogRange] = useState('day')
   const [logQ, setLogQ] = useState('')
   const [logAction, setLogAction] = useState('')
   const [logData, setLogData] = useState(null)
@@ -6078,7 +6090,17 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const loadLogs = async () => {
     setLogBusy(true)
     try {
-      const qs = new URLSearchParams({ date: logDate, limit: '500' })
+      const qs = new URLSearchParams({ limit: '500' })
+      if (logRange === '7d') {
+        // 以 logDate 为终点往前 7 天：跨天看"最近这一周发生了什么"
+        const end = new Date(logDate + 'T00:00:00')
+        const start = new Date(end.getTime() - 6 * 86400000)
+        const fmt = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+        qs.set('from', fmt(start))
+        qs.set('to', fmt(end))
+      } else {
+        qs.set('date', logDate)
+      }
       if (logQ.trim()) qs.set('q', logQ.trim())
       if (logAction) qs.set('action', logAction)
       const r = await fetch(API + '/logs?' + qs.toString())
@@ -6095,7 +6117,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       setLogBusy(false)
     }
   }
-  useEffect(() => { if (view === 'logs') loadLogs() }, [view, logDate, logAction])
+  useEffect(() => { if (view === 'logs') loadLogs() }, [view, logDate, logAction, logRange])
 
   /** 导出 CSV（浏览器直接下载）。 */
   const exportLogs = () => {
@@ -7024,6 +7046,35 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} style={{ fontSize: 12, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }} />
+      {/* 快捷范围：今天 / 昨天 / 近 7 天 */}
+      {[
+        { k: 'today', label: t('logsToday') },
+        { k: 'yesterday', label: t('logsYesterday') },
+        { k: '7d', label: t('logsLast7') },
+      ].map(({ k, label }) => {
+        const active = k === '7d' ? logRange === '7d' : (() => {
+          const d = new Date()
+          if (k === 'yesterday') d.setDate(d.getDate() - 1)
+          const f = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+          return logRange === 'day' && logDate === f
+        })()
+        return (
+          <button
+            key={k}
+            type="button"
+            onClick={() => {
+              const d = new Date()
+              if (k === 'yesterday') d.setDate(d.getDate() - 1)
+              const f = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+              setLogDate(f)
+              setLogRange(k === '7d' ? '7d' : 'day')
+            }}
+            style={{ padding: '4px 10px', borderRadius: 999, border: '1px solid ' + (active ? 'var(--me-c-accent)' : 'var(--me-c-border)'), background: active ? 'var(--me-c-accent-soft, rgba(59,130,246,.12))' : 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 11.5 }}
+          >
+            {label}
+          </button>
+        )
+      })}
               <input value={logQ} onChange={(e) => setLogQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') loadLogs() }} placeholder={t('logsSearchPlaceholder')} style={{ flex: 1, minWidth: 180, fontSize: 12, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }} />
               <Btn variant="secondary" size="sm" disabled={logBusy} onClick={loadLogs}>{logBusy ? '…' : t('search')}</Btn>
             </div>
@@ -7059,12 +7110,22 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     <span style={{ opacity: 0.7 }}>{r.ip || '-'}</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.agent}>{r.agent || '-'}</span>
                     <span style={{ opacity: 0.7 }}>{t('logAction_' + r.action) || r.action}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.title}>{r.title}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }} title={r.title}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</span>
+              {r.target ? (
+                <button
+                  type="button"
+                  onClick={() => { try { navigator.clipboard.writeText(String(r.target)) } catch { /* 忽略 */ } }}
+                  title={t('logsCopyPath') + '：' + r.target}
+                  style={{ flex: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 10.5, opacity: 0.35, padding: 0 }}
+                >⧉</button>
+              ) : null}
+            </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="mc-empty" style={{ padding: '28px 0', textAlign: 'center', opacity: 0.55 }}>{logBusy ? t('loading') : t('logsEmpty')}</div>
+              <div className="mc-empty" style={{ padding: '28px 0', textAlign: 'center', opacity: 0.55 }}>{logBusy ? t('loading') : (logRange === '7d' ? t('logsEmptyRange') : t('logsEmpty'))}</div>
             )}
             <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{t('logsFooterHint').replace('{n}', String(logKeep))}</div>
           </div>
