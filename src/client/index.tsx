@@ -822,6 +822,13 @@ export const ZH = {
   cloudConnected: '已连接',
   cloudDisconnect: '断开连接',
   cloudSignOut: '退出登录',
+  importLocal: '导入本地库到云端',
+  importLocalHint: '把本机的卡片复制一份到云端（本地保留）',
+  importEmpty: '本地库没有卡片',
+  importRunning: '正在导入 {done} / {total}',
+  importDone: '导入完成：新增 {n} 张',
+  importCancel: '取消导入',
+  importCopyNote: '只增不删；重复卡片会自动跳过，可放心重跑',
   cloudInfoInstance: '实例',
   cloudDisconnected: '已切回本地',
   cloudPlanLabel: '当前套餐',
@@ -1973,6 +1980,13 @@ export const EN = {
   cloudConnected: 'Connected',
   cloudDisconnect: 'Disconnect',
   cloudSignOut: 'Sign out',
+  importLocal: 'Import local vault to cloud',
+  importLocalHint: 'Copy cards from this machine to the cloud (local copy kept)',
+  importEmpty: 'Local vault has no cards',
+  importRunning: 'Importing {done} / {total}',
+  importDone: 'Imported {n} new cards',
+  importCancel: 'Cancel import',
+  importCopyNote: 'Add-only; duplicates are skipped, safe to re-run',
   cloudInfoInstance: 'Instance',
   cloudDisconnected: 'Switched to local',
   cloudPlanLabel: 'Plan',
@@ -7512,6 +7526,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [showKeyField, setShowKeyField] = useState(false)
   // 账号菜单是否展开（整块可点，点开显示账号信息 / 切换账号 / 退出登录）
   const [acctOpen, setAcctOpen] = useState(false)
+  // 本地→云端导入进度。null = 未开始；{ done, total, importing, err, imported, duplicate }
+  const [importJob, setImportJob] = useState(null)
+  const importCancelRef = useRef(false)
 
   // PC 回跳登录：浏览器里授权完，应用轮询取票（DSH 无法被 dsh-app:// 调起，只能这样闭环）
   const [pollAuth, setPollAuth] = useState(null)   // { pollId, openedAt, interval, expiresIn }
@@ -8070,6 +8087,60 @@ function ConfigPanel({ t, onReload, version, compact }) {
       if (d && d.ok && d.plan) setCloudPlan(d.plan)
     } catch { /* 忽略 */ }
   }
+
+  /**
+   * 把**本地库**导入云端（复制，不迁移）。
+   *
+   * 为什么这么做而不是自动同步：
+   *   · 用户本地可能有上万张卡，自动上传是「未经同意的大流量」，也涉及隐私预期；
+   *   · 迁移会删本地数据 —— 万一云端出问题就没有退路了；
+   *   · 双向自动合并要处理同 id 不同内容的冲突，成本极高且会静默改数据。
+   * 所以：**用户点才动、只增不删、可中断、可重试**。
+   *
+   * 幂等由服务端保证（importChunk 按 contentHash 去重），重跑只会多几条 duplicate。
+   * 分片 200 张/批：单批约 3 MB，内存恒定，中断后重跑代价小。
+   */
+  const importLocalToCloud = async () => {
+    if (importJob && importJob.importing) return
+    importCancelRef.current = false
+    setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    try {
+      // ① 从**本地**导出（API 是相对前缀 = 本机），要正文必须走 /export
+      const exp = await fetch(API + '/export')
+      if (!exp.ok) throw new Error('本地导出失败 HTTP ' + exp.status)
+      const data = await exp.json()
+      const cards = Array.isArray(data.cards) ? data.cards : []
+      if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
+      setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
+
+      // ② 分片上传到**云端**（cloudApi 拼绝对地址）
+      const CHUNK = 200
+      let imported = 0
+      let duplicate = 0
+      for (let offset = 0; offset < cards.length; offset += CHUNK) {
+        if (importCancelRef.current) { setImportJob((j) => ({ ...j, importing: false, cancelled: true })); return }
+        const slice = cards.slice(offset, offset + CHUNK)
+        const r = await fetch(cloudApi('/import/chunk'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}),
+          },
+          body: JSON.stringify({ cards: slice, offset, total: cards.length }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
+        imported += Number(d.imported) || 0
+        duplicate += Number(d.duplicate) || 0
+        setImportJob({ importing: true, done: Math.min(offset + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
+      }
+      setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: '' })
+      try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
+    } catch (e) {
+      setImportJob((j) => ({ ...(j || {}), importing: false, err: String((e && e.message) || e) }))
+    }
+  }
+  const cancelImport = () => { importCancelRef.current = true }
 
   /** 已连接时的身份展示（probe 结果优先，回落 localStorage）。 */
   const cloudIdentity = (cloudTest && cloudTest.authenticated)
@@ -9220,6 +9291,28 @@ function ConfigPanel({ t, onReload, version, compact }) {
                                 <span>{Number(cloudPlan.caps.cards).toLocaleString()}</span>
                               </div>
                             ) : null}
+                          </div>
+                          {/* 导入本地库：复制而非迁移；幂等（服务端按 contentHash 去重），可中断可重跑 */}
+                          <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '10px 14px' }}>
+                            <div style={{ fontSize: 11.5, opacity: 0.7, marginBottom: 8 }}>{t('importLocalHint')}</div>
+                            {importJob && importJob.importing ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 12 }}>{t('importRunning').replace('{done}', String(importJob.done)).replace('{total}', String(importJob.total))}</span>
+                                <Btn variant="ghost" size="sm" onClick={cancelImport}>{t('importCancel')}</Btn>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <Btn variant="secondary" size="sm" onClick={importLocalToCloud}>{t('importLocal')}</Btn>
+                                {importJob && importJob.total > 0 ? (
+                                  <span style={{ fontSize: 11.5, opacity: 0.7 }}>
+                                    {t('importDone').replace('{n}', String(importJob.imported || 0))}
+                                    {importJob.duplicate ? ' · ' + importJob.duplicate + ' skipped' : ''}
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 10.5, opacity: 0.5, marginTop: 6, lineHeight: 1.6 }}>{t('importCopyNote')}</div>
+                            {importJob && importJob.err ? <Status tone="bad" text={importJob.err} /> : null}
                           </div>
                           <button type="button" onClick={() => { setAcctOpen(false); setCloudForm((f) => ({ ...f, mode: 'cloud' })); startDeviceLogin() }} style={{ padding: '11px 14px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5 }}>
                             {t('cloudSwitchAccount')}
