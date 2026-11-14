@@ -38,7 +38,13 @@ await build({
   external: externals,
   jsx: 'automatic',
   loader: { '.png': 'dataurl', '.jpg': 'dataurl' },
-  minify: true,
+  // 不压缩：压缩 + ModuleLoader 工厂包装下出现过 TDZ 报错
+  //（"can't access lexical declaration before initialization"），
+  // 只在 DSH 环境复现、浏览器加载同一份源码正常。
+  // 这份是本地文件，体积不敏感；不压缩还能让线上堆栈可读。
+  minify: false,
+  // 保留函数名：即使以后想改回压缩，也能减少内联导致的变量作用域混淆
+  keepNames: true,
   define: clientDefine,
   logLevel: 'info',
 })
