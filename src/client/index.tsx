@@ -10201,6 +10201,184 @@ function ConfigPanel({ t, onReload, version, compact }) {
 
               {(cloudTab === 'local' || cloudTab === 'cloud') ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+                  {isConnected ? (
+                    <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, background: 'var(--me-c-surface)', overflow: 'hidden' }}>
+                      <button
+                        type="button"
+                        onClick={() => setAcctOpen((v) => !v)}
+                        aria-expanded={acctOpen}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '13px 15px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit' }}
+                      >
+                        <AccountBadge
+                          owner={cloudIdentity.owner || ''}
+                          profile={cloudIdentity.profile || null}
+                          sub={cloudPlan ? planLabelOf(cloudPlan.plan, true) : t('cloudConnected')}
+                          tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
+                          size={38}
+                        />
+                        <span style={{ flex: 1 }} />
+                        <span style={{ fontSize: 11, opacity: 0.45, transform: acctOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+                      </button>
+                      {acctOpen ? (
+                        <div style={{ borderTop: '1px solid var(--me-c-border)' }}>
+                          {/* 权益：到期 / 配额，一眼看完；缺数据就不显示那一行，不留空壳 */}
+                          <div style={{ padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanLabel')}</span><span style={{ fontWeight: 600 }}>{cloudPlan ? planLabelOf(cloudPlan.plan, true) : '—'}{cloudPlan && PLAN_PRICE[String(cloudPlan.plan || '').toLowerCase()] ? ' · ¥' + PLAN_PRICE[String(cloudPlan.plan).toLowerCase()] + '/月' : ''}</span></div>
+                            {cloudPlan && formatExpiry(cloudPlan.expiresAt) ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanExpires')}</span><span style={{ textAlign: 'right' }}>{formatExpiry(cloudPlan.expiresAt)}{daysLeft(cloudPlan.expiresAt) !== null ? ' · ' + (daysLeft(cloudPlan.expiresAt) > 0 ? t('daysLeft').replace('{n}', String(daysLeft(cloudPlan.expiresAt))) : t('expired')) : ''}</span></div>
+                            ) : null}
+                            {cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanCards')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.cards).toLocaleString()}</span></div>
+                            ) : null}
+                            {cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanRpm')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.rpm).toLocaleString()} / {t('perMinute')}</span></div>
+                            ) : null}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudInfoInstance')}</span><span style={{ textAlign: 'right' }}>{String(cloudForm.url || '').replace(/^https?:\/\//, '')}</span></div>
+                {cloudPlan && !cloudPlan.caps ? (
+                  <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.65 }}>{t('noCapsHint')}</div>
+                ) : null}
+                          </div>
+                          {/* 升级 / 续费：账号详情页 MengBot 没公开，但订阅页确定可用 */}
+                          {/* 如实说明：这几档是 MengBot 的机器人订阅，知识库只用到存储与 API */}
+                {cloudPlan && Array.isArray(cloudPlan.plans) && cloudPlan.plans.some((x) => PLAN_IS_ROBOT_TIER[String(x).toLowerCase()]) ? (
+                  <div style={{ padding: '0 15px 10px', fontSize: 10.5, opacity: 0.5, lineHeight: 1.65 }}>{t('robotTierNote')}</div>
+                ) : null}
+                {/* 可选档位对比：只列个人档，商户档在下面单独一块 */}
+                {cloudPlan && Array.isArray(cloudPlan.plans) && cloudPlan.plans.length ? (
+                  <div style={{ padding: '0 15px 10px' }}>
+                    <div style={{ fontSize: 10.5, opacity: 0.5, marginBottom: 6 }}>{t('planTiersTitle')}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {cloudPlan.plans.map((pid) => {
+                        const cur = String(cloudPlan.plan || '').toLowerCase() === String(pid).toLowerCase()
+                        const price = PLAN_PRICE[String(pid).toLowerCase()]
+                        return (
+                          <div key={pid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, opacity: cur ? 1 : 0.75 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: cur ? 'var(--me-c-success)' : 'var(--me-c-border-strong)' }} />
+                            <span style={{ flex: 1 }}>{planLabelOf(pid, true)}{cur ? ' ' + t('planTiersCurrent') : ''}</span>
+                            <span style={{ opacity: 0.7 }}>{price ? '¥' + price + '/月' : '—'}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ fontSize: 10, opacity: 0.4, marginTop: 5, lineHeight: 1.6 }}>{t('planTiersPriceNote')}</div>
+                  </div>
+                ) : null}
+                <button type="button" onClick={() => { try { window.open(subscribeUrl(), '_blank', 'noopener') } catch { /* 忽略 */ } }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
+                            <span>{t('managePlan')}</span><span style={{ opacity: 0.5 }}>↗</span>
+                          </button>
+                          {/* 导入本地库 */}
+                          <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '11px 15px' }}>
+                            <div style={{ fontSize: 11.5, opacity: 0.6, marginBottom: 7 }}>{t('importLocalHint')}</div>
+                            {importJob && importJob.importing ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 12 }}>{t('importRunning').replace('{done}', String(importJob.done)).replace('{total}', String(importJob.total))}</span>
+                                <Btn variant="ghost" size="sm" onClick={cancelImport}>{t('importCancel')}</Btn>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <Btn variant="secondary" size="sm" onClick={importLocalToCloud}>{t('importLocal')}</Btn>
+                                {importJob && importJob.total > 0 ? (
+                                  <span style={{ fontSize: 11.5, opacity: 0.6 }}>{t('importDone').replace('{n}', String(importJob.imported || 0))}{importJob.duplicate ? ' · ' + importJob.duplicate + ' skipped' : ''}</span>
+                                ) : null}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 10.5, opacity: 0.45, marginTop: 6, lineHeight: 1.6 }}>{t('importCopyNote')}</div>
+                            {importJob && importJob.err ? <Status tone="bad" text={importJob.err} /> : null}
+                          </div>
+                          {/* 其他账号：台账里除当前账号外的，点一下直接切（不用重新扫码） */}
+                          {(() => {
+                            const others = readAccounts().filter((a) => a.owner && a.owner !== (cloudIdentity.owner || ''))
+                            if (!others.length) return null
+                            return (
+                              <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '10px 15px' }}>
+                                <div style={{ fontSize: 10.5, opacity: 0.5, letterSpacing: 0.3, marginBottom: 6 }}>{t('otherAccounts')}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  {others.map((a) => (
+                                    <button
+                                      key={a.owner}
+                                      type="button"
+                                      onClick={() => useAccount(a)}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5, textAlign: 'left' }}
+                                    >
+                                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--me-c-accent-soft, rgba(37,99,235,.12))', color: 'var(--me-c-accent, #2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flex: 'none' }}>
+                                        {String(a.owner || '?').slice(0, 1).toUpperCase()}
+                                      </span>
+                                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.owner}</span>
+                                      {a.plan ? <span style={{ fontSize: 10.5, opacity: 0.5 }}>{planLabelOf(a.plan, true)}</span> : null}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })()}
+                          <button type="button" onClick={() => { setAcctOpen(false); switchAccount() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5 }}>
+                            {t('cloudSwitchAccount')}
+                          </button>
+                          <button type="button" onClick={() => { setAcctOpen(false); disconnectCloud() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-danger, #dc2626)', font: 'inherit', fontSize: 12.5 }}>
+                            {t('cloudSignOut')}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <>
+                    {/* 极简：二维码优先；地址与密钥收进「手动配置」，普通用户看不到 */}
+                    {deviceAuth ? (
+                      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '16px 18px', background: 'var(--me-c-surface)' }}>
+                        <QrCode text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} size={124} label={t('deviceQrLabel')} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>{t('qrLogin')}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--me-c-text-dim)' }}>{t('qrScanHint')}</div>
+                          {/* 码本身可点复制 —— 少一个按钮就少一份视觉噪音 */}
+                          <button
+                            type="button"
+                            onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode); notify(t('deviceCopied'), true) } catch { /* 忽略 */ } }}
+                            title={t('deviceCopy')}
+                            style={{ alignSelf: 'flex-start', fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 21, fontWeight: 700, letterSpacing: 2.5, padding: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+                          >
+                            {deviceAuth.userCode}
+                          </button>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('qrOpen')}</Btn>
+    </div>
+                          <div style={{ fontSize: 11, opacity: 0.45 }}>⏳ {t('qrWaiting')}</div>
+            <div style={{ fontSize: 10.5, lineHeight: 1.6, opacity: 0.5, display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+              <span style={{ flex: 'none' }}>⚠</span>
+              <span>{t('qrSecurityHint')}</span>
+            </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '22px 20px', textAlign: 'center', background: 'var(--me-c-surface)' }}>
+                        <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 12 }}>{deviceBusy ? t('deviceStarting') : t('deviceIdleHint')}</div>
+                        <Btn variant="primary" size="sm" disabled={deviceBusy} onClick={startDeviceLogin}>{t('cloudLoginButton')}</Btn>
+                      </div>
+                    )}
+                    {deviceErr ? <Status tone="bad" text={deviceErr} /> : null}
+                    <div>
+                      <button type="button" onClick={() => setShowKeyField((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}>
+                        {showKeyField ? t('cloudHideKey') : t('cloudManualConfig')}
+                      </button>
+                    </div>
+                    {showKeyField ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <label className="mc-field">
+                          <span className="mc-field-label">{t('cloudUrlLabel')}</span>
+                          <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
+                        </label>
+                        <label className="mc-field">
+                          <span className="mc-field-label">{t('cloudTokenLabel')}</span>
+                          <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_…" />
+                          <span className="mc-field-hint">{t('cloudTokenHint')}</span>
+                        </label>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <Btn variant="primary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
+                          <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳' : t('cloudTestBtn')}</Btn>
+                        </div>
+                      </div>
+                    ) : null}
+                    </>
+                  )}
                   <div style={{ fontSize: 12.5, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>
                     {isCloudInstance
                       ? t('cloudInstanceDesc')
@@ -10399,184 +10577,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   {/* 账号区放最前：登录是推荐路径，手动填密钥是备用 */}
                   {/* 已连接：**整块可点**（不用去瞄右上角那个小按钮），点开是上拉菜单 */}
                     {/* 账号卡：整块可点展开；信息分组（身份 / 权益 / 操作），操作区带分隔线 */}
-                  {isConnected ? (
-                    <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, background: 'var(--me-c-surface)', overflow: 'hidden' }}>
-                      <button
-                        type="button"
-                        onClick={() => setAcctOpen((v) => !v)}
-                        aria-expanded={acctOpen}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '13px 15px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit' }}
-                      >
-                        <AccountBadge
-                          owner={cloudIdentity.owner || ''}
-                          profile={cloudIdentity.profile || null}
-                          sub={cloudPlan ? planLabelOf(cloudPlan.plan, true) : t('cloudConnected')}
-                          tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
-                          size={38}
-                        />
-                        <span style={{ flex: 1 }} />
-                        <span style={{ fontSize: 11, opacity: 0.45, transform: acctOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
-                      </button>
-                      {acctOpen ? (
-                        <div style={{ borderTop: '1px solid var(--me-c-border)' }}>
-                          {/* 权益：到期 / 配额，一眼看完；缺数据就不显示那一行，不留空壳 */}
-                          <div style={{ padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanLabel')}</span><span style={{ fontWeight: 600 }}>{cloudPlan ? planLabelOf(cloudPlan.plan, true) : '—'}{cloudPlan && PLAN_PRICE[String(cloudPlan.plan || '').toLowerCase()] ? ' · ¥' + PLAN_PRICE[String(cloudPlan.plan).toLowerCase()] + '/月' : ''}</span></div>
-                            {cloudPlan && formatExpiry(cloudPlan.expiresAt) ? (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanExpires')}</span><span style={{ textAlign: 'right' }}>{formatExpiry(cloudPlan.expiresAt)}{daysLeft(cloudPlan.expiresAt) !== null ? ' · ' + (daysLeft(cloudPlan.expiresAt) > 0 ? t('daysLeft').replace('{n}', String(daysLeft(cloudPlan.expiresAt))) : t('expired')) : ''}</span></div>
-                            ) : null}
-                            {cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanCards')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.cards).toLocaleString()}</span></div>
-                            ) : null}
-                            {cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanRpm')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.rpm).toLocaleString()} / {t('perMinute')}</span></div>
-                            ) : null}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudInfoInstance')}</span><span style={{ textAlign: 'right' }}>{String(cloudForm.url || '').replace(/^https?:\/\//, '')}</span></div>
-                {cloudPlan && !cloudPlan.caps ? (
-                  <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.65 }}>{t('noCapsHint')}</div>
-                ) : null}
-                          </div>
-                          {/* 升级 / 续费：账号详情页 MengBot 没公开，但订阅页确定可用 */}
-                          {/* 如实说明：这几档是 MengBot 的机器人订阅，知识库只用到存储与 API */}
-                {cloudPlan && Array.isArray(cloudPlan.plans) && cloudPlan.plans.some((x) => PLAN_IS_ROBOT_TIER[String(x).toLowerCase()]) ? (
-                  <div style={{ padding: '0 15px 10px', fontSize: 10.5, opacity: 0.5, lineHeight: 1.65 }}>{t('robotTierNote')}</div>
-                ) : null}
-                {/* 可选档位对比：只列个人档，商户档在下面单独一块 */}
-                {cloudPlan && Array.isArray(cloudPlan.plans) && cloudPlan.plans.length ? (
-                  <div style={{ padding: '0 15px 10px' }}>
-                    <div style={{ fontSize: 10.5, opacity: 0.5, marginBottom: 6 }}>{t('planTiersTitle')}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {cloudPlan.plans.map((pid) => {
-                        const cur = String(cloudPlan.plan || '').toLowerCase() === String(pid).toLowerCase()
-                        const price = PLAN_PRICE[String(pid).toLowerCase()]
-                        return (
-                          <div key={pid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, opacity: cur ? 1 : 0.75 }}>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: cur ? 'var(--me-c-success)' : 'var(--me-c-border-strong)' }} />
-                            <span style={{ flex: 1 }}>{planLabelOf(pid, true)}{cur ? ' ' + t('planTiersCurrent') : ''}</span>
-                            <span style={{ opacity: 0.7 }}>{price ? '¥' + price + '/月' : '—'}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div style={{ fontSize: 10, opacity: 0.4, marginTop: 5, lineHeight: 1.6 }}>{t('planTiersPriceNote')}</div>
-                  </div>
-                ) : null}
-                <button type="button" onClick={() => { try { window.open(subscribeUrl(), '_blank', 'noopener') } catch { /* 忽略 */ } }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
-                            <span>{t('managePlan')}</span><span style={{ opacity: 0.5 }}>↗</span>
-                          </button>
-                          {/* 导入本地库 */}
-                          <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '11px 15px' }}>
-                            <div style={{ fontSize: 11.5, opacity: 0.6, marginBottom: 7 }}>{t('importLocalHint')}</div>
-                            {importJob && importJob.importing ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: 12 }}>{t('importRunning').replace('{done}', String(importJob.done)).replace('{total}', String(importJob.total))}</span>
-                                <Btn variant="ghost" size="sm" onClick={cancelImport}>{t('importCancel')}</Btn>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <Btn variant="secondary" size="sm" onClick={importLocalToCloud}>{t('importLocal')}</Btn>
-                                {importJob && importJob.total > 0 ? (
-                                  <span style={{ fontSize: 11.5, opacity: 0.6 }}>{t('importDone').replace('{n}', String(importJob.imported || 0))}{importJob.duplicate ? ' · ' + importJob.duplicate + ' skipped' : ''}</span>
-                                ) : null}
-                              </div>
-                            )}
-                            <div style={{ fontSize: 10.5, opacity: 0.45, marginTop: 6, lineHeight: 1.6 }}>{t('importCopyNote')}</div>
-                            {importJob && importJob.err ? <Status tone="bad" text={importJob.err} /> : null}
-                          </div>
-                          {/* 其他账号：台账里除当前账号外的，点一下直接切（不用重新扫码） */}
-                          {(() => {
-                            const others = readAccounts().filter((a) => a.owner && a.owner !== (cloudIdentity.owner || ''))
-                            if (!others.length) return null
-                            return (
-                              <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '10px 15px' }}>
-                                <div style={{ fontSize: 10.5, opacity: 0.5, letterSpacing: 0.3, marginBottom: 6 }}>{t('otherAccounts')}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                  {others.map((a) => (
-                                    <button
-                                      key={a.owner}
-                                      type="button"
-                                      onClick={() => useAccount(a)}
-                                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5, textAlign: 'left' }}
-                                    >
-                                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--me-c-accent-soft, rgba(37,99,235,.12))', color: 'var(--me-c-accent, #2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flex: 'none' }}>
-                                        {String(a.owner || '?').slice(0, 1).toUpperCase()}
-                                      </span>
-                                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.owner}</span>
-                                      {a.plan ? <span style={{ fontSize: 10.5, opacity: 0.5 }}>{planLabelOf(a.plan, true)}</span> : null}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )
-                          })()}
-                          <button type="button" onClick={() => { setAcctOpen(false); switchAccount() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5 }}>
-                            {t('cloudSwitchAccount')}
-                          </button>
-                          <button type="button" onClick={() => { setAcctOpen(false); disconnectCloud() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-danger, #dc2626)', font: 'inherit', fontSize: 12.5 }}>
-                            {t('cloudSignOut')}
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <>
-                    {/* 极简：二维码优先；地址与密钥收进「手动配置」，普通用户看不到 */}
-                    {deviceAuth ? (
-                      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '16px 18px', background: 'var(--me-c-surface)' }}>
-                        <QrCode text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} size={124} label={t('deviceQrLabel')} />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 14, fontWeight: 600 }}>{t('qrLogin')}</div>
-                          <div style={{ fontSize: 11.5, color: 'var(--me-c-text-dim)' }}>{t('qrScanHint')}</div>
-                          {/* 码本身可点复制 —— 少一个按钮就少一份视觉噪音 */}
-                          <button
-                            type="button"
-                            onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode); notify(t('deviceCopied'), true) } catch { /* 忽略 */ } }}
-                            title={t('deviceCopy')}
-                            style={{ alignSelf: 'flex-start', fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 21, fontWeight: 700, letterSpacing: 2.5, padding: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
-                          >
-                            {deviceAuth.userCode}
-                          </button>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-      <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('qrOpen')}</Btn>
-    </div>
-                          <div style={{ fontSize: 11, opacity: 0.45 }}>⏳ {t('qrWaiting')}</div>
-            <div style={{ fontSize: 10.5, lineHeight: 1.6, opacity: 0.5, display: 'flex', gap: 5, alignItems: 'flex-start' }}>
-              <span style={{ flex: 'none' }}>⚠</span>
-              <span>{t('qrSecurityHint')}</span>
-            </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '22px 20px', textAlign: 'center', background: 'var(--me-c-surface)' }}>
-                        <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 12 }}>{deviceBusy ? t('deviceStarting') : t('deviceIdleHint')}</div>
-                        <Btn variant="primary" size="sm" disabled={deviceBusy} onClick={startDeviceLogin}>{t('cloudLoginButton')}</Btn>
-                      </div>
-                    )}
-                    {deviceErr ? <Status tone="bad" text={deviceErr} /> : null}
-                    <div>
-                      <button type="button" onClick={() => setShowKeyField((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}>
-                        {showKeyField ? t('cloudHideKey') : t('cloudManualConfig')}
-                      </button>
-                    </div>
-                    {showKeyField ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <label className="mc-field">
-                          <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                          <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
-                        </label>
-                        <label className="mc-field">
-                          <span className="mc-field-label">{t('cloudTokenLabel')}</span>
-                          <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_…" />
-                          <span className="mc-field-hint">{t('cloudTokenHint')}</span>
-                        </label>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <Btn variant="primary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
-                          <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳' : t('cloudTestBtn')}</Btn>
-                        </div>
-                      </div>
-                    ) : null}
-                    </>
-                  )}
                     {/* 设备码登录面板：桌面端/无浏览器环境走这条。
                         授权码流程在自定义协议页面上必然失败，这里改为「显示短码 + 轮询」。 */}
                     {deviceErr ? (
