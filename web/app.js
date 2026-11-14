@@ -32081,7 +32081,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T09:47:17.225Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T10:07:51.254Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34120,6 +34120,7 @@ ${t("quoteHint")}`,
   __name(EmbeddingPanel, "EmbeddingPanel");
   function ConfigPanel({ t, onReload, version, compact }) {
     const [page, setPage] = (0, import_react2.useState)("general");
+    const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
     const [junk, setJunk] = (0, import_react2.useState)(null);
     const [junkBusy, setJunkBusy] = (0, import_react2.useState)(false);
     const [junkErr, setJunkErr] = (0, import_react2.useState)("");
@@ -34363,7 +34364,6 @@ ${t("quoteHint")}`,
         setJunkBusy(false);
       }
     }, "runJunkAction");
-    const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
     const [cloudTab, setCloudTab] = (0, import_react2.useState)(() => readCloudConn().mode === "cloud" ? "cloud" : "local");
     const [merchants, setMerchants] = (0, import_react2.useState)([]);
     const [mchForm, setMchForm] = (0, import_react2.useState)(() => ({ name: "", domain: "", endpoint: String(readCloudConn().merchantEndpoint || "https://mem.mengbot.com.cn") }));

@@ -7420,6 +7420,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [page, setPage] = useState('general')
   // ── 垃圾清理（「记忆」页）──────────────────────────────────────────────
   // 全部是本组件自己的 state：借用主面板的会白屏（cloudConn is not defined 那类事故）。
+  // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudConn is not defined）。
+  // 落盘与探测走模块级 persistCloud / probeCloud / markCloudFailed / activateCloud。
+  const [cloudForm, setCloudForm] = useState(() => readCloudConn())
   const [junk, setJunk] = useState(null)          // scanJunk 的结果
   const [junkBusy, setJunkBusy] = useState(false)
   const [junkErr, setJunkErr] = useState('')
@@ -7625,9 +7628,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
       setJunkErr(String((e && e.message) || e))
     } finally { setJunkBusy(false) }
   }
-  // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudConn is not defined）。
-  // 落盘与探测走模块级 persistCloud / probeCloud / markCloudFailed / activateCloud。
-  const [cloudForm, setCloudForm] = useState(() => readCloudConn())
   // 「连接云端」分两个场景（两条独立的路，不共用凭据）：
   //   client   → 个人/客户端订阅 personal·pro·max，凭据 me_ / mb_
   //   merchant → 商户把自有云端实例接入 MengBot 托管，凭据 mch_ / msk_
@@ -13811,3 +13811,4 @@ function fmtDate(iso) {
   const hm = localClock(d)
   return sameDay ? hm : `${d.getMonth() + 1}-${d.getDate()} ${hm}`
 }
+
