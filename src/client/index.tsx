@@ -1066,15 +1066,11 @@ export const ZH = {
   cloudVaultLabel: '云端库位置（服务端路径）',
   vaultOriginLocal: '本地',
   vaultDefaultName: '默认库',
-  importEntryHint: '要把登录前的本机数据导进来？两条路：① 在 DeepSeek Harness 面板里切到「云端」，点「上传本机库到云端」（推荐，直接读库不用导出）；② 在面板「备份与迁移」导出 JSON，再在这里选文件上传。',
-  importPickFile: '选择 JSON 备份文件',
-  importBadFile: '不是有效的 memory-eternal 备份文件（应为卡片数组或含 cards 的对象）',
-  importDupSuffix: '条重复已跳过',
   cloudInstanceDesc: '这是你的云端实例：记忆库在服务器上，通过 HTTPS 访问；本机离线时用本地库。',
   cloudVaultListLabel: '云端实例上的库',
   cloudVaultQuota: '已用 {u} / {l}',
-  vaultUploadCloud: '上传本机库到云端',
-  vaultUploadCloudHint: '把选中的本机库整份推到云端当前库（复制，本地保留）',
+  vaultUploadCloud: '上传当前库到云端',
+  vaultUploadCloudHint: '把当前本机库整份推到云端（复制，本地保留）；云端已有同内容会自动跳过',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
   vaultCopyFrom: '从选中库复制',
@@ -2344,15 +2340,11 @@ export const EN = {
   cloudVaultLabel: 'Cloud vault path (on server)',
   vaultOriginLocal: 'local',
   vaultDefaultName: 'default',
-  importEntryHint: 'Bringing in data from before you logged in? Two ways: (1) in the DeepSeek Harness panel switch to Cloud and click "Upload local to cloud" (recommended, reads the vault directly); (2) export JSON from Backup & migrate, then pick the file here.',
-  importPickFile: 'Choose JSON backup',
-  importBadFile: 'Not a valid memory-eternal backup (expected a card array or an object with cards)',
-  importDupSuffix: 'duplicates skipped',
   cloudInstanceDesc: 'This is your cloud instance: the vault lives on the server over HTTPS. Use a local vault when offline.',
   cloudVaultListLabel: 'Vaults on the cloud instance',
   cloudVaultQuota: '{u} / {l} used',
-  vaultUploadCloud: 'Upload local to cloud',
-  vaultUploadCloudHint: 'Push the selected local vault into the current cloud vault (copy, local kept)',
+  vaultUploadCloud: 'Upload current to cloud',
+  vaultUploadCloudHint: 'Push the current local vault to cloud (copy, local kept); identical cards are skipped',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
   vaultCopyFrom: 'Copy from selected',
@@ -8924,51 +8916,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
     }
   }
 
-  /**
-   * 把**备份文件**（memory-eternal 导出的 JSON）上传到云端当前库。
-   *
-   * 为什么需要这条路：用户"没登录前"的数据在本地库里，而云端网页看不到本地磁盘 ——
-   * 在云端 UI 里他没有任何入口。两条路：
-   *   A. 在 DSH 面板里点「上传本机库到云端」（直接读库，不用导出）—— 推荐
-   *   B. 从面板「备份与迁移」导出 JSON，再来这里选文件上传 —— 本函数
-   *
-   * 走 /import/chunk 分片（200 张一片），幂等由 contentHash 保证。
-   */
-  const uploadBackupToCloud = async (file) => {
-    if (!file) return
-    setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
-    try {
-      const text = await file.text()
-      let payload
-      try { payload = JSON.parse(text) } catch { throw new Error(t('importBadFile')) }
-      // 兼容两种形状：纯数组 / { cards: [...] }
-      const cards = Array.isArray(payload) ? payload : (Array.isArray(payload && payload.cards) ? payload.cards : null)
-      if (!cards) throw new Error(t('importBadFile'))
-      if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
-
-      setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
-      const CHUNK = 200
-      let imported = 0, duplicate = 0
-      for (let off = 0; off < cards.length; off += CHUNK) {
-        const slice = cards.slice(off, off + CHUNK)
-        const r = await fetch(cloudApi('/import/chunk'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) },
-          body: JSON.stringify({ cards: slice, offset: off, total: cards.length }),
-        })
-        const d = await r.json().catch(() => ({}))
-        if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
-        imported += Number(d.imported) || 0
-        duplicate += Number(d.duplicate) || 0
-        setImportJob({ importing: true, done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
-      }
-      setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: '' })
-      try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
-      try { loadVaults() } catch { /* 忽略 */ }
-    } catch (e) {
-      setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: String((e && e.message) || e) })
-    }
-  }
 
   /** 云端建库（只有云端租户实例可用；受 caps.vaults 限制）。 */
   const createCloudVault = async () => {
@@ -10248,30 +10195,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         </div>
                       </div>
                       <div style={{ padding: '10px 12px', display: ((vaultList && vaultList.length > 1) || (cloudVaultList && cloudVaultList.length > 0)) ? 'flex' : 'none', flexDirection: 'column', gap: 9 }}>{/* 单库场景下没得选，整块隐藏 */}
-                        {/* 导入入口：在云端网页里用户看不到本地磁盘，必须给一条能走通的路 */}
-                    {cloudForm.mode === 'cloud' || isCloudInstance ? (
-                      <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 7, fontSize: 11.5 }}>
-                        <div style={{ opacity: 0.6, lineHeight: 1.75 }}>{t('importEntryHint')}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--me-c-border)', cursor: 'pointer', fontSize: 11.5 }}>
-                            <input
-                              type="file"
-                              accept=".json,application/json"
-                              style={{ display: 'none' }}
-                              onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) uploadBackupToCloud(f); e.target.value = '' }}
-                            />
-                            {t('importPickFile')}
-                          </label>
-                          {importJob && importJob.importing ? (
-                            <span style={{ opacity: 0.7 }}>{t('importRunning').replace('{done}', String(importJob.done)).replace('{total}', String(importJob.total))}</span>
-                          ) : null}
-                        </div>
-                        {importJob && importJob.err ? <Status tone="bad" text={importJob.err} /> : null}
-                        {importJob && !importJob.importing && importJob.total > 0 ? (
-                          <div style={{ opacity: 0.7 }}>{t('importDone').replace('{n}', String(importJob.imported || 0))}{importJob.duplicate ? ' · ' + importJob.duplicate + ' ' + t('importDupSuffix') : ''}</div>
-                        ) : null}
-                      </div>
-                    ) : null}
                     {/* 云端实例上的库：与本地库分开列，各标各的来源 */}
                         {cloudForm.mode === 'cloud' && cloudVaultList && cloudVaultList.length ? (
                           <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -10323,7 +10246,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         
                         
                           {/* 把选中的本机库推到云端（复制，本地保留） */}
-                          <Btn variant="ghost" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud(vaultSel)} title={t('vaultUploadCloudHint')}>{t('vaultUploadCloud')}</Btn>
+                          <Btn variant="ghost" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)} title={t('vaultUploadCloudHint')}>{t('vaultUploadCloud')}</Btn>
                           <Btn variant="ghost" size="sm" onClick={loadVaults}>{t('refresh')}</Btn>
                         </div>
                         {xfer && xfer.err ? <Status tone="bad" text={xfer.err} /> : null}
