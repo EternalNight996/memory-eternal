@@ -6267,6 +6267,16 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   //       ③ 都失败就把地址显示出来，让用户自己粘。
   const webBusyRef = useRef(false)
   const openWebVersion = useCallback(async () => {
+    // 云端模式：反代在**远端服务器**上，127.0.0.1 指的是用户自己的机器 —— 打开必然白屏。
+    // 所以云端模式直接打开配置的云端域名；本地模式才走 /open-web（系统浏览器开本机实例）。
+    if (cloudForm.mode === 'cloud' && String(cloudForm.url || '').trim()) {
+      const target = String(cloudForm.url || '').trim().replace(/\/+$/, '') + '/'
+      const ok = await openExternal(target)
+      if (libToastTimer.current) clearTimeout(libToastTimer.current)
+      setLibToast({ ok: !!ok, msg: ok ? t('webOpened') + ' · ' + target : t('webOpenFail') })
+      libToastTimer.current = setTimeout(() => setLibToast(null), 3000)
+      return
+    }
     if (webBusyRef.current) return
     webBusyRef.current = true
     const show = (msg, ok = true) => {

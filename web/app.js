@@ -34317,7 +34317,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T14:34:04.683Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T14:38:35.381Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34760,6 +34760,14 @@ ${COMPONENTS_CSS}
     }, []);
     const webBusyRef = (0, import_react2.useRef)(false);
     const openWebVersion = (0, import_react2.useCallback)(async () => {
+      if (cloudForm.mode === "cloud" && String(cloudForm.url || "").trim()) {
+        const target = String(cloudForm.url || "").trim().replace(/\/+$/, "") + "/";
+        const ok = await openExternal(target);
+        if (libToastTimer.current) clearTimeout(libToastTimer.current);
+        setLibToast({ ok: !!ok, msg: ok ? t("webOpened") + " \xB7 " + target : t("webOpenFail") });
+        libToastTimer.current = setTimeout(() => setLibToast(null), 3e3);
+        return;
+      }
       if (webBusyRef.current) return;
       webBusyRef.current = true;
       const show = /* @__PURE__ */ __name((msg, ok = true) => {
