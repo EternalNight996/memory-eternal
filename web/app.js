@@ -29540,6 +29540,13 @@
     logsYesterday: "\u6628\u5929",
     logsLast7: "\u8FD1 7 \u5929",
     logsCopyPath: "\u590D\u5236\u5361\u7247\u8DEF\u5F84",
+    logsOpenCard: "\u6253\u5F00\u8FD9\u5F20\u5361",
+    logsTrend7d: "\u6700\u8FD1 7 \u5929",
+    logsScopeLocal: "\u672C\u5730",
+    logsScopeCloud: "\u4E91\u7AEF",
+    logsTrendTotal: "\u5171 {n} \u6761",
+    logsTrendAgents: "\u667A\u80FD\u4F53",
+    logsTrendActions: "\u52A8\u4F5C",
     logsKeepUnit: "\u5929",
     logsKeepHint: "\u8D85\u671F\u7684\u65E5\u5FD7\u4F1A\u81EA\u52A8\u6E05\u7406\uFF08\u542F\u52A8\u65F6 + \u5199\u5165\u65F6\u5404\u68C0\u67E5\u4E00\u6B21\uFF09\uFF1B\u6539\u8FD9\u91CC\u4F1A\u7ACB\u523B\u6309\u65B0\u503C\u6E05\u4E00\u904D",
     logsKeepSaved: "\u4FDD\u7559 {n} \u5929 \xB7 \u5DF2\u6E05 {r} \u6761",
@@ -30794,6 +30801,13 @@
     logsYesterday: "Yesterday",
     logsLast7: "Last 7d",
     logsCopyPath: "Copy card path",
+    logsOpenCard: "Open this card",
+    logsTrend7d: "Last 7 days",
+    logsScopeLocal: "Local",
+    logsScopeCloud: "Cloud",
+    logsTrendTotal: "{n} entries",
+    logsTrendAgents: "Agents",
+    logsTrendActions: "Actions",
     logsKeepUnit: "d",
     logsKeepHint: "Expired logs are pruned automatically (on boot and while logging); changing this prunes immediately",
     logsKeepSaved: "Keeping {n} days \xB7 removed {r}",
@@ -34345,7 +34359,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T15:43:55.038Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T15:53:09.438Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34563,6 +34577,8 @@ ${COMPONENTS_CSS}
     const [logAction, setLogAction] = (0, import_react2.useState)("");
     const [logData, setLogData] = (0, import_react2.useState)(null);
     const [logBusy, setLogBusy] = (0, import_react2.useState)(false);
+    const [logStats, setLogStats] = (0, import_react2.useState)(null);
+    const [logScope, setLogScope] = (0, import_react2.useState)("local");
     const [logKeep, setLogKeep] = (0, import_react2.useState)(30);
     const [visited, setVisited] = (0, import_react2.useState)(() => /* @__PURE__ */ new Set([view]));
     const loadLogs = /* @__PURE__ */ __name(async () => {
@@ -34580,11 +34596,18 @@ ${COMPONENTS_CSS}
         }
         if (logQ.trim()) qs.set("q", logQ.trim());
         if (logAction) qs.set("action", logAction);
-        const r = await fetch(API + "/logs?" + qs.toString());
+        const base = logScope === "cloud" ? cloudApi("/logs") : API + "/logs";
+        const r = await fetch(base + "?" + qs.toString());
         const d = await r.json().catch(() => ({}));
         setLogData(d && d.ok ? d : { ok: false, total: 0, rows: [], byAction: [] });
         try {
-          const st = await fetch(API + "/logs/settings").then((x) => x.json()).catch(() => null);
+          const stBase = logScope === "cloud" ? cloudApi("/logs/stats") : API + "/logs/stats";
+          const stt = await fetch(stBase + "?days=7").then((x) => x.json()).catch(() => null);
+          if (stt && stt.ok) setLogStats(stt);
+        } catch {
+        }
+        try {
+          const st = logScope === "cloud" ? null : await fetch(API + "/logs/settings").then((x) => x.json()).catch(() => null);
           if (st && st.ok && Number(st.retentionDays) > 0) setLogKeep(Number(st.retentionDays));
         } catch {
         }
@@ -34596,7 +34619,7 @@ ${COMPONENTS_CSS}
     }, "loadLogs");
     (0, import_react2.useEffect)(() => {
       if (view === "logs") loadLogs();
-    }, [view, logDate, logAction, logRange]);
+    }, [view, logDate, logAction, logRange, logScope]);
     const exportLogs = /* @__PURE__ */ __name(() => {
       try {
         const a = document.createElement("a");
@@ -35501,7 +35524,46 @@ ${COMPONENTS_CSS}
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.85, marginTop: 2 }, children: t("dbReadonlyFix") })
               ] }) : null,
               view === "logs" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, padding: "4px 2px" }, children: [
+                logStats && logStats.days && logStats.days.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, padding: "10px 12px", background: "var(--me-c-surface)" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.55, marginBottom: 8 }, children: [
+                    t("logsTrend7d"),
+                    " \xB7 ",
+                    t("logsTrendTotal").replace("{n}", String(logStats.days.reduce((a, d) => a + d.total, 0)))
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", alignItems: "flex-end", gap: 6, height: 72 }, children: logStats.days.map((d) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }, title: d.day + "\uFF1A" + d.total + " \u6761", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: "100%", height: Math.max(3, Math.round(d.total / (logStats.maxTotal || 1) * 64)), borderRadius: 3, background: d.total ? d.day === logDate ? "var(--me-c-accent)" : "var(--me-c-accent-soft, rgba(59,130,246,.35))" : "var(--me-c-border)", transition: "height .25s ease" } }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 9, opacity: d.day === logDate ? 0.9 : 0.45, whiteSpace: "nowrap" }, children: d.day.slice(5) })
+                  ] }, d.day)) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 16, marginTop: 10, flexWrap: "wrap", fontSize: 10.5 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 140 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.5, marginBottom: 3 }, children: t("logsTrendAgents") }),
+                      logStats.agents.slice(0, 5).map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, opacity: 0.8 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: a.agent }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: a.n })
+                      ] }, a.agent)),
+                      !logStats.agents.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.4 }, children: "\u2014" }) : null
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 140 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.5, marginBottom: 3 }, children: t("logsTrendActions") }),
+                      logStats.actions.slice(0, 5).map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, opacity: 0.8 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("logAction_" + a.action) || a.action }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: a.n })
+                      ] }, a.action)),
+                      !logStats.actions.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.4 }, children: "\u2014" }) : null
+                    ] })
+                  ] })
+                ] }) : null,
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                  ["local", "cloud"].map((k) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: () => setLogScope(k),
+                      style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (logScope === k ? "var(--me-c-accent)" : "var(--me-c-border)"), background: logScope === k ? "var(--me-c-accent-soft, rgba(59,130,246,.12))" : "transparent", color: "inherit", cursor: "pointer", fontSize: 11.5 },
+                      children: k === "local" ? t("logsScopeLocal") : t("logsScopeCloud")
+                    },
+                    k
+                  )),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "date", value: logDate, onChange: (e) => setLogDate(e.target.value), style: { fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", color: "inherit" } }),
                   [
                     { k: "today", label: t("logsToday") },
@@ -35578,7 +35640,21 @@ ${COMPONENTS_CSS}
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: r.agent, children: r.agent || "-" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.7 }, children: t("logAction_" + r.action) || r.action }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }, title: r.title, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: r.title }),
+                      r.target ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        "button",
+                        {
+                          type: "button",
+                          onClick: () => {
+                            try {
+                              openCard({ path: r.target, title: String(r.title || "") });
+                            } catch {
+                            }
+                          },
+                          title: t("logsOpenCard"),
+                          style: { background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", borderBottom: "1px dashed var(--me-c-border-strong)" },
+                          children: r.title
+                        }
+                      ) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: r.title }),
                       r.target ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                         "button",
                         {
@@ -36605,7 +36681,7 @@ ${t("quoteHint")}`,
     const importCancelRef = (0, import_react2.useRef)(false);
     const [pollAuth, setPollAuth] = (0, import_react2.useState)(null);
     const [pollErr, setPollErr] = (0, import_react2.useState)("");
-    const cloudApi = /* @__PURE__ */ __name((path) => {
+    const cloudApi2 = /* @__PURE__ */ __name((path) => {
       const base = String(cloudForm && cloudForm.url || "").trim().replace(/\/+$/, "");
       if (!base) return "";
       return base + "/memory-eternal/api" + path;
@@ -36673,7 +36749,7 @@ ${t("quoteHint")}`,
     const [deviceBusy, setDeviceBusy] = (0, import_react2.useState)(false);
     const startPollLogin = /* @__PURE__ */ __name(async () => {
       setPollErr("");
-      const url = cloudApi("/cloud/auth/poll/start");
+      const url = cloudApi2("/cloud/auth/poll/start");
       if (!url) {
         setPollErr(t("cloudUrlRequired"));
         return;
@@ -36711,7 +36787,7 @@ ${t("quoteHint")}`,
           return;
         }
         try {
-          const r = await fetch(cloudApi("/cloud/auth/poll") + "?poll_id=" + encodeURIComponent(pollAuth.pollId));
+          const r = await fetch(cloudApi2("/cloud/auth/poll") + "?poll_id=" + encodeURIComponent(pollAuth.pollId));
           const d = await r.json().catch(() => ({}));
           if (!alive) return;
           if (d.ok && d.token) {
@@ -36760,7 +36836,7 @@ ${t("quoteHint")}`,
       setDeviceBusy(true);
       setDeviceErr("");
       try {
-        const r = await fetch(cloudApi("/cloud/auth/device/start"), {
+        const r = await fetch(cloudApi2("/cloud/auth/device/start"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: "{}"
@@ -36794,7 +36870,7 @@ ${t("quoteHint")}`,
           return;
         }
         try {
-          const r = await fetch(cloudApi("/cloud/auth/device/poll"), {
+          const r = await fetch(cloudApi2("/cloud/auth/device/poll"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ticket: deviceAuth.ticket })
@@ -36977,7 +37053,7 @@ ${t("quoteHint")}`,
     }, []);
     const loadMerchants = /* @__PURE__ */ __name(async () => {
       try {
-        const r = await fetch(cloudApi("/cloud/merchant/me"));
+        const r = await fetch(cloudApi2("/cloud/merchant/me"));
         const d = await r.json().catch(() => ({}));
         if (d && d.ok) setMerchants(Array.isArray(d.merchants) ? d.merchants : []);
       } catch {
@@ -36990,7 +37066,7 @@ ${t("quoteHint")}`,
       setMchBusy(true);
       setMchErr("");
       try {
-        const r = await fetch(cloudApi("/cloud/merchant/register"), {
+        const r = await fetch(cloudApi2("/cloud/merchant/register"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: mchForm.name, domain: mchForm.domain })
@@ -37013,7 +37089,7 @@ ${t("quoteHint")}`,
       setMchBusy(true);
       setMchErr("");
       try {
-        const r = await fetch(cloudApi("/cloud/merchant/rotate"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+        const r = await fetch(cloudApi2("/cloud/merchant/rotate"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.ok) {
           setMchErr(d.error || "HTTP " + r.status);
@@ -37031,7 +37107,7 @@ ${t("quoteHint")}`,
       setMchBusy(true);
       setMchErr("");
       try {
-        const r = await fetch(cloudApi("/cloud/merchant/revoke"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+        const r = await fetch(cloudApi2("/cloud/merchant/revoke"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.ok) setMchErr(d.error || "HTTP " + r.status);
         else setMerchants((list) => list.filter((m) => m.id !== id));
@@ -37238,7 +37314,7 @@ ${t("quoteHint")}`,
             return;
           }
           const slice = cards.slice(off, off + CHUNK);
-          const r = await fetch(cloudApi("/import/chunk"), {
+          const r = await fetch(cloudApi2("/import/chunk"), {
             method: "POST",
             headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} },
             body: JSON.stringify({ cards: slice, offset: off, total: cards.length })
@@ -37271,7 +37347,7 @@ ${t("quoteHint")}`,
       importCancelRef.current = false;
       setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: "" });
       try {
-        const exp = await fetch(cloudApi("/export"), {
+        const exp = await fetch(cloudApi2("/export"), {
           headers: cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {}
         });
         if (!exp.ok) throw new Error("\u8BFB\u53D6\u4E91\u7AEF\u5931\u8D25 HTTP " + exp.status);
@@ -37438,7 +37514,7 @@ ${t("quoteHint")}`,
       }
     }, "transferVault");
     const loadCloudPlan = /* @__PURE__ */ __name(async () => {
-      const url = cloudApi("/cloud/billing/plan");
+      const url = cloudApi2("/cloud/billing/plan");
       if (!url) return;
       const token = String(cloudForm.token || "").trim();
       if (!token) return;
@@ -37480,7 +37556,7 @@ ${t("quoteHint")}`,
             return;
           }
           const slice = cards.slice(offset, offset + CHUNK);
-          const r = await fetch(cloudApi("/import/chunk"), {
+          const r = await fetch(cloudApi2("/import/chunk"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
