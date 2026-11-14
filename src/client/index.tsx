@@ -1063,6 +1063,12 @@ export const ZH = {
   cloudSwitchAccount: '切换账号',
   merchantEndpointLabel: '目标接入点',
   merchantEndpointHint: '要接入的 MengBot 服务地址；换域名时改这里',
+  cloudVaultLabel: '云端库位置（服务端路径）',
+  vaultOriginLocal: '本地',
+  vaultOriginCloud: '云端',
+  vaultCopyTo: '复制到选中库',
+  vaultCopyFrom: '从选中库复制',
+  cloudModeDesc: '云端库保存在你的云端实例上（HTTPS 访问）。本机仍可离线使用，切回「本地私有」即可。',
   cloudLocalDesc: '记忆库保存在这台机器上，不联网、不上传。所有功能（写入、检索、导入导出、备份）都可用。',
   cloudTestBtn: '测试连接',
   cloudTabClient: '客户端订阅',
@@ -2324,6 +2330,12 @@ export const EN = {
   cloudSwitchAccount: 'Switch account',
   merchantEndpointLabel: 'Target endpoint',
   merchantEndpointHint: 'MengBot endpoint to connect; change it if the domain moves',
+  cloudModeDesc: 'Cloud vaults live on your cloud instance (HTTPS). The local vault still works offline — switch back to "Local" to use it.',
+  cloudVaultLabel: 'Cloud vault path (on server)',
+  vaultOriginLocal: 'local',
+  vaultOriginCloud: 'cloud',
+  vaultCopyTo: 'Copy into selected',
+  vaultCopyFrom: 'Copy from selected',
   cloudLocalDesc: 'The vault lives on this machine — no network, no upload. All features (write, search, import/export, backup) work.',
   cloudTestBtn: 'Test connection',
   cloudTabClient: 'Client subscription',
@@ -10092,11 +10104,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {(cloudTab === 'local' || cloudTab === 'cloud') ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                   <div style={{ fontSize: 12.5, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>
-                    {t('cloudLocalDesc')}
+                    {cloudForm.mode === 'cloud'
+                      ? t('cloudModeDesc')
+                      : t('cloudLocalDesc')}
                   </div>
                   {localVault ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)' }}>
-                      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{t('localVaultLabel')}</div>
+                      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{cloudForm.mode === 'cloud' ? t('cloudVaultLabel') : t('localVaultLabel')}</div>
                       <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11.5, wordBreak: 'break-all' }}>{localVault.full}</div>
                     </div>
                   ) : null}
@@ -10119,7 +10133,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
                               <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {v.name}{v.owner ? ' · ' + v.owner : ''}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}
                               </span>
-                              <span style={{ opacity: 0.5, flex: 'none' }}>{v.cards} · {v.sizeMB}MB</span>
+                              {/* 来源标签：本地库与云端库混在一列时，必须让人一眼看出它在哪 */}
+                          <span style={{ flex: 'none', fontSize: 9.5, padding: '1px 5px', borderRadius: 4, opacity: 0.7, border: '1px solid var(--me-c-border)' }}>{v.kind === 'cloud' ? t('vaultOriginCloud') : t('vaultOriginLocal')}</span>
+                          <span style={{ opacity: 0.5, flex: 'none' }}>{v.cards} · {v.sizeMB}MB</span>
                                 {/* 切到该库：写共享偏好，重启后生效（web 与 DSH 端共用这份偏好） */}
                                 {v.isCurrent ? null : (
                                   <button
@@ -10157,10 +10173,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         </label>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <Btn variant="primary" size="sm" disabled={!vaultSel || (xfer && xfer.busy)} onClick={() => transferVault('up')}>
-                            {xfer && xfer.busy ? '⏳' : t('vaultUpload')}
+                            {xfer && xfer.busy ? '⏳' : t('vaultCopyTo')}
                           </Btn>
                           <Btn variant="secondary" size="sm" disabled={!vaultSel || (xfer && xfer.busy)} onClick={() => transferVault('down')}>
-                            {xfer && xfer.busy ? '⏳' : t('vaultDownload')}
+                            {xfer && xfer.busy ? '⏳' : t('vaultCopyFrom')}
                           </Btn>
                         {/* 云端专属：和云端之间搬数据（本地 ↔ 云端），复用 uploadVaultToCloud / downloadCloudToVault */}
                         {cloudForm.mode === 'cloud' ? (
