@@ -276,3 +276,75 @@ MEMORY_OIDC_REDIRECT_URI  = https://mem.mengbot.com.cn/memory-eternal/api/cloud/
 
 **影响**：在所有用户走「用 MengBot 账号登录」时都会失败。我们已有兜底（用固定访问密钥可继续使用），
 但登录体验完全依赖这条链路，请优先处理。
+
+---
+
+## 第 2 轮答复已落地（2026-11-14）
+
+按对方 `mengbot-round2-reply.md` 逐条处理：
+
+### A4 client_secret —— **已验证修复**
+
+对方轮换后写入我们的 `/etc/memory-eternal-cloud.env`（secret 长度 43 → 44，前缀 `mbo_`）并重启。
+
+我们的验证（假 code 直接打 token 端点）：
+
+```
+client_secret_basic → 400 invalid_grant   ← 认证通过（code 假）✓
+（修复前是 401 invalid_client）
+```
+
+顺带修正一个认知：**`mbo_` 是 MengBot 的 OIDC 客户端密钥**（对方 A1 答复原文），
+不是 OAuth access_token。用户从后台复制的就是 client_secret —— 这才是它出现在
+「访问密钥」框里的原因。文案已按此修正。
+
+### C1 refresh_token 一次性轮换 —— **已修（真实风险）**
+
+对方答复：「每次刷新签发新 token，旧 token 立即失效」。
+
+我们的旧实现有两个并发问题：
+1. 两个请求同时读到同一 refresh_token → 第二个必然失败
+2. 失败时 `forgetRefreshToken` 会**把第一个刚拿到的新 token 清掉** → 登录态彻底丢失
+
+修法：
+- `refreshAccessToken` **单飞**：同一 owner 的刷新合并成一个 Promise，并发调用共享结果
+- 失败时**不无条件清令牌**：先比对库里的 token 是否已被别的请求换掉，
+  变了就说明别人成功了，返回「并发刷新：令牌已被另一个请求轮换，请重试」而不清
+
+实测：5 个并发刷新只打 1 次 token 端点，5 个都成功，令牌保持 `RT_NEW`。
+
+### C3 `mba_` 管理员令牌 —— **已拒绝**
+
+对方答复：`mba_` 是管理员令牌（scope=admin），不要发给第三方。
+
+我们收到 `mba_` 直接拒绝：
+
+```
+mba_ 是 MengBot 管理员令牌，不能用于第三方接入 —— 请到 MengBot「API」页创建 mbt_ 令牌（scope=client）
+```
+
+前端也本地拦截（不发请求），`persistCloud` 会自动丢弃。
+
+### B2 checkout 字段 —— **已收窄**
+
+对方答复：`url` 是唯一契约字段，`checkoutUrl` / `checkout_url` 不是。
+
+已从宽容解析收窄为只认 `url`（保留 `d.checkout.url` 作为嵌套形状兜底）。
+测试反向验证：只给 `checkoutUrl` 时必须报「契约字段 url 缺失」。
+
+### B1 caps 显式字段 —— 等对方下一版
+
+对方接受建议，会在 entitlement 里下发 `cards` / `rpm` / `vaults`。
+在此之前我们继续用 `seats × 1000` 兜底（已是现状）。
+
+### C2 webhook —— 无需改动
+
+- 事件名三个已对齐
+- 重试策略：1s/5s/30s 三次，4xx 不重试（**429 例外**）→ 我们的 webhook 路径不受配额影响，不会返回 429
+- 去重窗口 ≥5 分钟 → 我们按 `X-MengBot-Event-Id` **永久幂等**，更严格
+- 触发点：支付成功 / 退款 / 取消
+
+### 待对方回复的只剩两条
+
+1. B1 的 `cards`/`vaults` 具体数值（等定价表）
+2. B2 的 `plan` 取值二次确认（等 Cloud Admin 侧）
