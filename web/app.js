@@ -29534,6 +29534,11 @@
     devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
     vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
+    createVaultBtn: "\uFF0B \u65B0\u5EFA\u5E93",
+    createVaultPrompt: "\u65B0\u5E93\u540D\uFF08a-z 0-9 _ -\uFF0C1-32 \u4F4D\uFF0C\u4F8B\u5982 work\uFF09",
+    createVaultDone: "\u5DF2\u521B\u5EFA\u5E93\u300C{n}\u300D",
+    createVaultExists: "\u5E93\u300C{n}\u300D\u5DF2\u5B58\u5728",
+    createVaultFail: "\u5EFA\u5E93\u5931\u8D25",
     logsTab: "\u65E5\u5FD7",
     logsKeepLabel: "\u4FDD\u7559",
     logsToday: "\u4ECA\u5929",
@@ -30805,6 +30810,11 @@
     devicePanelTitle: "Finish signing in in your browser",
     localVaultLabel: "Vault location",
     vaultListLabel: "Vaults on this machine",
+    createVaultBtn: "+ New vault",
+    createVaultPrompt: "Vault name (a-z 0-9 _ -, 1-32 chars, e.g. work)",
+    createVaultDone: 'Created vault "{n}"',
+    createVaultExists: 'Vault "{n}" already exists',
+    createVaultFail: "Create failed",
     logsTab: "Logs",
     logsKeepLabel: "Keep",
     logsToday: "Today",
@@ -34371,7 +34381,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T16:17:56.352Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T17:10:08.529Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -37471,6 +37481,34 @@ ${t("quoteHint")}`,
         }
       }
     }, "activateVault");
+    const createCloudVault = /* @__PURE__ */ __name(async () => {
+      const name = String(window.prompt(t("createVaultPrompt")) || "").trim().toLowerCase();
+      if (!name) return;
+      try {
+        const r = await fetch(API + "/vaults/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.ok) {
+          try {
+            notify2(d && d.message || d && d.error || t("createVaultFail"), false);
+          } catch {
+          }
+          return;
+        }
+        try {
+          notify2(d.created ? t("createVaultDone").replace("{n}", d.name) : t("createVaultExists").replace("{n}", d.name), true);
+        } catch {
+        }
+        try {
+          loadVaults();
+        } catch {
+        }
+      } catch (e) {
+        try {
+          notify2(String(e && e.message || e), false);
+        } catch {
+        }
+      }
+    }, "createCloudVault");
     const loadVaults = /* @__PURE__ */ __name(async () => {
       try {
         const r = await fetch(API + "/vaults");
@@ -38698,10 +38736,14 @@ ${t("quoteHint")}`,
                   ] }) : null,
                   vaultList && vaultList.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)", overflow: "hidden", marginTop: 10 }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--me-c-border)" }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.55, marginBottom: 6 }, children: [
-                        t("vaultListLabel"),
-                        " \xB7 ",
-                        vaultList.length
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 10.5, opacity: 0.55, marginBottom: 6 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                          t("vaultListLabel"),
+                          " \xB7 ",
+                          vaultList.length
+                        ] }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
+                        cloudForm.mode === "cloud" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: createCloudVault, style: { background: "none", border: "none", color: "var(--me-c-accent, #2563eb)", cursor: "pointer", fontSize: 10.5, padding: 0 }, children: t("createVaultBtn") }) : null
                       ] }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 4 }, children: vaultList.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 5, height: 5, borderRadius: "50%", flex: "none", background: v.isCurrent ? "var(--me-c-success)" : "var(--me-c-border-strong)" } }),

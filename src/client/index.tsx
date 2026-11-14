@@ -927,6 +927,11 @@ export const ZH = {
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
   vaultListLabel: '本机记忆库',
+  createVaultBtn: '＋ 新建库',
+  createVaultPrompt: '新库名（a-z 0-9 _ -，1-32 位，例如 work）',
+  createVaultDone: '已创建库「{n}」',
+  createVaultExists: '库「{n}」已存在',
+  createVaultFail: '建库失败',
   logsTab: '日志',
   logsKeepLabel: '保留',
   logsToday: '今天',
@@ -2200,6 +2205,11 @@ export const EN = {
   devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
   vaultListLabel: 'Vaults on this machine',
+  createVaultBtn: '+ New vault',
+  createVaultPrompt: 'Vault name (a-z 0-9 _ -, 1-32 chars, e.g. work)',
+  createVaultDone: 'Created vault "{n}"',
+  createVaultExists: 'Vault "{n}" already exists',
+  createVaultFail: 'Create failed',
   logsTab: 'Logs',
   logsKeepLabel: 'Keep',
   logsToday: 'Today',
@@ -8879,6 +8889,24 @@ function ConfigPanel({ t, onReload, version, compact }) {
     }
   }
 
+  /** 云端建库（只有云端租户实例可用；受 caps.vaults 限制）。 */
+  const createCloudVault = async () => {
+    const name = String(window.prompt(t('createVaultPrompt')) || '').trim().toLowerCase()
+    if (!name) return
+    try {
+      const r = await fetch(API + '/vaults/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) {
+        try { notify((d && d.message) || (d && d.error) || t('createVaultFail'), false) } catch { /* 忽略 */ }
+        return
+      }
+      try { notify(d.created ? t('createVaultDone').replace('{n}', d.name) : t('createVaultExists').replace('{n}', d.name), true) } catch { /* 忽略 */ }
+      try { loadVaults() } catch { /* 忽略 */ }
+    } catch (e) {
+      try { notify(String((e && e.message) || e), false) } catch { /* 忽略 */ }
+    }
+  }
+
   /** 拉本机所有库（本地 + 备份 + 云端租户）。 */
   const loadVaults = async () => {
     try {
@@ -10076,7 +10104,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   {vaultList && vaultList.length ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, background: 'var(--me-c-surface)', overflow: 'hidden', marginTop: 10 }}>
                       <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--me-c-border)' }}>
-                        <div style={{ fontSize: 10.5, opacity: 0.55, marginBottom: 6 }}>{t('vaultListLabel')} · {vaultList.length}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, opacity: 0.55, marginBottom: 6 }}>
+                          <span>{t('vaultListLabel')} · {vaultList.length}</span>
+                          <span style={{ flex: 1 }} />
+                          {/* 云端实例才给建库入口；本地库是用户自己放的目录 */}
+                          {cloudForm.mode === 'cloud' ? (
+                            <button type="button" onClick={createCloudVault} style={{ background: 'none', border: 'none', color: 'var(--me-c-accent, #2563eb)', cursor: 'pointer', fontSize: 10.5, padding: 0 }}>{t('createVaultBtn')}</button>
+                          ) : null}
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {vaultList.map((v) => (
                             <div key={v.path} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5 }}>
