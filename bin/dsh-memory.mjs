@@ -96,8 +96,36 @@ async function main() {
         })
       }
       const { runStandaloneCapture, defaultVaultDir } = await import('../lib/capture-run.js')
-      const root = path.resolve(defaultVaultDir())
-      const out = await runStandaloneCapture(root, text, { source: argOf('--source') || 'cli' })
+      // --vault 优先：脚本化调用（测试、外部集成）需要指定库，不认这个参数会写错地方。
+      const root = path.resolve(argOf('--vault') || defaultVaultDir())
+      // --key：外部集成方用稳定主键写入（语义与 POST /api/upsert 一致）
+      const wantKey = String(argOf('--key') || '').trim()
+      const KEY_RE = new RegExp('^[a-z0-9][a-z0-9._-]{2,64}' + String.fromCharCode(36))
+      if (wantKey && !KEY_RE.test(wantKey)) {
+        console.log(JSON.stringify({ ok: false, error: 'key 格式非法：需小写字母或数字开头，2-64 位，可含点/下划线/连字符', key: wantKey }, null, 2))
+        process.exitCode = 1
+        return
+      }
+      const out = await runStandaloneCapture(root, text, { source: argOf('--source') || 'cli', key: wantKey || undefined })
+      // --key 的落库在这里补：runStandaloneCapture 只管写卡，不知道外部主键。
+      // 语义与 POST /api/upsert 一致 —— 同 key 覆盖（先释放旧行再打新 key），
+      // 且因为 capture 本来就写 pending，天然满足「外部产出永远进审核」。
+      if (wantKey && out && out.ok && out.path) {
+        try {
+          const { getDb, migrateAddCardKey } = await import('../lib/db.js')
+          const db = getDb(root)
+          migrateAddCardKey(db)
+          try { db.prepare('UPDATE cards SET card_key = NULL WHERE card_key = ?').run(wantKey) } catch { /* 忽略 */ }
+          try { db.prepare('UPDATE quarantine SET card_key = NULL WHERE card_key = ?').run(wantKey) } catch { /* 忽略 */ }
+          const tbl = db.prepare('SELECT 1 AS x FROM cards WHERE path = ?').get(out.path) ? 'cards' : 'quarantine'
+          // 外部来源带 key 写入 → 强制 pending（与 /api/upsert 一致：不自动进主库）
+          db.prepare(`UPDATE ${tbl} SET card_key = ?, status = 'pending' WHERE path = ?`).run(wantKey, out.path)
+          out.state = 'pending'
+          out.key = wantKey
+        } catch (e) {
+          out.keyError = String((e && e.message) || e)
+        }
+      }
       console.log(JSON.stringify({ ...out, vaultDir: root }, null, 2))
       process.exitCode = out.ok ? 0 : 1
       return
