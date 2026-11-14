@@ -158,7 +158,12 @@ function persistCloud(form) {
   const prev = readCloudConn()
   const wantCloud = form && form.mode === 'cloud'
   const url = String((form && form.url) || '').trim().replace(/\/+$/, '')
-  const token = String((form && form.token) || '').trim()
+  let token = String((form && form.token) || '').trim()
+  // `mbo_` 是 MengBot 的 OAuth access_token，不是本服务的访问密钥。
+  // **自动丢弃**而不是只报错：用户多半是从 MengBot 后台复制过来填错框的，
+  // 让他自己去清空那个框、再一次次撞同一个错没有意义。
+  let ignoredOauth = false
+  if (token.startsWith('mbo_')) { token = ''; ignoredOauth = true }
   if (wantCloud && !/^https?:\/\//i.test(url)) return { ok: false, error: 'url-invalid' }
   const next = {
     mode: wantCloud ? 'cloud' : 'local',
@@ -166,11 +171,11 @@ function persistCloud(form) {
     url: wantCloud ? url : (url || prev.url || ''),
     token: wantCloud ? token : (token || prev.token || ''),
     active: false,             // 先不激活，等调用方验证通过再置 true
-    lastError: '',
+    lastError: '',             // 换了配置就必须清掉历史失败记录，否则界面一直显示旧错误
     lastCheckAt: new Date().toISOString(),
   }
   saveCloudConn(next)
-  return { ok: true, next }
+  return { ok: true, next, ignoredOauth }
 }
 
 /** 验证通过后正式启用云端（这一步才真正切前缀）。 */
@@ -778,6 +783,7 @@ export const ZH = {
   cloudTokenLabel: '访问密钥（可选）',
   cloudTokenHint: '用「用 MengBot 账号登录」时这里留空即可；只有直连别人给的实例才需要填',
   cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
+  cloudOauthIgnored: '已自动忽略 MengBot 的 OAuth 令牌（mbo_）—— 它不是访问密钥，请用「用 MengBot 账号登录」',
   cloudUrlInvalid: '地址要以 http(s):// 开头',
   cloudTest: '测试连接',
   cloudTestOk: '连接成功 · {owner}',
@@ -1861,6 +1867,7 @@ export const EN = {
   cloudTokenLabel: 'Access key (optional)',
   cloudTokenHint: 'Leave empty if you sign in with MengBot; only needed when connecting to someone else instance',
   cloudTokenPeek: 'Current token: {peek} ({len} chars)',
+  cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) — it is not an access key. Use "Sign in with MengBot" instead',
   cloudUrlInvalid: 'URL must start with http(s)://',
   cloudTest: 'Test connection',
   cloudTestOk: 'Connected · {owner}',
@@ -5549,6 +5556,11 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     const wantCloud = cloudForm.mode === 'cloud'
     const prepared = persistCloud(cloudForm)
     if (!prepared.ok) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    // mbo_ 被自动丢弃时提示一句（保存照常进行，只是不带这个令牌）
+    if (prepared.ignoredOauth) {
+      try { notify(t('cloudOauthIgnored'), false) } catch { /* 忽略 */ }
+      setCloudForm((f) => ({ ...f, token: '' }))
+    }
     if (!wantCloud) {
       setCloudConn(readCloudConn())
       setCloudOpen(false)
@@ -7399,6 +7411,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
     const wantCloud = cloudForm.mode === 'cloud'
     const prepared = persistCloud(cloudForm)
     if (!prepared.ok) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
+    // mbo_ 被自动丢弃时提示一句（保存照常进行，只是不带这个令牌）
+    if (prepared.ignoredOauth) {
+      try { notify(t('cloudOauthIgnored'), false) } catch { /* 忽略 */ }
+      setCloudForm((f) => ({ ...f, token: '' }))
+    }
     if (!wantCloud) {
       setCloudTest(null)
       try { location.reload() } catch { /* 忽略 */ }
