@@ -928,6 +928,11 @@ export const ZH = {
   localVaultLabel: '记忆库位置',
   vaultListLabel: '本机记忆库',
   logsTab: '日志',
+  logsKeepLabel: '保留',
+  logsKeepUnit: '天',
+  logsKeepHint: '超期的日志会自动清理（启动时 + 写入时各检查一次）；改这里会立刻按新值清一遍',
+  logsKeepSaved: '保留 {n} 天 · 已清 {r} 条',
+  logsCleanupNow: '立即清理',
   logsSearchPlaceholder: '搜索标题 / 智能体 / IP',
   logsActionLabel: '分类',
   logsAll: '全部',
@@ -946,7 +951,7 @@ export const ZH = {
   logsColAction: '动作',
   logsColTitle: '标题',
   logsEmpty: '这一天没有日志',
-  logsFooterHint: '只记录标题，不含正文；默认保留 30 天。日志写入是旁路，不会影响读写卡。',
+  logsFooterHint: '只记录标题，不含正文；保留 {n} 天，超期自动清理。日志写入是旁路，不会影响读写卡。',
   aboutTab: '关于',
   aboutVersion: '版本 {v}',
   aboutDesc: '本地记忆核心：把你的知识沉淀成可召回的知识卡，数据留在本机，可选同步到自己的云端。',
@@ -2170,6 +2175,11 @@ export const EN = {
   localVaultLabel: 'Vault location',
   vaultListLabel: 'Vaults on this machine',
   logsTab: 'Logs',
+  logsKeepLabel: 'Keep',
+  logsKeepUnit: 'd',
+  logsKeepHint: 'Expired logs are pruned automatically (on boot and while logging); changing this prunes immediately',
+  logsKeepSaved: 'Keeping {n} days · removed {r}',
+  logsCleanupNow: 'Prune now',
   logsSearchPlaceholder: 'Search title / agent / IP',
   logsActionLabel: 'Type',
   logsAll: 'All',
@@ -2188,7 +2198,7 @@ export const EN = {
   logsColAction: 'Action',
   logsColTitle: 'Title',
   logsEmpty: 'No logs for this day',
-  logsFooterHint: 'Titles only, never card bodies; 30-day retention. Logging is a side path and never blocks reads/writes.',
+  logsFooterHint: 'Titles only, never card bodies; kept for {n} days and pruned automatically. Logging never blocks reads/writes.',
   aboutTab: 'About',
   aboutVersion: 'version {v}',
   aboutDesc: 'A local memory core: turn your knowledge into recallable cards. Data stays on your machine, optionally synced to your own cloud.',
@@ -6059,6 +6069,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [logAction, setLogAction] = useState('')
   const [logData, setLogData] = useState(null)
   const [logBusy, setLogBusy] = useState(false)
+  // 日志保留天数（存 config 表，默认 30；改动后立刻按新值清一次）
+  const [logKeep, setLogKeep] = useState(30)
   // 懒挂载：面板首次切到该视图才 mount，之后保持 mount（切页不丢状态）。
   // 目的：打开「设置 / 配置」不该顺带拉 250KB 卡片列表 + 890KB 知识图谱。
   const [visited, setVisited] = useState(() => new Set([view]))
@@ -6072,6 +6084,11 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       const r = await fetch(API + '/logs?' + qs.toString())
       const d = await r.json().catch(() => ({}))
       setLogData(d && d.ok ? d : { ok: false, total: 0, rows: [], byAction: [] })
+      // 顺手读保留天数（低频、失败不影响列表）
+      try {
+        const st = await fetch(API + '/logs/settings').then((x) => x.json()).catch(() => null)
+        if (st && st.ok && Number(st.retentionDays) > 0) setLogKeep(Number(st.retentionDays))
+      } catch { /* 忽略 */ }
     } catch (e) {
       setLogData({ ok: false, total: 0, rows: [], byAction: [], error: String((e && e.message) || e) })
     } finally {
@@ -6089,6 +6106,20 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       document.body.appendChild(a)
       a.click()
       a.remove()
+    } catch { /* 忽略 */ }
+  }
+
+  /** 保存保留天数（存 config 表；保存后立刻按新值清一次，用户马上看到效果）。 */
+  const saveLogKeep = async (days) => {
+    const n = Math.min(Math.max(Number(days) || 30, 1), 3650)
+    setLogKeep(n)
+    try {
+      const r = await fetch(API + '/logs/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ retentionDays: n }) })
+      const d = await r.json().catch(() => ({}))
+      if (d && d.ok) {
+        try { notify(t('logsKeepSaved').replace('{n}', String(n)).replace('{r}', String(d.removed || 0)), true) } catch { /* 忽略 */ }
+        loadLogs()
+      }
     } catch { /* 忽略 */ }
   }
 
@@ -7006,7 +7037,16 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
               ))}
               <span style={{ flex: 1 }} />
               <Btn variant="ghost" size="sm" onClick={exportLogs}>{t('logsExport')}</Btn>
-              <Btn variant="ghost" size="sm" onClick={cleanupLogs} title={t('logsCleanupHint')}>{t('logsCleanup')}</Btn>
+              <span style={{ opacity: 0.55, fontSize: 11 }}>{t('logsKeepLabel')}</span>
+      <select
+        value={logKeep}
+        onChange={(e) => saveLogKeep(e.target.value)}
+        title={t('logsKeepHint')}
+        style={{ fontSize: 11.5, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }}
+      >
+        {[7, 14, 30, 60, 90, 180, 365].map((d) => <option key={d} value={d}>{d} {t('logsKeepUnit')}</option>)}
+      </select>
+      <Btn variant="ghost" size="sm" onClick={cleanupLogs} title={t('logsCleanupHint')}>{t('logsCleanupNow')}</Btn>
             </div>
             {logData && logData.rows && logData.rows.length ? (
               <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, overflow: 'hidden' }}>
@@ -7026,7 +7066,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             ) : (
               <div className="mc-empty" style={{ padding: '28px 0', textAlign: 'center', opacity: 0.55 }}>{logBusy ? t('loading') : t('logsEmpty')}</div>
             )}
-            <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{t('logsFooterHint')}</div>
+            <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{t('logsFooterHint').replace('{n}', String(logKeep))}</div>
           </div>
         )}
         {view === 'cards' && (
