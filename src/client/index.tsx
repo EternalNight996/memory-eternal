@@ -8358,7 +8358,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
       if (d && d.ok) {
         setVaultList(d.vaults || [])
         const other = (d.vaults || []).find((v) => !v.isCurrent)
-        setVaultSel((cur) => cur || (other ? other.path : ''))
+        // 只有一个库时留空：下拉里那项是 disabled 的，选它没意义
+        setVaultSel((cur) => (cur && (d.vaults || []).some((v) => v.path === cur && !v.isCurrent) ? cur : (other ? other.path : '')))
       }
     } catch { /* 拿不到就不显示 */ }
   }
@@ -9564,8 +9565,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
                           <span className="mc-field-label">{t('vaultTargetLabel')}</span>
                           <select value={vaultSel} onChange={(e) => setVaultSel(e.target.value)}>
                             <option value="">{t('vaultPickPlaceholder')}</option>
-                            {vaultList.filter((v) => !v.isCurrent).map((v) => (
-                              <option key={v.path} value={v.path}>{v.name}{v.owner ? ' · ' + v.owner : ''}（{v.cards} 卡）</option>
+                            {/* 全部列出（含当前库，标「（当前）」且不可选）。
+                                只列「其它库」的话，本机只有一个库时下拉是空的，用户会以为功能没生效。 */}
+                            {vaultList.map((v) => (
+                              <option key={v.path} value={v.path} disabled={v.isCurrent}>
+                                {v.name}{v.owner ? ' · ' + v.owner : ''}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}（{v.cards} 卡）
+                              </option>
                             ))}
                           </select>
                         </label>
