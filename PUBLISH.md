@@ -59,7 +59,16 @@ git push -u origin main
 
 **关键一步**：在 GitHub 仓库页 → ⚙️ Settings → Topics，添加 `dsh-plugin`（再加 `deepseek-harness`、`memory`、`knowledge-graph` 等）。这是市场自动收录 GitHub 源的识别标志。
 
-> README 里的截图放 `assets/screen/` 并在 README 引用（市场会自动从 README 提取截图）；头部可放一张 `assets/memory-eternal.gif` 动态演示（本仓库已压缩至 ~3MB 并置于 README 头部）。
+> README 里的截图放 `assets/screen/` 并在 README 引用；头部可放一张 `assets/memory-eternal.gif` 动态演示（本仓库已压缩至 ~3MB 并置于 README 头部）。
+
+**展示图（市场卡片 / 详情页 AppStore 式截图）—— 在自己仓库声明，走 nightly 构建自动拾取，不需要 PR：**
+
+- 位置：`package.json` 同级放 `screenshots.json`（本仓库根目录）。
+- 形式：裸数组、`{"screenshots":[...]}` 或「entry URL → 路径数组」的 map；每项是相对该文件的路径（不能以 `/` 开头、不能含 `..`），也可写 GitHub 托管的 https 绝对 URL。
+- 数量：1–8 张（dsh-market 客户端最多展示 6 张，卡片缩略图取前 3 张 → 前三张放最能打的）。
+- 格式：GitHub 托管位图（png / jpg / jpeg / webp）；SVG 与第三方图床会被拒。
+- 生效：推到 GitHub → awesome-dsh-plugin 下一次 nightly 构建把相对路径解析成 `raw.githubusercontent.com/<owner>/<repo>/HEAD/...` 写进 `plugins.json.screenshots` → 市场「更新插件市场」后卡片直接出图（策展图零额外请求；未声明的条目只能在详情弹窗里从 README 抽图）。
+- 不要再往 awesome-dsh-plugin 仓库的 `data/screenshots.json` 加键：那是旧条目回退，仓库一旦自己声明就会被清理。
 
 ## 4. 上传 npm
 
