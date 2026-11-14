@@ -909,6 +909,11 @@ export const ZH = {
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
   vaultListLabel: '本机记忆库',
+  cfSourceVaultLabel: '从哪个本地库搬',
+  cfPickLocalVault: '选择本地库',
+  cfSourceVaultHint: '扫描 .dsh/memory-vault* 下的所有库（含历史副本）',
+  cfUploadBtn: '上传到云端',
+  cfDownloadBtn: '云端下载到这个库',
   resetSection: '恢复出厂设置',
   resetSectionSub: '把当前库恢复到刚安装的状态；其它库不受影响',
   resetIntro: '清空当前记忆库的全部内容（卡片、审核队列、回收站、索引、配置）。清理前会自动备份整份数据库，备份路径会在完成后显示。',
@@ -2116,6 +2121,11 @@ export const EN = {
   devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
   vaultListLabel: 'Vaults on this machine',
+  cfSourceVaultLabel: 'Local vault',
+  cfPickLocalVault: 'Pick a local vault',
+  cfSourceVaultHint: 'Scans every vault under .dsh/memory-vault*',
+  cfUploadBtn: 'Upload to cloud',
+  cfDownloadBtn: 'Download cloud into it',
   resetSection: 'Factory reset',
   resetSectionSub: 'Reset the current vault to a fresh install; other vaults are untouched',
   resetIntro: 'Clears everything in the current vault (cards, review queue, recycle bin, indexes, settings). A full database backup is taken first and its path is shown when done.',
@@ -8302,6 +8312,79 @@ function ConfigPanel({ t, onReload, version, compact }) {
    *   ① 必须带 Authorization —— 这个接口要令牌，不带就是 401，套餐永远空着
    *   ② 地址用 cloudApi（云端绝对地址），不能用相对前缀 API（那是本地服务）
    */
+  /**
+   * 把**指定本地库**上传到云端（复制，本地保留）。
+   * 与 importLocalToCloud 的差别：源库可以是任意本地库（/vaults/export?path= 读），
+   * 不只是「当前库」——用户的旧库/副本也能搬上云。
+   */
+  const uploadVaultToCloud = async (src) => {
+    if (!src) { setImportJob({ importing: false, err: t('cfPickLocalVault') }); return }
+    if (importJob && importJob.importing) return
+    importCancelRef.current = false
+    setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    try {
+      const exp = await fetch(API + '/vaults/export?path=' + encodeURIComponent(src))
+      if (!exp.ok) throw new Error('读取本地库失败 HTTP ' + exp.status)
+      const data = await exp.json()
+      const cards = Array.isArray(data.cards) ? data.cards : []
+      if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
+      setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
+      const CHUNK = 200
+      let imported = 0, duplicate = 0
+      for (let off = 0; off < cards.length; off += CHUNK) {
+        if (importCancelRef.current) { setImportJob((j) => ({ ...(j || {}), importing: false })); return }
+        const slice = cards.slice(off, off + CHUNK)
+        const r = await fetch(cloudApi('/import/chunk'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) },
+          body: JSON.stringify({ cards: slice, offset: off, total: cards.length }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
+        imported += Number(d.imported) || 0
+        duplicate += Number(d.duplicate) || 0
+        setImportJob({ importing: true, done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
+      }
+      setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: '' })
+      try { loadVaults() } catch { /* 忽略 */ }
+      try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
+    } catch (e) {
+      setImportJob((j) => ({ ...(j || {}), importing: false, err: String((e && e.message) || e) }))
+    }
+  }
+
+  /**
+   * 把云端数据下载到**指定本地库**。
+   * 云端 /export 取全量 → 服务端 /vaults/import-into 写进目标库（目标可以不是当前库）。
+   */
+  const downloadCloudToVault = async (dst) => {
+    if (!dst) { setImportJob({ importing: false, err: t('cfPickLocalVault') }); return }
+    if (importJob && importJob.importing) return
+    importCancelRef.current = false
+    setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    try {
+      const exp = await fetch(cloudApi('/export'), {
+        headers: cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {},
+      })
+      if (!exp.ok) throw new Error('读取云端失败 HTTP ' + exp.status)
+      const data = await exp.json()
+      const cards = Array.isArray(data.cards) ? data.cards : []
+      if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
+      setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
+      const r = await fetch(API + '/vaults/import-into', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: dst, cards, onDuplicate: dupMode }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
+      setImportJob({ importing: false, done: cards.length, total: cards.length, imported: Number(d.imported) || 0, duplicate: Number(d.skipped) || 0, err: '' })
+      try { loadVaults() } catch { /* 忽略 */ }
+      try { notify(t('importDone').replace('{n}', String(d.imported || 0)), true) } catch { /* 忽略 */ }
+    } catch (e) {
+      setImportJob((j) => ({ ...(j || {}), importing: false, err: String((e && e.message) || e) }))
+    }
+  }
+
   /** 打开「恢复出厂」弹窗：先 dryRun 拿清单（会清多少卡、备份落在哪）。 */
   const openFactoryReset = async () => {
     setResetOpen(true)
@@ -9855,6 +9938,39 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 </div>
               )}
                             </PanelErrorBoundary>
+              {/* ── 库之间搬数据（云端模式）：可选任意本地库，双向 ──────────────────
+                  用户的原话是「把本机的卡片复制一份到云端」，但「本机」可能是任一历史库
+                  （.dsh/memory-vault*），所以要能选，而不是只能传当前库。 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--me-c-border)' }}>
+                <div style={{ fontSize: 11.5, opacity: 0.6 }}>{t('cfSourceVaultHint')}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <select
+                    value={vaultSel}
+                    onChange={(e) => setVaultSel(e.target.value)}
+                    style={{ fontSize: 12, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit', maxWidth: 280 }}
+                  >
+                    <option value="">{t('cfPickLocalVault')}</option>
+                    {(vaultList || []).filter((v) => v.kind === 'local').map((v) => (
+                      <option key={v.path} value={v.path}>
+                        {v.name}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}（{v.cards} 卡）
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={dupMode}
+                    onChange={(e) => setDupMode(e.target.value)}
+                    style={{ fontSize: 11.5, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }}
+                  >
+                    <option value="skip">{t('vaultDupSkip')}</option>
+                    <option value="overwrite">{t('vaultDupOverwrite')}</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Btn variant="primary" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud(vaultSel)}>{t('cfUploadBtn')}</Btn>
+                  <Btn variant="secondary" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => downloadCloudToVault(vaultSel)}>{t('cfDownloadBtn')}</Btn>
+                </div>
+                {!vaultSel ? <div style={{ fontSize: 10.5, opacity: 0.45 }}>{t('cfPickLocalVault')}</div> : null}
+              </div>
 </CfgSection>
 
             {/* ── 恢复出厂设置：危险操作，单独一块，默认不展开 ──────────────── */}

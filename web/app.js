@@ -29518,6 +29518,11 @@
     devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
     vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
+    cfSourceVaultLabel: "\u4ECE\u54EA\u4E2A\u672C\u5730\u5E93\u642C",
+    cfPickLocalVault: "\u9009\u62E9\u672C\u5730\u5E93",
+    cfSourceVaultHint: "\u626B\u63CF .dsh/memory-vault* \u4E0B\u7684\u6240\u6709\u5E93\uFF08\u542B\u5386\u53F2\u526F\u672C\uFF09",
+    cfUploadBtn: "\u4E0A\u4F20\u5230\u4E91\u7AEF",
+    cfDownloadBtn: "\u4E91\u7AEF\u4E0B\u8F7D\u5230\u8FD9\u4E2A\u5E93",
     resetSection: "\u6062\u590D\u51FA\u5382\u8BBE\u7F6E",
     resetSectionSub: "\u628A\u5F53\u524D\u5E93\u6062\u590D\u5230\u521A\u5B89\u88C5\u7684\u72B6\u6001\uFF1B\u5176\u5B83\u5E93\u4E0D\u53D7\u5F71\u54CD",
     resetIntro: "\u6E05\u7A7A\u5F53\u524D\u8BB0\u5FC6\u5E93\u7684\u5168\u90E8\u5185\u5BB9\uFF08\u5361\u7247\u3001\u5BA1\u6838\u961F\u5217\u3001\u56DE\u6536\u7AD9\u3001\u7D22\u5F15\u3001\u914D\u7F6E\uFF09\u3002\u6E05\u7406\u524D\u4F1A\u81EA\u52A8\u5907\u4EFD\u6574\u4EFD\u6570\u636E\u5E93\uFF0C\u5907\u4EFD\u8DEF\u5F84\u4F1A\u5728\u5B8C\u6210\u540E\u663E\u793A\u3002",
@@ -30723,6 +30728,11 @@
     devicePanelTitle: "Finish signing in in your browser",
     localVaultLabel: "Vault location",
     vaultListLabel: "Vaults on this machine",
+    cfSourceVaultLabel: "Local vault",
+    cfPickLocalVault: "Pick a local vault",
+    cfSourceVaultHint: "Scans every vault under .dsh/memory-vault*",
+    cfUploadBtn: "Upload to cloud",
+    cfDownloadBtn: "Download cloud into it",
     resetSection: "Factory reset",
     resetSectionSub: "Reset the current vault to a fresh install; other vaults are untouched",
     resetIntro: "Clears everything in the current vault (cards, review queue, recycle bin, indexes, settings). A full database backup is taken first and its path is shown when done.",
@@ -34228,7 +34238,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T13:29:59.387Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T13:46:21.578Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -36882,6 +36892,96 @@ ${t("quoteHint")}`,
       }
       startDeviceLogin();
     }, [cloudTab, isConnected, cloudForm.url]);
+    const uploadVaultToCloud = /* @__PURE__ */ __name(async (src) => {
+      if (!src) {
+        setImportJob({ importing: false, err: t("cfPickLocalVault") });
+        return;
+      }
+      if (importJob && importJob.importing) return;
+      importCancelRef.current = false;
+      setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: "" });
+      try {
+        const exp = await fetch(API + "/vaults/export?path=" + encodeURIComponent(src));
+        if (!exp.ok) throw new Error("\u8BFB\u53D6\u672C\u5730\u5E93\u5931\u8D25 HTTP " + exp.status);
+        const data = await exp.json();
+        const cards = Array.isArray(data.cards) ? data.cards : [];
+        if (!cards.length) {
+          setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t("importEmpty") });
+          return;
+        }
+        setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: "" });
+        const CHUNK = 200;
+        let imported = 0, duplicate = 0;
+        for (let off = 0; off < cards.length; off += CHUNK) {
+          if (importCancelRef.current) {
+            setImportJob((j) => ({ ...j || {}, importing: false }));
+            return;
+          }
+          const slice = cards.slice(off, off + CHUNK);
+          const r = await fetch(cloudApi("/import/chunk"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} },
+            body: JSON.stringify({ cards: slice, offset: off, total: cards.length })
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || !d.ok) throw new Error(d.error || "HTTP " + r.status);
+          imported += Number(d.imported) || 0;
+          duplicate += Number(d.duplicate) || 0;
+          setImportJob({ importing: true, done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, err: "" });
+        }
+        setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: "" });
+        try {
+          loadVaults();
+        } catch {
+        }
+        try {
+          notify2(t("importDone").replace("{n}", String(imported)), true);
+        } catch {
+        }
+      } catch (e) {
+        setImportJob((j) => ({ ...j || {}, importing: false, err: String(e && e.message || e) }));
+      }
+    }, "uploadVaultToCloud");
+    const downloadCloudToVault = /* @__PURE__ */ __name(async (dst) => {
+      if (!dst) {
+        setImportJob({ importing: false, err: t("cfPickLocalVault") });
+        return;
+      }
+      if (importJob && importJob.importing) return;
+      importCancelRef.current = false;
+      setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: "" });
+      try {
+        const exp = await fetch(cloudApi("/export"), {
+          headers: cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {}
+        });
+        if (!exp.ok) throw new Error("\u8BFB\u53D6\u4E91\u7AEF\u5931\u8D25 HTTP " + exp.status);
+        const data = await exp.json();
+        const cards = Array.isArray(data.cards) ? data.cards : [];
+        if (!cards.length) {
+          setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t("importEmpty") });
+          return;
+        }
+        setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: "" });
+        const r = await fetch(API + "/vaults/import-into", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: dst, cards, onDuplicate: dupMode })
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.ok) throw new Error(d.error || "HTTP " + r.status);
+        setImportJob({ importing: false, done: cards.length, total: cards.length, imported: Number(d.imported) || 0, duplicate: Number(d.skipped) || 0, err: "" });
+        try {
+          loadVaults();
+        } catch {
+        }
+        try {
+          notify2(t("importDone").replace("{n}", String(d.imported || 0)), true);
+        } catch {
+        }
+      } catch (e) {
+        setImportJob((j) => ({ ...j || {}, importing: false, err: String(e && e.message || e) }));
+      }
+    }, "downloadCloudToVault");
     const openFactoryReset = /* @__PURE__ */ __name(async () => {
       setResetOpen(true);
       setResetInput("");
@@ -38127,348 +38227,390 @@ ${t("quoteHint")}`,
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(F, { k: "webMaxRestart", label: t("webMaxRestart"), hint: t("unitTimes"), type: "number" })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-cloud"), id: "sec-cloud", icon: "\u{1F9EA}", title: t("cloudSection"), sub: t("cloudSectionSub"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(PanelErrorBoundary, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { maxWidth: 320 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudModeLabel") }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                  "select",
-                  {
-                    value: cloudTab,
-                    onChange: (e) => {
-                      const m = e.target.value;
-                      setCloudTab(m);
-                      if (m !== "merchant") setCloudForm((f) => ({ ...f, mode: m }));
-                      setMchErr("");
-                      setMchSecret(null);
-                    },
-                    children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "local", children: t("cloudModeLocal") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "cloud", children: t("cloudModeCloud") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "merchant", children: t("cloudTabMerchant") })
-                    ]
-                  }
-                ),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: cloudTab === "local" ? t("cloudModeLocalHint") : cloudTab === "cloud" ? t("cloudModeCloudHint") : t("cloudTabMerchantHint") })
-              ] }),
-              cloudTab === "local" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--me-c-text-dim)", lineHeight: 1.7 }, children: t("cloudLocalDesc") }),
-                localVault ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "9px 11px", background: "var(--me-c-surface)" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.6, marginBottom: 3 }, children: t("localVaultLabel") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5, wordBreak: "break-all" }, children: localVault.full })
-                ] }) : null,
-                vaultList && vaultList.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)", overflow: "hidden", marginTop: 10 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--me-c-border)" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.55, marginBottom: 6 }, children: [
-                      t("vaultListLabel"),
-                      " \xB7 ",
-                      vaultList.length
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 4 }, children: vaultList.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 5, height: 5, borderRadius: "50%", flex: "none", background: v.isCurrent ? "var(--me-c-success)" : "var(--me-c-border-strong)" } }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
-                        v.name,
-                        v.owner ? " \xB7 " + v.owner : "",
-                        v.isCurrent ? " " + t("vaultCurrent") : ""
-                      ] }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { opacity: 0.5, flex: "none" }, children: [
-                        v.cards,
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CfgSection, { ...secProps("sec-cloud"), id: "sec-cloud", icon: "\u{1F9EA}", title: t("cloudSection"), sub: t("cloudSectionSub"), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(PanelErrorBoundary, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { maxWidth: 320 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudModeLabel") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                    "select",
+                    {
+                      value: cloudTab,
+                      onChange: (e) => {
+                        const m = e.target.value;
+                        setCloudTab(m);
+                        if (m !== "merchant") setCloudForm((f) => ({ ...f, mode: m }));
+                        setMchErr("");
+                        setMchSecret(null);
+                      },
+                      children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "local", children: t("cloudModeLocal") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "cloud", children: t("cloudModeCloud") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "merchant", children: t("cloudTabMerchant") })
+                      ]
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: cloudTab === "local" ? t("cloudModeLocalHint") : cloudTab === "cloud" ? t("cloudModeCloudHint") : t("cloudTabMerchantHint") })
+                ] }),
+                cloudTab === "local" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--me-c-text-dim)", lineHeight: 1.7 }, children: t("cloudLocalDesc") }),
+                  localVault ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "9px 11px", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.6, marginBottom: 3 }, children: t("localVaultLabel") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5, wordBreak: "break-all" }, children: localVault.full })
+                  ] }) : null,
+                  vaultList && vaultList.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)", overflow: "hidden", marginTop: 10 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--me-c-border)" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.55, marginBottom: 6 }, children: [
+                        t("vaultListLabel"),
                         " \xB7 ",
-                        v.sizeMB,
-                        "MB"
-                      ] })
-                    ] }, v.path)) })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", display: "flex", flexDirection: "column", gap: 9 }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("vaultTargetLabel") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: vaultSel, onChange: (e) => setVaultSel(e.target.value), children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("vaultPickPlaceholder") }),
-                        vaultList.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: v.path, disabled: v.isCurrent, children: [
+                        vaultList.length
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 4 }, children: vaultList.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 5, height: 5, borderRadius: "50%", flex: "none", background: v.isCurrent ? "var(--me-c-success)" : "var(--me-c-border-strong)" } }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
                           v.name,
                           v.owner ? " \xB7 " + v.owner : "",
+                          v.isCurrent ? " " + t("vaultCurrent") : ""
+                        ] }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { opacity: 0.5, flex: "none" }, children: [
+                          v.cards,
+                          " \xB7 ",
+                          v.sizeMB,
+                          "MB"
+                        ] })
+                      ] }, v.path)) })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", display: "flex", flexDirection: "column", gap: 9 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("vaultTargetLabel") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: vaultSel, onChange: (e) => setVaultSel(e.target.value), children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("vaultPickPlaceholder") }),
+                          vaultList.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: v.path, disabled: v.isCurrent, children: [
+                            v.name,
+                            v.owner ? " \xB7 " + v.owner : "",
+                            v.isCurrent ? " " + t("vaultCurrent") : "",
+                            "\uFF08",
+                            v.cards,
+                            " \u5361\uFF09"
+                          ] }, v.path))
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("vaultDupLabel") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: dupMode, onChange: (e) => setDupMode(e.target.value), children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "skip", children: t("vaultDupSkip") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "overwrite", children: t("vaultDupOverwrite") })
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("up"), children: xfer && xfer.busy ? "\u23F3" : t("vaultUpload") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("down"), children: xfer && xfer.busy ? "\u23F3" : t("vaultDownload") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: loadVaults, children: t("refresh") })
+                      ] }),
+                      xfer && xfer.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: xfer.err }) : null,
+                      xfer && xfer.result ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, lineHeight: 1.7, opacity: 0.75 }, children: t("xferSummary").replace("{total}", String(xfer.result.total)).replace("{in}", String(xfer.result.imported)).replace("{dup}", String(xfer.result.skipped)).replace("{ow}", String(xfer.result.overwritten)).replace("{fail}", String(xfer.result.failed)) }) : null
+                    ] })
+                  ] }) : null
+                ] }) : cloudTab === "merchant" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--me-c-text-dim)", lineHeight: 1.7 }, children: t("merchantIntro") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("merchantEndpointLabel") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "input",
+                      {
+                        value: mchForm.endpoint,
+                        onChange: (e) => setMchForm((f) => ({ ...f, endpoint: e.target.value })),
+                        placeholder: "https://mem.mengbot.com.cn"
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("merchantEndpointHint") })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("merchantNameLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: mchForm.name, onChange: (e) => setMchForm((f) => ({ ...f, name: e.target.value })), placeholder: t("merchantNamePlaceholder") })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("merchantDomainLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: mchForm.domain, onChange: (e) => setMchForm((f) => ({ ...f, domain: e.target.value })), placeholder: "memory.your-company.com" })
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: mchBusy || !mchForm.name.trim(), onClick: registerMerchant, children: t("merchantRegister") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: mchBusy, onClick: loadMerchants, children: t("merchantRefresh") })
+                  ] }),
+                  mchErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: mchErr }) : null,
+                  mchSecret ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "10px 12px" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 }, children: t("merchantSecretOnce") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 12, wordBreak: "break-all", marginBottom: 3 }, children: [
+                      t("merchantIdLabel"),
+                      " \xB7 ",
+                      mchSecret.id
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 12, wordBreak: "break-all", marginBottom: 8 }, children: [
+                      t("merchantSecretLabel"),
+                      " \xB7 ",
+                      mchSecret.secret
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => {
+                        try {
+                          navigator.clipboard.writeText(mchSecret.secret);
+                        } catch {
+                        }
+                      }, children: t("merchantCopySecret") }),
+                      mchSecret.subscribeUrl ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", onClick: () => {
+                        try {
+                          location.href = mchSecret.subscribeUrl;
+                        } catch {
+                        }
+                      }, children: t("merchantSubscribe") }) : null
+                    ] })
+                  ] }) : null,
+                  merchants.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, fontWeight: 700, opacity: 0.75 }, children: [
+                      t("merchantMine"),
+                      "\uFF08",
+                      merchants.length,
+                      "\uFF09"
+                    ] }),
+                    merchants.map((m) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 140 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, fontWeight: 600 }, children: m.name }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, color: "var(--me-c-text-dim)" }, children: [
+                          m.id,
+                          m.domain ? " \xB7 " + m.domain : "",
+                          " \xB7 ",
+                          m.status
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: mchBusy, onClick: () => rotateMerchant(m.id), children: t("merchantRotate") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "danger", size: "sm", disabled: mchBusy, onClick: () => revokeMerchant(m.id), children: t("merchantRevoke") })
+                    ] }, m.id))
+                  ] }) : null
+                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }, children: [
+                  isConnected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, background: "var(--me-c-surface)", overflow: "hidden" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: () => setAcctOpen((v) => !v),
+                        "aria-expanded": acctOpen,
+                        style: { display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "13px 15px", background: "transparent", border: "none", cursor: "pointer", color: "inherit", font: "inherit" },
+                        children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                            AccountBadge,
+                            {
+                              owner: cloudIdentity.owner || "",
+                              profile: cloudIdentity.profile || null,
+                              sub: cloudPlan ? planLabelOf(cloudPlan.plan, true) : t("cloudConnected"),
+                              tone: cloudConn.mode === "cloud" && cloudConn.active !== false ? "ok" : "warn",
+                              size: 38
+                            }
+                          ),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11, opacity: 0.45, transform: acctOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }, children: "\u25BE" })
+                        ]
+                      }
+                    ),
+                    acctOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "12px 15px", display: "flex", flexDirection: "column", gap: 7, fontSize: 12 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanLabel") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontWeight: 600 }, children: cloudPlan ? planLabelOf(cloudPlan.plan, true) : "\u2014" })
+                        ] }),
+                        cloudPlan && formatExpiry(cloudPlan.expiresAt) ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanExpires") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { textAlign: "right" }, children: [
+                            formatExpiry(cloudPlan.expiresAt),
+                            daysLeft(cloudPlan.expiresAt) !== null ? " \xB7 " + (daysLeft(cloudPlan.expiresAt) > 0 ? t("daysLeft").replace("{n}", String(daysLeft(cloudPlan.expiresAt))) : t("expired")) : ""
+                          ] })
+                        ] }) : null,
+                        cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanCards") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { textAlign: "right" }, children: Number(cloudPlan.caps.cards).toLocaleString() })
+                        ] }) : null,
+                        cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanRpm") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { textAlign: "right" }, children: [
+                            Number(cloudPlan.caps.rpm).toLocaleString(),
+                            " / ",
+                            t("perMinute")
+                          ] })
+                        ] }) : null,
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudInfoInstance") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { textAlign: "right" }, children: String(cloudForm.url || "").replace(/^https?:\/\//, "") })
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", onClick: () => {
+                        try {
+                          window.open(subscribeUrl(), "_blank", "noopener");
+                        } catch {
+                        }
+                      }, style: { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "var(--me-c-accent, #2563eb)", font: "inherit", fontSize: 12.5 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("managePlan") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.5 }, children: "\u2197" })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", padding: "11px 15px" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.6, marginBottom: 7 }, children: t("importLocalHint") }),
+                        importJob && importJob.importing ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12 }, children: t("importRunning").replace("{done}", String(importJob.done)).replace("{total}", String(importJob.total)) }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cancelImport, children: t("importCancel") })
+                        ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: importLocalToCloud, children: t("importLocal") }),
+                          importJob && importJob.total > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 11.5, opacity: 0.6 }, children: [
+                            t("importDone").replace("{n}", String(importJob.imported || 0)),
+                            importJob.duplicate ? " \xB7 " + importJob.duplicate + " skipped" : ""
+                          ] }) : null
+                        ] }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.45, marginTop: 6, lineHeight: 1.6 }, children: t("importCopyNote") }),
+                        importJob && importJob.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: importJob.err }) : null
+                      ] }),
+                      (() => {
+                        const others = readAccounts().filter((a) => a.owner && a.owner !== (cloudIdentity.owner || ""));
+                        if (!others.length) return null;
+                        return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", padding: "10px 15px" }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.5, letterSpacing: 0.3, marginBottom: 6 }, children: t("otherAccounts") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: others.map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                            "button",
+                            {
+                              type: "button",
+                              onClick: () => useAccount(a),
+                              style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 0", background: "transparent", border: "none", cursor: "pointer", color: "inherit", font: "inherit", fontSize: 12.5, textAlign: "left" },
+                              children: [
+                                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 22, height: 22, borderRadius: "50%", background: "var(--me-c-accent-soft, rgba(37,99,235,.12))", color: "var(--me-c-accent, #2563eb)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flex: "none" }, children: String(a.owner || "?").slice(0, 1).toUpperCase() }),
+                                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: a.owner }),
+                                a.plan ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 10.5, opacity: 0.5 }, children: planLabelOf(a.plan, true) }) : null
+                              ]
+                            },
+                            a.owner
+                          )) })
+                        ] });
+                      })(),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
+                        setAcctOpen(false);
+                        switchAccount();
+                      }, style: { display: "block", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "inherit", font: "inherit", fontSize: 12.5 }, children: t("cloudSwitchAccount") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
+                        setAcctOpen(false);
+                        disconnectCloud();
+                      }, style: { display: "block", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "var(--me-c-danger, #dc2626)", font: "inherit", fontSize: 12.5 }, children: t("cloudSignOut") })
+                    ] }) : null
+                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                    deviceAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap", border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "16px 18px", background: "var(--me-c-surface)" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QrCode, { text: deviceAuth.verificationUriComplete || deviceAuth.verificationUri, size: 124, label: t("deviceQrLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 9, minWidth: 0, flex: 1 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t("qrLogin") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, color: "var(--me-c-text-dim)" }, children: t("qrScanHint") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          "button",
+                          {
+                            type: "button",
+                            onClick: () => {
+                              try {
+                                navigator.clipboard.writeText(deviceAuth.userCode);
+                                notify2(t("deviceCopied"), true);
+                              } catch {
+                              }
+                            },
+                            title: t("deviceCopy"),
+                            style: { alignSelf: "flex-start", fontFamily: "ui-monospace,Consolas,monospace", fontSize: 21, fontWeight: 700, letterSpacing: 2.5, padding: 0, background: "none", border: "none", color: "inherit", cursor: "pointer" },
+                            children: deviceAuth.userCode
+                          }
+                        ),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", onClick: () => {
+                          try {
+                            window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, "_blank", "noopener");
+                          } catch {
+                          }
+                        }, children: t("qrOpen") }) }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, opacity: 0.45 }, children: [
+                          "\u23F3 ",
+                          t("qrWaiting")
+                        ] }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, lineHeight: 1.6, opacity: 0.5, display: "flex", gap: 5, alignItems: "flex-start" }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: "none" }, children: "\u26A0" }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("qrSecurityHint") })
+                        ] })
+                      ] })
+                    ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "22px 20px", textAlign: "center", background: "var(--me-c-surface)" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, opacity: 0.7, marginBottom: 12 }, children: deviceBusy ? t("deviceStarting") : t("deviceIdleHint") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: deviceBusy, onClick: startDeviceLogin, children: t("cloudLoginButton") })
+                    ] }),
+                    deviceErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: deviceErr }) : null,
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => setShowKeyField((v) => !v), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "var(--me-c-text-dim)", textDecoration: "underline" }, children: showKeyField ? t("cloudHideKey") : t("cloudManualConfig") }) }),
+                    showKeyField ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: "https://mem.mengbot.com.cn" })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", value: cloudForm.token, onChange: (e) => setCloudForm((f) => ({ ...f, token: e.target.value })), placeholder: "me_\u2026" }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudTokenHint") })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: saveCloud, children: t("cloudSave") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: cloudBusy, onClick: testCloud, children: cloudBusy ? "\u23F3" : t("cloudTestBtn") })
+                      ] })
+                    ] }) : null
+                  ] }),
+                  deviceErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "10px 12px", fontSize: 12, lineHeight: 1.65 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: t("deviceErrTitle") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 4 }, children: deviceErr }),
+                    /grant_not_allowed|未被允许/.test(deviceErr) ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 6, opacity: 0.85 }, children: t("deviceFallbackHint") }) : null
+                  ] }) : null,
+                  cloudConn.mode === "cloud" && cloudConn.active === false && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: t("cloudKeptButInactive").replace("{err}", cloudConn.lastError || "\u2014") }),
+                  cloudTest && cloudTest.authenticated === false && cloudTest.ok && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "ok", text: cloudTest.message || t("cloudTestReachable").replace("{version}", cloudTest.version || "") }),
+                  cloudTest && !cloudTest.ok && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: cloudTest.error || t("cloudTestFail") }),
+                  cloudTest && cloudTest.diag && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, lineHeight: 1.6, opacity: 0.55, wordBreak: "break-all" }, children: [
+                    cloudTest.diag.url,
+                    " \xB7 origin ",
+                    cloudTest.diag.origin
+                  ] })
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--me-c-border)" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.6 }, children: t("cfSourceVaultHint") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                    "select",
+                    {
+                      value: vaultSel,
+                      onChange: (e) => setVaultSel(e.target.value),
+                      style: { fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", color: "inherit", maxWidth: 280 },
+                      children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("cfPickLocalVault") }),
+                        (vaultList || []).filter((v) => v.kind === "local").map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: v.path, children: [
+                          v.name,
                           v.isCurrent ? " " + t("vaultCurrent") : "",
                           "\uFF08",
                           v.cards,
                           " \u5361\uFF09"
                         ] }, v.path))
-                      ] })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("vaultDupLabel") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: dupMode, onChange: (e) => setDupMode(e.target.value), children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "skip", children: t("vaultDupSkip") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "overwrite", children: t("vaultDupOverwrite") })
-                      ] })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("up"), children: xfer && xfer.busy ? "\u23F3" : t("vaultUpload") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("down"), children: xfer && xfer.busy ? "\u23F3" : t("vaultDownload") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: loadVaults, children: t("refresh") })
-                    ] }),
-                    xfer && xfer.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: xfer.err }) : null,
-                    xfer && xfer.result ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, lineHeight: 1.7, opacity: 0.75 }, children: t("xferSummary").replace("{total}", String(xfer.result.total)).replace("{in}", String(xfer.result.imported)).replace("{dup}", String(xfer.result.skipped)).replace("{ow}", String(xfer.result.overwritten)).replace("{fail}", String(xfer.result.failed)) }) : null
-                  ] })
-                ] }) : null
-              ] }) : cloudTab === "merchant" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--me-c-text-dim)", lineHeight: 1.7 }, children: t("merchantIntro") }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("merchantEndpointLabel") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    "input",
-                    {
-                      value: mchForm.endpoint,
-                      onChange: (e) => setMchForm((f) => ({ ...f, endpoint: e.target.value })),
-                      placeholder: "https://mem.mengbot.com.cn"
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("merchantEndpointHint") })
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("merchantNameLabel") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: mchForm.name, onChange: (e) => setMchForm((f) => ({ ...f, name: e.target.value })), placeholder: t("merchantNamePlaceholder") })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("merchantDomainLabel") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: mchForm.domain, onChange: (e) => setMchForm((f) => ({ ...f, domain: e.target.value })), placeholder: "memory.your-company.com" })
-                  ] })
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: mchBusy || !mchForm.name.trim(), onClick: registerMerchant, children: t("merchantRegister") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: mchBusy, onClick: loadMerchants, children: t("merchantRefresh") })
-                ] }),
-                mchErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: mchErr }) : null,
-                mchSecret ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "10px 12px" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 }, children: t("merchantSecretOnce") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 12, wordBreak: "break-all", marginBottom: 3 }, children: [
-                    t("merchantIdLabel"),
-                    " \xB7 ",
-                    mchSecret.id
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 12, wordBreak: "break-all", marginBottom: 8 }, children: [
-                    t("merchantSecretLabel"),
-                    " \xB7 ",
-                    mchSecret.secret
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => {
-                      try {
-                        navigator.clipboard.writeText(mchSecret.secret);
-                      } catch {
-                      }
-                    }, children: t("merchantCopySecret") }),
-                    mchSecret.subscribeUrl ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", onClick: () => {
-                      try {
-                        location.href = mchSecret.subscribeUrl;
-                      } catch {
-                      }
-                    }, children: t("merchantSubscribe") }) : null
-                  ] })
-                ] }) : null,
-                merchants.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, fontWeight: 700, opacity: 0.75 }, children: [
-                    t("merchantMine"),
-                    "\uFF08",
-                    merchants.length,
-                    "\uFF09"
-                  ] }),
-                  merchants.map((m) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 140 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, fontWeight: 600 }, children: m.name }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, color: "var(--me-c-text-dim)" }, children: [
-                        m.id,
-                        m.domain ? " \xB7 " + m.domain : "",
-                        " \xB7 ",
-                        m.status
-                      ] })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: mchBusy, onClick: () => rotateMerchant(m.id), children: t("merchantRotate") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "danger", size: "sm", disabled: mchBusy, onClick: () => revokeMerchant(m.id), children: t("merchantRevoke") })
-                  ] }, m.id))
-                ] }) : null
-              ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }, children: [
-                isConnected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, background: "var(--me-c-surface)", overflow: "hidden" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                    "button",
-                    {
-                      type: "button",
-                      onClick: () => setAcctOpen((v) => !v),
-                      "aria-expanded": acctOpen,
-                      style: { display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "13px 15px", background: "transparent", border: "none", cursor: "pointer", color: "inherit", font: "inherit" },
-                      children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                          AccountBadge,
-                          {
-                            owner: cloudIdentity.owner || "",
-                            profile: cloudIdentity.profile || null,
-                            sub: cloudPlan ? planLabelOf(cloudPlan.plan, true) : t("cloudConnected"),
-                            tone: cloudConn.mode === "cloud" && cloudConn.active !== false ? "ok" : "warn",
-                            size: 38
-                          }
-                        ),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11, opacity: 0.45, transform: acctOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }, children: "\u25BE" })
                       ]
                     }
                   ),
-                  acctOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "12px 15px", display: "flex", flexDirection: "column", gap: 7, fontSize: 12 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanLabel") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontWeight: 600 }, children: cloudPlan ? planLabelOf(cloudPlan.plan, true) : "\u2014" })
-                      ] }),
-                      cloudPlan && formatExpiry(cloudPlan.expiresAt) ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanExpires") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { textAlign: "right" }, children: [
-                          formatExpiry(cloudPlan.expiresAt),
-                          daysLeft(cloudPlan.expiresAt) !== null ? " \xB7 " + (daysLeft(cloudPlan.expiresAt) > 0 ? t("daysLeft").replace("{n}", String(daysLeft(cloudPlan.expiresAt))) : t("expired")) : ""
-                        ] })
-                      ] }) : null,
-                      cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanCards") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { textAlign: "right" }, children: Number(cloudPlan.caps.cards).toLocaleString() })
-                      ] }) : null,
-                      cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanRpm") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { textAlign: "right" }, children: [
-                          Number(cloudPlan.caps.rpm).toLocaleString(),
-                          " / ",
-                          t("perMinute")
-                        ] })
-                      ] }) : null,
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudInfoInstance") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { textAlign: "right" }, children: String(cloudForm.url || "").replace(/^https?:\/\//, "") })
-                      ] })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", onClick: () => {
-                      try {
-                        window.open(subscribeUrl(), "_blank", "noopener");
-                      } catch {
-                      }
-                    }, style: { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "var(--me-c-accent, #2563eb)", font: "inherit", fontSize: 12.5 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("managePlan") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.5 }, children: "\u2197" })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", padding: "11px 15px" }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.6, marginBottom: 7 }, children: t("importLocalHint") }),
-                      importJob && importJob.importing ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12 }, children: t("importRunning").replace("{done}", String(importJob.done)).replace("{total}", String(importJob.total)) }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cancelImport, children: t("importCancel") })
-                      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: importLocalToCloud, children: t("importLocal") }),
-                        importJob && importJob.total > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 11.5, opacity: 0.6 }, children: [
-                          t("importDone").replace("{n}", String(importJob.imported || 0)),
-                          importJob.duplicate ? " \xB7 " + importJob.duplicate + " skipped" : ""
-                        ] }) : null
-                      ] }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.45, marginTop: 6, lineHeight: 1.6 }, children: t("importCopyNote") }),
-                      importJob && importJob.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: importJob.err }) : null
-                    ] }),
-                    (() => {
-                      const others = readAccounts().filter((a) => a.owner && a.owner !== (cloudIdentity.owner || ""));
-                      if (!others.length) return null;
-                      return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", padding: "10px 15px" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.5, letterSpacing: 0.3, marginBottom: 6 }, children: t("otherAccounts") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: others.map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                          "button",
-                          {
-                            type: "button",
-                            onClick: () => useAccount(a),
-                            style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 0", background: "transparent", border: "none", cursor: "pointer", color: "inherit", font: "inherit", fontSize: 12.5, textAlign: "left" },
-                            children: [
-                              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 22, height: 22, borderRadius: "50%", background: "var(--me-c-accent-soft, rgba(37,99,235,.12))", color: "var(--me-c-accent, #2563eb)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flex: "none" }, children: String(a.owner || "?").slice(0, 1).toUpperCase() }),
-                              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: a.owner }),
-                              a.plan ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 10.5, opacity: 0.5 }, children: planLabelOf(a.plan, true) }) : null
-                            ]
-                          },
-                          a.owner
-                        )) })
-                      ] });
-                    })(),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
-                      setAcctOpen(false);
-                      switchAccount();
-                    }, style: { display: "block", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "inherit", font: "inherit", fontSize: 12.5 }, children: t("cloudSwitchAccount") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
-                      setAcctOpen(false);
-                      disconnectCloud();
-                    }, style: { display: "block", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "var(--me-c-danger, #dc2626)", font: "inherit", fontSize: 12.5 }, children: t("cloudSignOut") })
-                  ] }) : null
-                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                  deviceAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap", border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "16px 18px", background: "var(--me-c-surface)" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QrCode, { text: deviceAuth.verificationUriComplete || deviceAuth.verificationUri, size: 124, label: t("deviceQrLabel") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 9, minWidth: 0, flex: 1 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t("qrLogin") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, color: "var(--me-c-text-dim)" }, children: t("qrScanHint") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                        "button",
-                        {
-                          type: "button",
-                          onClick: () => {
-                            try {
-                              navigator.clipboard.writeText(deviceAuth.userCode);
-                              notify2(t("deviceCopied"), true);
-                            } catch {
-                            }
-                          },
-                          title: t("deviceCopy"),
-                          style: { alignSelf: "flex-start", fontFamily: "ui-monospace,Consolas,monospace", fontSize: 21, fontWeight: 700, letterSpacing: 2.5, padding: 0, background: "none", border: "none", color: "inherit", cursor: "pointer" },
-                          children: deviceAuth.userCode
-                        }
-                      ),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", onClick: () => {
-                        try {
-                          window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, "_blank", "noopener");
-                        } catch {
-                        }
-                      }, children: t("qrOpen") }) }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, opacity: 0.45 }, children: [
-                        "\u23F3 ",
-                        t("qrWaiting")
-                      ] }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, lineHeight: 1.6, opacity: 0.5, display: "flex", gap: 5, alignItems: "flex-start" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: "none" }, children: "\u26A0" }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("qrSecurityHint") })
-                      ] })
-                    ] })
-                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "22px 20px", textAlign: "center", background: "var(--me-c-surface)" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, opacity: 0.7, marginBottom: 12 }, children: deviceBusy ? t("deviceStarting") : t("deviceIdleHint") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: deviceBusy, onClick: startDeviceLogin, children: t("cloudLoginButton") })
-                  ] }),
-                  deviceErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: deviceErr }) : null,
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => setShowKeyField((v) => !v), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "var(--me-c-text-dim)", textDecoration: "underline" }, children: showKeyField ? t("cloudHideKey") : t("cloudManualConfig") }) }),
-                  showKeyField ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: "https://mem.mengbot.com.cn" })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", value: cloudForm.token, onChange: (e) => setCloudForm((f) => ({ ...f, token: e.target.value })), placeholder: "me_\u2026" }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudTokenHint") })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: saveCloud, children: t("cloudSave") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: cloudBusy, onClick: testCloud, children: cloudBusy ? "\u23F3" : t("cloudTestBtn") })
-                    ] })
-                  ] }) : null
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                    "select",
+                    {
+                      value: dupMode,
+                      onChange: (e) => setDupMode(e.target.value),
+                      style: { fontSize: 11.5, padding: "4px 7px", borderRadius: 6, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", color: "inherit" },
+                      children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "skip", children: t("vaultDupSkip") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "overwrite", children: t("vaultDupOverwrite") })
+                      ]
+                    }
+                  )
                 ] }),
-                deviceErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "10px 12px", fontSize: 12, lineHeight: 1.65 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: t("deviceErrTitle") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 4 }, children: deviceErr }),
-                  /grant_not_allowed|未被允许/.test(deviceErr) ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 6, opacity: 0.85 }, children: t("deviceFallbackHint") }) : null
-                ] }) : null,
-                cloudConn.mode === "cloud" && cloudConn.active === false && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: t("cloudKeptButInactive").replace("{err}", cloudConn.lastError || "\u2014") }),
-                cloudTest && cloudTest.authenticated === false && cloudTest.ok && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "ok", text: cloudTest.message || t("cloudTestReachable").replace("{version}", cloudTest.version || "") }),
-                cloudTest && !cloudTest.ok && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: cloudTest.error || t("cloudTestFail") }),
-                cloudTest && cloudTest.diag && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, lineHeight: 1.6, opacity: 0.55, wordBreak: "break-all" }, children: [
-                  cloudTest.diag.url,
-                  " \xB7 origin ",
-                  cloudTest.diag.origin
-                ] })
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !vaultSel || !!(importJob && importJob.importing), onClick: () => uploadVaultToCloud(vaultSel), children: t("cfUploadBtn") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !vaultSel || !!(importJob && importJob.importing), onClick: () => downloadCloudToVault(vaultSel), children: t("cfDownloadBtn") })
+                ] }),
+                !vaultSel ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.45 }, children: t("cfPickLocalVault") }) : null
               ] })
-            ] }) }),
+            ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-reset"), id: "sec-reset", icon: "\u26A0\uFE0F", title: t("resetSection"), sub: t("resetSectionSub"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--me-c-text-dim)", lineHeight: 1.75 }, children: t("resetIntro") }),
               resetOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, zIndex: 2e3, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: "min(520px, 100%)", maxHeight: "86vh", overflow: "auto", background: "var(--dsw-alias-bg-layer-1, #fff)", border: "1px solid var(--me-c-border)", borderRadius: 14, padding: "20px 22px", boxShadow: "0 24px 64px rgba(0,0,0,.32)" }, children: [
