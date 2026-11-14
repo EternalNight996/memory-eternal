@@ -52,6 +52,25 @@ let cloudToken = ''
 const CLOUD_CFG_KEY = 'me-cloud-conn'
 
 /**
+ * 只打**本机**服务的 fetch（绕过云端重写）。
+ *
+ * 为什么需要：云端模式下全局 fetch 会把 `/memory-eternal/api/...` 重写到云端实例。
+ * 但客户端的「我的本地库在哪 / 本地库有哪些」这问题只能问本机 —— 否则本地库在
+ * 界面上就"消失"了（切到云端后看到的全是服务器上的路径）。
+ *
+ * 产品上的区分（用户明确要求）：
+ *   · 客户端（本地 DSH）：db 固定，登录云端只是同步目标，本地库不变
+ *   · 服务端（云端实例）：多账号多 db
+ */
+const fetchLocal = (path, init) => {
+  const raw = (typeof globalThis !== 'undefined' && globalThis.__meRawFetch) || null
+  const url = LOCAL_PREFIX + path
+  if (raw) return raw(url, init)
+  // 没有原始引用时退回普通 fetch（开发态 http 下通常还没打补丁）
+  return fetch(url, init)
+}
+
+/**
  * 云端连接配置。
  *
  * **重要**：`mode` 是「用户意图」，`active` 是「本次是否真的在用云端」。
@@ -413,6 +432,9 @@ function probeCloudBoot(timeoutMs = 3000) {
 // 这样 200 多处 `fetch(API + '/xxx')` 一行都不用改：调用点写的仍是 `/memory-eternal/api/...`。
 try {
   const _fetch = globalThis.fetch && globalThis.fetch.bind(globalThis)
+  // 留一个**不被重写**的原始 fetch：本地进程的「我的库在哪」必须问本地，
+  // 不能因为切了云端模式就去问云端（那样拿到的是服务器上的路径，本地就"消失"了）。
+  try { if (_fetch) globalThis.__meRawFetch = _fetch } catch { /* 忽略 */ }
   if (_fetch && !globalThis.__meFetchPatched) {
     globalThis.__meFetchPatched = true
     globalThis.fetch = (input, init) => {
@@ -8543,6 +8565,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [mchSecret, setMchSecret] = useState(null)
   /** 本地库位置（本地模式要显示 db 到底在哪，用户才知道数据存哪儿）。 */
   const [localVault, setLocalVault] = useState(null)
+  // 本进程的形态：server = 云端实例（多账号多 db）/ client = 本地客户端（db 固定）
+  const [hostRole, setHostRole] = useState('client')
   // 库管理：枚举本机所有记忆库（本地 / 备份副本 / 云端租户），供上传下载选择
   const [vaultList, setVaultList] = useState(null)
   // 云端实例上的库（与本地库分开存：两边的 isCurrent 各算各的，混在一起会打架）
@@ -8561,11 +8585,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
     let alive = true
     ;(async () => {
       try {
-        const r = await fetch(API + '/overview')
+        // 必须问**本机**：云端模式下 fetch(API + ...) 会被重写到云端，
+      // 那样 localVault 会变成服务器上的路径，本地库在界面上就没了。
+      const r = await fetchLocal('/overview')
         const d = await r.json().catch(() => ({}))
         if (alive && d) {
           // dbPath 是后端直接给的绝对路径；db 字段是健康状态对象，不能拿来拼
           const full = String(d.dbPath || '')
+          // 后端明确告诉我们本进程是客户端还是服务端 —— 不再靠路径猜
+          if (d.hostRole === 'server' || d.hostRole === 'client') setHostRole(d.hostRole)
           if (full) setLocalVault({ dir: String(d.vaultDir || ''), full })
         }
       } catch { /* 拿不到就不显示 */ }
@@ -8965,13 +8993,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
 
   // 本进程是不是「云端租户实例」：vaultRoot 在 cloud-vaults/<owner> 下。
   // 这决定文案怎么说话 —— 在云端实例上，"本机"其实是服务器，说"保存在这台机器上"是错的。
-  const isCloudInstance = (() => {
-    try {
-      // 用 dir（vaultDir）兜底：dbPath 在刚建的空库上可能是空的，vaultDir 一直是绝对路径
-      const p2 = String((localVault && (localVault.dir || localVault.full)) || '')
-      return p2.includes('cloud-vaults')
-    } catch { return false }
-  })()
+  // 以服务端下发的 hostRole 为准（云端模式下 fetch 会被重写，
+  // 靠路径里有没有 cloud-vaults 去猜必然出错 —— 那正是之前的 bug）。
+  const isCloudInstance = hostRole === 'server'
 
   /** 拉本机所有库（本地 + 备份 + 云端租户）。 */
   const loadVaults = async () => {

@@ -28731,6 +28731,12 @@
   var LOCAL_PREFIX = API;
   var cloudToken = "";
   var CLOUD_CFG_KEY = "me-cloud-conn";
+  var fetchLocal = /* @__PURE__ */ __name((path, init) => {
+    const raw = typeof globalThis !== "undefined" && globalThis.__meRawFetch || null;
+    const url = LOCAL_PREFIX + path;
+    if (raw) return raw(url, init);
+    return fetch(url, init);
+  }, "fetchLocal");
   var ACCOUNTS_KEY = "me-cloud-accounts";
   function readAccounts() {
     try {
@@ -29023,6 +29029,10 @@
   __name(probeCloudBoot, "probeCloudBoot");
   try {
     const _fetch = globalThis.fetch && globalThis.fetch.bind(globalThis);
+    try {
+      if (_fetch) globalThis.__meRawFetch = _fetch;
+    } catch {
+    }
     if (_fetch && !globalThis.__meFetchPatched) {
       globalThis.__meFetchPatched = true;
       globalThis.fetch = (input, init) => {
@@ -34416,7 +34426,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T18:04:15.166Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T18:11:01.617Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -37099,6 +37109,7 @@ ${t("quoteHint")}`,
     const [mchErr, setMchErr] = (0, import_react2.useState)("");
     const [mchSecret, setMchSecret] = (0, import_react2.useState)(null);
     const [localVault, setLocalVault] = (0, import_react2.useState)(null);
+    const [hostRole, setHostRole] = (0, import_react2.useState)("client");
     const [vaultList, setVaultList] = (0, import_react2.useState)(null);
     const [cloudVaultList, setCloudVaultList] = (0, import_react2.useState)(null);
     const [cloudVaultQuota, setCloudVaultQuota] = (0, import_react2.useState)(null);
@@ -37114,10 +37125,11 @@ ${t("quoteHint")}`,
       let alive = true;
       (async () => {
         try {
-          const r = await fetch(API + "/overview");
+          const r = await fetchLocal("/overview");
           const d = await r.json().catch(() => ({}));
           if (alive && d) {
             const full = String(d.dbPath || "");
+            if (d.hostRole === "server" || d.hostRole === "client") setHostRole(d.hostRole);
             if (full) setLocalVault({ dir: String(d.vaultDir || ""), full });
           }
         } catch {
@@ -37563,14 +37575,7 @@ ${t("quoteHint")}`,
         }
       }
     }, "createCloudVault");
-    const isCloudInstance = (() => {
-      try {
-        const p2 = String(localVault && (localVault.dir || localVault.full) || "");
-        return p2.includes("cloud-vaults");
-      } catch {
-        return false;
-      }
-    })();
+    const isCloudInstance = hostRole === "server";
     const loadVaults = /* @__PURE__ */ __name(async () => {
       if (cloudForm.mode === "cloud" && String(cloudForm.url || "").trim()) {
         try {
