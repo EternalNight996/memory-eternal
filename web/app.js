@@ -29536,6 +29536,10 @@
     vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
     logsTab: "\u65E5\u5FD7",
     logsKeepLabel: "\u4FDD\u7559",
+    logsToday: "\u4ECA\u5929",
+    logsYesterday: "\u6628\u5929",
+    logsLast7: "\u8FD1 7 \u5929",
+    logsCopyPath: "\u590D\u5236\u5361\u7247\u8DEF\u5F84",
     logsKeepUnit: "\u5929",
     logsKeepHint: "\u8D85\u671F\u7684\u65E5\u5FD7\u4F1A\u81EA\u52A8\u6E05\u7406\uFF08\u542F\u52A8\u65F6 + \u5199\u5165\u65F6\u5404\u68C0\u67E5\u4E00\u6B21\uFF09\uFF1B\u6539\u8FD9\u91CC\u4F1A\u7ACB\u523B\u6309\u65B0\u503C\u6E05\u4E00\u904D",
     logsKeepSaved: "\u4FDD\u7559 {n} \u5929 \xB7 \u5DF2\u6E05 {r} \u6761",
@@ -29558,6 +29562,7 @@
     logsColAction: "\u52A8\u4F5C",
     logsColTitle: "\u6807\u9898",
     logsEmpty: "\u8FD9\u4E00\u5929\u6CA1\u6709\u65E5\u5FD7",
+    logsEmptyRange: "\u8FD9 7 \u5929\u6CA1\u6709\u65E5\u5FD7",
     logsFooterHint: "\u53EA\u8BB0\u5F55\u6807\u9898\uFF0C\u4E0D\u542B\u6B63\u6587\uFF1B\u4FDD\u7559 {n} \u5929\uFF0C\u8D85\u671F\u81EA\u52A8\u6E05\u7406\u3002\u65E5\u5FD7\u5199\u5165\u662F\u65C1\u8DEF\uFF0C\u4E0D\u4F1A\u5F71\u54CD\u8BFB\u5199\u5361\u3002",
     aboutTab: "\u5173\u4E8E",
     aboutVersion: "\u7248\u672C {v}",
@@ -30781,6 +30786,10 @@
     vaultListLabel: "Vaults on this machine",
     logsTab: "Logs",
     logsKeepLabel: "Keep",
+    logsToday: "Today",
+    logsYesterday: "Yesterday",
+    logsLast7: "Last 7d",
+    logsCopyPath: "Copy card path",
     logsKeepUnit: "d",
     logsKeepHint: "Expired logs are pruned automatically (on boot and while logging); changing this prunes immediately",
     logsKeepSaved: "Keeping {n} days \xB7 removed {r}",
@@ -30803,6 +30812,7 @@
     logsColAction: "Action",
     logsColTitle: "Title",
     logsEmpty: "No logs for this day",
+    logsEmptyRange: "No logs in the last 7 days",
     logsFooterHint: "Titles only, never card bodies; kept for {n} days and pruned automatically. Logging never blocks reads/writes.",
     aboutTab: "About",
     aboutVersion: "version {v}",
@@ -34327,7 +34337,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T14:40:54.037Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T15:08:11.171Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34540,6 +34550,7 @@ ${COMPONENTS_CSS}
       const d = /* @__PURE__ */ new Date();
       return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     });
+    const [logRange, setLogRange] = (0, import_react2.useState)("day");
     const [logQ, setLogQ] = (0, import_react2.useState)("");
     const [logAction, setLogAction] = (0, import_react2.useState)("");
     const [logData, setLogData] = (0, import_react2.useState)(null);
@@ -34549,7 +34560,16 @@ ${COMPONENTS_CSS}
     const loadLogs = /* @__PURE__ */ __name(async () => {
       setLogBusy(true);
       try {
-        const qs = new URLSearchParams({ date: logDate, limit: "500" });
+        const qs = new URLSearchParams({ limit: "500" });
+        if (logRange === "7d") {
+          const end = /* @__PURE__ */ new Date(logDate + "T00:00:00");
+          const start = new Date(end.getTime() - 6 * 864e5);
+          const fmt = /* @__PURE__ */ __name((d2) => d2.getFullYear() + "-" + String(d2.getMonth() + 1).padStart(2, "0") + "-" + String(d2.getDate()).padStart(2, "0"), "fmt");
+          qs.set("from", fmt(start));
+          qs.set("to", fmt(end));
+        } else {
+          qs.set("date", logDate);
+        }
         if (logQ.trim()) qs.set("q", logQ.trim());
         if (logAction) qs.set("action", logAction);
         const r = await fetch(API + "/logs?" + qs.toString());
@@ -34568,7 +34588,7 @@ ${COMPONENTS_CSS}
     }, "loadLogs");
     (0, import_react2.useEffect)(() => {
       if (view === "logs") loadLogs();
-    }, [view, logDate, logAction]);
+    }, [view, logDate, logAction, logRange]);
     const exportLogs = /* @__PURE__ */ __name(() => {
       try {
         const a = document.createElement("a");
@@ -35475,6 +35495,34 @@ ${COMPONENTS_CSS}
               view === "logs" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, padding: "4px 2px" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "date", value: logDate, onChange: (e) => setLogDate(e.target.value), style: { fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", color: "inherit" } }),
+                  [
+                    { k: "today", label: t("logsToday") },
+                    { k: "yesterday", label: t("logsYesterday") },
+                    { k: "7d", label: t("logsLast7") }
+                  ].map(({ k, label }) => {
+                    const active = k === "7d" ? logRange === "7d" : (() => {
+                      const d = /* @__PURE__ */ new Date();
+                      if (k === "yesterday") d.setDate(d.getDate() - 1);
+                      const f = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+                      return logRange === "day" && logDate === f;
+                    })();
+                    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: () => {
+                          const d = /* @__PURE__ */ new Date();
+                          if (k === "yesterday") d.setDate(d.getDate() - 1);
+                          const f = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+                          setLogDate(f);
+                          setLogRange(k === "7d" ? "7d" : "day");
+                        },
+                        style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (active ? "var(--me-c-accent)" : "var(--me-c-border)"), background: active ? "var(--me-c-accent-soft, rgba(59,130,246,.12))" : "transparent", color: "inherit", cursor: "pointer", fontSize: 11.5 },
+                        children: label
+                      },
+                      k
+                    );
+                  }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: logQ, onChange: (e) => setLogQ(e.target.value), onKeyDown: (e) => {
                     if (e.key === "Enter") loadLogs();
                   }, placeholder: t("logsSearchPlaceholder"), style: { flex: 1, minWidth: 180, fontSize: 12, padding: "5px 9px", borderRadius: 7, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", color: "inherit" } }),
@@ -35521,9 +35569,26 @@ ${COMPONENTS_CSS}
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.7 }, children: r.ip || "-" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: r.agent, children: r.agent || "-" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.7 }, children: t("logAction_" + r.action) || r.action }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: r.title, children: r.title })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }, title: r.title, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: r.title }),
+                      r.target ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        "button",
+                        {
+                          type: "button",
+                          onClick: () => {
+                            try {
+                              navigator.clipboard.writeText(String(r.target));
+                            } catch {
+                            }
+                          },
+                          title: t("logsCopyPath") + "\uFF1A" + r.target,
+                          style: { flex: "none", background: "none", border: "none", cursor: "pointer", fontSize: 10.5, opacity: 0.35, padding: 0 },
+                          children: "\u29C9"
+                        }
+                      ) : null
+                    ] })
                   ] }, r.id))
-                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-empty", style: { padding: "28px 0", textAlign: "center", opacity: 0.55 }, children: logBusy ? t("loading") : t("logsEmpty") }),
+                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-empty", style: { padding: "28px 0", textAlign: "center", opacity: 0.55 }, children: logBusy ? t("loading") : logRange === "7d" ? t("logsEmptyRange") : t("logsEmpty") }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }, children: t("logsFooterHint").replace("{n}", String(logKeep)) })
               ] }),
               view === "cards" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-pagehead", children: [
