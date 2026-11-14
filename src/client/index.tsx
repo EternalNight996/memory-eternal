@@ -839,9 +839,15 @@ export const ZH = {
   deviceStarting: '正在获取二维码…',
   deviceIdleHint: '点下面的按钮获取登录二维码',
   deviceScanHint: '用手机扫码，或在电脑浏览器打开链接后确认授权',
+  deviceCopied: '已复制验证码',
+  scanLogin: '扫码登录',
   cloudHideKey: '收起访问密钥',
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
+  qrScanHint: '手机扫码，或点下面的码复制',
+  qrWaiting: '等待授权…',
+  qrOpen: '在浏览器打开',
+  qrLogin: '扫码登录',
   cloudLoginCtaHint: '自动获取令牌，不用手动填密钥',
   deviceTitle: '在任意设备上完成登录',
   deviceOpen: '用手机或浏览器打开：',
@@ -1978,6 +1984,10 @@ export const EN = {
   cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) — it is not an access key. Use "Sign in with MengBot" instead',
   cloudModeLabel: 'Mode',
   cloudConnected: 'Connected',
+  qrScanHint: 'Scan with your phone, or tap the code to copy',
+  qrWaiting: 'Waiting for approval…',
+  qrOpen: 'Open in browser',
+  qrLogin: 'Sign in with QR',
   cloudDisconnect: 'Disconnect',
   cloudSignOut: 'Sign out',
   importLocal: 'Import local vault to cloud',
@@ -9327,20 +9337,24 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <>
                     {/* 极简：二维码优先；地址与密钥收进「手动配置」，普通用户看不到 */}
                     {deviceAuth ? (
-                      <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '16px 18px', background: 'var(--me-c-surface)' }}>
-                        <QrCode text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} size={132} label={t('deviceQrLabel')} />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 600 }}>{t('cloudLoginButton')}</div>
-                          <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.65 }}>{t('deviceScanHint')}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 18, fontWeight: 700, letterSpacing: 2 }}>{deviceAuth.userCode}</span>
-                            <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode) } catch { /* 忽略 */ } }}>{t('deviceCopy')}</Btn>
-                            <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('deviceOpenBtn')}</Btn>
-                          </div>
-                          <div style={{ fontSize: 11.5, opacity: 0.55, display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span>⏳ {t('deviceWaiting')}</span>
-                            <Btn variant="ghost" size="sm" onClick={cancelDeviceLogin}>{t('pollCancel')}</Btn>
-                          </div>
+                      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '16px 18px', background: 'var(--me-c-surface)' }}>
+                        <QrCode text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} size={124} label={t('deviceQrLabel')} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>{t('qrLogin')}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--me-c-text-dim)' }}>{t('qrScanHint')}</div>
+                          {/* 码本身可点复制 —— 少一个按钮就少一份视觉噪音 */}
+                          <button
+                            type="button"
+                            onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode); notify(t('deviceCopied'), true) } catch { /* 忽略 */ } }}
+                            title={t('deviceCopy')}
+                            style={{ alignSelf: 'flex-start', fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 21, fontWeight: 700, letterSpacing: 2.5, padding: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+                          >
+                            {deviceAuth.userCode}
+                          </button>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('qrOpen')}</Btn>
+    </div>
+                          <div style={{ fontSize: 11, opacity: 0.45 }}>⏳ {t('qrWaiting')}</div>
                         </div>
                       </div>
                     ) : (
@@ -9386,109 +9400,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       </div>
                     ) : null}
                     {/* PC 回跳进行中：告诉用户在浏览器完成即可，这里会自动登录 */}
-                    {!isConnected && pollAuth ? (
-                      <div style={{ border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent-soft, rgba(37,99,235,.08))', borderRadius: 10, padding: '14px 16px' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('devicePanelTitle')}</div>
-                        <div style={{ fontSize: 12, lineHeight: 1.75, opacity: 0.8 }}>⏳ {t('pollWaiting')}</div>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                          <Btn variant="ghost" size="sm" onClick={cancelPollLogin}>{t('pollCancel')}</Btn>
-                        </div>
-                      </div>
-                    ) : null}
-                    {pollErr ? <Status tone="bad" text={pollErr} /> : null}
-                    {!isConnected && deviceAuth ? (
-                      <div style={{ border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent-soft, rgba(37,99,235,.08))', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t('deviceTitle')}</div>
-                        {/* 扫码直达：受信设备上不用手输，扫一下就跳到确认页（MengBot P1 已确认该页面在线） */}
-                        <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 12px' }}>
-                          <QrCode
-                            text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri}
-                            size={132}
-                            label={t('deviceQrLabel')}
-                          />
-                        </div>
-                        <div style={{ fontSize: 12, lineHeight: 1.7 }}>
-                          {t('deviceOpen')}{' '}
-                          <a href={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} target="_blank" rel="noreferrer" style={{ wordBreak: 'break-all' }}>{(deviceAuth.verificationUriComplete || deviceAuth.verificationUri)}</a>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 12, opacity: 0.8 }}>{t('deviceCodeLabel')}</span>
-                          <span style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 20, fontWeight: 700, letterSpacing: 2, padding: '4px 12px', background: 'var(--me-c-surface)', border: '1px solid var(--me-c-border)', borderRadius: 8 }}>
-                            {deviceAuth.userCode}
-                          </span>
-                          <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode) } catch { /* 忽略 */ } }}>
-                            {t('deviceCopy')}
-                          </Btn>
-                          <Btn
-                            variant="primary"
-                            size="sm"
-                            onClick={() => {
-                              // 带 code 的直达链接（MengBot P1 已确认 /device?user_code=... 在线）
-                              try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ }
-                            }}
-                          >
-                            {t('deviceOpenBtn')}
-                          </Btn>
-                        </div>
-                        <div style={{ fontSize: 11.5, opacity: 0.7 }}>⏳ {t('deviceWaiting')}</div>
-                        <div>
-                          <Btn variant="ghost" size="sm" onClick={cancelDeviceLogin}>{t('deviceCancel')}</Btn>
-                        </div>
-                      </div>
-                    ) : null}
                   {/* 未连接才显示表单：已连接时只保留上面的身份卡片，界面才有主次 */}
                   {/* 未连接：**极简** —— 二维码 + 已在浏览器打开的主按钮。
       地址/密钥收进折叠区，默认根本不需要看见它。 */}
-                  {!isConnected ? (
-                    <>
-                      {deviceAuth ? (
-                        <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '16px 18px', background: 'var(--me-c-surface)' }}>
-                          <QrCode text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} size={132} label={t('deviceQrLabel')} />
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, flex: 1 }}>
-                            <div style={{ fontSize: 13.5, fontWeight: 600 }}>{t('cloudLoginButton')}</div>
-                            <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.65 }}>{t('deviceScanHint')}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              <span style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 18, fontWeight: 700, letterSpacing: 2 }}>{deviceAuth.userCode}</span>
-                              <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode) } catch { /* 忽略 */ } }}>{t('deviceCopy')}</Btn>
-                              <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('deviceOpenBtn')}</Btn>
-                            </div>
-                            <div style={{ fontSize: 11.5, opacity: 0.55 }}>⏳ {t('deviceWaiting')}</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '18px', textAlign: 'center', background: 'var(--me-c-surface)' }}>
-                          <div style={{ fontSize: 12.5, opacity: 0.7 }}>{deviceBusy ? t('deviceStarting') : t('deviceIdleHint')}</div>
-                          <div style={{ marginTop: 10 }}>
-                            <Btn variant="primary" size="sm" disabled={deviceBusy} onClick={startDeviceLogin}>{t('cloudLoginButton')}</Btn>
-                          </div>
-                        </div>
-                      )}
-                      {deviceErr ? <Status tone="bad" text={deviceErr} /> : null}
-                      {/* 手动配置（地址 / 密钥）：默认收起，普通用户根本不需要 */}
-                      <div>
-                        <button type="button" onClick={() => setShowKeyField((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}>
-                          {showKeyField ? t('cloudHideKey') : t('cloudManualConfig')}
-                        </button>
-                      </div>
-                      {showKeyField ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          <label className="mc-field">
-                            <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                            <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
-                          </label>
-                          <label className="mc-field">
-                            <span className="mc-field-label">{t('cloudTokenLabel')}</span>
-                            <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_…" />
-                            <span className="mc-field-hint">{t('cloudTokenHint')}</span>
-                          </label>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <Btn variant="primary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
-                            <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳' : t('cloudTestBtn')}</Btn>
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
                   {cloudConn.mode === 'cloud' && cloudConn.active === false && (
                     <Status tone="bad" text={t('cloudKeptButInactive').replace('{err}', cloudConn.lastError || '—')} />
                   )}
