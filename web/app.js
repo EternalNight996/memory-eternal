@@ -29465,6 +29465,11 @@
     deviceExpired: "\u9A8C\u8BC1\u7801\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u53D1\u8D77\u767B\u5F55",
     deviceFailed: "\u767B\u5F55\u5931\u8D25",
     deviceErrTitle: "\u767B\u5F55\u4E0D\u53EF\u7528",
+    pollWaiting: "\u5DF2\u5728\u6D4F\u89C8\u5668\u6253\u5F00\u6388\u6743\u9875\uFF0C\u5B8C\u6210\u540E\u8FD9\u91CC\u4F1A\u81EA\u52A8\u767B\u5F55\uFF08\u65E0\u9700\u56DE\u6765\u64CD\u4F5C\uFF09",
+    useDeviceCode: "\u6539\u7528\u624B\u673A\u9A8C\u8BC1\u7801\u767B\u5F55",
+    pollExpired: "\u6388\u6743\u8D85\u65F6\uFF0C\u8BF7\u91CD\u65B0\u53D1\u8D77\u767B\u5F55",
+    pollReopen: "\u91CD\u65B0\u6253\u5F00\u6388\u6743\u9875",
+    pollCancel: "\u53D6\u6D88",
     deviceNotAllowed: "\u603B\u90E8\uFF08MengBot\uFF09\u5DF2\u652F\u6301\u8BBE\u5907\u7801\u767B\u5F55\uFF0C\u4F46\u8FD8\u6CA1\u4E3A\u6211\u4EEC\u7684\u5E94\u7528\u5F00\u542F\u8FD9\u9879\u6743\u9650\u3002\u8BF7\u5148\u7528\u4E0B\u65B9\u7684\u8BBF\u95EE\u5BC6\u94A5\u767B\u5F55\u3002",
     deviceFallbackHint: "\u8FD9\u6761\u4E0D\u5F71\u54CD\u4F7F\u7528\uFF1A\u628A\u8BBF\u95EE\u5BC6\u94A5\u586B\u8FDB\u4E0B\u9762\u7684\u8F93\u5165\u6846\u5373\u53EF\uFF0C\u6548\u679C\u5B8C\u5168\u4E00\u6837\uFF08\u53EA\u662F\u6CA1\u6709\u5934\u50CF\uFF09\u3002",
     cloudSwitchAccount: "\u5207\u6362\u8D26\u53F7",
@@ -30603,6 +30608,11 @@
     deviceExpired: "The code expired \u2014 please start again",
     deviceFailed: "Sign-in failed",
     deviceErrTitle: "Sign-in unavailable",
+    pollWaiting: "Approval page opened in your browser \u2014 this will finish automatically",
+    useDeviceCode: "Use a device code instead",
+    pollExpired: "Authorization timed out \u2014 please start again",
+    pollReopen: "Reopen approval page",
+    pollCancel: "Cancel",
     deviceNotAllowed: "MengBot supports device sign-in but has not enabled it for this app yet. Use the access key below for now.",
     deviceFallbackHint: "This does not block you \u2014 paste the access key below and everything works the same (just no avatar).",
     cloudSwitchAccount: "Switch account",
@@ -34005,7 +34015,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T10:58:42.333Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T12:17:02.277Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -36047,6 +36057,8 @@ ${t("quoteHint")}`,
     const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
     const [cloudPlan, setCloudPlan] = (0, import_react2.useState)(null);
     const [showKeyField, setShowKeyField] = (0, import_react2.useState)(false);
+    const [pollAuth, setPollAuth] = (0, import_react2.useState)(null);
+    const [pollErr, setPollErr] = (0, import_react2.useState)("");
     const cloudApi = /* @__PURE__ */ __name((path) => {
       const base = String(cloudForm && cloudForm.url || "").trim().replace(/\/+$/, "");
       if (!base) return "";
@@ -36113,6 +36125,87 @@ ${t("quoteHint")}`,
     const [deviceAuth, setDeviceAuth] = (0, import_react2.useState)(null);
     const [deviceErr, setDeviceErr] = (0, import_react2.useState)("");
     const [deviceBusy, setDeviceBusy] = (0, import_react2.useState)(false);
+    const startPollLogin = /* @__PURE__ */ __name(async () => {
+      setPollErr("");
+      const url = cloudApi("/cloud/auth/poll/start");
+      if (!url) {
+        setPollErr(t("cloudUrlRequired"));
+        return;
+      }
+      try {
+        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const d = await r.json().catch(() => ({}));
+        if (!d.ok || !d.pollId) {
+          setPollErr(d.error || "HTTP " + r.status);
+          return;
+        }
+        setPollAuth({ pollId: d.pollId, openedAt: Date.now(), interval: Number(d.interval) || 3, expiresIn: Number(d.expiresIn) || 600 });
+        try {
+          window.open(d.url, "_blank", "noopener,noreferrer");
+        } catch {
+        }
+      } catch (e) {
+        setPollErr(String(e && e.message || e));
+      }
+    }, "startPollLogin");
+    const cancelPollLogin = /* @__PURE__ */ __name(() => {
+      setPollAuth(null);
+      setPollErr("");
+    }, "cancelPollLogin");
+    (0, import_react2.useEffect)(() => {
+      if (!pollAuth || !pollAuth.pollId) return;
+      let alive = true;
+      const interval = Math.max(2, Number(pollAuth.interval) || 3) * 1e3;
+      const deadline = pollAuth.openedAt + (Number(pollAuth.expiresIn) || 600) * 1e3;
+      const tick = /* @__PURE__ */ __name(async () => {
+        if (!alive) return;
+        if (Date.now() > deadline) {
+          setPollErr(t("pollExpired"));
+          setPollAuth(null);
+          return;
+        }
+        try {
+          const r = await fetch(cloudApi("/cloud/auth/poll") + "?poll_id=" + encodeURIComponent(pollAuth.pollId));
+          const d = await r.json().catch(() => ({}));
+          if (!alive) return;
+          if (d.ok && d.token) {
+            const next = persistCloud({ mode: "cloud", url: cloudForm.url, token: d.token });
+            if (next.ok) {
+              activateCloud({ ...next.next, token: d.token });
+              try {
+                saveCloudConn({ ...readCloudConn(), mode: "cloud", token: d.token, active: true, lastError: "", owner: d.owner || "", profile: d.profile || null });
+              } catch {
+              }
+              setCloudConn(readCloudConn());
+              setCloudForm((f) => ({ ...f, mode: "cloud", token: d.token }));
+              setCloudTest({ ok: true, authenticated: true, owner: d.owner || "", profile: d.profile || null });
+              setPollAuth(null);
+              try {
+                notify2(t("deviceDone"), true);
+              } catch {
+              }
+            }
+            return;
+          }
+          if (d.pending) {
+            timer = setTimeout(tick, interval);
+            return;
+          }
+          setPollErr(d.error || t("deviceFailed"));
+          setPollAuth(null);
+        } catch (e) {
+          if (alive) {
+            setPollErr(String(e && e.message || e));
+            setPollAuth(null);
+          }
+        }
+      }, "tick");
+      let timer = setTimeout(tick, interval);
+      return () => {
+        alive = false;
+        clearTimeout(timer);
+      };
+    }, [pollAuth, cloudForm.url]);
     const startDeviceLogin = /* @__PURE__ */ __name(async () => {
       setDeviceBusy(true);
       setDeviceErr("");
@@ -36566,8 +36659,19 @@ ${t("quoteHint")}`,
     }, "loadCloudPlan");
     const cloudIdentity = cloudTest && cloudTest.authenticated ? { owner: cloudTest.owner || "", profile: cloudTest.profile || null } : { owner: cloudConn && cloudConn.owner || "", profile: cloudConn && cloudConn.profile || null };
     const disconnectCloud = /* @__PURE__ */ __name(() => {
-      const next = persistCloud({ mode: "local", url: cloudForm.url, token: "" });
-      if (next && next.ok) saveCloudConn({ ...next.next, mode: "local", active: false, lastError: "", owner: null });
+      const cur = readCloudConn();
+      const cleared = {
+        ...cur,
+        mode: "local",
+        active: false,
+        token: "",
+        owner: "",
+        profile: null,
+        lastError: "",
+        lastCheckAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      saveCloudConn(cleared);
+      applyCloudConn(cleared);
       setCloudForm((f) => ({ ...f, mode: "local", token: "" }));
       setCloudConn(readCloudConn());
       setCloudTab("local");
@@ -37709,10 +37813,7 @@ ${t("quoteHint")}`,
                     }
                   ),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { flex: 1 } }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => {
-                    setCloudTest(null);
-                    setCloudForm((f) => ({ ...f, token: "" }));
-                  }, children: t("cloudSwitchAccount") })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 6 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: disconnectCloud, children: t("cloudSwitchAccount") }) })
                 ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
                   "button",
                   {
@@ -37722,8 +37823,7 @@ ${t("quoteHint")}`,
                     onClick: () => {
                       const origin = typeof location !== "undefined" && location.origin || "";
                       const isCustomScheme = !/^https?:/i.test(origin) || origin === "null";
-                      if (isCustomScheme) startDeviceLogin();
-                      else startLoginRedirect();
+                      startDeviceLogin();
                     },
                     style: {
                       display: "flex",
@@ -37742,7 +37842,16 @@ ${t("quoteHint")}`,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 20, lineHeight: 1 }, children: "\u{1F510}" }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { fontSize: 13 }, children: t("cloudLoginButton") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, opacity: 0.75 }, children: t("cloudLoginCtaHint") })
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, opacity: 0.75 }, children: t("cloudLoginCtaHint") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: -4 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          "button",
+                          {
+                            type: "button",
+                            onClick: startDeviceLogin,
+                            style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "var(--me-c-text-dim)", textDecoration: "underline" },
+                            children: t("useDeviceCode")
+                          }
+                        ) })
                       ] })
                     ]
                   }
@@ -37752,6 +37861,15 @@ ${t("quoteHint")}`,
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 4 }, children: deviceErr }),
                   /grant_not_allowed|未被允许/.test(deviceErr) ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 6, opacity: 0.85 }, children: t("deviceFallbackHint") }) : null
                 ] }) : null,
+                !isConnected && pollAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-accent, #2563eb)", background: "var(--me-c-accent-soft, rgba(37,99,235,.08))", borderRadius: 10, padding: "14px 16px" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 8 }, children: t("devicePanelTitle") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12, lineHeight: 1.75, opacity: 0.8 }, children: [
+                    "\u23F3 ",
+                    t("pollWaiting")
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 8, marginTop: 12 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cancelPollLogin, children: t("pollCancel") }) })
+                ] }) : null,
+                pollErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: pollErr }) : null,
                 !isConnected && deviceAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-accent, #2563eb)", background: "var(--me-c-accent-soft, rgba(37,99,235,.08))", borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, fontWeight: 700 }, children: t("deviceTitle") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", justifyContent: "center", margin: "4px 0 12px" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(

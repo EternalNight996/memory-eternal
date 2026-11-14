@@ -842,6 +842,11 @@ export const ZH = {
   deviceExpired: '验证码已过期，请重新发起登录',
   deviceFailed: '登录失败',
   deviceErrTitle: '登录不可用',
+  pollWaiting: '已在浏览器打开授权页，完成后这里会自动登录（无需回来操作）',
+  useDeviceCode: '改用手机验证码登录',
+  pollExpired: '授权超时，请重新发起登录',
+  pollReopen: '重新打开授权页',
+  pollCancel: '取消',
   deviceNotAllowed: '总部（MengBot）已支持设备码登录，但还没为我们的应用开启这项权限。请先用下方的访问密钥登录。',
   deviceFallbackHint: '这条不影响使用：把访问密钥填进下面的输入框即可，效果完全一样（只是没有头像）。',
   cloudSwitchAccount: '切换账号',
@@ -1982,6 +1987,11 @@ export const EN = {
   deviceExpired: 'The code expired — please start again',
   deviceFailed: 'Sign-in failed',
   deviceErrTitle: 'Sign-in unavailable',
+  pollWaiting: 'Approval page opened in your browser — this will finish automatically',
+  useDeviceCode: 'Use a device code instead',
+  pollExpired: 'Authorization timed out — please start again',
+  pollReopen: 'Reopen approval page',
+  pollCancel: 'Cancel',
   deviceNotAllowed: 'MengBot supports device sign-in but has not enabled it for this app yet. Use the access key below for now.',
   deviceFallbackHint: 'This does not block you — paste the access key below and everything works the same (just no avatar).',
   cloudSwitchAccount: 'Switch account',
@@ -7492,6 +7502,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [cloudPlan, setCloudPlan] = useState(null)
   // 手动填密钥默认折叠：登录是主路径，密钥是备用，两套并列会让界面没主次
   const [showKeyField, setShowKeyField] = useState(false)
+  // PC 回跳登录：浏览器里授权完，应用轮询取票（DSH 无法被 dsh-app:// 调起，只能这样闭环）
+  const [pollAuth, setPollAuth] = useState(null)   // { pollId, openedAt, interval, expiresIn }
+  const [pollErr, setPollErr] = useState('')
   /**
    * 云端专属接口的绝对地址。
    *
@@ -7565,6 +7578,71 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [deviceAuth, setDeviceAuth] = useState(null)   // { userCode, verificationUri, ticket, interval, expiresIn, startedAt }
   const [deviceErr, setDeviceErr] = useState('')
   const [deviceBusy, setDeviceBusy] = useState(false)
+  /**
+   * PC 回跳登录：在浏览器里完成授权，应用轮询取票。
+   *
+   * 为什么不直接 302 回 dsh-app://：**DSH 没有把该协议注册给操作系统**，
+   * 浏览器跳过去只会弹「找不到应用」，令牌也跟着丢。所以拆两步：
+   *   ① 服务端签发 pollId → 打开浏览器授权
+   *   ② 浏览器回跳我们的 callback（服务端换好令牌存进票仓）→ 这里轮询取走
+   * 对用户就是「点一下 → 浏览器授权 → 回来已经登录」。
+   */
+  const startPollLogin = async () => {
+    setPollErr('')
+    const url = cloudApi('/cloud/auth/poll/start')
+    if (!url) { setPollErr(t('cloudUrlRequired')); return }
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      const d = await r.json().catch(() => ({}))
+      if (!d.ok || !d.pollId) {
+        setPollErr(d.error || ('HTTP ' + r.status))
+        return
+      }
+      setPollAuth({ pollId: d.pollId, openedAt: Date.now(), interval: Number(d.interval) || 3, expiresIn: Number(d.expiresIn) || 600 })
+      // 打开浏览器。Electron 里 window.open 可能被拦，所以同时把 URL 存起来给用户手动点。
+      try { window.open(d.url, '_blank', 'noopener,noreferrer') } catch { /* 忽略 */ }
+    } catch (e) {
+      setPollErr(String((e && e.message) || e))
+    }
+  }
+  const cancelPollLogin = () => { setPollAuth(null); setPollErr('') }
+  /** 轮询取票：拿到就落盘并激活（与手动填密钥同一条下游）。 */
+  useEffect(() => {
+    if (!pollAuth || !pollAuth.pollId) return
+    let alive = true
+    const interval = Math.max(2, Number(pollAuth.interval) || 3) * 1000
+    const deadline = pollAuth.openedAt + (Number(pollAuth.expiresIn) || 600) * 1000
+    const tick = async () => {
+      if (!alive) return
+      if (Date.now() > deadline) { setPollErr(t('pollExpired')); setPollAuth(null); return }
+      try {
+        const r = await fetch(cloudApi('/cloud/auth/poll') + '?poll_id=' + encodeURIComponent(pollAuth.pollId))
+        const d = await r.json().catch(() => ({}))
+        if (!alive) return
+        if (d.ok && d.token) {
+          const next = persistCloud({ mode: 'cloud', url: cloudForm.url, token: d.token })
+          if (next.ok) {
+            activateCloud({ ...next.next, token: d.token })
+            try { saveCloudConn({ ...readCloudConn(), mode: 'cloud', token: d.token, active: true, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
+            setCloudConn(readCloudConn())
+            setCloudForm((f) => ({ ...f, mode: 'cloud', token: d.token }))
+            setCloudTest({ ok: true, authenticated: true, owner: d.owner || '', profile: d.profile || null })
+            setPollAuth(null)
+            try { notify(t('deviceDone'), true) } catch { /* 忽略 */ }
+          }
+          return
+        }
+        if (d.pending) { timer = setTimeout(tick, interval); return }
+        setPollErr(d.error || t('deviceFailed'))
+        setPollAuth(null)
+      } catch (e) {
+        if (alive) { setPollErr(String((e && e.message) || e)); setPollAuth(null) }
+      }
+    }
+    let timer = setTimeout(tick, interval)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [pollAuth, cloudForm.url])
+
   /** 发起设备码登录。失败时把 code 一起带出来（grant_not_allowed 要单独引导）。 */
   const startDeviceLogin = async () => {
     setDeviceBusy(true); setDeviceErr('')
@@ -7971,8 +8049,22 @@ function ConfigPanel({ t, onReload, version, compact }) {
 
   /** 断开：切回本地、清令牌，但**保留地址**方便一键重连。 */
   const disconnectCloud = () => {
-    const next = persistCloud({ mode: 'local', url: cloudForm.url, token: '' })
-    if (next && next.ok) saveCloudConn({ ...next.next, mode: 'local', active: false, lastError: '', owner: null })
+    // **不能用 persistCloud**：它在切本地时故意保留上次的 token
+    //（"临时回本地、之后还能切回云端"）。而「切换账号」的语义是**真断开**，
+    // 必须把令牌彻底清掉，否则重开面板又变回已登录（用户实测踩到）。
+    const cur = readCloudConn()
+    const cleared = {
+      ...cur,
+      mode: 'local',
+      active: false,
+      token: '',
+      owner: '',
+      profile: null,
+      lastError: '',
+      lastCheckAt: new Date().toISOString(),
+    }
+    saveCloudConn(cleared)
+    applyCloudConn(cleared)          // 前缀回本地
     setCloudForm((f) => ({ ...f, mode: 'local', token: '' }))
     setCloudConn(readCloudConn())
     setCloudTab('local')
@@ -9069,9 +9161,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         size={38}
                       />
                       <div style={{ flex: 1 }} />
-                      <Btn variant="ghost" size="sm" onClick={() => { setCloudTest(null); setCloudForm((f) => ({ ...f, token: '' })) }}>
-                        {t('cloudSwitchAccount')}
-                      </Btn>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {/* 切换账号 = 断开当前连接、回到未登录态。必须走 disconnectCloud：
+                            它会写 localStorage，否则重开面板又变回「已登录」（用户实测踩到）。 */}
+                        <Btn variant="ghost" size="sm" onClick={disconnectCloud}>
+                          {t('cloudSwitchAccount')}
+                        </Btn>
+                      </div>
                     </div>
                   ) : (
                     <button
@@ -9084,8 +9180,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         // 授权页会直接判「不在同一个浏览器里」并 400。这类环境改走设备码。
                         const origin = (typeof location !== 'undefined' && location.origin) || ''
                         const isCustomScheme = !/^https?:/i.test(origin) || origin === 'null'
-                        if (isCustomScheme) startDeviceLogin()
-                        else startLoginRedirect()
+                        // 设备码登录（端到端已验证）。
+                        // PC 回跳（startPollLogin）代码已就位，但整条链路还没在真实环境验证，
+                        // 先不挂主路径 —— 等验证过再切，避免把能用的换成没验过的。
+                        startDeviceLogin()
                       }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
@@ -9099,6 +9197,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <b style={{ fontSize: 13 }}>{t('cloudLoginButton')}</b>
                         <span style={{ fontSize: 11.5, opacity: 0.75 }}>{t('cloudLoginCtaHint')}</span>
+                        {/* 备选：设备码（拿手机操作、或浏览器弹不出来时用） */}
+                        <div style={{ marginTop: -4 }}>
+                          <button
+                            type="button"
+                            onClick={startDeviceLogin}
+                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}
+                          >
+                            {t('useDeviceCode')}
+                          </button>
+                        </div>
                       </span>
                     </button>
                   )}
@@ -9113,6 +9221,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         ) : null}
                       </div>
                     ) : null}
+                    {/* PC 回跳进行中：告诉用户在浏览器完成即可，这里会自动登录 */}
+                    {!isConnected && pollAuth ? (
+                      <div style={{ border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent-soft, rgba(37,99,235,.08))', borderRadius: 10, padding: '14px 16px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('devicePanelTitle')}</div>
+                        <div style={{ fontSize: 12, lineHeight: 1.75, opacity: 0.8 }}>⏳ {t('pollWaiting')}</div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                          <Btn variant="ghost" size="sm" onClick={cancelPollLogin}>{t('pollCancel')}</Btn>
+                        </div>
+                      </div>
+                    ) : null}
+                    {pollErr ? <Status tone="bad" text={pollErr} /> : null}
                     {!isConnected && deviceAuth ? (
                       <div style={{ border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent-soft, rgba(37,99,235,.08))', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t('deviceTitle')}</div>
