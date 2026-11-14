@@ -891,6 +891,7 @@ export const ZH = {
   cloudSwitchTitle: '运行位置',
   cloudSwitchHint: '切换本地 / 云端。云端用你自己的密钥，各人独立一个库',
   cloudModeLocal: '本地私有',
+  avatarTitle: '账户：{who}',
   cloudModeLocalHint: '记忆库在本机，不联网',
   cloudModeCloud: '云端',
   cloudModeCloudHint: '连你的云端实例，跨设备同步',
@@ -2177,6 +2178,7 @@ export const EN = {
   cloudSwitchTitle: 'Run location',
   cloudSwitchHint: 'Switch between local and cloud. Cloud uses your own key; each user gets an isolated database',
   cloudModeLocal: 'Local',
+  avatarTitle: 'Account: {who}',
   cloudModeLocalHint: 'Use the memory vault on this machine (no network)',
   cloudModeCloud: 'Cloud',
   cloudModeCloudHint: 'Connect to a cloud instance (URL + key, or a MengBot token)',
@@ -4134,6 +4136,11 @@ ${COMPONENTS_CSS}
 .me-v5 .mc-v5-crumb b { color: #f3f5f8; font-weight: 600; }
 .me-v5 .mc-v5-crumb i { color: #5a616d; font-style: normal; }
 .me-v5 .mc-v5-top-actions { display: flex; align-items: center; gap: 7px; min-width: 0; }
+/* 顶栏头像：OIDC 登录显示真头像，key 登录显示首字母。点击打开模式弹层 */
+.mc-v5-avatar { width: 30px !important; height: 30px !important; min-width: 30px; flex: none; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); background: var(--dsw-alias-brand-primary, #6366f1) !important; color: #fff !important; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; cursor: pointer; overflow: hidden; padding: 0; line-height: 1; transition: transform .12s ease, box-shadow .12s ease; }
+.mc-v5-avatar:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+.mc-v5-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mc-v5-avatar span { line-height: 1; }
 .me-v5 .mc-v5-sys { display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 9px; border: 1px solid #3a404a; border-radius: 999px; color: #b0b7c1; font-size: 10px; white-space: nowrap; }
 .me-v5 .mc-v5-sys i { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,.1); }
 .me-v5 .mc-v5-ver { height: 24px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 6px; background: rgba(127,127,127,.08); color: #99a1ac; font-family: var(--mono, ui-monospace, monospace); font-size: 9.5px; white-space: nowrap; }
@@ -6278,6 +6285,11 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [cloudConn, setCloudConn] = useState(() => readCloudConn())
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
   const [cloudOpen, setCloudOpen] = useState(false)
+  // 顶栏头像的三个值：OIDC 登录有 profile.name/avatar，key 登录只有 owner → 用首字母兜底。
+  // 放在这里（而不是 JSX 里套 IIFE）是因为 JSX 里写 (() => {...})() 反复把括号写错。
+  const avatarWho = String((cloudConn && cloudConn.profile && (cloudConn.profile.name || cloudConn.profile.displayName)) || (cloudConn && cloudConn.owner) || '')
+  const avatarUrl = String((cloudConn && cloudConn.profile && (cloudConn.profile.avatar || cloudConn.profile.picture)) || '')
+  const avatarInitial = avatarWho ? avatarWho.trim().charAt(0).toUpperCase() : '?'
   const [cloudBusy, setCloudBusy] = useState(false)
   const [cloudTest, setCloudTest] = useState(null)
   // 测试连接：走 probeCloud（先 health 测可达，再 whoami 验身份）
@@ -6917,6 +6929,18 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 : t('cloudModeLocal')}
               <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
             </button>
+            {/* 登录后的头像：OIDC 登录用真头像，key 登录用首字母 */}
+            {cloudConn.mode === 'cloud' && cloudConn.active !== false ? (
+              <button
+                type="button"
+                className="mc-v5-avatar"
+                onClick={() => { setCloudOpen((v) => !v); setCloudTest(null) }}
+                title={avatarWho ? t('avatarTitle').replace('{who}', avatarWho) : t('cloudSwitchHint')}
+                aria-label={t('avatarTitle').replace('{who}', avatarWho || '')}
+              >
+                {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{avatarInitial}</span>}
+              </button>
+            ) : null}
             {cloudOpen && (
               <div className="mc-cloud-pop" role="dialog" aria-label={t('cloudSwitchHint')}>
                 <div className="mc-cloud-pop-head">
