@@ -7423,6 +7423,20 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudConn is not defined）。
   // 落盘与探测走模块级 persistCloud / probeCloud / markCloudFailed / activateCloud。
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
+  /**
+   * 云端专属接口的绝对地址。
+   *
+   * 为什么不用相对前缀 `API`：`API` 在「云端模式还没激活」时指向**本地**服务
+   * （/memory-eternal/api/*），而设备码登录、商户注册这些接口只存在于云端实例上 ——
+   * 用相对路径必然 404「未知接口」（用户实测踩到）。
+   * 这里显式用用户填的 cloudForm.url 拼绝对地址，与 probeCloud 的做法一致。
+   */
+  const cloudApi = (path) => {
+    const base = String((cloudForm && cloudForm.url) || '').trim().replace(/\/+$/, '')
+    if (!base) return ''
+    return base + '/memory-eternal/api' + path
+  }
+
   const [junk, setJunk] = useState(null)          // scanJunk 的结果
   const [junkBusy, setJunkBusy] = useState(false)
   const [junkErr, setJunkErr] = useState('')
@@ -7486,7 +7500,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const startDeviceLogin = async () => {
     setDeviceBusy(true); setDeviceErr('')
     try {
-      const r = await fetch(API + '/cloud/auth/device/start', {
+      const r = await fetch(cloudApi('/cloud/auth/device/start'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
       })
       const d = await r.json().catch(() => ({}))
@@ -7512,7 +7526,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
       if (!alive) return
       if (Date.now() > deadline) { setDeviceErr(t('deviceExpired')); setDeviceAuth(null); return }
       try {
-        const r = await fetch(API + '/cloud/auth/device/poll', {
+        const r = await fetch(cloudApi('/cloud/auth/device/poll'), {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ticket: deviceAuth.ticket }),
         })
@@ -7658,7 +7672,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   }, [])
   const loadMerchants = async () => {
     try {
-      const r = await fetch(API + '/cloud/merchant/me')
+      const r = await fetch(cloudApi('/cloud/merchant/me'))
       const d = await r.json().catch(() => ({}))
       if (d && d.ok) setMerchants(Array.isArray(d.merchants) ? d.merchants : [])
     } catch { /* 未登录等情况静默 */ }
@@ -7667,7 +7681,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const registerMerchant = async () => {
     setMchBusy(true); setMchErr('')
     try {
-      const r = await fetch(API + '/cloud/merchant/register', {
+      const r = await fetch(cloudApi('/cloud/merchant/register'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: mchForm.name, domain: mchForm.domain }),
       })
@@ -7682,7 +7696,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const rotateMerchant = async (id) => {
     setMchBusy(true); setMchErr('')
     try {
-      const r = await fetch(API + '/cloud/merchant/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      const r = await fetch(cloudApi('/cloud/merchant/rotate'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.ok) { setMchErr(d.error || ('HTTP ' + r.status)); setMchBusy(false); return }
       setMchSecret({ id, secret: d.secret, subscribeUrl: null })
@@ -7693,7 +7707,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     if (typeof confirm === 'function' && !confirm('吊销后该商户立即不可用，确定？')) return
     setMchBusy(true); setMchErr('')
     try {
-      const r = await fetch(API + '/cloud/merchant/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      const r = await fetch(cloudApi('/cloud/merchant/revoke'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.ok) setMchErr(d.error || ('HTTP ' + r.status))
       else setMerchants((list) => list.filter((m) => m.id !== id))
