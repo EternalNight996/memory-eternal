@@ -940,7 +940,11 @@ export const ZH = {
   logsSearchPlaceholder: '搜索标题 / 智能体 / IP',
   logsActionLabel: '分类',
   logsAll: '全部',
-  logAction_capture: '写入',
+  logAction_capture: '自动写入',
+  logAction_write: '手动写',
+  logAction_upsert: '外部写入',
+  logAction_import: '导入',
+  'logAction_import-fail': '导入失败',
   logAction_dedup: '去重',
   logAction_recall: '召回',
   'logAction_recall-miss': '召回未命中',
@@ -2192,7 +2196,11 @@ export const EN = {
   logsSearchPlaceholder: 'Search title / agent / IP',
   logsActionLabel: 'Type',
   logsAll: 'All',
-  logAction_capture: 'Write',
+  logAction_capture: 'Auto',
+  logAction_write: 'Write',
+  logAction_upsert: 'Upsert',
+  logAction_import: 'Import',
+  'logAction_import-fail': 'Import fail',
   logAction_dedup: 'Dedup',
   logAction_recall: 'Recall',
   'logAction_recall-miss': 'Recall miss',
@@ -7080,7 +7088,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5 }}>
               <span style={{ opacity: 0.55 }}>{t('logsActionLabel')}</span>
-              {['', 'capture', 'dedup', 'recall', 'recall-miss'].map((a) => (
+              {['', 'capture', 'dedup', 'write', 'upsert', 'import', 'import-fail', 'recall', 'recall-miss'].map((a) => (
                 <button key={a || 'all'} type="button" onClick={() => setLogAction(a)} style={{ padding: '3px 9px', borderRadius: 999, border: '1px solid ' + (logAction === a ? 'var(--me-c-accent)' : 'var(--me-c-border)'), background: logAction === a ? 'var(--me-c-accent-soft, rgba(59,130,246,.12))' : 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 11.5 }}>
                   {a ? t('logAction_' + a) : t('logsAll')}
                   {a && logData && Array.isArray(logData.byAction) ? (() => { const hit = logData.byAction.find((x) => x.action === a); return hit ? ' ' + hit.n : '' })() : ''}
