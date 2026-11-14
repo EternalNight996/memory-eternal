@@ -106,6 +106,11 @@ async function probeCloud(form) {
   const url = String((form && form.url) || '').replace(/\/+$/, '')
   if (!/^https?:\/\//i.test(url)) return { ok: false, error: 'url-invalid' }
   const token = String((form && form.token) || '').trim()
+  // mbo_ 是 MengBot 的 OAuth 令牌，不是本服务的访问密钥。本地就拦住，
+  // 省得用户填错后看到一个含义不明的「无法识别的令牌」。
+  if (token.startsWith('mbo_')) {
+    return { ok: false, error: 'mbo_ 是 MengBot 的 OAuth 令牌，不能当访问密钥填 —— 请清空这一栏，直接点「用 MengBot 账号登录」' }
+  }
 
   // ① 可达性（不需要令牌）
   let health

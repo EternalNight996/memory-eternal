@@ -91,3 +91,11 @@ test('billing / connect 等也是同一套令牌来源', () => withServer(async 
   const c = await fetch(base + '/memory-eternal/api/cloud/connect', { method: 'POST', headers: { cookie: 'me_cloud_token=' + token } })
   assert.equal(c.status, 200, 'connect 应认 cookie')
 }))
+
+test('mbo_ 前缀（MengBot OAuth 令牌）给出正确指引，而不是笼统的「无法识别」', () => withServer({}, async (base) => {
+  const r = await fetch(base + '/memory-eternal/api/cloud/whoami', { headers: { Authorization: 'Bearer mbo_QGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' } })
+  assert.equal(r.status, 401)
+  const b = await r.json()
+  assert.match(String(b.error), /MengBot 的 OAuth 令牌/, '要说清 mbo_ 是什么')
+  assert.match(String(b.error), /用 MengBot 账号登录/, '要给出正确做法')
+}))
