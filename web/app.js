@@ -29444,11 +29444,17 @@
     cloudModeLabel: "\u8FD0\u884C\u6A21\u5F0F",
     cloudConnected: "\u5DF2\u8FDE\u63A5",
     cloudDisconnect: "\u65AD\u5F00\u8FDE\u63A5",
+    cloudSignOut: "\u9000\u51FA\u767B\u5F55",
+    cloudInfoInstance: "\u5B9E\u4F8B",
     cloudDisconnected: "\u5DF2\u5207\u56DE\u672C\u5730",
     cloudPlanLabel: "\u5F53\u524D\u5957\u9910",
     cloudPlanExpires: "\u6709\u6548\u671F\u81F3",
     cloudPlanCards: "\u5361\u7247\u4E0A\u9650",
     cloudShowKey: "\u6216\u624B\u52A8\u586B\u8BBF\u95EE\u5BC6\u94A5",
+    cloudManualConfig: "\u624B\u52A8\u914D\u7F6E\uFF08\u5730\u5740 / \u5BC6\u94A5\uFF09",
+    deviceStarting: "\u6B63\u5728\u83B7\u53D6\u4E8C\u7EF4\u7801\u2026",
+    deviceIdleHint: "\u70B9\u4E0B\u9762\u7684\u6309\u94AE\u83B7\u53D6\u767B\u5F55\u4E8C\u7EF4\u7801",
+    deviceScanHint: "\u7528\u624B\u673A\u626B\u7801\uFF0C\u6216\u5728\u7535\u8111\u6D4F\u89C8\u5668\u6253\u5F00\u94FE\u63A5\u540E\u786E\u8BA4\u6388\u6743",
     cloudHideKey: "\u6536\u8D77\u8BBF\u95EE\u5BC6\u94A5",
     devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
@@ -30587,6 +30593,8 @@
     cloudModeLabel: "Mode",
     cloudConnected: "Connected",
     cloudDisconnect: "Disconnect",
+    cloudSignOut: "Sign out",
+    cloudInfoInstance: "Instance",
     cloudDisconnected: "Switched to local",
     cloudPlanLabel: "Plan",
     cloudPlanExpires: "Expires",
@@ -34015,7 +34023,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T12:17:02.277Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T12:23:59.590Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -36057,6 +36065,7 @@ ${t("quoteHint")}`,
     const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
     const [cloudPlan, setCloudPlan] = (0, import_react2.useState)(null);
     const [showKeyField, setShowKeyField] = (0, import_react2.useState)(false);
+    const [acctOpen, setAcctOpen] = (0, import_react2.useState)(false);
     const [pollAuth, setPollAuth] = (0, import_react2.useState)(null);
     const [pollErr, setPollErr] = (0, import_react2.useState)("");
     const cloudApi = /* @__PURE__ */ __name((path) => {
@@ -36642,6 +36651,15 @@ ${t("quoteHint")}`,
       if (cloudTab === "cloud" && String(cloudForm.token || "").trim()) loadCloudPlan();
     }, [cloudTab, cloudForm.token]);
     const isConnected = cloudTab === "cloud" && !!String(cloudForm.token || "").trim() && cloudConn.active !== false;
+    (0, import_react2.useEffect)(() => {
+      if (cloudTab !== "cloud" || isConnected) return;
+      if (deviceAuth || deviceBusy) return;
+      if (!String(cloudForm.url || "").trim()) {
+        setCloudForm((f) => ({ ...f, url: "https://mem.mengbot.com.cn" }));
+        return;
+      }
+      startDeviceLogin();
+    }, [cloudTab, isConnected, cloudForm.url]);
     const loadCloudPlan = /* @__PURE__ */ __name(async () => {
       const url = cloudApi("/cloud/billing/plan");
       if (!url) return;
@@ -37801,61 +37819,121 @@ ${t("quoteHint")}`,
                   ] }, m.id))
                 ] }) : null
               ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }, children: [
-                isConnected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    AccountBadge,
+                isConnected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, background: "var(--me-c-surface)", overflow: "hidden" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                    "button",
                     {
-                      owner: cloudIdentity.owner || "",
-                      profile: cloudIdentity.profile || null,
-                      sub: cloudPlan ? String(cloudPlan.plan || "").toUpperCase() : t("cloudConnected"),
-                      tone: cloudConn.mode === "cloud" && cloudConn.active !== false ? "ok" : "warn",
-                      size: 38
+                      type: "button",
+                      onClick: () => setAcctOpen((v) => !v),
+                      "aria-expanded": acctOpen,
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "12px 14px",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "inherit",
+                        font: "inherit"
+                      },
+                      children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          AccountBadge,
+                          {
+                            owner: cloudIdentity.owner || "",
+                            profile: cloudIdentity.profile || null,
+                            sub: cloudPlan ? String(cloudPlan.plan || "").toUpperCase() : t("cloudConnected"),
+                            tone: cloudConn.mode === "cloud" && cloudConn.active !== false ? "ok" : "warn",
+                            size: 38
+                          }
+                        ),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11, opacity: 0.5, transform: acctOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }, children: "\u25BE" })
+                      ]
                     }
                   ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { flex: 1 } }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 6 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: disconnectCloud, children: t("cloudSwitchAccount") }) })
-                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                  "button",
-                  {
-                    type: "button",
-                    className: "me-login-cta",
-                    disabled: !String(cloudForm.url || "").trim() || deviceBusy,
-                    onClick: () => {
-                      const origin = typeof location !== "undefined" && location.origin || "";
-                      const isCustomScheme = !/^https?:/i.test(origin) || origin === "null";
+                  acctOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", display: "flex", flexDirection: "column" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6, fontSize: 11.5, color: "var(--me-c-text-dim)" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 12 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("cloudInfoInstance") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "ui-monospace,Consolas,monospace", wordBreak: "break-all", textAlign: "right" }, children: String(cloudForm.url || "").replace(/^https?:\/\//, "") })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 12 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("cloudPlanLabel") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                          cloudPlan ? String(cloudPlan.plan || "").toUpperCase() : "\u2014",
+                          cloudPlan && cloudPlan.expiresAt ? " \xB7 " + String(cloudPlan.expiresAt).slice(0, 10) : ""
+                        ] })
+                      ] }),
+                      cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 12 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("cloudPlanCards") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: Number(cloudPlan.caps.cards).toLocaleString() })
+                      ] }) : null
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
+                      setAcctOpen(false);
+                      setCloudForm((f) => ({ ...f, mode: "cloud" }));
                       startDeviceLogin();
-                    },
-                    style: {
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "12px 14px",
-                      borderRadius: 10,
-                      cursor: "pointer",
-                      border: "1px solid var(--me-c-accent, #2563eb)",
-                      background: "var(--me-c-accent-soft, rgba(37,99,235,.08))",
-                      color: "var(--me-c-accent, #2563eb)"
-                    },
-                    children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 20, lineHeight: 1 }, children: "\u{1F510}" }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { fontSize: 13 }, children: t("cloudLoginButton") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, opacity: 0.75 }, children: t("cloudLoginCtaHint") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: -4 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                          "button",
-                          {
-                            type: "button",
-                            onClick: startDeviceLogin,
-                            style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "var(--me-c-text-dim)", textDecoration: "underline" },
-                            children: t("useDeviceCode")
+                    }, style: { padding: "11px 14px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "inherit", font: "inherit", fontSize: 12.5 }, children: t("cloudSwitchAccount") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
+                      setAcctOpen(false);
+                      disconnectCloud();
+                    }, style: { padding: "11px 14px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "var(--me-c-danger, #dc2626)", font: "inherit", fontSize: 12.5 }, children: t("cloudSignOut") })
+                  ] }) : null
+                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  deviceAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "16px 18px", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QrCode, { text: deviceAuth.verificationUriComplete || deviceAuth.verificationUri, size: 132, label: t("deviceQrLabel") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0, flex: 1 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13.5, fontWeight: 600 }, children: t("cloudLoginButton") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--me-c-text-dim)", lineHeight: 1.65 }, children: t("deviceScanHint") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 18, fontWeight: 700, letterSpacing: 2 }, children: deviceAuth.userCode }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => {
+                          try {
+                            navigator.clipboard.writeText(deviceAuth.userCode);
+                          } catch {
                           }
-                        ) })
+                        }, children: t("deviceCopy") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", onClick: () => {
+                          try {
+                            window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, "_blank", "noopener");
+                          } catch {
+                          }
+                        }, children: t("deviceOpenBtn") })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, opacity: 0.55, display: "flex", alignItems: "center", gap: 10 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                          "\u23F3 ",
+                          t("deviceWaiting")
+                        ] }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cancelDeviceLogin, children: t("pollCancel") })
                       ] })
-                    ]
-                  }
-                ),
+                    ] })
+                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "22px 20px", textAlign: "center", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, opacity: 0.7, marginBottom: 12 }, children: deviceBusy ? t("deviceStarting") : t("deviceIdleHint") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: deviceBusy, onClick: startDeviceLogin, children: t("cloudLoginButton") })
+                  ] }),
+                  deviceErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: deviceErr }) : null,
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => setShowKeyField((v) => !v), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "var(--me-c-text-dim)", textDecoration: "underline" }, children: showKeyField ? t("cloudHideKey") : t("cloudManualConfig") }) }),
+                  showKeyField ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: "https://mem.mengbot.com.cn" })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", value: cloudForm.token, onChange: (e) => setCloudForm((f) => ({ ...f, token: e.target.value })), placeholder: "me_\u2026" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudTokenHint") })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: saveCloud, children: t("cloudSave") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: cloudBusy, onClick: testCloud, children: cloudBusy ? "\u23F3" : t("cloudTestBtn") })
+                    ] })
+                  ] }) : null
+                ] }),
                 deviceErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "10px 12px", fontSize: 12, lineHeight: 1.65 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: t("deviceErrTitle") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 4 }, children: deviceErr }),
@@ -37916,36 +37994,52 @@ ${t("quoteHint")}`,
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cancelDeviceLogin, children: t("deviceCancel") }) })
                 ] }) : null,
                 !isConnected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                      "input",
-                      {
-                        value: cloudForm.url,
-                        onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })),
-                        placeholder: "https://mem.mengbot.com.cn"
-                      }
-                    ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudUrlHint") })
+                  deviceAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "16px 18px", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QrCode, { text: deviceAuth.verificationUriComplete || deviceAuth.verificationUri, size: 132, label: t("deviceQrLabel") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0, flex: 1 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13.5, fontWeight: 600 }, children: t("cloudLoginButton") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--me-c-text-dim)", lineHeight: 1.65 }, children: t("deviceScanHint") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 18, fontWeight: 700, letterSpacing: 2 }, children: deviceAuth.userCode }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => {
+                          try {
+                            navigator.clipboard.writeText(deviceAuth.userCode);
+                          } catch {
+                          }
+                        }, children: t("deviceCopy") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", onClick: () => {
+                          try {
+                            window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, "_blank", "noopener");
+                          } catch {
+                          }
+                        }, children: t("deviceOpenBtn") })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, opacity: 0.55 }, children: [
+                        "\u23F3 ",
+                        t("deviceWaiting")
+                      ] })
+                    ] })
+                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "18px", textAlign: "center", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, opacity: 0.7 }, children: deviceBusy ? t("deviceStarting") : t("deviceIdleHint") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 10 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: deviceBusy, onClick: startDeviceLogin, children: t("cloudLoginButton") }) })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                      "input",
-                      {
-                        type: "password",
-                        value: cloudForm.token,
-                        onChange: (e) => setCloudForm((f) => ({ ...f, token: e.target.value })),
-                        placeholder: "me_\u2026"
-                      }
-                    ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudTokenHint") })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: cloudBusy, onClick: testCloud, children: cloudBusy ? "\u23F3" : t("cloudTestBtn") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: saveCloud, children: t("cloudSave") })
-                  ] }),
-                  cloudConn.mode === "cloud" && cloudConn.active !== false && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "ok", text: t("cloudNowActive").replace("{url}", cloudConn.url || "") })
+                  deviceErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: deviceErr }) : null,
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => setShowKeyField((v) => !v), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "var(--me-c-text-dim)", textDecoration: "underline" }, children: showKeyField ? t("cloudHideKey") : t("cloudManualConfig") }) }),
+                  showKeyField ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: "https://mem.mengbot.com.cn" })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", value: cloudForm.token, onChange: (e) => setCloudForm((f) => ({ ...f, token: e.target.value })), placeholder: "me_\u2026" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudTokenHint") })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: saveCloud, children: t("cloudSave") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: cloudBusy, onClick: testCloud, children: cloudBusy ? "\u23F3" : t("cloudTestBtn") })
+                    ] })
+                  ] }) : null
                 ] }) : null,
                 cloudConn.mode === "cloud" && cloudConn.active === false && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: t("cloudKeptButInactive").replace("{err}", cloudConn.lastError || "\u2014") }),
                 cloudTest && cloudTest.authenticated === false && cloudTest.ok && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "ok", text: cloudTest.message || t("cloudTestReachable").replace("{version}", cloudTest.version || "") }),
