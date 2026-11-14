@@ -848,6 +848,11 @@ export const ZH = {
   qrWaiting: '等待授权…',
   qrOpen: '在浏览器打开',
   qrLogin: '扫码登录',
+  managePlan: '升级 / 续费',
+  perMinute: '次/分',
+  cloudPlanRpm: '请求速率',
+  expired: '已过期',
+  daysLeft: '还剩 {n} 天',
   cloudLoginCtaHint: '自动获取令牌，不用手动填密钥',
   deviceTitle: '在任意设备上完成登录',
   deviceOpen: '用手机或浏览器打开：',
@@ -5419,6 +5424,58 @@ function TerminalGuide({ t }) {
  * 二维码（SVG 矢量）。用 SVG 而不是 canvas：不用管 devicePixelRatio，缩放不糊。
  * 静默区留 4 个模块 —— 少了手机扫不出来（二维码规范的硬要求）。
  */
+/** 套餐 id → 中文名。未知值原样返回（不吞掉信息）。 */
+/** 距到期还有几天（负数=已过期；无法解析返回 null）。 */
+function daysLeft(v) {
+  const d = formatExpiry(v)
+  if (!d) return null
+  const t = new Date(d + 'T23:59:59').getTime()
+  if (Number.isNaN(t)) return null
+  return Math.ceil((t - Date.now()) / 86400000)
+}
+
+function planLabelOf(plan, zh) {
+  const k = String(plan || '').toLowerCase()
+  if (!k) return '—'
+  const ZH = {
+    free: '免费版',
+    personal: '个人版',
+    pro: '专业版',
+    max: '旗舰版',
+    'sub-merchant': '商户版',
+    'sub-merchant-pro': '商户旗舰版',
+  }
+  const EN = {
+    free: 'Free',
+    personal: 'Personal',
+    pro: 'Pro',
+    max: 'Max',
+    'sub-merchant': 'Merchant',
+    'sub-merchant-pro': 'Merchant Pro',
+  }
+  return (zh ? ZH[k] : EN[k]) || String(plan).toUpperCase()
+}
+
+/**
+ * 到期日格式化。
+ *
+ * 实测发现 MengBot 的 `expiresAt` 是 **Unix 秒**（如 1797227639），
+ * 之前直接 `.slice(0, 10)` 截断，界面就显示成 "PRO · 1797227639" 这种垃圾。
+ * 这里三种形态都兼容：ISO 字符串 / 秒 / 毫秒。
+ */
+function formatExpiry(v) {
+  if (v === null || v === undefined || v === '') return ''
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10)
+  const n = Number(v)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  // 小于 1e12 当成秒（1e12 毫秒 = 2001 年；秒制到 2286 年才到 1e10，不会误判）
+  const ms = n < 1e12 ? n * 1000 : n
+  const d = new Date(ms)
+  if (Number.isNaN(d.getTime())) return ''
+  const p2 = (x) => String(x).padStart(2, '0')
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate())
+}
+
 function QrCode({ text, size = 128, label }) {
   const qr = useMemo(() => {
     const v = String(text || '')
@@ -8110,6 +8167,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
    * 幂等由服务端保证（importChunk 按 contentHash 去重），重跑只会多几条 duplicate。
    * 分片 200 张/批：单批约 3 MB，内存恒定，中断后重跑代价小。
    */
+  /** 订阅/续费深链（MengBot 的 subscribe 页，source 必须是 memory-eternal 才记账）。 */
+  const subscribeUrl = () => {
+    const plan = String((cloudPlan && cloudPlan.plan) || '').toLowerCase()
+    const sku = plan && plan !== 'free' ? 'sub-' + plan : 'sub-pro'
+    return 'https://pay.mengbot.com.cn/subscribe?sku=' + encodeURIComponent(sku) + '&source=memory-eternal'
+  }
+
   const importLocalToCloud = async () => {
     if (importJob && importJob.importing) return
     importCancelRef.current = false
@@ -9262,49 +9326,48 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
                   {/* 账号区放最前：登录是推荐路径，手动填密钥是备用 */}
                   {/* 已连接：**整块可点**（不用去瞄右上角那个小按钮），点开是上拉菜单 */}
+                    {/* 账号卡：整块可点展开；信息分组（身份 / 权益 / 操作），操作区带分隔线 */}
                   {isConnected ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, background: 'var(--me-c-surface)', overflow: 'hidden' }}>
                       <button
                         type="button"
                         onClick={() => setAcctOpen((v) => !v)}
                         aria-expanded={acctOpen}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
-                          padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit',
-                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '13px 15px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit' }}
                       >
                         <AccountBadge
                           owner={cloudIdentity.owner || ''}
                           profile={cloudIdentity.profile || null}
-                          sub={cloudPlan ? String(cloudPlan.plan || '').toUpperCase() : t('cloudConnected')}
+                          sub={cloudPlan ? planLabelOf(cloudPlan.plan, true) : t('cloudConnected')}
                           tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
                           size={38}
                         />
                         <span style={{ flex: 1 }} />
-                        <span style={{ fontSize: 11, opacity: 0.5, transform: acctOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+                        <span style={{ fontSize: 11, opacity: 0.45, transform: acctOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
                       </button>
                       {acctOpen ? (
-                        <div style={{ borderTop: '1px solid var(--me-c-border)', display: 'flex', flexDirection: 'column' }}>
-                          {/* 账号信息：实例地址 + 套餐细节，展开就能看到，不用再进别的页 */}
-                          <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5, color: 'var(--me-c-text-dim)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                              <span>{t('cloudInfoInstance')}</span>
-                              <span style={{ fontFamily: 'ui-monospace,Consolas,monospace', wordBreak: 'break-all', textAlign: 'right' }}>{String(cloudForm.url || '').replace(/^https?:\/\//, '')}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                              <span>{t('cloudPlanLabel')}</span>
-                              <span>{cloudPlan ? String(cloudPlan.plan || '').toUpperCase() : '—'}{cloudPlan && cloudPlan.expiresAt ? ' · ' + String(cloudPlan.expiresAt).slice(0, 10) : ''}</span>
-                            </div>
-                            {cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                <span>{t('cloudPlanCards')}</span>
-                                <span>{Number(cloudPlan.caps.cards).toLocaleString()}</span>
-                              </div>
+                        <div style={{ borderTop: '1px solid var(--me-c-border)' }}>
+                          {/* 权益：到期 / 配额，一眼看完；缺数据就不显示那一行，不留空壳 */}
+                          <div style={{ padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanLabel')}</span><span style={{ fontWeight: 600 }}>{cloudPlan ? planLabelOf(cloudPlan.plan, true) : '—'}</span></div>
+                            {cloudPlan && formatExpiry(cloudPlan.expiresAt) ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanExpires')}</span><span style={{ textAlign: 'right' }}>{formatExpiry(cloudPlan.expiresAt)}{daysLeft(cloudPlan.expiresAt) !== null ? ' · ' + (daysLeft(cloudPlan.expiresAt) > 0 ? t('daysLeft').replace('{n}', String(daysLeft(cloudPlan.expiresAt))) : t('expired')) : ''}</span></div>
                             ) : null}
+                            {cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanCards')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.cards).toLocaleString()}</span></div>
+                            ) : null}
+                            {cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanRpm')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.rpm).toLocaleString()} / {t('perMinute')}</span></div>
+                            ) : null}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudInfoInstance')}</span><span style={{ textAlign: 'right' }}>{String(cloudForm.url || '').replace(/^https?:\/\//, '')}</span></div>
                           </div>
-                          {/* 导入本地库：复制而非迁移；幂等（服务端按 contentHash 去重），可中断可重跑 */}
-                          <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '10px 14px' }}>
-                            <div style={{ fontSize: 11.5, opacity: 0.7, marginBottom: 8 }}>{t('importLocalHint')}</div>
+                          {/* 升级 / 续费：账号详情页 MengBot 没公开，但订阅页确定可用 */}
+                          <button type="button" onClick={() => { try { window.open(subscribeUrl(), '_blank', 'noopener') } catch { /* 忽略 */ } }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
+                            <span>{t('managePlan')}</span><span style={{ opacity: 0.5 }}>↗</span>
+                          </button>
+                          {/* 导入本地库 */}
+                          <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '11px 15px' }}>
+                            <div style={{ fontSize: 11.5, opacity: 0.6, marginBottom: 7 }}>{t('importLocalHint')}</div>
                             {importJob && importJob.importing ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: 12 }}>{t('importRunning').replace('{done}', String(importJob.done)).replace('{total}', String(importJob.total))}</span>
@@ -9314,20 +9377,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <Btn variant="secondary" size="sm" onClick={importLocalToCloud}>{t('importLocal')}</Btn>
                                 {importJob && importJob.total > 0 ? (
-                                  <span style={{ fontSize: 11.5, opacity: 0.7 }}>
-                                    {t('importDone').replace('{n}', String(importJob.imported || 0))}
-                                    {importJob.duplicate ? ' · ' + importJob.duplicate + ' skipped' : ''}
-                                  </span>
+                                  <span style={{ fontSize: 11.5, opacity: 0.6 }}>{t('importDone').replace('{n}', String(importJob.imported || 0))}{importJob.duplicate ? ' · ' + importJob.duplicate + ' skipped' : ''}</span>
                                 ) : null}
                               </div>
                             )}
-                            <div style={{ fontSize: 10.5, opacity: 0.5, marginTop: 6, lineHeight: 1.6 }}>{t('importCopyNote')}</div>
+                            <div style={{ fontSize: 10.5, opacity: 0.45, marginTop: 6, lineHeight: 1.6 }}>{t('importCopyNote')}</div>
                             {importJob && importJob.err ? <Status tone="bad" text={importJob.err} /> : null}
                           </div>
-                          <button type="button" onClick={() => { setAcctOpen(false); setCloudForm((f) => ({ ...f, mode: 'cloud' })); startDeviceLogin() }} style={{ padding: '11px 14px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5 }}>
+                          <button type="button" onClick={() => { setAcctOpen(false); setCloudForm((f) => ({ ...f, mode: 'cloud' })); startDeviceLogin() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5 }}>
                             {t('cloudSwitchAccount')}
                           </button>
-                          <button type="button" onClick={() => { setAcctOpen(false); disconnectCloud() }} style={{ padding: '11px 14px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-danger, #dc2626)', font: 'inherit', fontSize: 12.5 }}>
+                          <button type="button" onClick={() => { setAcctOpen(false); disconnectCloud() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-danger, #dc2626)', font: 'inherit', fontSize: 12.5 }}>
                             {t('cloudSignOut')}
                           </button>
                         </div>
