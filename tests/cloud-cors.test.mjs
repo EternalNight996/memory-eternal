@@ -15,6 +15,12 @@ import { createCloudServer, corsOriginAllowed } from '../lib/cloud-server.js'
 
 const PUB = 'https://mem.mengbot.com.cn'
 
+test('null origin（file:// / Electron 自定义协议）放行，且不给 credentials', () => {
+  const env = { ...process.env, MEMORY_CLOUD_PUBLIC_URL: PUB }
+  assert.equal(corsOriginAllowed('null', env), 'null', 'file:// 页面的 Origin 是字面量 "null"')
+  assert.equal(corsOriginAllowed('https://evil.com', env), '', '未知站仍不给')
+})
+
 test('白名单：本机任意端口 / 自己的域名 / 显式列表 / 通配', () => {
   const env = { ...process.env, MEMORY_CLOUD_PUBLIC_URL: PUB }
   for (const o of ['http://127.0.0.1:7999', 'http://localhost:3000', 'http://[::1]:8080', PUB]) {
@@ -79,4 +85,15 @@ test('X-MengBot-* 与 X-Admin-Token 都在 Allow-Headers 里', () => withServer(
   for (const h of ['X-MengBot-Signature', 'X-Admin-Token', 'Authorization', 'Content-Type']) {
     assert.ok(new RegExp(h, 'i').test(allow), h + ' 应在 Allow-Headers 里')
   }
+}))
+
+
+test('null origin 的响应不带 Allow-Credentials（没可靠站点身份，不该带 cookie）', () => withServer({ MEMORY_CLOUD_PUBLIC_URL: PUB }, async (base) => {
+  const r = await fetch(base + '/memory-eternal/api/cloud/health', { headers: { Origin: 'null' } })
+  assert.equal(r.status, 200, 'health 应可访问')
+  assert.equal(r.headers.get('access-control-allow-origin'), 'null')
+  assert.equal(r.headers.get('access-control-allow-credentials'), null, 'null origin 不给 credentials')
+  // 本机 origin 仍然给
+  const ok = await fetch(base + '/memory-eternal/api/cloud/health', { headers: { Origin: 'http://127.0.0.1:7999' } })
+  assert.equal(ok.headers.get('access-control-allow-credentials'), 'true')
 }))
