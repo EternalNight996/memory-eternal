@@ -29673,15 +29673,11 @@
     cloudVaultLabel: "\u4E91\u7AEF\u5E93\u4F4D\u7F6E\uFF08\u670D\u52A1\u7AEF\u8DEF\u5F84\uFF09",
     vaultOriginLocal: "\u672C\u5730",
     vaultDefaultName: "\u9ED8\u8BA4\u5E93",
-    importEntryHint: "\u8981\u628A\u767B\u5F55\u524D\u7684\u672C\u673A\u6570\u636E\u5BFC\u8FDB\u6765\uFF1F\u4E24\u6761\u8DEF\uFF1A\u2460 \u5728 DeepSeek Harness \u9762\u677F\u91CC\u5207\u5230\u300C\u4E91\u7AEF\u300D\uFF0C\u70B9\u300C\u4E0A\u4F20\u672C\u673A\u5E93\u5230\u4E91\u7AEF\u300D\uFF08\u63A8\u8350\uFF0C\u76F4\u63A5\u8BFB\u5E93\u4E0D\u7528\u5BFC\u51FA\uFF09\uFF1B\u2461 \u5728\u9762\u677F\u300C\u5907\u4EFD\u4E0E\u8FC1\u79FB\u300D\u5BFC\u51FA JSON\uFF0C\u518D\u5728\u8FD9\u91CC\u9009\u6587\u4EF6\u4E0A\u4F20\u3002",
-    importPickFile: "\u9009\u62E9 JSON \u5907\u4EFD\u6587\u4EF6",
-    importBadFile: "\u4E0D\u662F\u6709\u6548\u7684 memory-eternal \u5907\u4EFD\u6587\u4EF6\uFF08\u5E94\u4E3A\u5361\u7247\u6570\u7EC4\u6216\u542B cards \u7684\u5BF9\u8C61\uFF09",
-    importDupSuffix: "\u6761\u91CD\u590D\u5DF2\u8DF3\u8FC7",
     cloudInstanceDesc: "\u8FD9\u662F\u4F60\u7684\u4E91\u7AEF\u5B9E\u4F8B\uFF1A\u8BB0\u5FC6\u5E93\u5728\u670D\u52A1\u5668\u4E0A\uFF0C\u901A\u8FC7 HTTPS \u8BBF\u95EE\uFF1B\u672C\u673A\u79BB\u7EBF\u65F6\u7528\u672C\u5730\u5E93\u3002",
     cloudVaultListLabel: "\u4E91\u7AEF\u5B9E\u4F8B\u4E0A\u7684\u5E93",
     cloudVaultQuota: "\u5DF2\u7528 {u} / {l}",
-    vaultUploadCloud: "\u4E0A\u4F20\u672C\u673A\u5E93\u5230\u4E91\u7AEF",
-    vaultUploadCloudHint: "\u628A\u9009\u4E2D\u7684\u672C\u673A\u5E93\u6574\u4EFD\u63A8\u5230\u4E91\u7AEF\u5F53\u524D\u5E93\uFF08\u590D\u5236\uFF0C\u672C\u5730\u4FDD\u7559\uFF09",
+    vaultUploadCloud: "\u4E0A\u4F20\u5F53\u524D\u5E93\u5230\u4E91\u7AEF",
+    vaultUploadCloudHint: "\u628A\u5F53\u524D\u672C\u673A\u5E93\u6574\u4EFD\u63A8\u5230\u4E91\u7AEF\uFF08\u590D\u5236\uFF0C\u672C\u5730\u4FDD\u7559\uFF09\uFF1B\u4E91\u7AEF\u5DF2\u6709\u540C\u5185\u5BB9\u4F1A\u81EA\u52A8\u8DF3\u8FC7",
     vaultOriginCloud: "\u4E91\u7AEF",
     vaultCopyTo: "\u590D\u5236\u5230\u9009\u4E2D\u5E93",
     vaultCopyFrom: "\u4ECE\u9009\u4E2D\u5E93\u590D\u5236",
@@ -30949,15 +30945,11 @@
     cloudVaultLabel: "Cloud vault path (on server)",
     vaultOriginLocal: "local",
     vaultDefaultName: "default",
-    importEntryHint: 'Bringing in data from before you logged in? Two ways: (1) in the DeepSeek Harness panel switch to Cloud and click "Upload local to cloud" (recommended, reads the vault directly); (2) export JSON from Backup & migrate, then pick the file here.',
-    importPickFile: "Choose JSON backup",
-    importBadFile: "Not a valid memory-eternal backup (expected a card array or an object with cards)",
-    importDupSuffix: "duplicates skipped",
     cloudInstanceDesc: "This is your cloud instance: the vault lives on the server over HTTPS. Use a local vault when offline.",
     cloudVaultListLabel: "Vaults on the cloud instance",
     cloudVaultQuota: "{u} / {l} used",
-    vaultUploadCloud: "Upload local to cloud",
-    vaultUploadCloudHint: "Push the selected local vault into the current cloud vault (copy, local kept)",
+    vaultUploadCloud: "Upload current to cloud",
+    vaultUploadCloudHint: "Push the current local vault to cloud (copy, local kept); identical cards are skipped",
     vaultOriginCloud: "cloud",
     vaultCopyTo: "Copy into selected",
     vaultCopyFrom: "Copy from selected",
@@ -34413,7 +34405,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T17:43:11.628Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T17:53:02.933Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -37515,52 +37507,6 @@ ${t("quoteHint")}`,
         }
       }
     }, "activateVault");
-    const uploadBackupToCloud = /* @__PURE__ */ __name(async (file) => {
-      if (!file) return;
-      setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: "" });
-      try {
-        const text = await file.text();
-        let payload;
-        try {
-          payload = JSON.parse(text);
-        } catch {
-          throw new Error(t("importBadFile"));
-        }
-        const cards = Array.isArray(payload) ? payload : Array.isArray(payload && payload.cards) ? payload.cards : null;
-        if (!cards) throw new Error(t("importBadFile"));
-        if (!cards.length) {
-          setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t("importEmpty") });
-          return;
-        }
-        setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: "" });
-        const CHUNK = 200;
-        let imported = 0, duplicate = 0;
-        for (let off = 0; off < cards.length; off += CHUNK) {
-          const slice = cards.slice(off, off + CHUNK);
-          const r = await fetch(cloudApi2("/import/chunk"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} },
-            body: JSON.stringify({ cards: slice, offset: off, total: cards.length })
-          });
-          const d = await r.json().catch(() => ({}));
-          if (!r.ok || !d.ok) throw new Error(d.error || "HTTP " + r.status);
-          imported += Number(d.imported) || 0;
-          duplicate += Number(d.duplicate) || 0;
-          setImportJob({ importing: true, done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, err: "" });
-        }
-        setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: "" });
-        try {
-          notify2(t("importDone").replace("{n}", String(imported)), true);
-        } catch {
-        }
-        try {
-          loadVaults();
-        } catch {
-        }
-      } catch (e) {
-        setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: String(e && e.message || e) });
-      }
-    }, "uploadBackupToCloud");
     const createCloudVault = /* @__PURE__ */ __name(async () => {
       const name = String(window.prompt(t("createVaultPrompt")) || "").trim().toLowerCase();
       if (!name) return;
@@ -38873,33 +38819,6 @@ ${t("quoteHint")}`,
                     ] }, v.path)) })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", display: vaultList && vaultList.length > 1 || cloudVaultList && cloudVaultList.length > 0 ? "flex" : "none", flexDirection: "column", gap: 9 }, children: [
-                    cloudForm.mode === "cloud" || isCloudInstance ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 7, fontSize: 11.5 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.6, lineHeight: 1.75 }, children: t("importEntryHint") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--me-c-border)", cursor: "pointer", fontSize: 11.5 }, children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                            "input",
-                            {
-                              type: "file",
-                              accept: ".json,application/json",
-                              style: { display: "none" },
-                              onChange: (e) => {
-                                const f = e.target.files && e.target.files[0];
-                                if (f) uploadBackupToCloud(f);
-                                e.target.value = "";
-                              }
-                            }
-                          ),
-                          t("importPickFile")
-                        ] }),
-                        importJob && importJob.importing ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.7 }, children: t("importRunning").replace("{done}", String(importJob.done)).replace("{total}", String(importJob.total)) }) : null
-                      ] }),
-                      importJob && importJob.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: importJob.err }) : null,
-                      importJob && !importJob.importing && importJob.total > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { opacity: 0.7 }, children: [
-                        t("importDone").replace("{n}", String(importJob.imported || 0)),
-                        importJob.duplicate ? " \xB7 " + importJob.duplicate + " " + t("importDupSuffix") : ""
-                      ] }) : null
-                    ] }) : null,
                     cloudForm.mode === "cloud" && cloudVaultList && cloudVaultList.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 10.5, opacity: 0.55 }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
@@ -38949,7 +38868,7 @@ ${t("quoteHint")}`,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("up"), children: xfer && xfer.busy ? "\u23F3" : t("vaultCopyTo") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("down"), children: xfer && xfer.busy ? "\u23F3" : t("vaultCopyFrom") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: !vaultSel || !!(importJob && importJob.importing), onClick: () => uploadVaultToCloud(vaultSel), title: t("vaultUploadCloudHint"), children: t("vaultUploadCloud") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: !!(importJob && importJob.importing), onClick: () => uploadVaultToCloud(vaultList && (vaultList.find((v) => v.isCurrent) || {}).path || vaultSel), title: t("vaultUploadCloudHint"), children: t("vaultUploadCloud") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: loadVaults, children: t("refresh") })
                     ] }),
                     xfer && xfer.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: xfer.err }) : null,
