@@ -125,3 +125,26 @@ test('管理面不受配额影响（超限后还能看套餐/登录）', () => w
     assert.ok(r.status < 429, p + ' 不该被配额拦住，实际 ' + r.status)
   }
 }))
+
+test('配额 source 能区分「显式 caps」与「seats 兜底」（判断 B1 何时可收口）', () => {
+  const quiet = { MEMORY_QUOTA_QUIET: '1' }
+  // 只有 seats → 走兜底
+  const fb = quotaFor({ plan: 'pro', caps: { seats: 10, apps: 5 } }, quiet)
+  assert.equal(fb.source, 'plan+seats-fallback')
+  assert.equal(fb.cards, 10000, 'seats × 1000')
+  // 有显式 cards → 不再兜底
+  const ex = quotaFor({ plan: 'pro', caps: { seats: 10, cards: 8000 } }, quiet)
+  assert.equal(ex.source, 'caps')
+  assert.equal(ex.cards, 8000, '显式值优先，不被 seats×1000 顶高')
+})
+
+test('seats 兜底日志只提示一次（这个方法每请求都调，不能刷屏）', () => {
+  // 用干净的 env（无 QUIET）触发提示，捕获 stderr 计数
+  const orig = console.error
+  let n = 0
+  console.error = () => { n++ }
+  try {
+    for (let i = 0; i < 5; i++) quotaFor({ plan: 'pro', caps: { seats: 3 } }, {})
+  } finally { console.error = orig }
+  assert.ok(n <= 1, '最多提示一次，实际 ' + n)
+})
