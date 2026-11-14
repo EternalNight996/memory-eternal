@@ -219,7 +219,7 @@ mbt_ 未校验 : needsVerify=true
 
 **⚠️ 这道题和 OIDC 那道不一样：webhook 是我方被动接收，你们服务器要主动打过来。**
 
-- 所以地址**必须公网可达**，`http://127.0.0.1:7999/...` 只有在本机做了隧道
+- 所以地址**必须公网可达**，`http://127.0.0.1:7999/...` 只有在本机做了传送阵
   （cloudflared / ngrok）时才能填，否则你们推过来会连接失败；
 - 路径固定 `/memory-eternal/api/cloud/webhook/mengbot`（`memory-eternal` 前缀 + `api` + `cloud/webhook/mengbot`）；
 - 生产必须 `https`（我方不终结 TLS，由 Caddy/Nginx 反代）；

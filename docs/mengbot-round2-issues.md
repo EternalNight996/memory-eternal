@@ -228,3 +228,51 @@ POST https://mem.mengbot.com.cn/memory-eternal/api/cloud/webhook/mengbot
 ```
 
 如果你们后续也需要联调排查，这个日志能直接看出「请求有没有到达」。
+
+---
+
+## A4. OIDC 的 `client_secret` 在你们侧已不被接受（**当前阻塞登录**）
+
+**现象**：客户端走授权码流程，回跳到 `/cloud/auth/callback` 后换令牌失败：
+
+```
+{"error":"invalid_client","error_description":"client authentication failed"}
+HTTP 401
+```
+
+**我们做了对照实验**（用假 code，直接打 `https://accounts.mengbot.com.cn/token`）：
+
+| 认证方式 | 请求 | 响应 |
+|---|---|---|
+| `client_secret_basic`（Authorization: Basic） | 假 code | **401 `invalid_client`** |
+| `client_secret_post`（body 里带 client_id/secret） | 假 code | **401 `invalid_client`** |
+
+两种方式都返回 `invalid_client` —— 说明**不是认证方式选错，是道印灵钥本身不被接受**。
+（如果是 code 有问题，会返回 `invalid_grant`；如果是 redirect_uri 不匹配，会返回 `invalid_request`。）
+
+**关键证据：这个 secret 之前是有效的**。我们服务端的会话表里有：
+
+```
+mb_vtHR9…  owner=mengbot996@163.com  via=oidc  到期 2026-11-21 02:14:09
+mb_xYwh9…  owner=13048770337@163.com via=oidc  到期 2026-11-20 15:00:44
+```
+
+`via=oidc` 意味着这些会话是**通过 `exchangeCode` 换令牌成功后**签发的 ——
+也就是说同一份代码、同一个 secret，在 11-14 02:14 还是能通过的。
+
+**请确认**：
+
+1. `memory-eternal-cloud` 这个 client 的 `client_secret` 是否被**重置/轮换**过？
+2. client 是否被临时禁用、或配置被改动？
+3. 如果重置过，请把新 secret 发我们（我们用它替换环境变量即可，代码不用动）。
+
+**配置核对**（我们 env 里的值，供你们比对）：
+
+```
+MEMORY_OIDC_CLIENT_ID     = memory-eternal-cloud            （20 字符）
+MEMORY_OIDC_CLIENT_SECRET = x6AV…9gn0                       （43 字符，首尾与你方交付一致）
+MEMORY_OIDC_REDIRECT_URI  = https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback
+```
+
+**影响**：在所有用户走「用 MengBot 账号登录」时都会失败。我们已有兜底（用固定访问密钥可继续使用），
+但登录体验完全依赖这条链路，请优先处理。
