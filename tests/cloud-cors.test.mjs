@@ -11,7 +11,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
-import { createCloudServer, corsOriginAllowed } from '../lib/cloud-server.js'
+import { createCloudServer, corsOriginAllowed, safeRedirectTarget } from '../lib/cloud-server.js'
 
 const PUB = 'https://mem.mengbot.com.cn'
 
@@ -103,4 +103,16 @@ test('dsh-app://app（DSH 桌面端 Electron）必须放行 —— 实测日志�
   assert.equal(corsOriginAllowed('dsh-app://app', env), 'dsh-app://app', 'DSH 桌面端的 origin 是 dsh-app://app')
   assert.equal(corsOriginAllowed('dsh-app://whatever', env), 'dsh-app://whatever', '同协议其他 host 也放行')
   assert.equal(corsOriginAllowed('https://evil.com', env), '', '未知 https 仍拒绝')
+})
+
+// ── 开放重定向防护（redirect_uri 必须落在白名单内）──────────────────
+// 原来 redirect_uri 参数完全不校验：攻击者诱导用户点
+// /cloud/auth/start?redirect_uri=https://evil.com，用户登录成功后令牌会被
+// 302 送到 evil.com（fragment 里的 me_cloud_token）。这是典型的开放重定向。
+test('safeRedirectTarget：只放行白名单 origin 与 dsh-app://', () => {
+  const env = { MEMORY_CLOUD_PUBLIC_URL: 'https://mem.test' }
+  const allow = ['https://mem.test/', 'http://127.0.0.1:7999/a.html', 'http://localhost:3000/x', 'dsh-app://app/settings']
+  const deny = ['https://evil.com/steal', 'javascript:alert(1)', '//evil.com', '', 'ftp://x.com', 'https://evil.com#@mem.test']
+  for (const u of allow) assert.equal(safeRedirectTarget(u, env), u, '应放行：' + u)
+  for (const u of deny) assert.equal(safeRedirectTarget(u, env), '', '应拒绝：' + u)
 })
