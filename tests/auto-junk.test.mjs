@@ -161,3 +161,39 @@ test('归档后 neverRecalled 归零（自动体检的效果可验证）', async
   assert.equal(scanJunk(root, { neverRecalledDays: 90, staleDays: 3650 }).summary.neverRecalled, 0, '归档后不该再算出僵尸')
   cleanup(root)
 })
+
+test('action=both：归档僵尸 + 把重复/过短清到回收站（正本留在主库）', async () => {
+  const root = tmpVault()
+  seed(root, [
+    { path: 'z1.md', title: '僵尸', body: '这张很老且从未被召回，内容长度足够用于测试自动归档。', created: OLD, recall: 0 },
+    { path: 'dup-a.md', title: '重复甲', body: '重复的正文内容，长度足够用于测试清理到回收站的行为。', created: OLD, recall: 0 },
+    { path: 'dup-b.md', title: '重复甲', body: '重复的正文内容，长度足够用于测试清理到回收站的行为。', created: OLD, recall: 0 },
+    { path: 'short.md', title: '碎片', body: '短', created: OLD, recall: 0 },
+    { path: 'used.md', title: '常用', body: '这张被召回很多次不该被动，内容长度足够用于测试。', created: OLD, recall: 40 },
+  ])
+  const cfg = autoConfigFrom({ junkAutoEnabled: true, junkAutoAction: 'both' })
+  assert.equal(cfg.action, 'both')
+  const r = await runAutoJunk(root, { ...cfg, neverRecalledDays: 90, staleDays: 3650, dryRun: false })
+  assert.equal(r.archived, 1, '应归档 1 张僵尸，实际 ' + r.archived)
+  assert.ok(r.recycled >= 1, '应清理至少 1 张到回收站，实际 ' + r.recycled)
+  const db = getDb(root)
+  const recycl = db.prepare("SELECT path FROM quarantine WHERE status = 'deleted'").all().map((x) => x.path)
+  assert.ok(!recycl.includes('used.md'), '常用卡不该被清')
+  // 重复组的正本（先创建的那张）不会被自动归档 —— 否则整组一起消失，用户无法理解
+  const archivedPaths = db.prepare("SELECT path FROM quarantine WHERE status = 'archived'").all().map((x) => x.path)
+  assert.deepEqual(archivedPaths, ['z1.md'], '只该归档僵尸，不该归档重复组正本')
+  cleanup(root)
+})
+
+test('action=both 也不做永久删除（只进回收站）', async () => {
+  const root = tmpVault()
+  seed(root, [{ path: 'd.md', title: '碎片', body: '短', created: OLD, recall: 0 }])
+  await runAutoJunk(root, { enabled: true, action: 'both', neverRecalledDays: 90, staleDays: 3650, dryRun: false })
+  const db = getDb(root)
+  // 回收站 = quarantine 里 status='deleted'；永久删除会从库里彻底消失
+  const inRecycle = db.prepare("SELECT COUNT(*) n FROM quarantine WHERE path = ? AND status = 'deleted'").get('d.md').n
+  const anywhere = db.prepare("SELECT COUNT(*) n FROM cards WHERE path = ?").get('d.md').n + db.prepare("SELECT COUNT(*) n FROM quarantine WHERE path = ?").get('d.md').n
+  assert.equal(inRecycle, 1, '应进回收站')
+  assert.equal(anywhere, 1, '数据必须还在（不是永久删）')
+  cleanup(root)
+})

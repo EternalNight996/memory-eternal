@@ -778,6 +778,9 @@ export const ZH = {
   junkSection: '垃圾清理',
   junkSectionSub: '扫描重复/过短/从未召回/陈旧/积压的卡，批量归档或删除。先扫只读，处置前会二次确认',
   junkScanBtn: '扫描垃圾候选',
+  junkCleanNow: '立即清理',
+  junkCleanNowHint: '扫一遍并把可回收的清到回收站、把陈旧/从未召回的归档（都会先弹确认）',
+  junkNothingToClean: '没有需要清理的卡片',
   junkScanned: '已扫描 {total} 张卡',
   junkDuplicate: '完全重复',
   junkDuplicateHint: '内容与另一张卡完全相同，保留最早的那张',
@@ -791,7 +794,7 @@ export const ZH = {
   junkBlankTitleHint: '标题为空或「导入记忆」，影响召回可读性，建议手动补标题',
   junkQuarantineStale: '待审积压',
   junkQuarantineStaleHint: '待审超过 30 天，大概率永远不会审了',
-  junkActionDelete: '删除',
+  junkActionDelete: '清理到回收站',
   junkActionArchive: '归档',
   junkActionReject: '驳回',
   junkCandidateList: '查看候选明细（{n} 条）',
@@ -803,6 +806,9 @@ export const ZH = {
   junkConfirmBody: '将对 {n} 张卡执行「{action}」（类别：{reason}）。',
   junkConfirmTip: '归档可恢复；删除会进回收站，30 天后自动清理。这一步之后还可以在回收中心撤销。',
   junkConfirmOk: '确认执行',
+  junkConfirmRecycle: '将 {n} 张卡清理到回收站（可随时恢复）',
+  junkConfirmArchive: '将 {n} 张卡归档（不进检索，数据保留）',
+  junkActionRestore: '恢复',
   junkLoadArchived: '查看归档',
   junkArchivedCount: '已归档 {n} 张',
   junkRestoreAll: '全部恢复',
@@ -811,6 +817,10 @@ export const ZH = {
   junkAutoHint: '开启后每小时检查一次，到周期就自动扫描并**归档**「从未被召回 / 长期未更新」的卡。只归档不删除 —— 归档可随时在下面「全部恢复」',
   junkAutoEnabled: '启用定时自动体检',
   junkAutoInterval: '周期',
+  junkAutoDaysUnit: '天一次',
+  junkAutoAction: '定时动作',
+  junkAutoActionArchive: '只归档（推荐）',
+  junkAutoActionBoth: '归档 + 清到回收站',
   junkAutoHoursUnit: '小时',
   junkAutoMax: '单次最多归档',
   junkAutoCardsUnit: '张',
@@ -1850,6 +1860,9 @@ export const EN = {
   junkSection: 'Junk cleanup',
   junkSectionSub: 'Scan for duplicates / too-short / never-recalled / stale cards, then bulk archive or delete. Scan is read-only; every action needs confirmation',
   junkScanBtn: 'Scan for junk',
+  junkCleanNow: 'Clean now',
+  junkCleanNowHint: 'Scan once and move recyclables to Recycle while archiving stale/never-recalled (confirmation first)',
+  junkNothingToClean: 'Nothing to clean',
   junkScanned: 'Scanned {total} cards',
   junkDuplicate: 'Exact duplicates',
   junkDuplicateHint: 'Identical to another card; the earliest one is kept',
@@ -1863,7 +1876,7 @@ export const EN = {
   junkBlankTitleHint: 'Empty or "Imported memory" — hurts recall readability, fix the title manually',
   junkQuarantineStale: 'Stale pending',
   junkQuarantineStaleHint: 'Pending for over 30 days — likely never going to be reviewed',
-  junkActionDelete: 'Delete',
+  junkActionDelete: 'Clean to recycle',
   junkActionArchive: 'Archive',
   junkActionReject: 'Reject',
   junkCandidateList: 'Show candidates ({n})',
@@ -1875,6 +1888,9 @@ export const EN = {
   junkConfirmBody: 'About to run "{action}" on {n} cards (category: {reason}).',
   junkConfirmTip: 'Archive is reversible; Delete goes to Recycle and is purged after 30 days. You can still undo it there.',
   junkConfirmOk: 'Run it',
+  junkConfirmRecycle: 'Move {n} cards to Recycle (restorable anytime)',
+  junkConfirmArchive: 'Archive {n} cards (out of search, data kept)',
+  junkActionRestore: 'Restore',
   junkLoadArchived: 'Show archived',
   junkArchivedCount: '{n} archived',
   junkRestoreAll: 'Restore all',
@@ -1883,6 +1899,10 @@ export const EN = {
   junkAutoHint: 'When on, checks hourly and auto-ARCHIVES cards that were never recalled or long untouched. Archive only — never delete; you can restore them all below',
   junkAutoEnabled: 'Enable scheduled health check',
   junkAutoInterval: 'Every',
+  junkAutoDaysUnit: 'day(s)',
+  junkAutoAction: 'Action',
+  junkAutoActionArchive: 'Archive only (recommended)',
+  junkAutoActionBoth: 'Archive + clean to Recycle',
   junkAutoHoursUnit: 'hours',
   junkAutoMax: 'Max per run',
   junkAutoCardsUnit: 'cards',
@@ -7237,7 +7257,32 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const askRestoreAllArchived = () => {
     const list = (archived && archived.cards) ? archived.cards.map((c) => c.path) : []
     if (!list.length) return
-    setJunkConfirm({ action: 'restore', reason: 'archived', paths: list })
+    setJunkConfirm({ steps: [{ action: 'restore', paths: list, reason: 'archived' }] })
+  }
+  /**
+   * 「立即清理」：扫一遍 → 一步做到位
+   *   · duplicate / tooShort / quarantineStale → **清理到回收站**（软删，可恢复）
+   *   · neverRecalled / stale                 → 归档（不进检索，数据保留）
+   * 全部动作先弹确认。注意这里用的是 `delete`（= deleteCard 默认软删进回收站），
+   * **不是永久删除** —— 永久删除只有 /delete?permanent=1 才有。
+   */
+  const cleanNow = async () => {
+    setJunkBusy(true); setJunkErr(''); setJunkLast(null)
+    try {
+      const r = await fetch(API + '/junk/scan?limit=500')
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) { setJunkErr((d && d.error) || ('HTTP ' + r.status)); return }
+      setJunk(d)
+      const cand = d.candidates || []
+      const recycle = cand.filter((c) => ['duplicate', 'tooShort', 'quarantineStale'].includes(c.reason)).map((c) => c.path)
+      const archive = cand.filter((c) => ['neverRecalled', 'stale'].includes(c.reason)).map((c) => c.path)
+      if (!recycle.length && !archive.length) { notify(t('junkNothingToClean'), false); return }
+      const steps = []
+      if (archive.length) steps.push({ action: 'archive', paths: archive, reason: 'neverRecalled/stale' })
+      if (recycle.length) steps.push({ action: 'delete', paths: recycle, reason: 'duplicate/tooShort/quarantineStale' })
+      setJunkConfirm({ steps })
+    } catch (e) { setJunkErr(String((e && e.message) || e)) }
+    finally { setJunkBusy(false) }
   }
   /** 自动体检状态（GET /junk/auto） */
   const [autoState, setAutoState] = useState(null)
@@ -7277,26 +7322,31 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const askJunkAction = (action, reason) => {
     const list = (junk && junk.candidates) ? junk.candidates.filter((c) => c.reason === reason).map((c) => c.path) : []
     if (!list.length) return
-    setJunkConfirm({ action, reason, paths: list })
+    setJunkConfirm({ steps: [{ action, paths: list, reason }] })
   }
-  /** 真执行（已经过弹窗确认） */
+  /**
+   * 真执行（已经过弹窗确认）。支持多步（「立即清理」会同时归档一批 + 清理一批到回收站）。
+   */
   const runJunkAction = async () => {
     const c = junkConfirm
     if (!c) return
+    const steps = Array.isArray(c.steps) ? c.steps : [{ action: c.action, paths: c.paths, reason: c.reason }]
     setJunkConfirm(null)
     setJunkBusy(true); setJunkErr('')
+    const summary = []
     try {
-      const r = await fetch(API + '/cards/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: c.action, paths: c.paths, dryRun: false }),
-      })
-      const d = await r.json().catch(() => ({}))
-      if (!r.ok || !d.ok) setJunkErr((d && d.error) || ('HTTP ' + r.status))
-      else {
-        setJunkLast({ action: c.action, done: d.done || 0, failed: (d.failed || []).length })
-        await scanJunkNow() // 执行后自动重扫，界面立刻反映真实状态
+      for (const st of steps) {
+        const r = await fetch(API + '/cards/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: st.action, paths: st.paths, dryRun: false }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok || !d.ok) { setJunkErr((d && d.error) || ('HTTP ' + r.status)); continue }
+        summary.push({ action: st.action, done: d.done || 0, failed: (d.failed || []).length })
       }
+      if (summary.length) setJunkLast({ summary })
+      await scanJunkNow() // 执行后自动重扫，界面立刻反映真实状态
     } catch (e) {
       setJunkErr(String((e && e.message) || e))
     } finally { setJunkBusy(false) }
@@ -7367,7 +7417,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
     'sec-preset': 'general', 'sec-theme': 'general', 'sec-basic': 'general', 'sec-skills': 'general', 'sec-digest': 'general', 'sec-ui': 'general',
     'sec-memory': 'memory', 'sec-embed': 'memory', 'sec-core': 'memory', 'sec-vault': 'memory',
     'sec-backup': 'memory',
-    'sec-junk': 'memory',   // 垃圾清理跟着备份放「记忆」页（同一类操作：维护记忆库）
+    // 垃圾清理先放「实验性」页：批量归档/删除还是新能力，等跑一段时间稳定了再下放到「记忆」页。
+    'sec-junk': 'experimental',
     'sec-cost': 'advanced', 'sec-audit': 'advanced',
     'sec-service': 'service',
     'sec-cloud': 'experimental',
@@ -8001,9 +8052,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={scanJunkNow}>
                   {junkBusy ? '⏳ ' + t('loading') : t('junkScanBtn')}
                 </Btn>
+                {/* 「立即清理」：一步做到位 —— 可回收的清到回收站、陈旧/从未召回的归档，先弹确认。
+                    注意「清理到回收站」= 软删（deleteCard 默认 permanent:false），可随时恢复。 */}
+                <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={cleanNow}>
+                  {junkBusy ? '⏳ ' + t('loading') : t('junkCleanNow')}
+                </Btn>
                 {junk && <Status tone="ok" text={t('junkScanned').replace('{total}', String(junk.summary.total))} />}
                 {junkErr && <Status tone="bad" text={junkErr} />}
               </div>
+              <Hint text={t('junkCleanNowHint')} />
 
               {junk && (
                 <>
@@ -8066,8 +8123,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   )}
 
                   {junkLast && (
-                    <div style={{ marginTop: 8 }}>
-                      <Status tone="ok" text={t('junkBulkDone').replace('{action}', junkLast.action).replace('{n}', String(junkLast.done)) + (junkLast.failed ? ' · ' + t('junkFailed').replace('{n}', String(junkLast.failed)) : '')} />
+                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {(junkLast.summary || [{ action: junkLast.action, done: junkLast.done, failed: junkLast.failed }]).map((s2, si) => (
+                        <Status
+                          key={si}
+                          tone="ok"
+                          text={t('junkBulkDone')
+                            .replace('{action}', s2.action === 'delete' ? t('junkActionDelete') : s2.action === 'archive' ? t('junkActionArchive') : s2.action === 'reject' ? t('junkActionReject') : t('junkActionRestore'))
+                            .replace('{n}', String(s2.done || 0)) + (s2.failed ? ' · ' + t('junkFailed').replace('{n}', String(s2.failed)) : '')}
+                        />
+                      ))}
                     </div>
                   )}
                   <Hint text={t('junkCleanHint')} />
@@ -8101,6 +8166,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <Hint text={t('junkArchiveHint')} />
                   </div>
 
+                </>
+              )}
                   {/* 定时自动体检：默认关闭。开启后由 web server 每小时检查一次，
                       到周期就跑一遍 —— **只归档，绝不删除**（归档可逆，删除不可逆）。 */}
                   <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--mc-line, rgba(128,128,128,.2))' }}>
@@ -8109,17 +8176,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <div className="mc-cfg-switches is-single" style={{ marginTop: 8 }}>
                       <Bool k="junkAutoEnabled" label={t('junkAutoEnabled')} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, fontSize: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, fontSize: 12, flexWrap: 'wrap' }}>
                       <span style={{ opacity: 0.8 }}>{t('junkAutoInterval')}</span>
                       <input
                         type="number"
                         min={1}
-                        max={720}
-                        value={String((form && form.junkAutoIntervalHours) ?? 24)}
-                        onChange={(e) => set('junkAutoIntervalHours', Number(e.target.value) || 24)}
-                        style={{ width: 80 }}
+                        max={30}
+                        value={String(Math.max(1, Math.round(((form && form.junkAutoIntervalHours) ?? 24) / 24)))}
+                        onChange={(e) => set('junkAutoIntervalHours', (Number(e.target.value) || 1) * 24)}
+                        style={{ width: 70 }}
                       />
-                      <span style={{ opacity: 0.7 }}>{t('junkAutoHoursUnit')}</span>
+                      <span style={{ opacity: 0.7 }}>{t('junkAutoDaysUnit')}</span>
                       <span style={{ opacity: 0.8, marginLeft: 12 }}>{t('junkAutoMax')}</span>
                       <input
                         type="number"
@@ -8131,6 +8198,18 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       />
                       <span style={{ opacity: 0.7 }}>{t('junkAutoCardsUnit')}</span>
                     </div>
+                    {/* 定时动作：默认只归档（最安全）；要清到回收站得显式选 —— 回收站 30 天后会真删 */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, fontSize: 12 }}>
+                      <span style={{ opacity: 0.8 }}>{t('junkAutoAction')}</span>
+                      <select
+                        value={form && form.junkAutoAction === 'both' ? 'both' : 'archive'}
+                        onChange={(e) => set('junkAutoAction', e.target.value)}
+                        style={{ minWidth: 220 }}
+                      >
+                        <option value="archive">{t('junkAutoActionArchive')}</option>
+                        <option value="both">{t('junkAutoActionBoth')}</option>
+                      </select>
+                    </div>
                     <div className="mc-cloud-actions" style={{ marginTop: 10 }}>
                       <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={runAutoDryRun}>
                         {t('junkAutoDryRun')}
@@ -8139,8 +8218,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       {autoDry && <Status tone="ok" text={t('junkAutoPreview').replace('{n}', String(autoDry.candidates || 0))} />}
                     </div>
                   </div>
-                </>
-              )}
 
               {/* 确认弹窗：明确写出「将影响 N 条」+ 动作说明。
                   用 `.mc-card` 而不是自定义 background —— 它跟随皮肤变量，
@@ -8156,16 +8233,34 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <b style={{ fontSize: 13 }}>{t('junkConfirmTitle')}</b>
-                    <div style={{ fontSize: 12.5, lineHeight: 1.7 }}>
-                      {t('junkConfirmBody')
-                        .replace('{action}', junkConfirm.action)
-                        .replace('{n}', String(junkConfirm.paths.length))
-                        .replace('{reason}', junkConfirm.reason)}
+                    <div style={{ fontSize: 12.5, lineHeight: 1.7, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {(junkConfirm.steps || [{ action: junkConfirm.action, paths: junkConfirm.paths, reason: junkConfirm.reason }]).map((st, si) => {
+                        const actLabel = st.action === 'delete' ? t('junkActionDelete')
+                          : st.action === 'archive' ? t('junkActionArchive')
+                            : st.action === 'reject' ? t('junkActionReject')
+                              : t('junkActionRestore')
+                        const reasonLabel = st.reason === 'duplicate' ? t('junkDuplicate')
+                          : st.reason === 'tooShort' ? t('junkTooShort')
+                            : st.reason === 'neverRecalled' ? t('junkNeverRecalled')
+                              : st.reason === 'stale' ? t('junkStale')
+                                : st.reason === 'blankTitle' ? t('junkBlankTitle')
+                                  : st.reason === 'quarantineStale' ? t('junkQuarantineStale')
+                                    : st.reason
+                        return (
+                          <div key={si}>
+                            · <b>{actLabel}</b> {st.paths.length} 张 <span style={{ opacity: 0.7 }}>（{reasonLabel}）</span>
+                          </div>
+                        )
+                      })}
                     </div>
                     <div style={{ fontSize: 11.5, opacity: 0.7, lineHeight: 1.6 }}>{t('junkConfirmTip')}</div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                       <Btn variant="ghost" size="sm" onClick={() => setJunkConfirm(null)}>{t('cancel')}</Btn>
-                      <Btn variant={junkConfirm.action === 'delete' ? 'primary' : 'secondary'} size="sm" onClick={runJunkAction}>
+                      <Btn
+                        variant={(junkConfirm.steps || [{ action: junkConfirm.action }]).some((x) => x.action === 'delete') ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={runJunkAction}
+                      >
                         {t('junkConfirmOk')}
                       </Btn>
                     </div>
