@@ -20,7 +20,8 @@ function i18nKeys(text) {
 }
 
 test('sec-junk 必须挂在 PAGE_OF 里（否则永远 hidden）', () => {
-  assert.match(src, /'sec-junk':\s*'memory'/, "PAGE_OF 要有 'sec-junk': 'memory'")
+  // 先放「实验性」页，等稳定了再下放到「记忆」页
+  assert.match(src, /'sec-junk':\s*'experimental'/, "PAGE_OF 要有 'sec-junk': 'experimental'")
   assert.match(src, /secProps\('sec-junk'\)/, 'CfgSection 要用 secProps 包')
   assert.match(src, /id="sec-junk"/, '要有 id="sec-junk"')
 })
@@ -55,10 +56,12 @@ test('真执行必须显式 dryRun:false（后端默认 true，漏传等于没�
   assert.match(src, /dryRun:\s*false/, 'runJunkAction 必须传 dryRun:false')
 })
 
-test('确认弹窗存在，且写出影响条数与动作', () => {
+test('确认弹窗存在，且按步骤写出动作与条数', () => {
   assert.match(src, /junkConfirm &&/, '要有确认弹窗的渲染条件')
   assert.match(src, /t\('junkConfirmTitle'\)/, '弹窗要有标题')
-  assert.match(src, /replace\('\{n\}', String\(junkConfirm\.paths\.length\)\)/, '要显示影响条数')
+  // 「立即清理」会一次做两件事（归档 + 清到回收站），所以弹窗按 steps 渲染
+  assert.match(src, /junkConfirm\.steps \|\|/, '要支持 steps（多步）')
+  assert.match(src, /st\.paths\.length/, '每步要显示影响条数')
   assert.match(src, /t\('junkConfirmOk'\)/, '要有确认按钮')
 })
 
@@ -77,7 +80,7 @@ test('执行完自动重扫（界面立刻反映真实状态）', () => {
 })
 
 test('危险动作（delete）用 primary，其余用 secondary', () => {
-  assert.match(src, /junkConfirm\.action === 'delete' \? 'primary' : 'secondary'/, '删除要给更强的视觉权重')
+  assert.match(src, /some\(\(x\) => x\.action === 'delete'\) \? 'primary' : 'secondary'/, '只要有 delete 步骤就给更强的视觉权重')
 })
 
 test('归档管理：有查看/全部恢复入口，且调对了接口', () => {
@@ -85,7 +88,7 @@ test('归档管理：有查看/全部恢复入口，且调对了接口', () => {
   assert.match(src, /junkLoadArchived/, '要有「查看归档」文案')
   assert.match(src, /junkRestoreAll/, '要有「全部恢复」文案')
   assert.match(src, /fetch\(API \+ '\/cards\?status=archived/, '要拉归档列表')
-  assert.match(src, /action: 'restore', reason: 'archived'/, '全部恢复要复用批量处置')
+  assert.match(src, /action: 'restore', paths: list/, '全部恢复要复用批量处置')
 })
 
 test('/cards 支持 status=archived（白名单 + appliedStatus 都要认）', () => {
@@ -93,4 +96,19 @@ test('/cards 支持 status=archived（白名单 + appliedStatus 都要认）', (
   assert.match(api, /KNOWN_STATUS = \[[^\]]*'archived'\]/, 'KNOWN_STATUS 要含 archived')
   assert.match(api, /status === 'archived' \? \['archived'\]/, 'want 映射要含 archived')
   assert.match(api, /status === 'archived' \? 'archived'/, 'appliedStatus 要回显 archived')
+})
+
+
+test('「清理到回收站」文案正确（delete 是软删，不是永久删）', () => {
+  assert.match(src, /junkActionDelete: '清理到回收站'/, '按钮必须写清是"清理到回收站"')
+  // 后端：/cards/bulk 的 delete 走 deleteCard 默认参数 = 软删
+  const api = fs.readFileSync('lib/api.js', 'utf8')
+  assert.match(api, /action === 'delete'\) r = await deleteCard\(vaultRoot, p\)/, '批量删除不传 permanent = 软删进回收站')
+})
+
+test('有「立即清理」按钮（一键扫+清，不是只能一类一类点）', () => {
+  assert.match(src, /junkCleanNow/, '要有「立即清理」文案')
+  assert.match(src, /const cleanNow = async/, '要有 cleanNow 实现')
+  // 清理动作必须是 delete（进回收站）而不是永久删
+  assert.match(src, /action: 'delete', paths: recycle/, '可回收类走 delete（软删）')
 })
