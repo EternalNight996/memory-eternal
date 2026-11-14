@@ -1067,6 +1067,8 @@ export const ZH = {
   cloudVaultLabel: '云端库位置（服务端路径）',
   vaultOriginLocal: '本地',
   vaultDefaultName: '默认库',
+  serverVaultListLabel: '服务器上的库',
+  cloudDataLocationNote: '这里的库都在服务器上，不是你这台电脑上的数据。要把本机已有的卡片迁过来：打开 DeepSeek Harness 面板 → 记忆 → 设置 → 实验性 → 云端连接，运行模式选「云端」，然后点「上传当前库到云端」。',
   cloudInstanceDesc: '这是你的云端实例：记忆库在服务器上，通过 HTTPS 访问；本机离线时用本地库。',
   cloudVaultListLabel: '云端实例上的库',
   cloudVaultQuota: '已用 {u} / {l}',
@@ -2342,6 +2344,8 @@ export const EN = {
   cloudVaultLabel: 'Cloud vault path (on server)',
   vaultOriginLocal: 'local',
   vaultDefaultName: 'default',
+  serverVaultListLabel: 'Vaults on the server',
+  cloudDataLocationNote: 'These vaults live on the server, not on your computer. To bring your existing cards over: open the DeepSeek Harness panel → Memory → Settings → Experimental → Cloud, pick Cloud mode, then click "Upload current to cloud".',
   cloudInstanceDesc: 'This is your cloud instance: the vault lives on the server over HTTPS. Use a local vault when offline.',
   cloudVaultListLabel: 'Vaults on the cloud instance',
   cloudVaultQuota: '{u} / {l} used',
@@ -8962,7 +8966,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 本进程是不是「云端租户实例」：vaultRoot 在 cloud-vaults/<owner> 下。
   // 这决定文案怎么说话 —— 在云端实例上，"本机"其实是服务器，说"保存在这台机器上"是错的。
   const isCloudInstance = (() => {
-    try { return String((localVault && localVault.full) || '').includes('cloud-vaults') } catch { return false }
+    try {
+      // 用 dir（vaultDir）兜底：dbPath 在刚建的空库上可能是空的，vaultDir 一直是绝对路径
+      const p2 = String((localVault && (localVault.dir || localVault.full)) || '')
+      return p2.includes('cloud-vaults')
+    } catch { return false }
   })()
 
   /** 拉本机所有库（本地 + 备份 + 云端租户）。 */
@@ -10183,7 +10191,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, background: 'var(--me-c-surface)', overflow: 'hidden', marginTop: 10 }}>
                       <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--me-c-border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, opacity: 0.55, marginBottom: 6 }}>
-                          <span>{t('vaultListLabel')} · {vaultList.length}</span>
+                          <span>{isCloudInstance ? t('serverVaultListLabel') : t('vaultListLabel')} · {vaultList.length}</span>
                           <span style={{ flex: 1 }} />
                           {/* 云端实例才给建库入口；本地库是用户自己放的目录 */}
                           {cloudForm.mode === 'cloud' ? (
@@ -10219,6 +10227,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         </div>
                       </div>
                       <div style={{ padding: '10px 12px', display: ((vaultList && vaultList.length > 1) || (cloudVaultList && cloudVaultList.length > 0)) ? 'flex' : 'none', flexDirection: 'column', gap: 9 }}>{/* 单库场景下没得选，整块隐藏 */}
+                    {isCloudInstance ? (
+                      <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: '1px dashed var(--me-c-border)', fontSize: 11, lineHeight: 1.75, opacity: 0.75 }}>
+                        {t('cloudDataLocationNote')}
+                      </div>
+                    ) : null}
                     {/* 云端实例上的库：与本地库分开列，各标各的来源 */}
                         {cloudForm.mode === 'cloud' && cloudVaultList && cloudVaultList.length ? (
                           <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -10270,7 +10283,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         
                         
                           {/* 把选中的本机库推到云端（复制，本地保留） */}
-                          <Btn variant="ghost" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)} title={t('vaultUploadCloudHint')}>{t('vaultUploadCloud')}</Btn>
+                          {/* 云端实例上这个按钮没意义：当前库就在这台服务器上，"上传"等于自己传自己 */}
+                          {isCloudInstance ? null : (
+                            <Btn variant="ghost" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)} title={t('vaultUploadCloudHint')}>{t('vaultUploadCloud')}</Btn>
+                          )}
                           <Btn variant="ghost" size="sm" onClick={loadVaults}>{t('refresh')}</Btn>
                         </div>
                         {xfer && xfer.err ? <Status tone="bad" text={xfer.err} /> : null}
