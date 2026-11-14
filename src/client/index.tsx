@@ -19,7 +19,7 @@ import { TOKENS_CSS, COMPONENTS_CSS, space } from './ui/design-tokens.js'
 // 组件层：按钮等级 / 状态 / 空态 / 错误条 / 骨架屏。
 // 阶段 3 只把「关键页面」换成这些组件（卡片列表、统计健康、审核与回收、阅读器），
 // 其余旧代码在原处继续跑 —— 改到哪块换哪块，不做一次性重排。
-import { Btn, Status, EmptyState, ErrorBar, Skeleton, Hint } from './ui/components.js'
+import { Btn, Status, EmptyState, ErrorBar, Skeleton, Hint, Avatar, AccountBadge } from './ui/components.js'
 import { auditMatches } from './audit-filter.js'
 import { versionCardState } from './version-state.js'
 // issue #55：卡片时间一律按运行环境本地时区显示（DB 里存的是 UTC ISO，不能直接 slice）
@@ -155,7 +155,15 @@ async function probeCloud(form) {
       signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
     })
     const d = await r.json().catch(() => ({}))
-    if (r.ok && d && d.ok) return { ok: true, reachable: true, authenticated: true, owner: d.owner, via: d.via, version: health.version || '' }
+    if (r.ok && d && d.ok) {
+      return {
+        ok: true, reachable: true, authenticated: true,
+        owner: d.owner, via: d.via,
+        // profile 只有展示用的三项（name/email/picture），用来渲染头像
+        profile: d.profile || null,
+        version: health.version || '',
+      }
+    }
     return { ok: false, reachable: true, error: (d && d.error) || ('HTTP ' + r.status) }
   } catch (e) {
     return { ok: false, reachable: true, error: String((e && e.message) || e) }
@@ -8561,7 +8569,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
               </div>
               <div className="mc-cloud-actions" style={{ marginTop: 12 }}>
                 <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
-                <Btn variant="secondary" size="sm" disabled={!String(cloudForm.url || '').trim()} onClick={startLoginRedirect}>{t('cloudLoginButton')}</Btn>
+                {cloudTest && cloudTest.ok && cloudTest.authenticated ? (
+                  <AccountBadge
+                    owner={cloudTest.owner || ''}
+                    profile={cloudTest.profile || null}
+                    sub={cloudConn.mode === 'cloud' && cloudConn.active !== false ? t('cloudModeCloud') : t('cloudModeLocal')}
+                    tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
+                    size={32}
+                  />
+                ) : (
+                  <Btn variant="secondary" size="sm" disabled={!String(cloudForm.url || '').trim()} onClick={startLoginRedirect}>{t('cloudLoginButton')}</Btn>
+                )}
                 <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
               </div>
               {/* 状态行：当前实际在用什么 + 上次失败原因（配置没丢，可重试） */}

@@ -112,3 +112,81 @@ export function Hint({ tone = 'info', children }) {
     style: { color: fg, background: bg, border: '1px solid ' + fg, borderRadius: RADIUS.md, padding: '6px 10px', fontSize: FONT.sm, lineHeight: 1.55 },
   }, children)
 }
+
+/**
+ * 头像。**没有图片也必须好看** —— 绝大多数 OIDC 提供商不下发 `picture`，
+ * 所以首字母 + 稳定色相是主路径，图片只是锦上添花。
+ *
+ * 几个细节：
+ *   · 色相由 owner 哈希算出来 → 同一个账号颜色永远一样，换设备/重登都不变；
+ *   · 图片加载失败（404/防盗链）自动回落到字母，不会留一个碎图；
+ *   · 大小用 size 控制（默认 32），全部内联尺寸避免依赖外部 CSS。
+ *
+ * @param {{owner?:string, name?:string, picture?:string, size?:number, title?:string}} props
+ */
+export function Avatar({ owner = '', name = '', picture = '', size = 32, title = '' }) {
+  const [broken, setBroken] = React.useState(false)
+  const label = String(name || owner || '?').trim()
+  // 首字符：中文取第一个字，英文取首字母大写
+  const ch = (label.match(/[\p{L}\p{N}]/u) || ['?'])[0].toUpperCase()
+  let h = 0
+  for (let i = 0; i < String(owner || label).length; i++) h = (h * 31 + String(owner || label).charCodeAt(i)) % 360
+  const bg = 'hsl(' + h + ' 62% 46%)'
+  const base = {
+    width: size, height: size, borderRadius: '50%',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    flex: '0 0 auto', overflow: 'hidden', userSelect: 'none',
+    fontSize: Math.round(size * 0.44), fontWeight: 700, lineHeight: 1,
+  }
+  if (picture && !broken) {
+    return React.createElement('img', {
+      src: picture, alt: label, title: title || label,
+      onError: () => setBroken(true),
+      style: { ...base, objectFit: 'cover', background: bg },
+    })
+  }
+  return React.createElement('span', { title: title || label, style: { ...base, background: bg, color: '#fff' } }, ch)
+}
+
+/**
+ * 已登录账号徽标：头像 + 账号 + 副信息（套餐/状态）。
+ *
+ * 用来替换「用 MengBot 账号登录」按钮 —— 已经登录了还让人看到"去登录"很怪。
+ *
+ * @param {{owner?:string, profile?:object, sub?:string, tone?:string, onClick?:Function,
+ *   action?:any, size?:number}} props
+ */
+export function AccountBadge({ owner = '', profile = null, sub = '', tone = 'ok', onClick = null, action = null, size = 34 }) {
+  const p = profile || {}
+  const shown = String(p.name || owner || '').trim()
+  const isEmail = /@/.test(shown)
+  // 邮箱太长时中间省略：13048770337@163.com → 1304877…@163.com
+  const short = isEmail && shown.length > 24
+    ? shown.slice(0, 8) + '…' + shown.slice(shown.indexOf('@'))
+    : shown
+  const dot = { ok: 'var(--me-c-success)', warn: 'var(--me-c-warn)', bad: 'var(--me-c-danger)' }[tone] || 'var(--me-c-success)'
+  return React.createElement('div', {
+    className: 'me-account',
+    style: {
+      display: 'flex', alignItems: 'center', gap: space(3),
+      padding: '6px 10px', borderRadius: RADIUS.lg,
+      border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)',
+      cursor: onClick ? 'pointer' : 'default',
+    },
+    onClick: onClick || undefined,
+    title: owner ? (p.email || owner) : '',
+  },
+    React.createElement(Avatar, { owner, name: p.name || '', picture: p.picture || '', size }),
+    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 } },
+      React.createElement('div', {
+        style: { fontSize: FONT.sm, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+      }, short),
+      sub
+        ? React.createElement('div', {
+          style: { fontSize: FONT.xs || 11, color: 'var(--me-c-text-dim)', display: 'flex', alignItems: 'center', gap: 5 },
+        },
+          React.createElement('i', { style: { width: 6, height: 6, borderRadius: '50%', background: dot, flex: '0 0 auto' } }),
+          sub)
+        : null),
+    action || null)
+}
