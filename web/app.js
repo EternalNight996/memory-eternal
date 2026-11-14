@@ -32081,7 +32081,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T09:43:53.217Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T09:47:17.225Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34178,6 +34178,9 @@ ${t("quoteHint")}`,
     }, "cleanNow");
     const [autoState, setAutoState] = (0, import_react2.useState)(null);
     const [autoDry, setAutoDry] = (0, import_react2.useState)(null);
+    const [deviceAuth, setDeviceAuth] = (0, import_react2.useState)(null);
+    const [deviceErr, setDeviceErr] = (0, import_react2.useState)("");
+    const [deviceBusy, setDeviceBusy] = (0, import_react2.useState)(false);
     const startDeviceLogin = /* @__PURE__ */ __name(async () => {
       setDeviceBusy(true);
       setDeviceErr("");
@@ -34365,9 +34368,6 @@ ${t("quoteHint")}`,
     const [merchants, setMerchants] = (0, import_react2.useState)([]);
     const [mchForm, setMchForm] = (0, import_react2.useState)(() => ({ name: "", domain: "", endpoint: String(readCloudConn().merchantEndpoint || "https://mem.mengbot.com.cn") }));
     const [mchBusy, setMchBusy] = (0, import_react2.useState)(false);
-    const [deviceAuth, setDeviceAuth] = (0, import_react2.useState)(null);
-    const [deviceErr, setDeviceErr] = (0, import_react2.useState)("");
-    const [deviceBusy, setDeviceBusy] = (0, import_react2.useState)(false);
     const [mchErr, setMchErr] = (0, import_react2.useState)("");
     const [mchSecret, setMchSecret] = (0, import_react2.useState)(null);
     const [localVault, setLocalVault] = (0, import_react2.useState)(null);

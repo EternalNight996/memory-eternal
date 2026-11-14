@@ -7474,6 +7474,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [autoState, setAutoState] = useState(null)
   const [autoDry, setAutoDry] = useState(null)
   /** 预演一次自动体检（只看会归档多少，不动数据） */
+  // 设备码登录（RFC 8628）：桌面端 / 无浏览器环境走这条。
+  // 授权码流程在自定义协议页面上必然失败（interaction cookie 跨不过 origin）。
+  const [deviceAuth, setDeviceAuth] = useState(null)   // { userCode, verificationUri, ticket, interval, expiresIn, startedAt }
+  const [deviceErr, setDeviceErr] = useState('')
+  const [deviceBusy, setDeviceBusy] = useState(false)
   /** 发起设备码登录。失败时把 code 一起带出来（grant_not_allowed 要单独引导）。 */
   const startDeviceLogin = async () => {
     setDeviceBusy(true); setDeviceErr('')
@@ -7631,11 +7636,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [merchants, setMerchants] = useState([])
   const [mchForm, setMchForm] = useState(() => ({ name: '', domain: '', endpoint: String(readCloudConn().merchantEndpoint || 'https://mem.mengbot.com.cn') }))
   const [mchBusy, setMchBusy] = useState(false)
-  // 设备码登录（RFC 8628）：桌面端 / 无浏览器环境走这条。
-  // 授权码流程在自定义协议页面上必然失败（interaction cookie 跨不过 origin）。
-  const [deviceAuth, setDeviceAuth] = useState(null)   // { userCode, verificationUri, ticket, interval, expiresIn, startedAt }
-  const [deviceErr, setDeviceErr] = useState('')
-  const [deviceBusy, setDeviceBusy] = useState(false)
   const [mchErr, setMchErr] = useState('')
   /** 刚生成的商户密钥（只显示一次，刷新即消失）。 */
   const [mchSecret, setMchSecret] = useState(null)
