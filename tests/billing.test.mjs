@@ -91,3 +91,12 @@ test('planView：读本地 entitlement，canCheckout 只看有没有 owner', () 
   assert.equal(anon.canCheckoutReason, 'need-login')
   cleanup(home)
 })
+
+// 他们的白名单只认 `memory-eternal`；写成别的会被判成 `source:unverified`，
+// **渠道归因静默丢失**（支付能成功，但后台看不到来源）。
+test('默认 source 必须是 memory-eternal（他们白名单里的值）', async () => {
+  const r = await createCheckout({ plan: 'pro', owner: 'u@x.com', env: {} })
+  assert.equal(r.ok, true)
+  assert.match(String(r.url), /[?&]source=memory-eternal(&|$)/, '默认 source 必须是 memory-eternal，实际 ' + r.url)
+  assert.equal(String(r.url).includes('memory-eternal-cloud'), false, '不能带 -cloud 后缀')
+})
