@@ -909,6 +909,10 @@ export const ZH = {
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
   vaultListLabel: '本机记忆库',
+  activateVaultBtn: '切到此库',
+  activateNeedRestart: '已记录。重启服务后生效（web 端与 DSH 会一起切换）',
+  activateAlready: '已经是当前库',
+  activateFail: '切换失败',
   cfSourceVaultLabel: '从哪个本地库搬',
   cfPickLocalVault: '选择本地库',
   cfSourceVaultHint: '扫描 .dsh/memory-vault* 下的所有库（含历史副本）',
@@ -2121,6 +2125,10 @@ export const EN = {
   devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
   vaultListLabel: 'Vaults on this machine',
+  activateVaultBtn: 'Switch to this',
+  activateNeedRestart: 'Recorded. Takes effect after restart (both web and DSH follow it)',
+  activateAlready: 'Already the current vault',
+  activateFail: 'Switch failed',
   cfSourceVaultLabel: 'Local vault',
   cfPickLocalVault: 'Pick a local vault',
   cfSourceVaultHint: 'Scans every vault under .dsh/memory-vault*',
@@ -8433,6 +8441,30 @@ function ConfigPanel({ t, onReload, version, compact }) {
     }
   }
 
+  /**
+   * 切换当前库：写共享偏好（$DSH_HOME/memory-eternal-active-vault.json）。
+   * 进程内的 vaultRoot 是启动时钉死的，所以这里只**记录**并告知需要重启；
+   * 不自动重启 —— 可能正在写卡，交给用户决定时机。
+   * web 端与 DSH 插件端都读这份偏好，因此一端切换、另一端起飞时就会跟着用。
+   */
+  const activateVault = async (path2) => {
+    if (!path2) return
+    try {
+      const r = await fetch(API + '/vaults/activate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: path2 }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) { try { notify((d && d.error) || t('activateFail'), false) } catch { /* 忽略 */ } return }
+      try {
+        notify(d.isCurrent ? t('activateAlready') : t('activateNeedRestart'), true)
+      } catch { /* 忽略 */ }
+      try { loadVaults() } catch { /* 忽略 */ }
+    } catch (e) {
+      try { notify(String((e && e.message) || e), false) } catch { /* 忽略 */ }
+    }
+  }
+
   /** 拉本机所有库（本地 + 备份 + 云端租户）。 */
   const loadVaults = async () => {
     try {
@@ -9639,6 +9671,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
                                 {v.name}{v.owner ? ' · ' + v.owner : ''}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}
                               </span>
                               <span style={{ opacity: 0.5, flex: 'none' }}>{v.cards} · {v.sizeMB}MB</span>
+                                {/* 切到该库：写共享偏好，重启后生效（web 与 DSH 端共用这份偏好） */}
+                                {v.isCurrent ? null : (
+                                  <button
+                                    type="button"
+                                    onClick={() => activateVault(v.path)}
+                                    style={{ flex: 'none', background: 'none', border: 'none', padding: '0 0 0 6px', cursor: 'pointer', fontSize: 10.5, color: 'var(--me-c-accent, #2563eb)' }}
+                                  >
+                                    {t('activateVaultBtn')}
+                                  </button>
+                                )}
                             </div>
                           ))}
                         </div>

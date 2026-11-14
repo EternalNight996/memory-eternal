@@ -29518,6 +29518,10 @@
     devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
     vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
+    activateVaultBtn: "\u5207\u5230\u6B64\u5E93",
+    activateNeedRestart: "\u5DF2\u8BB0\u5F55\u3002\u91CD\u542F\u670D\u52A1\u540E\u751F\u6548\uFF08web \u7AEF\u4E0E DSH \u4F1A\u4E00\u8D77\u5207\u6362\uFF09",
+    activateAlready: "\u5DF2\u7ECF\u662F\u5F53\u524D\u5E93",
+    activateFail: "\u5207\u6362\u5931\u8D25",
     cfSourceVaultLabel: "\u4ECE\u54EA\u4E2A\u672C\u5730\u5E93\u642C",
     cfPickLocalVault: "\u9009\u62E9\u672C\u5730\u5E93",
     cfSourceVaultHint: "\u626B\u63CF .dsh/memory-vault* \u4E0B\u7684\u6240\u6709\u5E93\uFF08\u542B\u5386\u53F2\u526F\u672C\uFF09",
@@ -30728,6 +30732,10 @@
     devicePanelTitle: "Finish signing in in your browser",
     localVaultLabel: "Vault location",
     vaultListLabel: "Vaults on this machine",
+    activateVaultBtn: "Switch to this",
+    activateNeedRestart: "Recorded. Takes effect after restart (both web and DSH follow it)",
+    activateAlready: "Already the current vault",
+    activateFail: "Switch failed",
     cfSourceVaultLabel: "Local vault",
     cfPickLocalVault: "Pick a local vault",
     cfSourceVaultHint: "Scans every vault under .dsh/memory-vault*",
@@ -34238,7 +34246,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T13:46:21.578Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T13:50:45.107Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -37032,6 +37040,37 @@ ${t("quoteHint")}`,
         setResetJob({ phase: "error", err: String(e && e.message || e) });
       }
     }, "runFactoryReset");
+    const activateVault = /* @__PURE__ */ __name(async (path2) => {
+      if (!path2) return;
+      try {
+        const r = await fetch(API + "/vaults/activate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: path2 })
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.ok) {
+          try {
+            notify2(d && d.error || t("activateFail"), false);
+          } catch {
+          }
+          return;
+        }
+        try {
+          notify2(d.isCurrent ? t("activateAlready") : t("activateNeedRestart"), true);
+        } catch {
+        }
+        try {
+          loadVaults();
+        } catch {
+        }
+      } catch (e) {
+        try {
+          notify2(String(e && e.message || e), false);
+        } catch {
+        }
+      }
+    }, "activateVault");
     const loadVaults = /* @__PURE__ */ __name(async () => {
       try {
         const r = await fetch(API + "/vaults");
@@ -38276,7 +38315,16 @@ ${t("quoteHint")}`,
                           " \xB7 ",
                           v.sizeMB,
                           "MB"
-                        ] })
+                        ] }),
+                        v.isCurrent ? null : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          "button",
+                          {
+                            type: "button",
+                            onClick: () => activateVault(v.path),
+                            style: { flex: "none", background: "none", border: "none", padding: "0 0 0 6px", cursor: "pointer", fontSize: 10.5, color: "var(--me-c-accent, #2563eb)" },
+                            children: t("activateVaultBtn")
+                          }
+                        )
                       ] }, v.path)) })
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", display: "flex", flexDirection: "column", gap: 9 }, children: [
