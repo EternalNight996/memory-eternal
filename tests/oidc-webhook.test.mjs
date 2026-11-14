@@ -212,3 +212,46 @@ test('refresh_token 存储 / 轮换 / 失败清除', () => withHome(async (env) 
   assert.equal(bad.ok, false)
   assert.equal(readRefreshStore(env)['yg@example.com'], undefined)
 }))
+
+// C1：MengBot 的 refresh_token 是一次性轮换的（对方答复原文："每次刷新签发新 token，
+// 旧 token 立即失效"）。两个请求并发读到同一个旧 token 时，第二个会失败，
+// 旧实现还会 forgetRefreshToken 把**第一个刚拿到的新 token** 清掉 → 登录态彻底丢失。
+test('refreshAccessToken 单飞：并发只打一次，令牌不被误清', async () => {
+  const { refreshAccessToken, storeRefreshToken, readRefreshStore } = await import('../lib/oidc.js')
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-refresh-'))
+  const env = { ...process.env, DSH_HOME: home }
+  const cfg = { clientId: 'cid', clientSecret: 'csec', scope: 'openid offline_access', issuer: 'https://idp.test', redirectUri: 'https://x/cb' }
+  const endpoints = { tokenEndpoint: 'https://idp.test/token' }
+  storeRefreshToken('u1', 'RT_OLD', env)
+
+  let calls = 0
+  const fetchImpl = async () => {
+    calls++
+    return { ok: true, status: 200, json: async () => ({ access_token: 'AT_NEW', refresh_token: 'RT_NEW', expires_in: 3600 }) }
+  }
+  const results = await Promise.all(
+    Array.from({ length: 5 }, () => refreshAccessToken(cfg, endpoints, 'u1', { fetchImpl, env })),
+  )
+  assert.equal(calls, 1, '并发 5 次只该打 1 次 token 端点，实际 ' + calls)
+  assert.equal(results.filter((r) => r.ok).length, 5, '5 个调用都应拿到结果')
+  assert.equal(readRefreshStore(env).u1.refreshToken, 'RT_NEW', '新令牌要存下来')
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch {}
+})
+
+test('refresh 失败但令牌已被别的请求轮换 → 不清令牌', async () => {
+  const { refreshAccessToken, storeRefreshToken, readRefreshStore } = await import('../lib/oidc.js')
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-refresh2-'))
+  const env = { ...process.env, DSH_HOME: home }
+  const cfg = { clientId: 'cid', clientSecret: 'csec', scope: 'openid offline_access', issuer: 'https://idp.test', redirectUri: 'https://x/cb' }
+  const endpoints = { tokenEndpoint: 'https://idp.test/token' }
+  storeRefreshToken('u2', 'RT_STALE', env)
+  const fetchImpl = async () => {
+    storeRefreshToken('u2', 'RT_BY_OTHER', env) // 模拟另一个请求已轮换成功
+    return { ok: false, status: 400, json: async () => ({ error: 'invalid_grant' }) }
+  }
+  const r = await refreshAccessToken(cfg, endpoints, 'u2', { fetchImpl, env })
+  assert.equal(r.ok, false)
+  assert.match(String(r.error), /并发刷新/, '要识别出并发场景')
+  assert.equal(readRefreshStore(env).u2.refreshToken, 'RT_BY_OTHER', '别人的新令牌不能被清')
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch {}
+})

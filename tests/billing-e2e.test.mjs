@@ -40,7 +40,7 @@ test('支付闭环：登录 → 下单拿支付页 → webhook 回推 → 套餐
       req.on('end', () => {
         paid.push({ auth: req.headers.authorization, body: b })
         res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ checkoutUrl: 'https://pay.mengbot.com.cn/c/e2e' }))
+        res.end(JSON.stringify({ url: 'https://pay.mengbot.com.cn/c/e2e' }))
       })
       return
     }

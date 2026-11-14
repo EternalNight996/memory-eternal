@@ -1,7 +1,7 @@
 // 支付链路：**下单交给 MengBot，结果靠 webhook 回来**。守五件事：
 //   ① 套餐白名单（pro/team/enterprise），别把任意字符串透传过去；
 //   ② 代用户调用用 OIDC access_token（缓存失效自动 refresh）；
-//   ③ 支付页地址字段名兼容（url / checkoutUrl / checkout_url）；
+//   ③ 支付页地址只认契约字段 `url`（对方 B2 答复：checkoutUrl/checkout_url 不是契约字段）；
 //   ④ 下单失败给可读原因（不吞 401/402）；
 //   ⑤ webhook 收到 entitlement.updated 后本地套餐立刻生效。
 import { test } from 'node:test'
@@ -68,7 +68,7 @@ test('有可用 access_token → 正常下单并返回支付页 URL', () => with
     calls.push({ url, body: init.body, auth: init.headers.Authorization })
     if (String(url).includes('openid-configuration')) return fakeDiscovery(url)
     if (String(url).endsWith('/api/cloud/desktop/checkout')) {
-      return { ok: true, status: 200, json: async () => ({ checkoutUrl: 'https://pay.mengbot.com.cn/c/abc123' }) }
+      return { ok: true, status: 200, json: async () => ({ url: 'https://pay.mengbot.com.cn/c/abc123' }) }
     }
     return { ok: false, status: 404, json: async () => ({}) }
   }
@@ -111,17 +111,29 @@ test('MengBot 下单失败 → 可读原因（不吞 402/401）', () => withHome
   assert.match(r.error, /quota_exceeded/)
 }))
 
-test('支付页字段名兼容（url / checkoutUrl / checkout_url）', () => withHome(async (env) => {
+test('支付页地址只认契约字段 url（对方 B2：checkoutUrl/checkout_url 不是契约字段）', () => withHome(async (env) => {
   clearDiscoveryCache()
-  for (const field of ['url', 'checkoutUrl', 'checkout_url']) {
-    storeAccessToken('a@b.c', { accessToken: 'at', expiresIn: 3600 }, env)
-    const fetchImpl = async (url) => {
-      if (String(url).includes('openid-configuration')) return fakeDiscovery(url)
-      return { ok: true, status: 200, json: async () => ({ [field]: 'https://pay/' + field }) }
-    }
-    const r = await createCheckout({ plan: 'pro', owner: 'a@b.c', env, fetchImpl })
-    assert.equal(r.ok, true, field)
-    assert.equal(r.url, 'https://pay/' + field, field)
+  // ① url 有 → 成功
+  storeAccessToken('a@b.c', { accessToken: 'at', expiresIn: 3600 }, env)
+  const ok = await createCheckout({
+    plan: 'pro', owner: 'a@b.c', env,
+    fetchImpl: async (url) => (String(url).includes('openid-configuration')
+      ? fakeDiscovery(url)
+      : { ok: true, status: 200, json: async () => ({ url: 'https://pay/x' }) }),
+  })
+  assert.equal(ok.ok, true)
+  assert.equal(ok.url, 'https://pay/x')
+
+  // ② 只有 checkoutUrl / checkout_url → 明确报缺字段，不再"宽容"解析
+  for (const bad of [{ checkoutUrl: 'https://pay/y' }, { checkout_url: 'https://pay/z' }]) {
+    const r = await createCheckout({
+      plan: 'pro', owner: 'a@b.c', env,
+      fetchImpl: async (url) => (String(url).includes('openid-configuration')
+        ? fakeDiscovery(url)
+        : { ok: true, status: 200, json: async () => bad }),
+    })
+    assert.equal(r.ok, false, '非契约字段不该被当成 url：' + JSON.stringify(bad))
+    assert.match(String(r.error), /url/, '错误里要指出缺的是 url')
   }
 }))
 

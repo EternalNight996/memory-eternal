@@ -109,7 +109,10 @@ async function probeCloud(form) {
   // mbo_ 是 MengBot 的 OAuth 令牌，不是本服务的访问密钥。本地就拦住，
   // 省得用户填错后看到一个含义不明的「无法识别的令牌」。
   if (token.startsWith('mbo_')) {
-    return { ok: false, error: 'mbo_ 是 MengBot 的 OAuth 令牌，不能当访问密钥填 —— 请清空这一栏，直接点「用 MengBot 账号登录」' }
+    return { ok: false, error: 'mbo_ 是 MengBot 的 OIDC 客户端密钥（只给服务端换令牌用），不能当访问密钥填 —— 请清空这一栏，点「用 MengBot 账号登录」' }
+  }
+  if (token.startsWith('mba_')) {
+    return { ok: false, error: 'mba_ 是 MengBot 管理员令牌，不能用于第三方接入 —— 请到 MengBot「API」页创建 mbt_ 令牌' }
   }
 
   // ① 可达性（不需要令牌）
@@ -163,7 +166,7 @@ function persistCloud(form) {
   // **自动丢弃**而不是只报错：用户多半是从 MengBot 后台复制过来填错框的，
   // 让他自己去清空那个框、再一次次撞同一个错没有意义。
   let ignoredOauth = false
-  if (token.startsWith('mbo_')) { token = ''; ignoredOauth = true }
+  if (token.startsWith('mbo_') || token.startsWith('mba_')) { token = ''; ignoredOauth = true }
   if (wantCloud && !/^https?:\/\//i.test(url)) return { ok: false, error: 'url-invalid' }
   const next = {
     mode: wantCloud ? 'cloud' : 'local',
@@ -783,7 +786,7 @@ export const ZH = {
   cloudTokenLabel: '访问密钥（可选）',
   cloudTokenHint: '用「用 MengBot 账号登录」时这里留空即可；只有直连别人给的实例才需要填',
   cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
-  cloudOauthIgnored: '已自动忽略 MengBot 的 OAuth 令牌（mbo_）—— 它不是访问密钥，请用「用 MengBot 账号登录」',
+  cloudOauthIgnored: '已自动忽略 MengBot 的客户端密钥（mbo_）—— 它不是访问密钥，请用「用 MengBot 账号登录」',
   cloudUrlInvalid: '地址要以 http(s):// 开头',
   cloudTest: '测试连接',
   cloudTestOk: '连接成功 · {owner}',
