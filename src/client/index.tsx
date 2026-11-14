@@ -10089,7 +10089,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 </span>
               </label>
 
-              {cloudTab === 'local' ? (
+              {(cloudTab === 'local' || cloudTab === 'cloud') ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                   <div style={{ fontSize: 12.5, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>
                     {t('cloudLocalDesc')}
@@ -10162,6 +10162,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
                           <Btn variant="secondary" size="sm" disabled={!vaultSel || (xfer && xfer.busy)} onClick={() => transferVault('down')}>
                             {xfer && xfer.busy ? '⏳' : t('vaultDownload')}
                           </Btn>
+                        {/* 云端专属：和云端之间搬数据（本地 ↔ 云端），复用 uploadVaultToCloud / downloadCloudToVault */}
+                        {cloudForm.mode === 'cloud' ? (
+                          <Btn variant="ghost" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud(vaultSel)}>{t('cfUploadBtn')}</Btn>
+                        ) : null}
+                        {cloudForm.mode === 'cloud' ? (
+                          <Btn variant="ghost" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => downloadCloudToVault(vaultSel)}>{t('cfDownloadBtn')}</Btn>
+                        ) : null}
                           <Btn variant="ghost" size="sm" onClick={loadVaults}>{t('refresh')}</Btn>
                         </div>
                         {xfer && xfer.err ? <Status tone="bad" text={xfer.err} /> : null}
@@ -10456,39 +10463,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 </div>
               )}
                             </PanelErrorBoundary>
-              {/* ── 库之间搬数据（云端模式）：可选任意本地库，双向 ──────────────────
-                  用户的原话是「把本机的卡片复制一份到云端」，但「本机」可能是任一历史库
-                  （.dsh/memory-vault*），所以要能选，而不是只能传当前库。 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--me-c-border)' }}>
-                <div style={{ fontSize: 11.5, opacity: 0.6 }}>{t('cfSourceVaultHint')}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <select
-                    value={vaultSel}
-                    onChange={(e) => setVaultSel(e.target.value)}
-                    style={{ fontSize: 12, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit', maxWidth: 280 }}
-                  >
-                    <option value="">{t('cfPickLocalVault')}</option>
-                    {(vaultList || []).filter((v) => v.kind === 'local').map((v) => (
-                      <option key={v.path} value={v.path}>
-                        {v.name}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}（{v.cards} 卡）
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={dupMode}
-                    onChange={(e) => setDupMode(e.target.value)}
-                    style={{ fontSize: 11.5, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }}
-                  >
-                    <option value="skip">{t('vaultDupSkip')}</option>
-                    <option value="overwrite">{t('vaultDupOverwrite')}</option>
-                  </select>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Btn variant="primary" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud(vaultSel)}>{t('cfUploadBtn')}</Btn>
-                  <Btn variant="secondary" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => downloadCloudToVault(vaultSel)}>{t('cfDownloadBtn')}</Btn>
-                </div>
-                {!vaultSel ? <div style={{ fontSize: 10.5, opacity: 0.45 }}>{t('cfPickLocalVault')}</div> : null}
-              </div>
 </CfgSection>
 
             {/* ── 恢复出厂设置：危险操作，单独一块，默认不展开 ──────────────── */}
