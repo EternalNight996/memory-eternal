@@ -927,6 +927,8 @@ export const ZH = {
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
   vaultListLabel: '本机记忆库',
+  cardUnsynced: '未同步',
+  cardUnsyncedHint: '这张卡还没推到云端（本地已保存）。切到云端模式后会自动推送，或用「补推」手动同步',
   activateVaultBtn: '切到此库',
   activateNeedRestart: '已记录。重启服务后生效（web 端与 DSH 会一起切换）',
   activateAlready: '已经是当前库',
@@ -2143,6 +2145,8 @@ export const EN = {
   devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
   vaultListLabel: 'Vaults on this machine',
+  cardUnsynced: 'Not synced',
+  cardUnsyncedHint: 'This card has not been pushed to cloud yet (saved locally). It syncs automatically in cloud mode, or use the flush action.',
   activateVaultBtn: 'Switch to this',
   activateNeedRestart: 'Recorded. Takes effect after restart (both web and DSH follow it)',
   activateAlready: 'Already the current vault',
@@ -3364,6 +3368,9 @@ ${COMPONENTS_CSS}
 .me-v5 .mc-cardrow p.mc-snippet, .mc-v5-card p.mc-snippet { opacity: 1; font-size: 11.5px; line-height: 1.6; color: #c6ccd6; -webkit-line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .mc-tag-click { cursor: pointer; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 0 4px; border-radius: 6px; }
 .mc-tag-click:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); opacity: 1; }
+/* 未同步到云端：整体压暗 + 左侧虚线，和「审核态」区分开（审核是状态，这是同步健康度） */
+.mc-cardrow.unsynced { border-style: dashed; }
+.mc-v5-card-status.unsynced { background: rgba(127,127,127,.16); color: var(--me-c-text-dim, #8b93a1); border-color: transparent; }
 .mc-cardrow:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
 .mc-cardrow h4 { margin: 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
 .mc-cardrow p { margin: 0; font-size: 12px; opacity: 0.7; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -7060,7 +7067,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     <span className="mc-v5-feature-open">{t('openArrow')}</span>
                   </div>
                 </div>
-              )}<div className="mc-grid">{sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} pinned={pinned.has(card.path)} onPin={togglePin} onCore={changeCardKind} links={connMap[card.path] || 0} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
+              )}<div className="mc-grid">{sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} pinned={pinned.has(card.path)} onPin={togglePin} onCore={changeCardKind} showSync={cloudForm.mode === 'cloud' || cards.some((c) => c.cloudSyncedAt)} links={connMap[card.path] || 0} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
           }
           {/* 首屏骨架：把最终布局先铺出来（进度条告诉用户「在等什么」，骨架告诉用户「会变成什么样」） */}
           {loading && <CardsSkeleton n={5} />}
@@ -11498,7 +11505,7 @@ const MiniGraph = ({ n = 0, color = '#ff9a72', size = 30 }) => {
 }
 // 命中位置 → i18n 键（后端 _match.where 的取值）
 const MATCH_WHERE_KEY = { title: 'matchTitle', tags: 'matchTags', summary: 'matchSummary', body: 'matchBody' }
-const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, onCore, links }) => {
+const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, onCore, links, showSync }) => {
   const color = KIND_COLORS[card.kind] || KIND_COLORS.other
   const linkCount = Number(links ?? card.links ?? card.weight ?? 0)
   const tags = tagsOf(card)
@@ -11518,14 +11525,18 @@ const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, 
   const matchLabel = MATCH_WHERE_KEY[matchWhere] || ''
   const score = Number(card && card.score)
   const showScore = !!query && Number.isFinite(score) && score > 0
+  // 库里出现过同步记录（或正处于云端模式）时，才逐张区分「已同步 / 未同步」。
+  // 否则本地模式下整屏都会发灰 —— 那时候还没连过云端，灰了没有信息量。
+  const unsynced = !!showSync && !card.cloudSyncedAt
   return (
-    <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}${card.kind === 'core' ? ' core' : ''}`} style={{ '--card-accent': color }} onClick={() => onOpen(card)}>
+    <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}${card.kind === 'core' ? ' core' : ''}${unsynced ? ' unsynced' : ''}`} style={{ '--card-accent': color, ...(unsynced ? { opacity: 0.55 } : {}) }} onClick={() => onOpen(card)}>
       <div className="mc-v5-card-top">
         <span className="mc-v5-card-tile" style={{ color, background: color + '18', borderColor: color + '38' }}>{KIND_EMOJI[card.kind] || '📎'}</span>
         <span className="mc-v5-card-kind-name">{card.kind === 'core' ? '⭐ ' + t('kindCore') : t(KIND_LABELS[card.kind] || 'kindKnowledge')}</span>
         {semantic && <span className="mc-v5-match-hatch semantic" title={t('matchSemanticHint')}>✨ {t('matchSemantic')}</span>}
         {literal && matchLabel && <span className="mc-v5-match-hatch where" title={term ? t('matchWhere') + ' · ' + term : t('matchWhere')}>{t('matchWhere')} · {t(matchLabel)}</span>}
         {card.kind === 'core' && <span className="mc-v5-core-badge">⭐ {t('kindCore')}</span>}
+        {unsynced && <span className="mc-v5-card-status unsynced" title={t('cardUnsyncedHint')}>⏳ {t('cardUnsynced')}</span>}
         {card.status === 'pending' && <span className="mc-v5-card-status pending">⏳ {t('statusPending')}</span>}
         {card.status === 'rejected' && <span className="mc-v5-card-status rejected">⛔ {t('statusRejected')}</span>}
         {isNewCard(card.updated) && <span className="mc-new">{t('newBadge')}</span>}

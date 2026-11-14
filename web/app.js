@@ -29534,6 +29534,8 @@
     devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
     vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
+    cardUnsynced: "\u672A\u540C\u6B65",
+    cardUnsyncedHint: "\u8FD9\u5F20\u5361\u8FD8\u6CA1\u63A8\u5230\u4E91\u7AEF\uFF08\u672C\u5730\u5DF2\u4FDD\u5B58\uFF09\u3002\u5207\u5230\u4E91\u7AEF\u6A21\u5F0F\u540E\u4F1A\u81EA\u52A8\u63A8\u9001\uFF0C\u6216\u7528\u300C\u8865\u63A8\u300D\u624B\u52A8\u540C\u6B65",
     activateVaultBtn: "\u5207\u5230\u6B64\u5E93",
     activateNeedRestart: "\u5DF2\u8BB0\u5F55\u3002\u91CD\u542F\u670D\u52A1\u540E\u751F\u6548\uFF08web \u7AEF\u4E0E DSH \u4F1A\u4E00\u8D77\u5207\u6362\uFF09",
     activateAlready: "\u5DF2\u7ECF\u662F\u5F53\u524D\u5E93",
@@ -30748,6 +30750,8 @@
     devicePanelTitle: "Finish signing in in your browser",
     localVaultLabel: "Vault location",
     vaultListLabel: "Vaults on this machine",
+    cardUnsynced: "Not synced",
+    cardUnsyncedHint: "This card has not been pushed to cloud yet (saved locally). It syncs automatically in cloud mode, or use the flush action.",
     activateVaultBtn: "Switch to this",
     activateNeedRestart: "Recorded. Takes effect after restart (both web and DSH follow it)",
     activateAlready: "Already the current vault",
@@ -31940,6 +31944,9 @@ ${COMPONENTS_CSS}
 .me-v5 .mc-cardrow p.mc-snippet, .mc-v5-card p.mc-snippet { opacity: 1; font-size: 11.5px; line-height: 1.6; color: #c6ccd6; -webkit-line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .mc-tag-click { cursor: pointer; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 0 4px; border-radius: 6px; }
 .mc-tag-click:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); opacity: 1; }
+/* \u672A\u540C\u6B65\u5230\u4E91\u7AEF\uFF1A\u6574\u4F53\u538B\u6697 + \u5DE6\u4FA7\u865A\u7EBF\uFF0C\u548C\u300C\u5BA1\u6838\u6001\u300D\u533A\u5206\u5F00\uFF08\u5BA1\u6838\u662F\u72B6\u6001\uFF0C\u8FD9\u662F\u540C\u6B65\u5065\u5EB7\u5EA6\uFF09 */
+.mc-cardrow.unsynced { border-style: dashed; }
+.mc-v5-card-status.unsynced { background: rgba(127,127,127,.16); color: var(--me-c-text-dim, #8b93a1); border-color: transparent; }
 .mc-cardrow:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
 .mc-cardrow h4 { margin: 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
 .mc-cardrow p { margin: 0; font-size: 12px; opacity: 0.7; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -34262,7 +34269,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T14:17:15.825Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T14:20:52.644Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -35531,7 +35538,7 @@ ${t("quoteHint")}`,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-feature-open", children: t("openArrow") })
                     ] })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-grid", children: sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardRow, { card, t, query: query.trim(), onOpen: openCard, onDelete: deleteMemory, onTagClick: onTagPick, pinned: pinned.has(card.path), onPin: togglePin, onCore: changeCardKind, links: connMap[card.path] || 0 }, card.path)) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-grid", children: sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardRow, { card, t, query: query.trim(), onOpen: openCard, onDelete: deleteMemory, onTagClick: onTagPick, pinned: pinned.has(card.path), onPin: togglePin, onCore: changeCardKind, showSync: cloudForm.mode === "cloud" || cards.some((c) => c.cloudSyncedAt), links: connMap[card.path] || 0 }, card.path)) }),
                   cards.length < cardTotal && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { ref: sentinelRef, style: { height: 1 } }),
                   loadingMore && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-empty", style: { padding: "10px 0" }, children: [
                     t("loading"),
@@ -40322,7 +40329,7 @@ ${t("quoteHint")}`,
     ] });
   }, "MiniGraph");
   var MATCH_WHERE_KEY = { title: "matchTitle", tags: "matchTags", summary: "matchSummary", body: "matchBody" };
-  var CardRow = /* @__PURE__ */ __name(({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, onCore, links }) => {
+  var CardRow = /* @__PURE__ */ __name(({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, onCore, links, showSync }) => {
     const color = KIND_COLORS[card.kind] || KIND_COLORS.other;
     const linkCount = Number(links ?? card.links ?? card.weight ?? 0);
     const tags = tagsOf(card);
@@ -40337,7 +40344,8 @@ ${t("quoteHint")}`,
     const matchLabel = MATCH_WHERE_KEY[matchWhere] || "";
     const score = Number(card && card.score);
     const showScore = !!query && Number.isFinite(score) && score > 0;
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", { className: `mc-cardrow mc-card mc-v5-card${pinned ? " pinned" : ""}${card.kind === "core" ? " core" : ""}`, style: { "--card-accent": color }, onClick: () => onOpen(card), children: [
+    const unsynced = !!showSync && !card.cloudSyncedAt;
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", { className: `mc-cardrow mc-card mc-v5-card${pinned ? " pinned" : ""}${card.kind === "core" ? " core" : ""}${unsynced ? " unsynced" : ""}`, style: { "--card-accent": color, ...unsynced ? { opacity: 0.55 } : {} }, onClick: () => onOpen(card), children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-card-top", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-card-tile", style: { color, background: color + "18", borderColor: color + "38" }, children: KIND_EMOJI[card.kind] || "\u{1F4CE}" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-card-kind-name", children: card.kind === "core" ? "\u2B50 " + t("kindCore") : t(KIND_LABELS[card.kind] || "kindKnowledge") }),
@@ -40353,6 +40361,10 @@ ${t("quoteHint")}`,
         card.kind === "core" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-v5-core-badge", children: [
           "\u2B50 ",
           t("kindCore")
+        ] }),
+        unsynced && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-v5-card-status unsynced", title: t("cardUnsyncedHint"), children: [
+          "\u23F3 ",
+          t("cardUnsynced")
         ] }),
         card.status === "pending" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-v5-card-status pending", children: [
           "\u23F3 ",
