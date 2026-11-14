@@ -29445,6 +29445,13 @@
     cloudConnected: "\u5DF2\u8FDE\u63A5",
     cloudDisconnect: "\u65AD\u5F00\u8FDE\u63A5",
     cloudSignOut: "\u9000\u51FA\u767B\u5F55",
+    importLocal: "\u5BFC\u5165\u672C\u5730\u5E93\u5230\u4E91\u7AEF",
+    importLocalHint: "\u628A\u672C\u673A\u7684\u5361\u7247\u590D\u5236\u4E00\u4EFD\u5230\u4E91\u7AEF\uFF08\u672C\u5730\u4FDD\u7559\uFF09",
+    importEmpty: "\u672C\u5730\u5E93\u6CA1\u6709\u5361\u7247",
+    importRunning: "\u6B63\u5728\u5BFC\u5165 {done} / {total}",
+    importDone: "\u5BFC\u5165\u5B8C\u6210\uFF1A\u65B0\u589E {n} \u5F20",
+    importCancel: "\u53D6\u6D88\u5BFC\u5165",
+    importCopyNote: "\u53EA\u589E\u4E0D\u5220\uFF1B\u91CD\u590D\u5361\u7247\u4F1A\u81EA\u52A8\u8DF3\u8FC7\uFF0C\u53EF\u653E\u5FC3\u91CD\u8DD1",
     cloudInfoInstance: "\u5B9E\u4F8B",
     cloudDisconnected: "\u5DF2\u5207\u56DE\u672C\u5730",
     cloudPlanLabel: "\u5F53\u524D\u5957\u9910",
@@ -30594,6 +30601,13 @@
     cloudConnected: "Connected",
     cloudDisconnect: "Disconnect",
     cloudSignOut: "Sign out",
+    importLocal: "Import local vault to cloud",
+    importLocalHint: "Copy cards from this machine to the cloud (local copy kept)",
+    importEmpty: "Local vault has no cards",
+    importRunning: "Importing {done} / {total}",
+    importDone: "Imported {n} new cards",
+    importCancel: "Cancel import",
+    importCopyNote: "Add-only; duplicates are skipped, safe to re-run",
     cloudInfoInstance: "Instance",
     cloudDisconnected: "Switched to local",
     cloudPlanLabel: "Plan",
@@ -34023,7 +34037,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T12:23:59.590Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T12:27:36.155Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -36066,6 +36080,8 @@ ${t("quoteHint")}`,
     const [cloudPlan, setCloudPlan] = (0, import_react2.useState)(null);
     const [showKeyField, setShowKeyField] = (0, import_react2.useState)(false);
     const [acctOpen, setAcctOpen] = (0, import_react2.useState)(false);
+    const [importJob, setImportJob] = (0, import_react2.useState)(null);
+    const importCancelRef = (0, import_react2.useRef)(false);
     const [pollAuth, setPollAuth] = (0, import_react2.useState)(null);
     const [pollErr, setPollErr] = (0, import_react2.useState)("");
     const cloudApi = /* @__PURE__ */ __name((path) => {
@@ -36675,6 +36691,55 @@ ${t("quoteHint")}`,
       } catch {
       }
     }, "loadCloudPlan");
+    const importLocalToCloud = /* @__PURE__ */ __name(async () => {
+      if (importJob && importJob.importing) return;
+      importCancelRef.current = false;
+      setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: "" });
+      try {
+        const exp = await fetch(API + "/export");
+        if (!exp.ok) throw new Error("\u672C\u5730\u5BFC\u51FA\u5931\u8D25 HTTP " + exp.status);
+        const data = await exp.json();
+        const cards = Array.isArray(data.cards) ? data.cards : [];
+        if (!cards.length) {
+          setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t("importEmpty") });
+          return;
+        }
+        setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: "" });
+        const CHUNK = 200;
+        let imported = 0;
+        let duplicate = 0;
+        for (let offset = 0; offset < cards.length; offset += CHUNK) {
+          if (importCancelRef.current) {
+            setImportJob((j) => ({ ...j, importing: false, cancelled: true }));
+            return;
+          }
+          const slice = cards.slice(offset, offset + CHUNK);
+          const r = await fetch(cloudApi("/import/chunk"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {}
+            },
+            body: JSON.stringify({ cards: slice, offset, total: cards.length })
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || !d.ok) throw new Error(d.error || "HTTP " + r.status);
+          imported += Number(d.imported) || 0;
+          duplicate += Number(d.duplicate) || 0;
+          setImportJob({ importing: true, done: Math.min(offset + slice.length, cards.length), total: cards.length, imported, duplicate, err: "" });
+        }
+        setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: "" });
+        try {
+          notify2(t("importDone").replace("{n}", String(imported)), true);
+        } catch {
+        }
+      } catch (e) {
+        setImportJob((j) => ({ ...j || {}, importing: false, err: String(e && e.message || e) }));
+      }
+    }, "importLocalToCloud");
+    const cancelImport = /* @__PURE__ */ __name(() => {
+      importCancelRef.current = true;
+    }, "cancelImport");
     const cloudIdentity = cloudTest && cloudTest.authenticated ? { owner: cloudTest.owner || "", profile: cloudTest.profile || null } : { owner: cloudConn && cloudConn.owner || "", profile: cloudConn && cloudConn.profile || null };
     const disconnectCloud = /* @__PURE__ */ __name(() => {
       const cur = readCloudConn();
@@ -37872,6 +37937,21 @@ ${t("quoteHint")}`,
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("cloudPlanCards") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: Number(cloudPlan.caps.cards).toLocaleString() })
                       ] }) : null
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", padding: "10px 14px" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.7, marginBottom: 8 }, children: t("importLocalHint") }),
+                      importJob && importJob.importing ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12 }, children: t("importRunning").replace("{done}", String(importJob.done)).replace("{total}", String(importJob.total)) }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cancelImport, children: t("importCancel") })
+                      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: importLocalToCloud, children: t("importLocal") }),
+                        importJob && importJob.total > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 11.5, opacity: 0.7 }, children: [
+                          t("importDone").replace("{n}", String(importJob.imported || 0)),
+                          importJob.duplicate ? " \xB7 " + importJob.duplicate + " skipped" : ""
+                        ] }) : null
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.5, marginTop: 6, lineHeight: 1.6 }, children: t("importCopyNote") }),
+                      importJob && importJob.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: importJob.err }) : null
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
                       setAcctOpen(false);
