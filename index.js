@@ -36,6 +36,7 @@ import { shouldPushToCloud, pushCardToCloud, enqueueFailedPush, flushQueue } fro
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, preferenceLines, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { markCloudSynced } from './lib/vault.js'
+import { logActivity, localIPv4 } from './lib/db.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { recordLedger } from './lib/ledger.js'
@@ -824,6 +825,16 @@ export function apply(ctx, config) {
    */
   const captureCardThenPush = async (root, card, opts) => {
     const out = await captureCard(root, card, opts)
+    // 操作日志：只记**标题**不记正文（正文动辄几十 KB，日志存正文纯浪费）。
+    // 写失败绝不抛 —— 日志是旁路，不能影响读写卡。
+    try {
+      const _who = String(card.source || 'unknown')
+      if (out && out.ok) {
+        logActivity(root, { ip: localIPv4(), agent: _who, action: 'capture', title: card.title, target: out.path || out.rel || '' })
+      } else if (out && out.duplicate) {
+        logActivity(root, { ip: localIPv4(), agent: _who, action: 'dedup', title: card.title, target: out.duplicate.path || '' })
+      }
+    } catch { /* 忽略 */ }
     if (out && out.ok && shouldPushToCloud()) {
       pushCardToCloud({ title: card.title, kind: card.kind, body: card.body, source: card.source })
         .then((r) => {
@@ -1393,6 +1404,8 @@ export function apply(ctx, config) {
         if (multi) hits = hits.slice(0, limit)
         if (hits.length === 0) {
           recordLedger((targets[0] && targets[0].root) || vaultDir(workspace), { kind: 'recall', results: 0, chars: 0, note: query.slice(0, 120) })
+          // 无命中也记：这类日志最能说明"召回为什么没帮上忙"
+          try { logActivity((targets[0] && targets[0].root) || vaultDir(workspace), { ip: localIPv4(), agent: 'memory_recall', action: 'recall-miss', title: query.slice(0, 200) }) } catch { /* 忽略 */ }
           return `记忆库中没有与「${query}」相关的内容。`
         }
         const lines = hits.map((h, i) => {
@@ -1407,6 +1420,14 @@ export function apply(ctx, config) {
         const where = multi ? `（作用域 ${scope || 'all'}，共 ${targets.length} 个库）` : ''
         const out = `从记忆核心检索到 ${hits.length} 条相关卡片${where}：\n\n${lines.join('\n\n')}`
         recordLedger((targets[0] && targets[0].root) || vaultDir(workspace), { kind: 'recall', results: hits.length, chars: out.length, note: query.slice(0, 120) })
+        // 操作日志：只记标题（不记正文/摘要），标题取前 3 条命中，避免长查询把日志撑大
+        try {
+          logActivity((targets[0] && targets[0].root) || vaultDir(workspace), {
+            ip: localIPv4(), agent: 'memory_recall', action: 'recall',
+            title: query.slice(0, 120) + (hits.length ? ' → ' + hits.slice(0, 3).map((h) => String(h.title || '').slice(0, 40)).join(' / ') : ''),
+            target: String(hits[0] && hits[0].path || ''),
+          })
+        } catch { /* 忽略 */ }
         return out
       },
     }))

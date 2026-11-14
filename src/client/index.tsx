@@ -927,6 +927,30 @@ export const ZH = {
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
   vaultListLabel: '本机记忆库',
+  logsTab: '日志',
+  logsSearchPlaceholder: '搜索标题 / 智能体 / IP',
+  logsActionLabel: '分类',
+  logsAll: '全部',
+  logAction_capture: '写入',
+  logAction_dedup: '去重',
+  logAction_recall: '召回',
+  'logAction_recall-miss': '召回未命中',
+  logsExport: '导出 CSV',
+  logsCleanup: '清理 30 天前',
+  logsCleanupHint: '删除保留期（默认 30 天）之外的日志，释放空间',
+  logsCleaned: '已清理 {n} 条旧日志',
+  logsCleanFail: '清理失败',
+  logsColTime: '时间',
+  logsColIP: 'IP',
+  logsColAgent: '智能体',
+  logsColAction: '动作',
+  logsColTitle: '标题',
+  logsEmpty: '这一天没有日志',
+  logsFooterHint: '只记录标题，不含正文；默认保留 30 天。日志写入是旁路，不会影响读写卡。',
+  aboutTab: '关于',
+  aboutVersion: '版本 {v}',
+  aboutDesc: '本地记忆核心：把你的知识沉淀成可召回的知识卡，数据留在本机，可选同步到自己的云端。',
+  aboutGithub: 'GitHub 仓库',
   cardUnsynced: '未同步',
   cardUnsyncedHint: '这张卡还没推到云端（本地已保存）。切到云端模式后会自动推送，或用「补推」手动同步',
   activateVaultBtn: '切到此库',
@@ -2145,6 +2169,30 @@ export const EN = {
   devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
   vaultListLabel: 'Vaults on this machine',
+  logsTab: 'Logs',
+  logsSearchPlaceholder: 'Search title / agent / IP',
+  logsActionLabel: 'Type',
+  logsAll: 'All',
+  logAction_capture: 'Write',
+  logAction_dedup: 'Dedup',
+  logAction_recall: 'Recall',
+  'logAction_recall-miss': 'Recall miss',
+  logsExport: 'Export CSV',
+  logsCleanup: 'Clean >30d',
+  logsCleanupHint: 'Delete logs older than the retention window (30 days by default)',
+  logsCleaned: 'Removed {n} old log rows',
+  logsCleanFail: 'Cleanup failed',
+  logsColTime: 'Time',
+  logsColIP: 'IP',
+  logsColAgent: 'Agent',
+  logsColAction: 'Action',
+  logsColTitle: 'Title',
+  logsEmpty: 'No logs for this day',
+  logsFooterHint: 'Titles only, never card bodies; 30-day retention. Logging is a side path and never blocks reads/writes.',
+  aboutTab: 'About',
+  aboutVersion: 'version {v}',
+  aboutDesc: 'A local memory core: turn your knowledge into recallable cards. Data stays on your machine, optionally synced to your own cloud.',
+  aboutGithub: 'GitHub',
   cardUnsynced: 'Not synced',
   cardUnsyncedHint: 'This card has not been pushed to cloud yet (saved locally). It syncs automatically in cloud mode, or use the flush action.',
   activateVaultBtn: 'Switch to this',
@@ -6003,9 +6051,57 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     } catch {}
     return 'cards'
   })
+  // 「关于」弹窗：作者语录从侧栏底部迁到这里（侧栏位置留给更常用的功能）
+  const [aboutOpen, setAboutOpen] = useState(false)
+  // 日志页：日期 / 搜索 / 分类
+  const [logDate, setLogDate] = useState(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') })
+  const [logQ, setLogQ] = useState('')
+  const [logAction, setLogAction] = useState('')
+  const [logData, setLogData] = useState(null)
+  const [logBusy, setLogBusy] = useState(false)
   // 懒挂载：面板首次切到该视图才 mount，之后保持 mount（切页不丢状态）。
   // 目的：打开「设置 / 配置」不该顺带拉 250KB 卡片列表 + 890KB 知识图谱。
   const [visited, setVisited] = useState(() => new Set([view]))
+  /** 拉日志（默认当天）。 */
+  const loadLogs = async () => {
+    setLogBusy(true)
+    try {
+      const qs = new URLSearchParams({ date: logDate, limit: '500' })
+      if (logQ.trim()) qs.set('q', logQ.trim())
+      if (logAction) qs.set('action', logAction)
+      const r = await fetch(API + '/logs?' + qs.toString())
+      const d = await r.json().catch(() => ({}))
+      setLogData(d && d.ok ? d : { ok: false, total: 0, rows: [], byAction: [] })
+    } catch (e) {
+      setLogData({ ok: false, total: 0, rows: [], byAction: [], error: String((e && e.message) || e) })
+    } finally {
+      setLogBusy(false)
+    }
+  }
+  useEffect(() => { if (view === 'logs') loadLogs() }, [view, logDate, logAction])
+
+  /** 导出 CSV（浏览器直接下载）。 */
+  const exportLogs = () => {
+    try {
+      const a = document.createElement('a')
+      a.href = API + '/logs/export?from=' + encodeURIComponent(logDate) + '&to=' + encodeURIComponent(logDate)
+      a.download = 'memory-eternal-logs-' + logDate + '.csv'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch { /* 忽略 */ }
+  }
+
+  /** 清理 30 天前的日志。 */
+  const cleanupLogs = async () => {
+    try {
+      const r = await fetch(API + '/logs/cleanup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 30 }) })
+      const d = await r.json().catch(() => ({}))
+      try { notify(d && d.ok ? t('logsCleaned').replace('{n}', String(d.removed)) : ((d && d.error) || t('logsCleanFail')), !!(d && d.ok)) } catch { /* 忽略 */ }
+      loadLogs()
+    } catch { /* 忽略 */ }
+  }
+
   const goView = useCallback((v) => {
     setVisited((s) => (s.has(v) ? s : new Set(s).add(v)))
     setView(v)
@@ -6844,6 +6940,11 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             <span className="mc-rail-ico">⚙️</span>
             {railOpen && <span className="mc-rail-label">{t('tabConfig')}</span>}
           </button>
+          {/* 日志：谁在什么时候让哪个智能体做了什么（只记标题） */}
+          <button type="button" className={`mc-railbtn${view === 'logs' ? ' active' : ''}`} onClick={() => goView('logs')} title={t('logsTab')}>
+            <span className="mc-rail-ico">📋</span>
+            {railOpen && <span className="mc-rail-label">{t('logsTab')}</span>}
+          </button>
           {railOpen && <div className="mc-rail-sec">{t('navSupport')}</div>}
           <button type="button" className="mc-railbtn" onClick={() => openSupport('group')} title={t('supportGroup')}>
             <span className="mc-rail-ico">💬</span>
@@ -6861,19 +6962,10 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             <span className="mc-rail-ico">🐞</span>
             {railOpen && <span className="mc-rail-label">{t('fbNav')}</span>}
           </button>
-          {/* 作者语录：贴左栏底部（CSS margin-top:auto），点击换一句；折叠/窄屏由 CSS 隐藏。 */}
-          {railOpen && (
-            <button
-              type="button"
-              className="mc-quote"
-              onClick={() => setQuoteIdx((i) => (i + 1) % QUOTES.length)}
-              title={`${QUOTES[quoteIdx]}\n${QUOTE_SOURCE}\n${t('quoteHint')}`}
-            >
-              <span className="mc-quote-tag">{t('navQuotes')} · {quoteIdx + 1}/{QUOTES.length}</span>
-              <span className="mc-quote-text" key={quoteIdx}>{QUOTES[quoteIdx]}</span>
-              <span className="mc-quote-src">{QUOTE_SOURCE}</span>
-            </button>
-          )}
+          <button type="button" className="mc-railbtn" onClick={() => setAboutOpen(true)} title={t('aboutTab')}>
+            <span className="mc-rail-ico">ℹ️</span>
+            {railOpen && <span className="mc-rail-label">{t('aboutTab')}</span>}
+          </button>
         </div>
         <div className="mc-main" ref={mainRef}>
         {/* 库不可写（#33）：跨标签明示一次，并说清"配置仍可保存"，避免用户以为整个插件坏了。
@@ -6886,6 +6978,47 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         ) : null}
         {/* @view cards */}
         {/* 卡片列表视图：工具栏里只有「新建」是主按钮，其余都是次级/幽灵（一屏一颗） */}
+        {/* 日志页：默认当天，可搜索 / 分类 / 按日期查 / 导出 / 清理 */}
+        {view === 'logs' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} style={{ fontSize: 12, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }} />
+              <input value={logQ} onChange={(e) => setLogQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') loadLogs() }} placeholder={t('logsSearchPlaceholder')} style={{ flex: 1, minWidth: 180, fontSize: 12, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }} />
+              <Btn variant="secondary" size="sm" disabled={logBusy} onClick={loadLogs}>{logBusy ? '…' : t('search')}</Btn>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5 }}>
+              <span style={{ opacity: 0.55 }}>{t('logsActionLabel')}</span>
+              {['', 'capture', 'dedup', 'recall', 'recall-miss'].map((a) => (
+                <button key={a || 'all'} type="button" onClick={() => setLogAction(a)} style={{ padding: '3px 9px', borderRadius: 999, border: '1px solid ' + (logAction === a ? 'var(--me-c-accent)' : 'var(--me-c-border)'), background: logAction === a ? 'var(--me-c-accent-soft, rgba(59,130,246,.12))' : 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 11.5 }}>
+                  {a ? t('logAction_' + a) : t('logsAll')}
+                  {a && logData && Array.isArray(logData.byAction) ? (() => { const hit = logData.byAction.find((x) => x.action === a); return hit ? ' ' + hit.n : '' })() : ''}
+                </button>
+              ))}
+              <span style={{ flex: 1 }} />
+              <Btn variant="ghost" size="sm" onClick={exportLogs}>{t('logsExport')}</Btn>
+              <Btn variant="ghost" size="sm" onClick={cleanupLogs} title={t('logsCleanupHint')}>{t('logsCleanup')}</Btn>
+            </div>
+            {logData && logData.rows && logData.rows.length ? (
+              <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '150px 120px 130px 90px 1fr', gap: 8, padding: '7px 11px', fontSize: 10.5, opacity: 0.5, borderBottom: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)' }}>
+                  <span>{t('logsColTime')}</span><span>{t('logsColIP')}</span><span>{t('logsColAgent')}</span><span>{t('logsColAction')}</span><span>{t('logsColTitle')}</span>
+                </div>
+                {logData.rows.map((r) => (
+                  <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '150px 120px 130px 90px 1fr', gap: 8, padding: '7px 11px', fontSize: 11.5, borderBottom: '1px solid var(--me-c-border)' }}>
+                    <span style={{ opacity: 0.65, fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 10.5 }}>{String(r.at || '').slice(11, 19)}</span>
+                    <span style={{ opacity: 0.7 }}>{r.ip || '-'}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.agent}>{r.agent || '-'}</span>
+                    <span style={{ opacity: 0.7 }}>{t('logAction_' + r.action) || r.action}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.title}>{r.title}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mc-empty" style={{ padding: '28px 0', textAlign: 'center', opacity: 0.55 }}>{logBusy ? t('loading') : t('logsEmpty')}</div>
+            )}
+            <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{t('logsFooterHint')}</div>
+          </div>
+        )}
         {view === 'cards' && (
           <div className="mc-v5-pagehead">
             <div>
@@ -7097,6 +7230,38 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         </div>
 
         {feedbackOpen && <FeedbackModal t={t} onClose={() => setFeedbackOpen(false)} />}
+        {/* 关于：作者语录从侧栏底部迁进来（侧栏位置留给常用功能） */}
+        {aboutOpen && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setAboutOpen(false)}>
+            <div style={{ width: 'min(520px, 100%)', maxHeight: '86vh', overflow: 'auto', background: 'var(--dsw-alias-bg-layer-1, #fff)', border: '1px solid var(--me-c-border)', borderRadius: 14, padding: '20px 22px', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                <img src={brandIcon} alt="" style={{ width: 26, height: 26, borderRadius: 7 }} />
+                <div style={{ flex: 1 }}>
+                  <b style={{ fontSize: 15 }}>{t('memoryTitle')}</b>
+                  <div style={{ fontSize: 11, opacity: 0.55 }}>{t('aboutVersion').replace('{v}', String((typeof version !== 'undefined' && version) || BUILD_AT || ''))}</div>
+                </div>
+                <button type="button" onClick={() => setAboutOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, opacity: 0.5 }} aria-label={t('close')}>×</button>
+              </div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.8, opacity: 0.8 }}>{t('aboutDesc')}</div>
+              {/* 作者语录：点一下换一条 */}
+              <button
+                type="button"
+                className="mc-quote"
+                style={{ marginTop: 16, width: '100%', textAlign: 'left' }}
+                onClick={() => setQuoteIdx((i) => (i + 1) % QUOTES.length)}
+                title={`${QUOTES[quoteIdx]}\n${QUOTE_SOURCE}\n${t('quoteHint')}`}
+              >
+                <span className="mc-quote-tag">{t('navQuotes')} · {quoteIdx + 1}/{QUOTES.length}</span>
+                <span className="mc-quote-text" key={quoteIdx}>{QUOTES[quoteIdx]}</span>
+                <span className="mc-quote-src">{QUOTE_SOURCE}</span>
+              </button>
+              <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Btn variant="secondary" size="sm" onClick={() => openSupport('group')}>{t('supportGroup')}</Btn>
+                <Btn variant="ghost" size="sm" onClick={() => openExternal('https://github.com/mengbot-ai/memory-eternal')}>{t('aboutGithub')}</Btn>
+              </div>
+            </div>
+          </div>
+        )}
         {supportOpen && <SupportModal t={t} tab={supportTab} onTab={setSupportTab} onClose={() => setSupportOpen(false)} onFeedback={() => { setSupportOpen(false); setFeedbackOpen(true) }} onReplay={() => { setSupportOpen(false); setOnboardOpen(true) }} />}
         {onboardOpen && <Onboarding t={t} onDone={finishOnboard} />}
         {reader && <CardReader t={t} card={reader} query={query.trim()} onNavigate={(d) => { const i = sortedCards.findIndex((c) => c.path === reader.path); const next = sortedCards[i + d]; if (next) openCard(next) }} onTagClick={onTagPick} onClose={() => setReader(null)} onDelete={(p) => { setReader(null); deleteMemory(p) }} onFeedback={(useful) => { const p = reader.path; fetch(`${API}/feedback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), path: p, useful }) }).then(() => setLibToast({ ok: true, msg: useful ? t('fbUseful') : t('fbIrr') })).catch(() => {}); if (libToastTimer.current) clearTimeout(libToastTimer.current); libToastTimer.current = setTimeout(() => setLibToast(null), 2000) }} allCards={sortedCards} onOpenRelated={(c) => openCard(c)} onKindChange={changeCardKind} onSaved={async ({ path, status, title }) => {
