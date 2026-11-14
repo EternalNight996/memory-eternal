@@ -97,3 +97,10 @@ test('null origin 的响应不带 Allow-Credentials（没可靠站点身份，�
   const ok = await fetch(base + '/memory-eternal/api/cloud/health', { headers: { Origin: 'http://127.0.0.1:7999' } })
   assert.equal(ok.headers.get('access-control-allow-credentials'), 'true')
 }))
+
+test('dsh-app://app（DSH 桌面端 Electron）必须放行 —— 实测日志抓到的 origin', () => {
+  const env = { ...process.env, MEMORY_CLOUD_PUBLIC_URL: PUB }
+  assert.equal(corsOriginAllowed('dsh-app://app', env), 'dsh-app://app', 'DSH 桌面端的 origin 是 dsh-app://app')
+  assert.equal(corsOriginAllowed('dsh-app://whatever', env), 'dsh-app://whatever', '同协议其他 host 也放行')
+  assert.equal(corsOriginAllowed('https://evil.com', env), '', '未知 https 仍拒绝')
+})
