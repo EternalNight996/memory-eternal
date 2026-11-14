@@ -35,6 +35,7 @@ import { readActiveVault } from './lib/vault-pref.js'
 import { shouldPushToCloud, pushCardToCloud, enqueueFailedPush, flushQueue } from './lib/cloud-push.js'
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, preferenceLines, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
+import { markCloudSynced } from './lib/vault.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
 import { appendCaptureLog, readCaptureLog, rotateCaptureLog } from './lib/capture-log.js'
 import { recordLedger } from './lib/ledger.js'
@@ -827,6 +828,8 @@ export function apply(ctx, config) {
       pushCardToCloud({ title: card.title, kind: card.kind, body: card.body, source: card.source })
         .then((r) => {
           if (r && r.ok) {
+            // skipped 也算同步完成：云端已有同内容，标记后前端就不该再灰着
+            try { markCloudSynced(root, out.path || out.rel) } catch { /* 标记失败不影响数据 */ }
             logCapture('system', 'created', '已同步到云端' + (r.skipped ? '（云端已有，跳过）' : ''), { title: String(card.title || '').slice(0, 40) })
             // 推送成功时顺带消费队列积压（渐进式，不集中爆发）
             flushQueue().then((f) => {
