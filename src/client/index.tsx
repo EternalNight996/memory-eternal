@@ -117,9 +117,18 @@ async function probeCloud(form) {
     }
     health = d
   } catch (e) {
-    // 网络层失败：DNS / CORS / 证书 / 超时
+    // 网络层失败：DNS / CORS / 证书 / 超时 —— 浏览器把这些都报成同一句
+    // "Failed to fetch"，**不给任何 HTTP 状态**。所以这里把能自己查到的上下文
+    // 一起带出去：目标 URL、页面 origin、是否在线。
+    // 用户截图就能立刻区分「地址填错」「origin 被 CORS 拒」「断网」。
     const msg = String((e && e.message) || e)
-    return { ok: false, error: '连不上服务端（' + msg + '）—— 检查地址是否正确、域名能否解析' }
+    const diag = {
+      url: url + '/memory-eternal/api/cloud/health',
+      origin: (typeof location !== 'undefined' && location.origin) ? location.origin : '(无)',
+      href: (typeof location !== 'undefined' && location.href) ? location.href : '(无)',
+      online: (typeof navigator !== 'undefined') ? !!navigator.onLine : null,
+    }
+    return { ok: false, error: '连不上服务端（' + msg + '）', diag }
   }
 
   // ② 有令牌才验身份
@@ -5547,7 +5556,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       // 失败：保留配置、标记失败、**不切换**
       markCloudFailed(prepared.next, r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error)
       setCloudConn(readCloudConn())
-      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error })
+      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null })
       return
     }
     activateCloud(prepared.next)
@@ -7389,7 +7398,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     if (!r.ok) {
       const saved = markCloudFailed(prepared.next, r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error)
       setCloudConn(saved)          // 状态行立刻反映「配置已保留、未切换」
-      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error })
+      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null })
       return
     }
     const saved = activateCloud(prepared.next)
@@ -8504,6 +8513,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {cloudTest && (
                   <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? t('cloudTestReachable').replace('{version}', cloudTest.version || '') : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
+                )}
+                {cloudTest && cloudTest.diag && (
+                  <div style={{ fontSize: 10.5, lineHeight: 1.6, opacity: 0.6, wordBreak: 'break-all' }}>
+                    诊断：目标 <code>{cloudTest.diag.url}</code> · 页面 origin <code>{cloudTest.diag.origin}</code> · 在线 {String(cloudTest.diag.online)}
+                  </div>
                 )}
                 {cloudFromHash && cloudFromHash.owner && (
                   <Status tone="ok" text={t('cloudLoginDone').replace('{owner}', cloudFromHash.owner)} />
