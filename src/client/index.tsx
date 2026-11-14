@@ -5362,6 +5362,7 @@ class PanelErrorBoundary extends React.Component {
       <div style={{ padding: '22px 24px', fontFamily: 'system-ui, "Segoe UI", "Microsoft YaHei", sans-serif', color: 'var(--dsw-alias-label-primary, #1f2937)' }}>
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>记忆面板渲染出错</div>
         <div style={{ fontSize: 12.5, opacity: 0.75, lineHeight: 1.7, marginBottom: 14, wordBreak: 'break-all' }}>{msg}</div>
+        <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 8, fontFamily: 'ui-monospace,Consolas,monospace' }}>{`脚本 build ${BUILD_AT}${BUILD_MIN === false ? ' · 未压缩' : ''}`}</div>
         <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 14, lineHeight: 1.7 }}>已经兜底住，不会再整页白屏。点「重新加载」可恢复；反复出现请用左栏「反馈异常」带上这段报错。</div>
         <button type="button" className="mc-btn" onClick={() => { try { window.location.reload() } catch (e) { /* ignore */ } }}>重新加载</button>
       </div>
@@ -5456,6 +5457,11 @@ function WorkingNoteCard({ t, notify, onPromoted }) {
     </div>
   )
 }
+
+/* eslint-disable no-undef */
+/** 构建标记：由 build.mjs 用 define 注入字面量。用于区分「加载的是哪一份 bundle」。 */
+const BUILD_AT = typeof __ME_BUILD_AT__ !== 'undefined' ? __ME_BUILD_AT__ : 'dev'
+const BUILD_MIN = typeof __ME_BUILD_MIN__ !== 'undefined' ? __ME_BUILD_MIN__ : null
 
 export function MemoryLibrary(props) {
   return <PanelErrorBoundary><MemoryLibraryInner {...props} /></PanelErrorBoundary>
