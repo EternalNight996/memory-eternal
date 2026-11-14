@@ -14057,11 +14057,11 @@
           __name(resetWorkInProgressVersions, "resetWorkInProgressVersions");
           function registerMutableSourceForHydration(root3, mutableSource) {
             var getVersion = mutableSource._getVersion;
-            var version = getVersion(mutableSource._source);
+            var version2 = getVersion(mutableSource._source);
             if (root3.mutableSourceEagerHydrationData == null) {
-              root3.mutableSourceEagerHydrationData = [mutableSource, version];
+              root3.mutableSourceEagerHydrationData = [mutableSource, version2];
             } else {
-              root3.mutableSourceEagerHydrationData.push(mutableSource, version);
+              root3.mutableSourceEagerHydrationData.push(mutableSource, version2);
             }
           }
           __name(registerMutableSourceForHydration, "registerMutableSourceForHydration");
@@ -24681,13 +24681,13 @@
         3532,
         3706
       ];
-      exports.getSymbolSize = /* @__PURE__ */ __name(function getSymbolSize(version) {
-        if (!version) throw new Error('"version" cannot be null or undefined');
-        if (version < 1 || version > 40) throw new Error('"version" should be in range from 1 to 40');
-        return version * 4 + 17;
+      exports.getSymbolSize = /* @__PURE__ */ __name(function getSymbolSize(version2) {
+        if (!version2) throw new Error('"version" cannot be null or undefined');
+        if (version2 < 1 || version2 > 40) throw new Error('"version" should be in range from 1 to 40');
+        return version2 * 4 + 17;
       }, "getSymbolSize");
-      exports.getSymbolTotalCodewords = /* @__PURE__ */ __name(function getSymbolTotalCodewords(version) {
-        return CODEWORDS_COUNT[version];
+      exports.getSymbolTotalCodewords = /* @__PURE__ */ __name(function getSymbolTotalCodewords(version2) {
+        return CODEWORDS_COUNT[version2];
       }, "getSymbolTotalCodewords");
       exports.getBCHDigit = function(data) {
         let digit = 0;
@@ -24828,10 +24828,10 @@
   var require_alignment_pattern = __commonJS({
     "node_modules/qrcode/lib/core/alignment-pattern.js"(exports) {
       var getSymbolSize = require_utils().getSymbolSize;
-      exports.getRowColCoords = /* @__PURE__ */ __name(function getRowColCoords(version) {
-        if (version === 1) return [];
-        const posCount = Math.floor(version / 7) + 2;
-        const size = getSymbolSize(version);
+      exports.getRowColCoords = /* @__PURE__ */ __name(function getRowColCoords(version2) {
+        if (version2 === 1) return [];
+        const posCount = Math.floor(version2 / 7) + 2;
+        const size = getSymbolSize(version2);
         const intervals = size === 145 ? 26 : Math.ceil((size - 13) / (2 * posCount - 2)) * 2;
         const positions = [size - 7];
         for (let i = 1; i < posCount - 1; i++) {
@@ -24840,9 +24840,9 @@
         positions.push(6);
         return positions.reverse();
       }, "getRowColCoords");
-      exports.getPositions = /* @__PURE__ */ __name(function getPositions(version) {
+      exports.getPositions = /* @__PURE__ */ __name(function getPositions(version2) {
         const coords = [];
-        const pos = exports.getRowColCoords(version);
+        const pos = exports.getRowColCoords(version2);
         const posLength = pos.length;
         for (let i = 0; i < posLength; i++) {
           for (let j = 0; j < posLength; j++) {
@@ -24864,8 +24864,8 @@
     "node_modules/qrcode/lib/core/finder-pattern.js"(exports) {
       var getSymbolSize = require_utils().getSymbolSize;
       var FINDER_PATTERN_SIZE = 7;
-      exports.getPositions = /* @__PURE__ */ __name(function getPositions(version) {
-        const size = getSymbolSize(version);
+      exports.getPositions = /* @__PURE__ */ __name(function getPositions(version2) {
+        const size = getSymbolSize(version2);
         return [
           // top-left
           [0, 0],
@@ -25351,30 +25351,30 @@
         2040,
         2430
       ];
-      exports.getBlocksCount = /* @__PURE__ */ __name(function getBlocksCount(version, errorCorrectionLevel) {
+      exports.getBlocksCount = /* @__PURE__ */ __name(function getBlocksCount(version2, errorCorrectionLevel) {
         switch (errorCorrectionLevel) {
           case ECLevel.L:
-            return EC_BLOCKS_TABLE[(version - 1) * 4 + 0];
+            return EC_BLOCKS_TABLE[(version2 - 1) * 4 + 0];
           case ECLevel.M:
-            return EC_BLOCKS_TABLE[(version - 1) * 4 + 1];
+            return EC_BLOCKS_TABLE[(version2 - 1) * 4 + 1];
           case ECLevel.Q:
-            return EC_BLOCKS_TABLE[(version - 1) * 4 + 2];
+            return EC_BLOCKS_TABLE[(version2 - 1) * 4 + 2];
           case ECLevel.H:
-            return EC_BLOCKS_TABLE[(version - 1) * 4 + 3];
+            return EC_BLOCKS_TABLE[(version2 - 1) * 4 + 3];
           default:
             return void 0;
         }
       }, "getBlocksCount");
-      exports.getTotalCodewordsCount = /* @__PURE__ */ __name(function getTotalCodewordsCount(version, errorCorrectionLevel) {
+      exports.getTotalCodewordsCount = /* @__PURE__ */ __name(function getTotalCodewordsCount(version2, errorCorrectionLevel) {
         switch (errorCorrectionLevel) {
           case ECLevel.L:
-            return EC_CODEWORDS_TABLE[(version - 1) * 4 + 0];
+            return EC_CODEWORDS_TABLE[(version2 - 1) * 4 + 0];
           case ECLevel.M:
-            return EC_CODEWORDS_TABLE[(version - 1) * 4 + 1];
+            return EC_CODEWORDS_TABLE[(version2 - 1) * 4 + 1];
           case ECLevel.Q:
-            return EC_CODEWORDS_TABLE[(version - 1) * 4 + 2];
+            return EC_CODEWORDS_TABLE[(version2 - 1) * 4 + 2];
           case ECLevel.H:
-            return EC_CODEWORDS_TABLE[(version - 1) * 4 + 3];
+            return EC_CODEWORDS_TABLE[(version2 - 1) * 4 + 3];
           default:
             return void 0;
         }
@@ -25487,8 +25487,8 @@
   // node_modules/qrcode/lib/core/version-check.js
   var require_version_check = __commonJS({
     "node_modules/qrcode/lib/core/version-check.js"(exports) {
-      exports.isValid = /* @__PURE__ */ __name(function isValid(version) {
-        return !isNaN(version) && version >= 1 && version <= 40;
+      exports.isValid = /* @__PURE__ */ __name(function isValid(version2) {
+        return !isNaN(version2) && version2 >= 1 && version2 <= 40;
       }, "isValid");
     }
   });
@@ -25549,13 +25549,13 @@
       exports.MIXED = {
         bit: -1
       };
-      exports.getCharCountIndicator = /* @__PURE__ */ __name(function getCharCountIndicator(mode, version) {
+      exports.getCharCountIndicator = /* @__PURE__ */ __name(function getCharCountIndicator(mode, version2) {
         if (!mode.ccBits) throw new Error("Invalid mode: " + mode);
-        if (!VersionCheck.isValid(version)) {
-          throw new Error("Invalid version: " + version);
+        if (!VersionCheck.isValid(version2)) {
+          throw new Error("Invalid version: " + version2);
         }
-        if (version >= 1 && version < 10) return mode.ccBits[0];
-        else if (version < 27) return mode.ccBits[1];
+        if (version2 >= 1 && version2 < 10) return mode.ccBits[0];
+        else if (version2 < 27) return mode.ccBits[1];
         return mode.ccBits[2];
       }, "getCharCountIndicator");
       exports.getBestModeForData = /* @__PURE__ */ __name(function getBestModeForData(dataStr) {
@@ -25622,14 +25622,14 @@
         return void 0;
       }
       __name(getBestVersionForDataLength, "getBestVersionForDataLength");
-      function getReservedBitsCount(mode, version) {
-        return Mode.getCharCountIndicator(mode, version) + 4;
+      function getReservedBitsCount(mode, version2) {
+        return Mode.getCharCountIndicator(mode, version2) + 4;
       }
       __name(getReservedBitsCount, "getReservedBitsCount");
-      function getTotalBitsFromDataArray(segments, version) {
+      function getTotalBitsFromDataArray(segments, version2) {
         let totalBits = 0;
         segments.forEach(function(data) {
-          const reservedBits = getReservedBitsCount(data.mode, version);
+          const reservedBits = getReservedBitsCount(data.mode, version2);
           totalBits += reservedBits + data.getBitsLength();
         });
         return totalBits;
@@ -25651,16 +25651,16 @@
         }
         return defaultValue;
       }, "from");
-      exports.getCapacity = /* @__PURE__ */ __name(function getCapacity(version, errorCorrectionLevel, mode) {
-        if (!VersionCheck.isValid(version)) {
+      exports.getCapacity = /* @__PURE__ */ __name(function getCapacity(version2, errorCorrectionLevel, mode) {
+        if (!VersionCheck.isValid(version2)) {
           throw new Error("Invalid QR Code version");
         }
         if (typeof mode === "undefined") mode = Mode.BYTE;
-        const totalCodewords = Utils.getSymbolTotalCodewords(version);
-        const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+        const totalCodewords = Utils.getSymbolTotalCodewords(version2);
+        const ecTotalCodewords = ECCode.getTotalCodewordsCount(version2, errorCorrectionLevel);
         const dataTotalCodewordsBits = (totalCodewords - ecTotalCodewords) * 8;
         if (mode === Mode.MIXED) return dataTotalCodewordsBits;
-        const usableBits = dataTotalCodewordsBits - getReservedBitsCount(mode, version);
+        const usableBits = dataTotalCodewordsBits - getReservedBitsCount(mode, version2);
         switch (mode) {
           case Mode.NUMERIC:
             return Math.floor(usableBits / 10 * 3);
@@ -25689,15 +25689,15 @@
         }
         return getBestVersionForDataLength(seg.mode, seg.getLength(), ecl);
       }, "getBestVersionForData");
-      exports.getEncodedBits = /* @__PURE__ */ __name(function getEncodedBits(version) {
-        if (!VersionCheck.isValid(version) || version < 7) {
+      exports.getEncodedBits = /* @__PURE__ */ __name(function getEncodedBits(version2) {
+        if (!VersionCheck.isValid(version2) || version2 < 7) {
           throw new Error("Invalid QR Code version");
         }
-        let d = version << 12;
+        let d = version2 << 12;
         while (Utils.getBCHDigit(d) - G18_BCH >= 0) {
           d ^= G18 << Utils.getBCHDigit(d) - G18_BCH;
         }
-        return version << 12 | d;
+        return version2 << 12 | d;
       }, "getEncodedBits");
     }
   });
@@ -26119,7 +26119,7 @@
         return nodes;
       }
       __name(buildNodes, "buildNodes");
-      function buildGraph(nodes, version) {
+      function buildGraph(nodes, version2) {
         const table = {};
         const graph = { start: {} };
         let prevNodeIds = ["start"];
@@ -26139,7 +26139,7 @@
                 table[prevNodeId].lastCount += node.length;
               } else {
                 if (table[prevNodeId]) table[prevNodeId].lastCount = node.length;
-                graph[prevNodeId][key] = getSegmentBitsLength(node.length, node.mode) + 4 + Mode.getCharCountIndicator(node.mode, version);
+                graph[prevNodeId][key] = getSegmentBitsLength(node.length, node.mode) + 4 + Mode.getCharCountIndicator(node.mode, version2);
               }
             }
           }
@@ -26183,10 +26183,10 @@
           return acc;
         }, []);
       }, "fromArray");
-      exports.fromString = /* @__PURE__ */ __name(function fromString(data, version) {
+      exports.fromString = /* @__PURE__ */ __name(function fromString(data, version2) {
         const segs = getSegmentsFromString(data, Utils.isKanjiModeEnabled());
         const nodes = buildNodes(segs);
-        const graph = buildGraph(nodes, version);
+        const graph = buildGraph(nodes, version2);
         const path = dijkstra.find_path(graph.map, "start", "end");
         const optimizedSegs = [];
         for (let i = 1; i < path.length - 1; i++) {
@@ -26218,9 +26218,9 @@
       var FormatInfo = require_format_info();
       var Mode = require_mode();
       var Segments = require_segments();
-      function setupFinderPattern(matrix, version) {
+      function setupFinderPattern(matrix, version2) {
         const size = matrix.size;
-        const pos = FinderPattern.getPositions(version);
+        const pos = FinderPattern.getPositions(version2);
         for (let i = 0; i < pos.length; i++) {
           const row = pos[i][0];
           const col = pos[i][1];
@@ -26247,8 +26247,8 @@
         }
       }
       __name(setupTimingPattern, "setupTimingPattern");
-      function setupAlignmentPattern(matrix, version) {
-        const pos = AlignmentPattern.getPositions(version);
+      function setupAlignmentPattern(matrix, version2) {
+        const pos = AlignmentPattern.getPositions(version2);
         for (let i = 0; i < pos.length; i++) {
           const row = pos[i][0];
           const col = pos[i][1];
@@ -26264,9 +26264,9 @@
         }
       }
       __name(setupAlignmentPattern, "setupAlignmentPattern");
-      function setupVersionInfo(matrix, version) {
+      function setupVersionInfo(matrix, version2) {
         const size = matrix.size;
-        const bits = Version.getEncodedBits(version);
+        const bits = Version.getEncodedBits(version2);
         let row, col, mod;
         for (let i = 0; i < 18; i++) {
           row = Math.floor(i / 3);
@@ -26334,15 +26334,15 @@
         }
       }
       __name(setupData, "setupData");
-      function createData(version, errorCorrectionLevel, segments) {
+      function createData(version2, errorCorrectionLevel, segments) {
         const buffer = new BitBuffer();
         segments.forEach(function(data) {
           buffer.put(data.mode.bit, 4);
-          buffer.put(data.getLength(), Mode.getCharCountIndicator(data.mode, version));
+          buffer.put(data.getLength(), Mode.getCharCountIndicator(data.mode, version2));
           data.write(buffer);
         });
-        const totalCodewords = Utils.getSymbolTotalCodewords(version);
-        const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+        const totalCodewords = Utils.getSymbolTotalCodewords(version2);
+        const ecTotalCodewords = ECCode.getTotalCodewordsCount(version2, errorCorrectionLevel);
         const dataTotalCodewordsBits = (totalCodewords - ecTotalCodewords) * 8;
         if (buffer.getLengthInBits() + 4 <= dataTotalCodewordsBits) {
           buffer.put(0, 4);
@@ -26354,14 +26354,14 @@
         for (let i = 0; i < remainingByte; i++) {
           buffer.put(i % 2 ? 17 : 236, 8);
         }
-        return createCodewords(buffer, version, errorCorrectionLevel);
+        return createCodewords(buffer, version2, errorCorrectionLevel);
       }
       __name(createData, "createData");
-      function createCodewords(bitBuffer, version, errorCorrectionLevel) {
-        const totalCodewords = Utils.getSymbolTotalCodewords(version);
-        const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+      function createCodewords(bitBuffer, version2, errorCorrectionLevel) {
+        const totalCodewords = Utils.getSymbolTotalCodewords(version2);
+        const ecTotalCodewords = ECCode.getTotalCodewordsCount(version2, errorCorrectionLevel);
         const dataTotalCodewords = totalCodewords - ecTotalCodewords;
-        const ecTotalBlocks = ECCode.getBlocksCount(version, errorCorrectionLevel);
+        const ecTotalBlocks = ECCode.getBlocksCount(version2, errorCorrectionLevel);
         const blocksInGroup2 = totalCodewords % ecTotalBlocks;
         const blocksInGroup1 = ecTotalBlocks - blocksInGroup2;
         const totalCodewordsInGroup1 = Math.floor(totalCodewords / ecTotalBlocks);
@@ -26399,12 +26399,12 @@
         return data;
       }
       __name(createCodewords, "createCodewords");
-      function createSymbol(data, version, errorCorrectionLevel, maskPattern) {
+      function createSymbol(data, version2, errorCorrectionLevel, maskPattern) {
         let segments;
         if (Array.isArray(data)) {
           segments = Segments.fromArray(data);
         } else if (typeof data === "string") {
-          let estimatedVersion = version;
+          let estimatedVersion = version2;
           if (!estimatedVersion) {
             const rawSegments = Segments.rawSplit(data);
             estimatedVersion = Version.getBestVersionForData(rawSegments, errorCorrectionLevel);
@@ -26417,22 +26417,22 @@
         if (!bestVersion) {
           throw new Error("The amount of data is too big to be stored in a QR Code");
         }
-        if (!version) {
-          version = bestVersion;
-        } else if (version < bestVersion) {
+        if (!version2) {
+          version2 = bestVersion;
+        } else if (version2 < bestVersion) {
           throw new Error(
             "\nThe chosen QR Code version cannot contain this amount of data.\nMinimum version required to store current data is: " + bestVersion + ".\n"
           );
         }
-        const dataBits = createData(version, errorCorrectionLevel, segments);
-        const moduleCount = Utils.getSymbolSize(version);
+        const dataBits = createData(version2, errorCorrectionLevel, segments);
+        const moduleCount = Utils.getSymbolSize(version2);
         const modules = new BitMatrix(moduleCount);
-        setupFinderPattern(modules, version);
+        setupFinderPattern(modules, version2);
         setupTimingPattern(modules);
-        setupAlignmentPattern(modules, version);
+        setupAlignmentPattern(modules, version2);
         setupFormatInfo(modules, errorCorrectionLevel, 0);
-        if (version >= 7) {
-          setupVersionInfo(modules, version);
+        if (version2 >= 7) {
+          setupVersionInfo(modules, version2);
         }
         setupData(modules, dataBits);
         if (isNaN(maskPattern)) {
@@ -26445,7 +26445,7 @@
         setupFormatInfo(modules, errorCorrectionLevel, maskPattern);
         return {
           modules,
-          version,
+          version: version2,
           errorCorrectionLevel,
           maskPattern,
           segments
@@ -26457,17 +26457,17 @@
           throw new Error("No input text");
         }
         let errorCorrectionLevel = ECLevel.M;
-        let version;
+        let version2;
         let mask;
         if (typeof options !== "undefined") {
           errorCorrectionLevel = ECLevel.from(options.errorCorrectionLevel, ECLevel.M);
-          version = Version.from(options.version);
+          version2 = Version.from(options.version);
           mask = MaskPattern.from(options.maskPattern);
           if (options.toSJISFunc) {
             Utils.setToSJISFunction(options.toSJISFunc);
           }
         }
-        return createSymbol(data, version, errorCorrectionLevel, mask);
+        return createSymbol(data, version2, errorCorrectionLevel, mask);
       }, "create");
     }
   });
@@ -29534,6 +29534,30 @@
     devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
     vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
+    logsTab: "\u65E5\u5FD7",
+    logsSearchPlaceholder: "\u641C\u7D22\u6807\u9898 / \u667A\u80FD\u4F53 / IP",
+    logsActionLabel: "\u5206\u7C7B",
+    logsAll: "\u5168\u90E8",
+    logAction_capture: "\u5199\u5165",
+    logAction_dedup: "\u53BB\u91CD",
+    logAction_recall: "\u53EC\u56DE",
+    "logAction_recall-miss": "\u53EC\u56DE\u672A\u547D\u4E2D",
+    logsExport: "\u5BFC\u51FA CSV",
+    logsCleanup: "\u6E05\u7406 30 \u5929\u524D",
+    logsCleanupHint: "\u5220\u9664\u4FDD\u7559\u671F\uFF08\u9ED8\u8BA4 30 \u5929\uFF09\u4E4B\u5916\u7684\u65E5\u5FD7\uFF0C\u91CA\u653E\u7A7A\u95F4",
+    logsCleaned: "\u5DF2\u6E05\u7406 {n} \u6761\u65E7\u65E5\u5FD7",
+    logsCleanFail: "\u6E05\u7406\u5931\u8D25",
+    logsColTime: "\u65F6\u95F4",
+    logsColIP: "IP",
+    logsColAgent: "\u667A\u80FD\u4F53",
+    logsColAction: "\u52A8\u4F5C",
+    logsColTitle: "\u6807\u9898",
+    logsEmpty: "\u8FD9\u4E00\u5929\u6CA1\u6709\u65E5\u5FD7",
+    logsFooterHint: "\u53EA\u8BB0\u5F55\u6807\u9898\uFF0C\u4E0D\u542B\u6B63\u6587\uFF1B\u9ED8\u8BA4\u4FDD\u7559 30 \u5929\u3002\u65E5\u5FD7\u5199\u5165\u662F\u65C1\u8DEF\uFF0C\u4E0D\u4F1A\u5F71\u54CD\u8BFB\u5199\u5361\u3002",
+    aboutTab: "\u5173\u4E8E",
+    aboutVersion: "\u7248\u672C {v}",
+    aboutDesc: "\u672C\u5730\u8BB0\u5FC6\u6838\u5FC3\uFF1A\u628A\u4F60\u7684\u77E5\u8BC6\u6C89\u6DC0\u6210\u53EF\u53EC\u56DE\u7684\u77E5\u8BC6\u5361\uFF0C\u6570\u636E\u7559\u5728\u672C\u673A\uFF0C\u53EF\u9009\u540C\u6B65\u5230\u81EA\u5DF1\u7684\u4E91\u7AEF\u3002",
+    aboutGithub: "GitHub \u4ED3\u5E93",
     cardUnsynced: "\u672A\u540C\u6B65",
     cardUnsyncedHint: "\u8FD9\u5F20\u5361\u8FD8\u6CA1\u63A8\u5230\u4E91\u7AEF\uFF08\u672C\u5730\u5DF2\u4FDD\u5B58\uFF09\u3002\u5207\u5230\u4E91\u7AEF\u6A21\u5F0F\u540E\u4F1A\u81EA\u52A8\u63A8\u9001\uFF0C\u6216\u7528\u300C\u8865\u63A8\u300D\u624B\u52A8\u540C\u6B65",
     activateVaultBtn: "\u5207\u5230\u6B64\u5E93",
@@ -30750,6 +30774,30 @@
     devicePanelTitle: "Finish signing in in your browser",
     localVaultLabel: "Vault location",
     vaultListLabel: "Vaults on this machine",
+    logsTab: "Logs",
+    logsSearchPlaceholder: "Search title / agent / IP",
+    logsActionLabel: "Type",
+    logsAll: "All",
+    logAction_capture: "Write",
+    logAction_dedup: "Dedup",
+    logAction_recall: "Recall",
+    "logAction_recall-miss": "Recall miss",
+    logsExport: "Export CSV",
+    logsCleanup: "Clean >30d",
+    logsCleanupHint: "Delete logs older than the retention window (30 days by default)",
+    logsCleaned: "Removed {n} old log rows",
+    logsCleanFail: "Cleanup failed",
+    logsColTime: "Time",
+    logsColIP: "IP",
+    logsColAgent: "Agent",
+    logsColAction: "Action",
+    logsColTitle: "Title",
+    logsEmpty: "No logs for this day",
+    logsFooterHint: "Titles only, never card bodies; 30-day retention. Logging is a side path and never blocks reads/writes.",
+    aboutTab: "About",
+    aboutVersion: "version {v}",
+    aboutDesc: "A local memory core: turn your knowledge into recallable cards. Data stays on your machine, optionally synced to your own cloud.",
+    aboutGithub: "GitHub",
     cardUnsynced: "Not synced",
     cardUnsyncedHint: "This card has not been pushed to cloud yet (saved locally). It syncs automatically in cloud mode, or use the flush action.",
     activateVaultBtn: "Switch to this",
@@ -34269,7 +34317,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T14:21:50.592Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T14:34:04.683Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34477,7 +34525,57 @@ ${COMPONENTS_CSS}
       }
       return "cards";
     });
+    const [aboutOpen, setAboutOpen] = (0, import_react2.useState)(false);
+    const [logDate, setLogDate] = (0, import_react2.useState)(() => {
+      const d = /* @__PURE__ */ new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    });
+    const [logQ, setLogQ] = (0, import_react2.useState)("");
+    const [logAction, setLogAction] = (0, import_react2.useState)("");
+    const [logData, setLogData] = (0, import_react2.useState)(null);
+    const [logBusy, setLogBusy] = (0, import_react2.useState)(false);
     const [visited, setVisited] = (0, import_react2.useState)(() => /* @__PURE__ */ new Set([view]));
+    const loadLogs = /* @__PURE__ */ __name(async () => {
+      setLogBusy(true);
+      try {
+        const qs = new URLSearchParams({ date: logDate, limit: "500" });
+        if (logQ.trim()) qs.set("q", logQ.trim());
+        if (logAction) qs.set("action", logAction);
+        const r = await fetch(API + "/logs?" + qs.toString());
+        const d = await r.json().catch(() => ({}));
+        setLogData(d && d.ok ? d : { ok: false, total: 0, rows: [], byAction: [] });
+      } catch (e) {
+        setLogData({ ok: false, total: 0, rows: [], byAction: [], error: String(e && e.message || e) });
+      } finally {
+        setLogBusy(false);
+      }
+    }, "loadLogs");
+    (0, import_react2.useEffect)(() => {
+      if (view === "logs") loadLogs();
+    }, [view, logDate, logAction]);
+    const exportLogs = /* @__PURE__ */ __name(() => {
+      try {
+        const a = document.createElement("a");
+        a.href = API + "/logs/export?from=" + encodeURIComponent(logDate) + "&to=" + encodeURIComponent(logDate);
+        a.download = "memory-eternal-logs-" + logDate + ".csv";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch {
+      }
+    }, "exportLogs");
+    const cleanupLogs = /* @__PURE__ */ __name(async () => {
+      try {
+        const r = await fetch(API + "/logs/cleanup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days: 30 }) });
+        const d = await r.json().catch(() => ({}));
+        try {
+          notify(d && d.ok ? t("logsCleaned").replace("{n}", String(d.removed)) : d && d.error || t("logsCleanFail"), !!(d && d.ok));
+        } catch {
+        }
+        loadLogs();
+      } catch {
+      }
+    }, "cleanupLogs");
     const goView = (0, import_react2.useCallback)((v) => {
       setVisited((s) => s.has(v) ? s : new Set(s).add(v));
       setView(v);
@@ -35298,6 +35396,10 @@ ${COMPONENTS_CSS}
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-ico", children: "\u2699\uFE0F" }),
                 railOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-label", children: t("tabConfig") })
               ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: `mc-railbtn${view === "logs" ? " active" : ""}`, onClick: () => goView("logs"), title: t("logsTab"), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-ico", children: "\u{1F4CB}" }),
+                railOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-label", children: t("logsTab") })
+              ] }),
               railOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-rail-sec", children: t("navSupport") }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: "mc-railbtn", onClick: () => openSupport("group"), title: t("supportGroup"), children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-ico", children: "\u{1F4AC}" }),
@@ -35315,28 +35417,10 @@ ${COMPONENTS_CSS}
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-ico", children: "\u{1F41E}" }),
                 railOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-label", children: t("fbNav") })
               ] }),
-              railOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                "button",
-                {
-                  type: "button",
-                  className: "mc-quote",
-                  onClick: () => setQuoteIdx((i) => (i + 1) % QUOTES.length),
-                  title: `${QUOTES[quoteIdx]}
-${QUOTE_SOURCE}
-${t("quoteHint")}`,
-                  children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-quote-tag", children: [
-                      t("navQuotes"),
-                      " \xB7 ",
-                      quoteIdx + 1,
-                      "/",
-                      QUOTES.length
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-quote-text", children: QUOTES[quoteIdx] }, quoteIdx),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-quote-src", children: QUOTE_SOURCE })
-                  ]
-                }
-              )
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: "mc-railbtn", onClick: () => setAboutOpen(true), title: t("aboutTab"), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-ico", children: "\u2139\uFE0F" }),
+                railOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-rail-label", children: t("aboutTab") })
+              ] })
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-main", ref: mainRef, children: [
               overview && overview.db && overview.db.writable === false ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { margin: "8px 10px 0", padding: "8px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.7, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.35)", color: "#b91c1c" }, children: [
@@ -35348,6 +35432,45 @@ ${t("quoteHint")}`,
                 t("dbReadonlyBody"),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.85, marginTop: 2 }, children: t("dbReadonlyFix") })
               ] }) : null,
+              view === "logs" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, padding: "4px 2px" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "date", value: logDate, onChange: (e) => setLogDate(e.target.value), style: { fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", color: "inherit" } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: logQ, onChange: (e) => setLogQ(e.target.value), onKeyDown: (e) => {
+                    if (e.key === "Enter") loadLogs();
+                  }, placeholder: t("logsSearchPlaceholder"), style: { flex: 1, minWidth: 180, fontSize: 12, padding: "5px 9px", borderRadius: 7, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", color: "inherit" } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: logBusy, onClick: loadLogs, children: logBusy ? "\u2026" : t("search") })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 11.5 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("logsActionLabel") }),
+                  ["", "capture", "dedup", "recall", "recall-miss"].map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", onClick: () => setLogAction(a), style: { padding: "3px 9px", borderRadius: 999, border: "1px solid " + (logAction === a ? "var(--me-c-accent)" : "var(--me-c-border)"), background: logAction === a ? "var(--me-c-accent-soft, rgba(59,130,246,.12))" : "transparent", color: "inherit", cursor: "pointer", fontSize: 11.5 }, children: [
+                    a ? t("logAction_" + a) : t("logsAll"),
+                    a && logData && Array.isArray(logData.byAction) ? (() => {
+                      const hit = logData.byAction.find((x) => x.action === a);
+                      return hit ? " " + hit.n : "";
+                    })() : ""
+                  ] }, a || "all")),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: exportLogs, children: t("logsExport") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cleanupLogs, title: t("logsCleanupHint"), children: t("logsCleanup") })
+                ] }),
+                logData && logData.rows && logData.rows.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, overflow: "hidden" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "150px 120px 130px 90px 1fr", gap: 8, padding: "7px 11px", fontSize: 10.5, opacity: 0.5, borderBottom: "1px solid var(--me-c-border)", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("logsColTime") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("logsColIP") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("logsColAgent") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("logsColAction") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("logsColTitle") })
+                  ] }),
+                  logData.rows.map((r) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "150px 120px 130px 90px 1fr", gap: 8, padding: "7px 11px", fontSize: 11.5, borderBottom: "1px solid var(--me-c-border)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.65, fontFamily: "ui-monospace,Consolas,monospace", fontSize: 10.5 }, children: String(r.at || "").slice(11, 19) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.7 }, children: r.ip || "-" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: r.agent, children: r.agent || "-" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.7 }, children: t("logAction_" + r.action) || r.action }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: r.title, children: r.title })
+                  ] }, r.id))
+                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-empty", style: { padding: "28px 0", textAlign: "center", opacity: 0.55 }, children: logBusy ? t("loading") : t("logsEmpty") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }, children: t("logsFooterHint") })
+              ] }),
               view === "cards" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-pagehead", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-v5-eyebrow", children: "MEMORY LIBRARY" }),
@@ -35565,6 +35688,44 @@ ${t("quoteHint")}`,
                 bump();
               }, version: dataVer }) }),
               feedbackOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FeedbackModal, { t, onClose: () => setFeedbackOpen(false) }),
+              aboutOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, zIndex: 2e3, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: () => setAboutOpen(false), children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: "min(520px, 100%)", maxHeight: "86vh", overflow: "auto", background: "var(--dsw-alias-bg-layer-1, #fff)", border: "1px solid var(--me-c-border)", borderRadius: 14, padding: "20px 22px", boxShadow: "0 24px 64px rgba(0,0,0,.32)" }, onClick: (e) => e.stopPropagation(), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", { src: icon_default, alt: "", style: { width: 26, height: 26, borderRadius: 7 } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { fontSize: 15 }, children: t("memoryTitle") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.55 }, children: t("aboutVersion").replace("{v}", String(typeof version !== "undefined" && version || BUILD_AT || "")) })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => setAboutOpen(false), style: { background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.5 }, "aria-label": t("close"), children: "\xD7" })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, lineHeight: 1.8, opacity: 0.8 }, children: t("aboutDesc") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                  "button",
+                  {
+                    type: "button",
+                    className: "mc-quote",
+                    style: { marginTop: 16, width: "100%", textAlign: "left" },
+                    onClick: () => setQuoteIdx((i) => (i + 1) % QUOTES.length),
+                    title: `${QUOTES[quoteIdx]}
+${QUOTE_SOURCE}
+${t("quoteHint")}`,
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-quote-tag", children: [
+                        t("navQuotes"),
+                        " \xB7 ",
+                        quoteIdx + 1,
+                        "/",
+                        QUOTES.length
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-quote-text", children: QUOTES[quoteIdx] }, quoteIdx),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-quote-src", children: QUOTE_SOURCE })
+                    ]
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => openSupport("group"), children: t("supportGroup") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => openExternal("https://github.com/mengbot-ai/memory-eternal"), children: t("aboutGithub") })
+                ] })
+              ] }) }),
               supportOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SupportModal, { t, tab: supportTab, onTab: setSupportTab, onClose: () => setSupportOpen(false), onFeedback: () => {
                 setSupportOpen(false);
                 setFeedbackOpen(true);
@@ -36306,7 +36467,7 @@ ${t("quoteHint")}`,
     ] });
   }
   __name(EmbeddingPanel, "EmbeddingPanel");
-  function ConfigPanel({ t, onReload, version, compact }) {
+  function ConfigPanel({ t, onReload, version: version2, compact }) {
     const [page, setPage] = (0, import_react2.useState)("general");
     const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
     const [cloudPlan, setCloudPlan] = (0, import_react2.useState)(null);
@@ -36905,7 +37066,7 @@ ${t("quoteHint")}`,
         clearInterval(id);
         document.removeEventListener("visibilitychange", onVis);
       };
-    }, [version, checkVersion]);
+    }, [version2, checkVersion]);
     const [runSetup, setRunSetup] = (0, import_react2.useState)("");
     const [toast, setToast] = (0, import_react2.useState)(null);
     const [appliedPlan, setAppliedPlan] = (0, import_react2.useState)("");
@@ -37400,7 +37561,7 @@ ${t("quoteHint")}`,
     }, [t]);
     (0, import_react2.useEffect)(() => {
       load();
-    }, [version, load]);
+    }, [version2, load]);
     const set = /* @__PURE__ */ __name((k, v) => {
       dirtyRef.current = true;
       setDirty(true);
@@ -38786,7 +38947,7 @@ ${t("quoteHint")}`,
     ] }) });
   }
   __name(ConfigPanel, "ConfigPanel");
-  function AuditPanel({ t, onReload, version }) {
+  function AuditPanel({ t, onReload, version: version2 }) {
     const [pending, setPending] = (0, import_react2.useState)([]);
     const [rejected, setRejected] = (0, import_react2.useState)([]);
     const [kindF, setKindF] = (0, import_react2.useState)("all");
@@ -38820,7 +38981,7 @@ ${t("quoteHint")}`,
     }, []);
     (0, import_react2.useEffect)(() => {
       load();
-    }, [version, load]);
+    }, [version2, load]);
     const items = (tab === "pending" ? pending : rejected).filter((c) => {
       if (!auditMatches(c, search)) return false;
       if (kindF !== "all" && c.kind !== kindF) return false;
@@ -39399,7 +39560,7 @@ ${t("quoteHint")}`,
     return score;
   }
   __name(newsScore, "newsScore");
-  function NewsFeedPanel({ t, mode, version }) {
+  function NewsFeedPanel({ t, mode, version: version2 }) {
     const [items, setItems] = (0, import_react2.useState)([]);
     const [types, setTypes] = (0, import_react2.useState)([]);
     const [loading, setLoading] = (0, import_react2.useState)(true);
@@ -39475,7 +39636,7 @@ ${t("quoteHint")}`,
     }, [mode, t]);
     (0, import_react2.useEffect)(() => {
       load();
-    }, [version, load]);
+    }, [version2, load]);
     const loadFollows = (0, import_react2.useCallback)(async () => {
       try {
         const r = await fetch(API + "/news/follows").then((x) => x.json());
@@ -39488,7 +39649,7 @@ ${t("quoteHint")}`,
     }, []);
     (0, import_react2.useEffect)(() => {
       loadFollows();
-    }, [version, loadFollows]);
+    }, [version2, loadFollows]);
     const refresh = /* @__PURE__ */ __name(async () => {
       setLoading(true);
       try {
@@ -39860,7 +40021,7 @@ ${t("quoteHint")}`,
     ] });
   }
   __name(NewsFeedPanel, "NewsFeedPanel");
-  function NewsHub({ t, version, onUnreadChange }) {
+  function NewsHub({ t, version: version2, onUnreadChange }) {
     const [mode, setMode] = (0, import_react2.useState)("daily");
     const sub = mode === "month" ? "newsMonthlySub" : mode === "mine" ? "newsMineSub" : "newsDailySub";
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-news", children: [
@@ -39874,11 +40035,11 @@ ${t("quoteHint")}`,
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-news-mode" + (mode === "month" ? " active" : ""), onClick: () => setMode("month"), children: t("newsMonthly") }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-news-mode" + (mode === "mine" ? " active" : ""), onClick: () => setMode("mine"), children: t("newsMine") })
       ] }),
-      mode === "mine" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MyNewsPanel, { t, version, onUnreadChange }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(NewsFeedPanel, { t, mode, version })
+      mode === "mine" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MyNewsPanel, { t, version: version2, onUnreadChange }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(NewsFeedPanel, { t, mode, version: version2 })
     ] });
   }
   __name(NewsHub, "NewsHub");
-  function MyNewsPanel({ t, version, onUnreadChange }) {
+  function MyNewsPanel({ t, version: version2, onUnreadChange }) {
     const [items, setItems] = (0, import_react2.useState)([]);
     const [categories, setCategories] = (0, import_react2.useState)([]);
     const [counts, setCounts] = (0, import_react2.useState)({ all: 0, unread: 0 });
@@ -39918,7 +40079,7 @@ ${t("quoteHint")}`,
     }, [q, category, unreadOnly, onUnreadChange, t]);
     (0, import_react2.useEffect)(() => {
       load();
-    }, [version, load]);
+    }, [version2, load]);
     const openNews = /* @__PURE__ */ __name(async (item) => {
       setSelectedId(item.id);
       try {
@@ -40157,7 +40318,7 @@ ${t("quoteHint")}`,
     ] });
   }
   __name(MyNewsPanel, "MyNewsPanel");
-  function RecoverPanel({ t, onReload, version }) {
+  function RecoverPanel({ t, onReload, version: version2 }) {
     const [items, setItems] = (0, import_react2.useState)([]);
     const [busy, setBusy] = (0, import_react2.useState)("");
     const [loadErr, setLoadErr] = (0, import_react2.useState)("");
@@ -40179,7 +40340,7 @@ ${t("quoteHint")}`,
     }, []);
     (0, import_react2.useEffect)(() => {
       load();
-    }, [version, load]);
+    }, [version2, load]);
     const action = /* @__PURE__ */ __name(async (act, p) => {
       const title = (items.find((x) => x.path === p) || {}).title || p;
       setBusy(act + p);
@@ -40638,7 +40799,7 @@ ${t("quoteHint")}`,
     ] });
   }
   __name(BackupCard, "BackupCard");
-  function LibraryAdmin({ t, tab, onReload, version }) {
+  function LibraryAdmin({ t, tab, onReload, version: version2 }) {
     const [stats, setStats] = (0, import_react2.useState)(null);
     const [err, setErr] = (0, import_react2.useState)("");
     const [toast, setToast] = (0, import_react2.useState)(null);
@@ -40877,7 +41038,7 @@ ${t("quoteHint")}`,
     }, "mergeCluster");
     (0, import_react2.useEffect)(() => {
       fetchAll();
-    }, [version]);
+    }, [version2]);
     const doMerge = /* @__PURE__ */ __name(async (a, b) => {
       if (!window.confirm(t("mergeConfirm"))) return;
       try {
@@ -41424,7 +41585,7 @@ ${t("quoteHint")}`,
   function FeedbackModal({ t, onClose }) {
     const [text, setText] = (0, import_react2.useState)("");
     const [diag, setDiag] = (0, import_react2.useState)("");
-    const [version, setVersion] = (0, import_react2.useState)("");
+    const [version2, setVersion] = (0, import_react2.useState)("");
     const [loading, setLoading] = (0, import_react2.useState)(true);
     const [failed, setFailed] = (0, import_react2.useState)(false);
     const [toast, setToast] = (0, import_react2.useState)("");
@@ -41482,7 +41643,7 @@ ${t("quoteHint")}`,
     })();
     const openIssue = /* @__PURE__ */ __name(() => {
       const first = text.trim().split("\n")[0] || "";
-      const url = buildIssueUrl({ title: "[Bug] " + (first.slice(0, 60) || "memory-eternal \u95EE\u9898"), body: buildIssueBody({ description: text, diagnostics: diag, version }) });
+      const url = buildIssueUrl({ title: "[Bug] " + (first.slice(0, 60) || "memory-eternal \u95EE\u9898"), body: buildIssueBody({ description: text, diagnostics: diag, version: version2 }) });
       try {
         window.open(url, "_blank", "noopener");
       } catch {
