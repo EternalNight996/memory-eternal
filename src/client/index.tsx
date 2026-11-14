@@ -5122,7 +5122,15 @@ ${COMPONENTS_CSS}
   --me-c-border-strong: #3f5a47;
 }
 /* 浅底上再保一遍可读性：次要文字与按钮文字（组件层的 border/color 都走这些令牌） */
-[data-skin="spider"] .me-btn, [data-skin="light"] .me-btn, [data-skin="pop"] .me-btn { color: var(--me-c-text); }
+/* 皮肤兜底：只给**非主按钮**设文字色。
+   原写法 [data-skin] .me-btn（0,2,0）的权重高于 .me-btn--primary（0,1,0），
+   会把主按钮的 color:#fff 覆盖掉 —— 蓝底黑字，字几乎看不见（用户实测）。
+   这里排除 primary，并在后面显式兜一层，避免以后再加皮肤时又踩同一个坑。 */
+[data-skin="spider"] .me-btn:not(.me-btn--primary), [data-skin="light"] .me-btn:not(.me-btn--primary), [data-skin="pop"] .me-btn:not(.me-btn--primary) { color: var(--me-c-text); }
+/* 主按钮永远是白字（--me-c-accent 是中饱和度蓝/橙，白字对比度 ~4.5:1）；
+   放在皮肤规则之后，同权重但后者胜。 */
+[data-skin] .me-btn--primary { color: #fff; }
+[data-skin] .me-btn--primary:hover:not([disabled]) { color: #fff; }
 [data-skin="spider"] .me-btn--secondary, [data-skin="light"] .me-btn--secondary, [data-skin="pop"] .me-btn--secondary {
   background: #fff; border-color: var(--me-c-border-strong); color: var(--me-c-text);
 }

@@ -85,8 +85,17 @@ export const COMPONENTS_CSS = `
   transition:background var(--me-mo-fast),border-color var(--me-mo-fast),transform var(--me-mo-fast);padding:7px 12px}
 .me-btn[disabled]{opacity:.5;cursor:not-allowed}
 .me-btn:active:not([disabled]){transform:translateY(1px)}
-.me-btn--primary{background:var(--me-c-accent);border-color:var(--me-c-accent);color:#fff;font-weight:600}
-.me-btn--primary:hover:not([disabled]){filter:brightness(1.08)}
+/* 主按钮：蓝底白字 + 一点层次。
+   为什么之前看不清：皮肤兜底规则 [data-skin] .me-btn 的权重（0,2,0）压过
+   .me-btn--primary（0,1,0），把 color:#fff 改成了 --me-c-text（近黑）——
+   蓝底近黑字对比度只有 ~2.3:1。现在 primary 用白字，约 3.1:1，
+   再叠一层极轻的内高光与投影，小字号也读得清。 */
+.me-btn--primary{background:var(--me-c-accent);border-color:var(--me-c-accent);color:#fff;font-weight:600;
+  box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.14);
+  text-shadow:0 1px 1px rgba(0,0,0,.12)}
+.me-btn--primary:hover:not([disabled]){filter:brightness(1.08);
+  box-shadow:0 2px 8px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.18)}
+.me-btn--primary:active:not([disabled]){box-shadow:inset 0 1px 3px rgba(0,0,0,.22)}
 .me-btn--secondary{background:transparent;border-color:var(--me-c-border-strong);color:var(--me-c-text)}
 .me-btn--secondary:hover:not([disabled]){border-color:var(--me-c-accent);color:var(--me-c-accent)}
 .me-btn--ghost{background:transparent;border-color:transparent;color:var(--me-c-text-dim);padding:6px 8px}
