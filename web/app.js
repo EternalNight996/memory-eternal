@@ -29535,6 +29535,11 @@
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
     vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
     logsTab: "\u65E5\u5FD7",
+    logsKeepLabel: "\u4FDD\u7559",
+    logsKeepUnit: "\u5929",
+    logsKeepHint: "\u8D85\u671F\u7684\u65E5\u5FD7\u4F1A\u81EA\u52A8\u6E05\u7406\uFF08\u542F\u52A8\u65F6 + \u5199\u5165\u65F6\u5404\u68C0\u67E5\u4E00\u6B21\uFF09\uFF1B\u6539\u8FD9\u91CC\u4F1A\u7ACB\u523B\u6309\u65B0\u503C\u6E05\u4E00\u904D",
+    logsKeepSaved: "\u4FDD\u7559 {n} \u5929 \xB7 \u5DF2\u6E05 {r} \u6761",
+    logsCleanupNow: "\u7ACB\u5373\u6E05\u7406",
     logsSearchPlaceholder: "\u641C\u7D22\u6807\u9898 / \u667A\u80FD\u4F53 / IP",
     logsActionLabel: "\u5206\u7C7B",
     logsAll: "\u5168\u90E8",
@@ -29553,7 +29558,7 @@
     logsColAction: "\u52A8\u4F5C",
     logsColTitle: "\u6807\u9898",
     logsEmpty: "\u8FD9\u4E00\u5929\u6CA1\u6709\u65E5\u5FD7",
-    logsFooterHint: "\u53EA\u8BB0\u5F55\u6807\u9898\uFF0C\u4E0D\u542B\u6B63\u6587\uFF1B\u9ED8\u8BA4\u4FDD\u7559 30 \u5929\u3002\u65E5\u5FD7\u5199\u5165\u662F\u65C1\u8DEF\uFF0C\u4E0D\u4F1A\u5F71\u54CD\u8BFB\u5199\u5361\u3002",
+    logsFooterHint: "\u53EA\u8BB0\u5F55\u6807\u9898\uFF0C\u4E0D\u542B\u6B63\u6587\uFF1B\u4FDD\u7559 {n} \u5929\uFF0C\u8D85\u671F\u81EA\u52A8\u6E05\u7406\u3002\u65E5\u5FD7\u5199\u5165\u662F\u65C1\u8DEF\uFF0C\u4E0D\u4F1A\u5F71\u54CD\u8BFB\u5199\u5361\u3002",
     aboutTab: "\u5173\u4E8E",
     aboutVersion: "\u7248\u672C {v}",
     aboutDesc: "\u672C\u5730\u8BB0\u5FC6\u6838\u5FC3\uFF1A\u628A\u4F60\u7684\u77E5\u8BC6\u6C89\u6DC0\u6210\u53EF\u53EC\u56DE\u7684\u77E5\u8BC6\u5361\uFF0C\u6570\u636E\u7559\u5728\u672C\u673A\uFF0C\u53EF\u9009\u540C\u6B65\u5230\u81EA\u5DF1\u7684\u4E91\u7AEF\u3002",
@@ -30775,6 +30780,11 @@
     localVaultLabel: "Vault location",
     vaultListLabel: "Vaults on this machine",
     logsTab: "Logs",
+    logsKeepLabel: "Keep",
+    logsKeepUnit: "d",
+    logsKeepHint: "Expired logs are pruned automatically (on boot and while logging); changing this prunes immediately",
+    logsKeepSaved: "Keeping {n} days \xB7 removed {r}",
+    logsCleanupNow: "Prune now",
     logsSearchPlaceholder: "Search title / agent / IP",
     logsActionLabel: "Type",
     logsAll: "All",
@@ -30793,7 +30803,7 @@
     logsColAction: "Action",
     logsColTitle: "Title",
     logsEmpty: "No logs for this day",
-    logsFooterHint: "Titles only, never card bodies; 30-day retention. Logging is a side path and never blocks reads/writes.",
+    logsFooterHint: "Titles only, never card bodies; kept for {n} days and pruned automatically. Logging never blocks reads/writes.",
     aboutTab: "About",
     aboutVersion: "version {v}",
     aboutDesc: "A local memory core: turn your knowledge into recallable cards. Data stays on your machine, optionally synced to your own cloud.",
@@ -34317,7 +34327,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T14:38:35.381Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T14:40:54.037Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34534,6 +34544,7 @@ ${COMPONENTS_CSS}
     const [logAction, setLogAction] = (0, import_react2.useState)("");
     const [logData, setLogData] = (0, import_react2.useState)(null);
     const [logBusy, setLogBusy] = (0, import_react2.useState)(false);
+    const [logKeep, setLogKeep] = (0, import_react2.useState)(30);
     const [visited, setVisited] = (0, import_react2.useState)(() => /* @__PURE__ */ new Set([view]));
     const loadLogs = /* @__PURE__ */ __name(async () => {
       setLogBusy(true);
@@ -34544,6 +34555,11 @@ ${COMPONENTS_CSS}
         const r = await fetch(API + "/logs?" + qs.toString());
         const d = await r.json().catch(() => ({}));
         setLogData(d && d.ok ? d : { ok: false, total: 0, rows: [], byAction: [] });
+        try {
+          const st = await fetch(API + "/logs/settings").then((x) => x.json()).catch(() => null);
+          if (st && st.ok && Number(st.retentionDays) > 0) setLogKeep(Number(st.retentionDays));
+        } catch {
+        }
       } catch (e) {
         setLogData({ ok: false, total: 0, rows: [], byAction: [], error: String(e && e.message || e) });
       } finally {
@@ -34564,6 +34580,22 @@ ${COMPONENTS_CSS}
       } catch {
       }
     }, "exportLogs");
+    const saveLogKeep = /* @__PURE__ */ __name(async (days) => {
+      const n = Math.min(Math.max(Number(days) || 30, 1), 3650);
+      setLogKeep(n);
+      try {
+        const r = await fetch(API + "/logs/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ retentionDays: n }) });
+        const d = await r.json().catch(() => ({}));
+        if (d && d.ok) {
+          try {
+            notify(t("logsKeepSaved").replace("{n}", String(n)).replace("{r}", String(d.removed || 0)), true);
+          } catch {
+          }
+          loadLogs();
+        }
+      } catch {
+      }
+    }, "saveLogKeep");
     const cleanupLogs = /* @__PURE__ */ __name(async () => {
       try {
         const r = await fetch(API + "/logs/cleanup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days: 30 }) });
@@ -35459,7 +35491,22 @@ ${COMPONENTS_CSS}
                   ] }, a || "all")),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: exportLogs, children: t("logsExport") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cleanupLogs, title: t("logsCleanupHint"), children: t("logsCleanup") })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55, fontSize: 11 }, children: t("logsKeepLabel") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "select",
+                    {
+                      value: logKeep,
+                      onChange: (e) => saveLogKeep(e.target.value),
+                      title: t("logsKeepHint"),
+                      style: { fontSize: 11.5, padding: "3px 6px", borderRadius: 6, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", color: "inherit" },
+                      children: [7, 14, 30, 60, 90, 180, 365].map((d) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: d, children: [
+                        d,
+                        " ",
+                        t("logsKeepUnit")
+                      ] }, d))
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cleanupLogs, title: t("logsCleanupHint"), children: t("logsCleanupNow") })
                 ] }),
                 logData && logData.rows && logData.rows.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, overflow: "hidden" }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "150px 120px 130px 90px 1fr", gap: 8, padding: "7px 11px", fontSize: 10.5, opacity: 0.5, borderBottom: "1px solid var(--me-c-border)", background: "var(--me-c-surface)" }, children: [
@@ -35477,7 +35524,7 @@ ${COMPONENTS_CSS}
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: r.title, children: r.title })
                   ] }, r.id))
                 ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-empty", style: { padding: "28px 0", textAlign: "center", opacity: 0.55 }, children: logBusy ? t("loading") : t("logsEmpty") }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }, children: t("logsFooterHint") })
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }, children: t("logsFooterHint").replace("{n}", String(logKeep)) })
               ] }),
               view === "cards" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-pagehead", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
