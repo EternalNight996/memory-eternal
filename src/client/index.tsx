@@ -1025,6 +1025,11 @@ export const ZH = {
   qrLogin: '扫码登录',
   otherAccounts: '其他账号',
   switchedTo: '已切换到 {who}',
+    planTiersTitle: '可选档位',
+  planTiersCurrent: '（当前）',
+  planTiersPriceNote: '价格为 MengBot 公开月价（另有半年/年付折扣），以订阅页为准。',
+  robotTierNote: '这几档是 MengBot 的云端机器人订阅（含云端桌面与并发任务）。memory-eternal 只用到其中的存储与检索 API —— 专属知识库套餐在谈。',
+  noCapsHint: '这一档还没有下发配额（caps 为空）。存储上限与速率以订阅页说明为准。',
   managePlan: '升级 / 续费',
   perMinute: '次/分',
   cloudPlanRpm: '请求速率',
@@ -2183,6 +2188,11 @@ export const EN = {
   cloudInfoInstance: 'Instance',
   cloudDisconnected: 'Switched to local',
   cloudPlanLabel: 'Plan',
+  planTiersTitle: 'Available tiers',
+  planTiersCurrent: '(current)',
+  planTiersPriceNote: 'Public monthly price from MengBot; half-year/yearly discounts apply. The subscribe page is authoritative.',
+  robotTierNote: 'These tiers are MengBot\'s cloud-robot subscriptions (cloud desktop + concurrent tasks). memory-eternal only uses the storage and retrieval API — a dedicated plan is being discussed.',
+  noCapsHint: 'This tier has no caps yet. Storage and rate limits follow the subscribe page.',
   cloudPlanExpires: 'Expires',
   cloudPlanCards: 'Card limit',
   cloudShowKey: 'Or paste an access key',
@@ -5714,6 +5724,22 @@ function daysLeft(v) {
   if (Number.isNaN(t)) return null
   return Math.ceil((t - Date.now()) / 86400000)
 }
+
+/**
+ * 各档位的公开月价（抓自 MengBot 订阅页 2026-11-14）。
+ *
+ * 为什么前端硬编码：`/cloud/billing/plan` 只回 `plans: ["personal","pro","max"]`，
+ * **不带价格**。用户看不到"我现在每月付多少、升下一档要多少"，套餐卡就只剩一行名字。
+ * 硬编码的代价是价格变了要改代码 —— 所以下面显示时会带「以订阅页为准」的说明。
+ */
+const PLAN_PRICE = { free: 0, personal: 39, pro: 79, max: 329, 'sub-merchant': 199, 'sub-merchant-pro': 999 }
+
+/**
+ * 这些档位是 **MengBot 通用订阅（含云端机器人）**，memory-eternal 只用得到其中的
+ * 存储与 API —— 云端桌面、并发任务、共享云加购这些权益对知识库没有意义。
+ * UI 要如实标出来，否则用户会以为自己在为「跑机器人」付费。
+ */
+const PLAN_IS_ROBOT_TIER = { personal: true, pro: true, max: true }
 
 function planLabelOf(plan, zh) {
   const k = String(plan || '').toLowerCase()
@@ -10209,7 +10235,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         <div style={{ borderTop: '1px solid var(--me-c-border)' }}>
                           {/* 权益：到期 / 配额，一眼看完；缺数据就不显示那一行，不留空壳 */}
                           <div style={{ padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanLabel')}</span><span style={{ fontWeight: 600 }}>{cloudPlan ? planLabelOf(cloudPlan.plan, true) : '—'}</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanLabel')}</span><span style={{ fontWeight: 600 }}>{cloudPlan ? planLabelOf(cloudPlan.plan, true) : '—'}{cloudPlan && PLAN_PRICE[String(cloudPlan.plan || '').toLowerCase()] ? ' · ¥' + PLAN_PRICE[String(cloudPlan.plan).toLowerCase()] + '/月' : ''}</span></div>
                             {cloudPlan && formatExpiry(cloudPlan.expiresAt) ? (
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanExpires')}</span><span style={{ textAlign: 'right' }}>{formatExpiry(cloudPlan.expiresAt)}{daysLeft(cloudPlan.expiresAt) !== null ? ' · ' + (daysLeft(cloudPlan.expiresAt) > 0 ? t('daysLeft').replace('{n}', String(daysLeft(cloudPlan.expiresAt))) : t('expired')) : ''}</span></div>
                             ) : null}
@@ -10220,9 +10246,36 @@ function ConfigPanel({ t, onReload, version, compact }) {
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanRpm')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.rpm).toLocaleString()} / {t('perMinute')}</span></div>
                             ) : null}
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudInfoInstance')}</span><span style={{ textAlign: 'right' }}>{String(cloudForm.url || '').replace(/^https?:\/\//, '')}</span></div>
+                {cloudPlan && !cloudPlan.caps ? (
+                  <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.65 }}>{t('noCapsHint')}</div>
+                ) : null}
                           </div>
                           {/* 升级 / 续费：账号详情页 MengBot 没公开，但订阅页确定可用 */}
-                          <button type="button" onClick={() => { try { window.open(subscribeUrl(), '_blank', 'noopener') } catch { /* 忽略 */ } }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
+                          {/* 如实说明：这几档是 MengBot 的机器人订阅，知识库只用到存储与 API */}
+                {cloudPlan && Array.isArray(cloudPlan.plans) && cloudPlan.plans.some((x) => PLAN_IS_ROBOT_TIER[String(x).toLowerCase()]) ? (
+                  <div style={{ padding: '0 15px 10px', fontSize: 10.5, opacity: 0.5, lineHeight: 1.65 }}>{t('robotTierNote')}</div>
+                ) : null}
+                {/* 可选档位对比：只列个人档，商户档在下面单独一块 */}
+                {cloudPlan && Array.isArray(cloudPlan.plans) && cloudPlan.plans.length ? (
+                  <div style={{ padding: '0 15px 10px' }}>
+                    <div style={{ fontSize: 10.5, opacity: 0.5, marginBottom: 6 }}>{t('planTiersTitle')}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {cloudPlan.plans.map((pid) => {
+                        const cur = String(cloudPlan.plan || '').toLowerCase() === String(pid).toLowerCase()
+                        const price = PLAN_PRICE[String(pid).toLowerCase()]
+                        return (
+                          <div key={pid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, opacity: cur ? 1 : 0.75 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: cur ? 'var(--me-c-success)' : 'var(--me-c-border-strong)' }} />
+                            <span style={{ flex: 1 }}>{planLabelOf(pid, true)}{cur ? ' ' + t('planTiersCurrent') : ''}</span>
+                            <span style={{ opacity: 0.7 }}>{price ? '¥' + price + '/月' : '—'}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ fontSize: 10, opacity: 0.4, marginTop: 5, lineHeight: 1.6 }}>{t('planTiersPriceNote')}</div>
+                  </div>
+                ) : null}
+                <button type="button" onClick={() => { try { window.open(subscribeUrl(), '_blank', 'noopener') } catch { /* 忽略 */ } }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
                             <span>{t('managePlan')}</span><span style={{ opacity: 0.5 }}>↗</span>
                           </button>
                           {/* 导入本地库 */}
