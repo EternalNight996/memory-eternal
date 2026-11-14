@@ -816,6 +816,18 @@ export const ZH = {
   cloudModeLabel: '运行模式',
   localVaultLabel: '记忆库位置',
   cloudLoginCtaHint: '自动获取令牌，不用手动填密钥',
+  deviceTitle: '在任意设备上完成登录',
+  deviceOpen: '用手机或浏览器打开：',
+  deviceCodeLabel: '输入代码：',
+  deviceCopy: '复制',
+  deviceWaiting: '等待授权…（授权后这里会自动完成，不用刷新）',
+  deviceCancel: '取消',
+  deviceDone: '登录成功',
+  deviceExpired: '验证码已过期，请重新发起登录',
+  deviceFailed: '登录失败',
+  deviceErrTitle: '登录不可用',
+  deviceNotAllowed: '总部（MengBot）已支持设备码登录，但还没为我们的应用开启这项权限。请先用下方的访问密钥登录。',
+  deviceFallbackHint: '这条不影响使用：把访问密钥填进下面的输入框即可，效果完全一样（只是没有头像）。',
   cloudSwitchAccount: '切换账号',
   merchantEndpointLabel: '目标接入点',
   merchantEndpointHint: '要接入的 MengBot 服务地址；换域名时改这里',
@@ -1933,6 +1945,18 @@ export const EN = {
   cloudModeLabel: 'Mode',
   localVaultLabel: 'Vault location',
   cloudLoginCtaHint: 'Gets a token automatically — no key to paste',
+  deviceTitle: 'Finish signing in on any device',
+  deviceOpen: 'Open this on your phone or browser:',
+  deviceCodeLabel: 'Enter code:',
+  deviceCopy: 'Copy',
+  deviceWaiting: 'Waiting for approval… (finishes automatically, no refresh needed)',
+  deviceCancel: 'Cancel',
+  deviceDone: 'Signed in',
+  deviceExpired: 'The code expired — please start again',
+  deviceFailed: 'Sign-in failed',
+  deviceErrTitle: 'Sign-in unavailable',
+  deviceNotAllowed: 'MengBot supports device sign-in but has not enabled it for this app yet. Use the access key below for now.',
+  deviceFallbackHint: 'This does not block you — paste the access key below and everything works the same (just no avatar).',
   cloudSwitchAccount: 'Switch account',
   merchantEndpointLabel: 'Target endpoint',
   merchantEndpointHint: 'MengBot endpoint to connect; change it if the domain moves',
@@ -7416,6 +7440,65 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [autoState, setAutoState] = useState(null)
   const [autoDry, setAutoDry] = useState(null)
   /** 预演一次自动体检（只看会归档多少，不动数据） */
+  /** 发起设备码登录。失败时把 code 一起带出来（grant_not_allowed 要单独引导）。 */
+  const startDeviceLogin = async () => {
+    setDeviceBusy(true); setDeviceErr('')
+    try {
+      const r = await fetch(API + '/cloud/auth/device/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!d.ok) {
+        setDeviceErr(d.code === 'grant_not_allowed'
+          ? t('deviceNotAllowed')
+          : (d.error || ('HTTP ' + r.status)))
+        setDeviceBusy(false)
+        return
+      }
+      setDeviceAuth({ ...d, startedAt: Date.now() })
+    } catch (e) { setDeviceErr(String((e && e.message) || e)) }
+    setDeviceBusy(false)
+  }
+  const cancelDeviceLogin = () => { setDeviceAuth(null); setDeviceErr('') }
+  /** 轮询设备码结果：拿到令牌就写入配置并切云端。 */
+  useEffect(() => {
+    if (!deviceAuth || !deviceAuth.ticket) return
+    let alive = true
+    const interval = Math.max(2, Number(deviceAuth.interval) || 5) * 1000
+    const deadline = deviceAuth.startedAt + (Number(deviceAuth.expiresIn) || 600) * 1000
+    const tick = async () => {
+      if (!alive) return
+      if (Date.now() > deadline) { setDeviceErr(t('deviceExpired')); setDeviceAuth(null); return }
+      try {
+        const r = await fetch(API + '/cloud/auth/device/poll', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticket: deviceAuth.ticket }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!alive) return
+        if (d.ok && d.token) {
+          // 拿到令牌 → 落盘并激活（与手动填密钥完全同一条路径）
+          const next = persistCloud({ mode: 'cloud', url: cloudForm.url, token: d.token })
+          if (next.ok) {
+            activateCloud({ ...next.next, token: d.token })
+            setCloudConn(readCloudConn())
+            setCloudForm((f) => ({ ...f, mode: 'cloud', token: d.token }))
+            setCloudTest({ ok: true, authenticated: true, owner: d.owner || '', profile: d.profile || null })
+            setDeviceAuth(null)
+            try { notify(t('deviceDone'), true) } catch { /* 忽略 */ }
+          }
+          return
+        }
+        if (d.pending) { timer = setTimeout(tick, interval); return }
+        setDeviceErr(d.error || t('deviceFailed'))
+        setDeviceAuth(null)
+      } catch (e) {
+        if (alive) { setDeviceErr(String((e && e.message) || e)); setDeviceAuth(null) }
+      }
+    }
+    let timer = setTimeout(tick, interval)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [deviceAuth, cloudForm.url])
   /** 保存定时体检配置。
    *  必须走 /junk/auto 的 save 分支 —— 走主「保存配置」会被 DSH settings 的 schema 过滤掉，
    *  用户点了保存、开关照样弹回关（这是实际踩到的 bug）。 */
@@ -7514,6 +7597,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [merchants, setMerchants] = useState([])
   const [mchForm, setMchForm] = useState(() => ({ name: '', domain: '', endpoint: String(readCloudConn().merchantEndpoint || 'https://mem.mengbot.com.cn') }))
   const [mchBusy, setMchBusy] = useState(false)
+  // 设备码登录（RFC 8628）：桌面端 / 无浏览器环境走这条。
+  // 授权码流程在自定义协议页面上必然失败（interaction cookie 跨不过 origin）。
+  const [deviceAuth, setDeviceAuth] = useState(null)   // { userCode, verificationUri, ticket, interval, expiresIn, startedAt }
+  const [deviceErr, setDeviceErr] = useState('')
+  const [deviceBusy, setDeviceBusy] = useState(false)
   const [mchErr, setMchErr] = useState('')
   /** 刚生成的商户密钥（只显示一次，刷新即消失）。 */
   const [mchSecret, setMchSecret] = useState(null)
@@ -8808,8 +8896,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <button
                       type="button"
                       className="me-login-cta"
-                      disabled={!String(cloudForm.url || '').trim()}
-                      onClick={startLoginRedirect}
+                      disabled={!String(cloudForm.url || '').trim() || deviceBusy}
+                      onClick={() => {
+                        // 自定义协议页面（DSH 桌面端）走不通授权码流程：
+                        // interaction cookie 种在 accounts.mengbot.com.cn 域上，跨不到 dsh-app://，
+                        // 授权页会直接判「不在同一个浏览器里」并 400。这类环境改走设备码。
+                        const origin = (typeof location !== 'undefined' && location.origin) || ''
+                        const isCustomScheme = !/^https?:/i.test(origin) || origin === 'null'
+                        if (isCustomScheme) startDeviceLogin()
+                        else startLoginRedirect()
+                      }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
                         padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
@@ -8825,6 +8921,39 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       </span>
                     </button>
                   )}
+                    {/* 设备码登录面板：桌面端/无浏览器环境走这条。
+                        授权码流程在自定义协议页面上必然失败，这里改为「显示短码 + 轮询」。 */}
+                    {deviceErr ? (
+                      <div style={{ border: '1px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '10px 12px', fontSize: 12, lineHeight: 1.65 }}>
+                        <b>{t('deviceErrTitle')}</b>
+                        <div style={{ marginTop: 4 }}>{deviceErr}</div>
+                        {/grant_not_allowed|未被允许/.test(deviceErr) ? (
+                          <div style={{ marginTop: 6, opacity: 0.85 }}>{t('deviceFallbackHint')}</div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {deviceAuth ? (
+                      <div style={{ border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent-soft, rgba(37,99,235,.08))', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t('deviceTitle')}</div>
+                        <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+                          {t('deviceOpen')}{' '}
+                          <a href={deviceAuth.verificationUri} target="_blank" rel="noreferrer" style={{ wordBreak: 'break-all' }}>{deviceAuth.verificationUri}</a>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 12, opacity: 0.8 }}>{t('deviceCodeLabel')}</span>
+                          <span style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 20, fontWeight: 700, letterSpacing: 2, padding: '4px 12px', background: 'var(--me-c-surface)', border: '1px solid var(--me-c-border)', borderRadius: 8 }}>
+                            {deviceAuth.userCode}
+                          </span>
+                          <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode) } catch { /* 忽略 */ } }}>
+                            {t('deviceCopy')}
+                          </Btn>
+                        </div>
+                        <div style={{ fontSize: 11.5, opacity: 0.7 }}>⏳ {t('deviceWaiting')}</div>
+                        <div>
+                          <Btn variant="ghost" size="sm" onClick={cancelDeviceLogin}>{t('deviceCancel')}</Btn>
+                        </div>
+                      </div>
+                    ) : null}
                   <label className="mc-field">
                     <span className="mc-field-label">{t('cloudUrlLabel')}</span>
                     <input
