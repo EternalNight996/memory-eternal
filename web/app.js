@@ -34228,7 +34228,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T13:17:11.656Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T13:29:59.387Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -36939,7 +36939,7 @@ ${t("quoteHint")}`,
         if (d && d.ok) {
           setVaultList(d.vaults || []);
           const other = (d.vaults || []).find((v) => !v.isCurrent);
-          setVaultSel((cur) => cur || (other ? other.path : ""));
+          setVaultSel((cur) => cur && (d.vaults || []).some((v) => v.path === cur && !v.isCurrent) ? cur : other ? other.path : "");
         }
       } catch {
       }
@@ -38183,9 +38183,10 @@ ${t("quoteHint")}`,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("vaultTargetLabel") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: vaultSel, onChange: (e) => setVaultSel(e.target.value), children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("vaultPickPlaceholder") }),
-                        vaultList.filter((v) => !v.isCurrent).map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: v.path, children: [
+                        vaultList.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: v.path, disabled: v.isCurrent, children: [
                           v.name,
                           v.owner ? " \xB7 " + v.owner : "",
+                          v.isCurrent ? " " + t("vaultCurrent") : "",
                           "\uFF08",
                           v.cards,
                           " \u5361\uFF09"
