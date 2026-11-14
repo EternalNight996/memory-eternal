@@ -10266,25 +10266,6 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 <button type="button" onClick={() => { try { window.open(subscribeUrl(), '_blank', 'noopener') } catch { /* 忽略 */ } }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
                             <span>{t('managePlan')}</span><span style={{ opacity: 0.5 }}>↗</span>
                           </button>
-                          {/* 导入本地库 */}
-                          <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '11px 15px' }}>
-                            <div style={{ fontSize: 11.5, opacity: 0.6, marginBottom: 7 }}>{t('importLocalHint')}</div>
-                            {importJob && importJob.importing ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: 12 }}>{t('importRunning').replace('{done}', String(importJob.done)).replace('{total}', String(importJob.total))}</span>
-                                <Btn variant="ghost" size="sm" onClick={cancelImport}>{t('importCancel')}</Btn>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <Btn variant="secondary" size="sm" onClick={importLocalToCloud}>{t('importLocal')}</Btn>
-                                {importJob && importJob.total > 0 ? (
-                                  <span style={{ fontSize: 11.5, opacity: 0.6 }}>{t('importDone').replace('{n}', String(importJob.imported || 0))}{importJob.duplicate ? ' · ' + importJob.duplicate + ' skipped' : ''}</span>
-                                ) : null}
-                              </div>
-                            )}
-                            <div style={{ fontSize: 10.5, opacity: 0.45, marginTop: 6, lineHeight: 1.6 }}>{t('importCopyNote')}</div>
-                            {importJob && importJob.err ? <Status tone="bad" text={importJob.err} /> : null}
-                          </div>
                           {/* 其他账号：台账里除当前账号外的，点一下直接切（不用重新扫码） */}
                           {(() => {
                             const others = readAccounts().filter((a) => a.owner && a.owner !== (cloudIdentity.owner || ''))
