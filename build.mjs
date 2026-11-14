@@ -12,12 +12,17 @@ const PACKAGE_ID = 'memory-eternal'
 // （否则用户更新后看到的仍是旧页面 JS，会误以为「改了没生效」，例如配置保存无反馈）。
 const pkg = JSON.parse(await readFile('package.json', 'utf8'))
 const BUILD_AT = new Date().toISOString()
+// 唯一的压缩开关：两份 bundle 共用。
+// 现在为 false —— 压缩会把线上堆栈变成单字母名（`Cannot access 'fe'` 无从定位），
+// 体积收益（约 300KB）抵不上排查成本。想改回来只改这一处，别在下面两处各写一遍。
+const MINIFY = false
 const clientDefine = {
   __ME_CLIENT_VERSION__: JSON.stringify(pkg.version),
   // 构建时刻 + 是否压缩：面板与错误兜底页都显示它。
   // 用户报「还是报错」时，先看这一行就能判断他加载的是不是旧包。
+  // 注意：这个值必须跟着 MINIFY 走，硬编码会导致标记骗人（踩过）。
   __ME_BUILD_AT__: JSON.stringify(BUILD_AT),
-  __ME_BUILD_MIN__: JSON.stringify(false),
+  __ME_BUILD_MIN__: JSON.stringify(MINIFY),
 }
 
 // 共享运行时一律 external：由 DSH 的 __ModuleLoader__ 在运行时 require 注入，
@@ -45,11 +50,8 @@ await build({
   external: externals,
   jsx: 'automatic',
   loader: { '.png': 'dataurl', '.jpg': 'dataurl' },
-  // 不压缩：压缩 + ModuleLoader 工厂包装下出现过 TDZ 报错
-  //（"can't access lexical declaration before initialization"），
-  // 只在 DSH 环境复现、浏览器加载同一份源码正常。
-  // 这份是本地文件，体积不敏感；不压缩还能让线上堆栈可读。
-  minify: false,
+  // 不压缩（原因见上面 MINIFY 常量的注释）。这份是本地文件，体积不敏感。
+  minify: MINIFY,
   // 保留函数名：即使以后想改回压缩，也能减少内联导致的变量作用域混淆
   keepNames: true,
   define: clientDefine,
@@ -87,7 +89,12 @@ await build({
   target: 'es2022',
   jsx: 'automatic',
   loader: { '.png': 'dataurl', '.jpg': 'dataurl' },
-  minify: true,
+  // 不压缩：与 DSH 内嵌 bundle 保持一致。
+  // 压缩唯一的收益是体积（1.5MB → 1.2MB），但代价是**线上堆栈全是单字母名** ——
+  // 像 `Cannot access 'fe' before initialization` 这种报错，没有可读标识符根本无从定位。
+  // 排查成本远高于那 300KB。
+  minify: MINIFY,
+  keepNames: true,
   define: clientDefine,
   logLevel: 'info',
 })
