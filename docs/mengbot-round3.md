@@ -138,3 +138,96 @@ POST /api/v1/orders/{id}/refund
 
 **剩余只有 B1（数值）与 B2（plan 枚举）两个「等产品确认」的事项**，
 且都不阻塞现有功能（兜底逻辑在跑，`source` 字段可观测）。
+
+---
+
+## 六、第 3 封的**更新版**（B2 已上线，两处破坏性变更）
+
+> 对方第 3 封在 2026-11-14 12:11 更新过，B2 从「待确认」变成「已实现并上线」。
+> 关键：他们说这个端点**之前根本不存在**（`POST /api/cloud/desktop/checkout` → 404），
+> 我们此前"验证通过"的是自己的转发逻辑，不是他们的端点。**这条我们认**。
+
+### 变更一：`plan` 枚举 → `personal` / `pro` / `max`（已改）
+
+| 值 | sku | 价格 | 说明 |
+|---|---|---|---|
+| `personal` | `sub-personal` | ¥39/月 | 个人版 |
+| `pro` | `sub-pro` | ¥79/月 | 个人 Pro |
+| `max` | `sub-max` | ¥329/月 | Max（bots/apps 不限） |
+
+`team` / `enterprise` **不存在**（`team` 没做过、`enterprise` 已废弃）。
+
+**已改**：
+
+- `lib/billing.js` → `CHECKOUT_PLANS = ['personal', 'pro', 'max']`
+- `lib/quota.js` → `PLAN_QUOTA` 加 `personal` / `max`；
+  `team` / `enterprise` **保留**（老 entitlement 里可能还带着，删掉会让那些租户
+  静默掉到 `DEFAULT_QUOTA`，属于降级而非升级）
+- 测试同步（`billing` 8/8）
+
+### 变更二：鉴权从 OIDC access_token → **`omc_` 设备令牌**（❓ 需要澄清）
+
+对方原文：
+
+> 鉴权用设备令牌（`omc_`，Bearer），不是 `mbt_`/`mbo_`。
+
+我们的实现是「服务端代用户下单」：
+
+```
+用户 OIDC 登录我们 → 我们存 refresh_token → 用户点升级 → 我们代用户调 checkout
+```
+
+而他们这个端点是 **`/api/cloud/desktop/checkout`**（desktop = 桌面客户端），
+要的是**桌面客户端的设备令牌 `omc_`**。
+
+**两个问题必须请他们明确**：
+
+**Q1. `omc_` 从哪来？**
+我们作为第三方服务端（memory-eternal-cloud），有没有可能拿到 `omc_`？
+还是说这个端点只给 MengBot 自己的桌面客户端用？
+
+**Q2.（更关键）能否跳过 checkout 端点，直接让用户跳 subscribe 页？**
+
+他们的 `url` 指向 `https://pay.mengbot.com.cn/subscribe?sku=sub-pro&order=MBMW...`。
+如果 `order` 是必须的，我们就得先建单；如果**不建单也能直达**（用户在页面上自己完成登录+下单），
+那对我们是最干净的架构：
+
+```
+用户点「升级 Max」→ 我们 302 到
+  https://pay.mengbot.com.cn/subscribe?sku=sub-max&source=memory-eternal
+→ 用户在 MengBot 页面完成支付
+→ webhook 回传 entitlement.updated → 我们更新套餐
+```
+
+**这个方案的好处**：
+- 我们不需要 `omc_`，不需要代用户建单
+- **支付道印灵钥不经过第三方服务端**（安全上更正确）
+- 少一次跨服务调用，少一类失败点
+
+**在澄清之前**，我们不改 `createCheckout` 的鉴权实现（继续用 OIDC access_token），
+因为改错的代价是「用户点了升级直接 401」。
+
+### 变更三：响应字段已确认（可用来显示价格）
+
+```json
+{"cloudContractVersion":1,"ok":true,
+ "url":"https://pay.mengbot.com.cn/subscribe?sku=sub-pro&order=MBMWFW1EF9429A99",
+ "orderId":"MBMWFW1EF9429A99","plan":"pro","sku":"sub-pro","priceFen":7900,"expiresIn":900}
+```
+
+- `priceFen` → 可以在「升级」按钮旁边显示真实价格（¥79/月）
+- `expiresIn: 900` → 结账单 15 分钟内有效，UI 要提示
+- `orderId` / `sku` → 用于展示与对账
+
+**这几项目前我们都没借势**（`createCheckout` 只取了 `url`）。等 Q2 澄清后再决定要不要接。
+
+---
+
+## 七、待办更新
+
+| 优先级 | 项 | 阻塞在谁 |
+|---|---|---|
+| **P0** | 要一个 `mbt_`（scope=client）令牌 → 套餐主动对账 | 他们 |
+| **P0** | 澄清 `omc_` 怎么来 / 能否直接跳 subscribe 页 | 他们 |
+| P1 | 等 `caps.cards` 下发（`source` 字段可观测） | 他们 |
+| P2 | 等 `plan` 枚举… | ✅ 已完成，我们已改 |
