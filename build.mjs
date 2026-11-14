@@ -11,7 +11,14 @@ const PACKAGE_ID = 'memory-eternal'
 // 把插件版本注入客户端：面板据此显示「页面脚本版本」，并在页面脚本落后于磁盘时直接提示刷新
 // （否则用户更新后看到的仍是旧页面 JS，会误以为「改了没生效」，例如配置保存无反馈）。
 const pkg = JSON.parse(await readFile('package.json', 'utf8'))
-const clientDefine = { __ME_CLIENT_VERSION__: JSON.stringify(pkg.version) }
+const BUILD_AT = new Date().toISOString()
+const clientDefine = {
+  __ME_CLIENT_VERSION__: JSON.stringify(pkg.version),
+  // 构建时刻 + 是否压缩：面板与错误兜底页都显示它。
+  // 用户报「还是报错」时，先看这一行就能判断他加载的是不是旧包。
+  __ME_BUILD_AT__: JSON.stringify(BUILD_AT),
+  __ME_BUILD_MIN__: JSON.stringify(false),
+}
 
 // 共享运行时一律 external：由 DSH 的 __ModuleLoader__ 在运行时 require 注入，
 // 绝不能打进 bundle（否则会复制 React/Cordis 运行时身份）。
