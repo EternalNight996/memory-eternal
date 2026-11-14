@@ -32081,7 +32081,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T10:07:51.254Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T10:13:03.385Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34121,6 +34121,11 @@ ${t("quoteHint")}`,
   function ConfigPanel({ t, onReload, version, compact }) {
     const [page, setPage] = (0, import_react2.useState)("general");
     const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
+    const cloudApi = /* @__PURE__ */ __name((path) => {
+      const base = String(cloudForm && cloudForm.url || "").trim().replace(/\/+$/, "");
+      if (!base) return "";
+      return base + "/memory-eternal/api" + path;
+    }, "cloudApi");
     const [junk, setJunk] = (0, import_react2.useState)(null);
     const [junkBusy, setJunkBusy] = (0, import_react2.useState)(false);
     const [junkErr, setJunkErr] = (0, import_react2.useState)("");
@@ -34186,7 +34191,7 @@ ${t("quoteHint")}`,
       setDeviceBusy(true);
       setDeviceErr("");
       try {
-        const r = await fetch(API + "/cloud/auth/device/start", {
+        const r = await fetch(cloudApi("/cloud/auth/device/start"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: "{}"
@@ -34220,7 +34225,7 @@ ${t("quoteHint")}`,
           return;
         }
         try {
-          const r = await fetch(API + "/cloud/auth/device/poll", {
+          const r = await fetch(cloudApi("/cloud/auth/device/poll"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ticket: deviceAuth.ticket })
@@ -34390,7 +34395,7 @@ ${t("quoteHint")}`,
     }, []);
     const loadMerchants = /* @__PURE__ */ __name(async () => {
       try {
-        const r = await fetch(API + "/cloud/merchant/me");
+        const r = await fetch(cloudApi("/cloud/merchant/me"));
         const d = await r.json().catch(() => ({}));
         if (d && d.ok) setMerchants(Array.isArray(d.merchants) ? d.merchants : []);
       } catch {
@@ -34403,7 +34408,7 @@ ${t("quoteHint")}`,
       setMchBusy(true);
       setMchErr("");
       try {
-        const r = await fetch(API + "/cloud/merchant/register", {
+        const r = await fetch(cloudApi("/cloud/merchant/register"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: mchForm.name, domain: mchForm.domain })
@@ -34426,7 +34431,7 @@ ${t("quoteHint")}`,
       setMchBusy(true);
       setMchErr("");
       try {
-        const r = await fetch(API + "/cloud/merchant/rotate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+        const r = await fetch(cloudApi("/cloud/merchant/rotate"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.ok) {
           setMchErr(d.error || "HTTP " + r.status);
@@ -34444,7 +34449,7 @@ ${t("quoteHint")}`,
       setMchBusy(true);
       setMchErr("");
       try {
-        const r = await fetch(API + "/cloud/merchant/revoke", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+        const r = await fetch(cloudApi("/cloud/merchant/revoke"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.ok) setMchErr(d.error || "HTTP " + r.status);
         else setMerchants((list) => list.filter((m) => m.id !== id));
