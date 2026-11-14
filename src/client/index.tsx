@@ -772,6 +772,7 @@ export const ZH = {
   cloudUrlHint: '填 memory-eternal-cloud 部署的地址（如 https://mem.mengbot.com.cn），不是 MengBot 账号域 accounts.mengbot.com.cn——那个只有点「用 MengBot 账号登录」时才跳过去',
   cloudTokenLabel: '访问密钥（可选）',
   cloudTokenHint: '用「用 MengBot 账号登录」时这里留空即可；只有直连别人给的实例才需要填',
+  cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
   cloudUrlInvalid: '地址要以 http(s):// 开头',
   cloudTest: '测试连接',
   cloudTestOk: '连接成功 · {owner}',
@@ -1854,6 +1855,7 @@ export const EN = {
   cloudUrlHint: 'The memory-eternal-cloud server address (e.g. https://mem.mengbot.com.cn) — NOT the MengBot identity host accounts.mengbot.com.cn',
   cloudTokenLabel: 'Access key (optional)',
   cloudTokenHint: 'Leave empty if you sign in with MengBot; only needed when connecting to someone else instance',
+  cloudTokenPeek: 'Current token: {peek} ({len} chars)',
   cloudUrlInvalid: 'URL must start with http(s)://',
   cloudTest: 'Test connection',
   cloudTestOk: 'Connected · {owner}',
@@ -6168,6 +6170,11 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     <span className="mc-field-label">{t('cloudTokenLabel')}</span>
                     <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_… / mb_…" disabled={cloudForm.mode !== 'cloud'} />
                     <span className="mc-field-hint">{t('cloudTokenHint')}</span>
+{cloudForm.token ? (
+  <span className="mc-field-hint" style={{ opacity: 0.5 }}>
+    {t('cloudTokenPeek').replace('{peek}', String(cloudForm.token).slice(0, 6) + '…').replace('{len}', String(String(cloudForm.token).length))}
+  </span>
+) : null}
                   </label>
                   <div className="mc-cloud-actions">
                     <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
@@ -8502,6 +8509,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     disabled={cloudForm.mode !== 'cloud'}
                   />
                   <span className="mc-field-hint">{t('cloudTokenHint')}</span>
+{cloudForm.token ? (
+  <span className="mc-field-hint" style={{ opacity: 0.5 }}>
+    {t('cloudTokenPeek').replace('{peek}', String(cloudForm.token).slice(0, 6) + '…').replace('{len}', String(String(cloudForm.token).length))}
+  </span>
+) : null}
                 </label>
               </div>
               <div className="mc-cloud-actions" style={{ marginTop: 12 }}>
