@@ -29686,6 +29686,7 @@
     vaultDefaultName: "\u9ED8\u8BA4\u5E93",
     serverVaultListLabel: "\u670D\u52A1\u5668\u4E0A\u7684\u5E93",
     cloudDataLocationNote: "\u8FD9\u91CC\u7684\u5E93\u90FD\u5728\u670D\u52A1\u5668\u4E0A\uFF0C\u4E0D\u662F\u4F60\u8FD9\u53F0\u7535\u8111\u4E0A\u7684\u6570\u636E\u3002\u8981\u628A\u672C\u673A\u5DF2\u6709\u7684\u5361\u7247\u8FC1\u8FC7\u6765\uFF1A\u6253\u5F00 DeepSeek Harness \u9762\u677F \u2192 \u8BB0\u5FC6 \u2192 \u8BBE\u7F6E \u2192 \u5B9E\u9A8C\u6027 \u2192 \u4E91\u7AEF\u8FDE\u63A5\uFF0C\u8FD0\u884C\u6A21\u5F0F\u9009\u300C\u4E91\u7AEF\u300D\uFF0C\u7136\u540E\u70B9\u300C\u4E0A\u4F20\u5F53\u524D\u5E93\u5230\u4E91\u7AEF\u300D\u3002",
+    localVaultDesc: "\u8FD9\u4E2A\u5E93\u5728\u8FD9\u53F0\u673A\u5668\u4E0A\uFF0C\u4E0D\u8054\u7F51\u4E5F\u4E0D\u4E0A\u4F20\u3002\u767B\u5F55\u4E91\u7AEF\u53EA\u662F\u63D0\u4F9B\u4E00\u4E2A\u540C\u6B65\u76EE\u6807\uFF0C\u672C\u5730\u5E93\u59CB\u7EC8\u662F\u8FD9\u4EFD\u3002",
     cloudInstanceDesc: "\u8FD9\u662F\u4F60\u7684\u4E91\u7AEF\u5B9E\u4F8B\uFF1A\u8BB0\u5FC6\u5E93\u5728\u670D\u52A1\u5668\u4E0A\uFF0C\u901A\u8FC7 HTTPS \u8BBF\u95EE\uFF1B\u672C\u673A\u79BB\u7EBF\u65F6\u7528\u672C\u5730\u5E93\u3002",
     cloudVaultListLabel: "\u4E91\u7AEF\u5B9E\u4F8B\u4E0A\u7684\u5E93",
     cloudVaultQuota: "\u5DF2\u7528 {u} / {l}",
@@ -30961,6 +30962,7 @@
     vaultDefaultName: "default",
     serverVaultListLabel: "Vaults on the server",
     cloudDataLocationNote: 'These vaults live on the server, not on your computer. To bring your existing cards over: open the DeepSeek Harness panel \u2192 Memory \u2192 Settings \u2192 Experimental \u2192 Cloud, pick Cloud mode, then click "Upload current to cloud".',
+    localVaultDesc: "This vault lives on this machine \u2014 no network, no upload. Signing in to cloud only adds a sync target; the local vault stays this one.",
     cloudInstanceDesc: "This is your cloud instance: the vault lives on the server over HTTPS. Use a local vault when offline.",
     cloudVaultListLabel: "Vaults on the cloud instance",
     cloudVaultQuota: "{u} / {l} used",
@@ -34426,7 +34428,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T18:11:01.617Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T18:20:24.717Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -37385,7 +37387,7 @@ ${t("quoteHint")}`,
       importCancelRef.current = false;
       setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: "" });
       try {
-        const exp = await fetch(API + "/vaults/export?path=" + encodeURIComponent(src));
+        const exp = await fetchLocal("/vaults/export?path=" + encodeURIComponent(src));
         if (!exp.ok) throw new Error("\u8BFB\u53D6\u672C\u5730\u5E93\u5931\u8D25 HTTP " + exp.status);
         const data = await exp.json();
         const cards = Array.isArray(data.cards) ? data.cards : [];
@@ -37446,7 +37448,7 @@ ${t("quoteHint")}`,
           return;
         }
         setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: "" });
-        const r = await fetch(API + "/vaults/import-into", {
+        const r = await fetchLocal("/vaults/import-into", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ target: dst, cards, onDuplicate: dupMode })
@@ -37519,7 +37521,7 @@ ${t("quoteHint")}`,
     const activateVault = /* @__PURE__ */ __name(async (path2) => {
       if (!path2) return;
       try {
-        const r = await fetch(API + "/vaults/activate", {
+        const r = await fetchLocal("/vaults/activate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ path: path2 })
@@ -37551,7 +37553,7 @@ ${t("quoteHint")}`,
       const name = String(window.prompt(t("createVaultPrompt")) || "").trim().toLowerCase();
       if (!name) return;
       try {
-        const r = await fetch(API + "/vaults/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        const r = await fetchLocal("/vaults/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.ok) {
           try {
@@ -37594,7 +37596,7 @@ ${t("quoteHint")}`,
         setCloudVaultQuota(null);
       }
       try {
-        const r = await fetch(API + "/vaults");
+        const r = await fetchLocal("/vaults");
         const d = await r.json().catch(() => ({}));
         if (d && d.ok) {
           setVaultList(d.vaults || []);
@@ -37618,7 +37620,7 @@ ${t("quoteHint")}`,
       const target = dir === "up" ? other.path : cur.path;
       setXfer({ busy: true });
       try {
-        const post = /* @__PURE__ */ __name((dry) => fetch(API + "/vaults/transfer", {
+        const post = /* @__PURE__ */ __name((dry) => fetchLocal("/vaults/transfer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ source, target, onDuplicate: dupMode, dryRun: dry })
@@ -38811,9 +38813,9 @@ ${t("quoteHint")}`,
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: cloudTab === "local" ? t("cloudModeLocalHint") : cloudTab === "cloud" ? t("cloudModeCloudHint") : t("cloudTabMerchantHint") })
               ] }),
               cloudTab === "local" || cloudTab === "cloud" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--me-c-text-dim)", lineHeight: 1.7 }, children: isCloudInstance ? t("cloudInstanceDesc") : cloudForm.mode === "cloud" ? t("cloudModeDesc") : t("cloudLocalDesc") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, color: "var(--me-c-text-dim)", lineHeight: 1.7 }, children: isCloudInstance ? t("cloudInstanceDesc") : t("localVaultDesc") }),
                 localVault ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "9px 11px", background: "var(--me-c-surface)" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.6, marginBottom: 3 }, children: isCloudInstance || cloudForm.mode === "cloud" ? t("cloudVaultLabel") : t("localVaultLabel") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.6, marginBottom: 3 }, children: isCloudInstance ? t("cloudVaultLabel") : t("localVaultLabel") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5, wordBreak: "break-all" }, children: localVault.full })
                 ] }) : null,
                 vaultList && vaultList.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)", overflow: "hidden", marginTop: 10 }, children: [
