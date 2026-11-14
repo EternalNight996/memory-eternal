@@ -1065,6 +1065,12 @@ export const ZH = {
   merchantEndpointHint: '要接入的 MengBot 服务地址；换域名时改这里',
   cloudVaultLabel: '云端库位置（服务端路径）',
   vaultOriginLocal: '本地',
+  vaultDefaultName: '默认库',
+  importEntryHint: '要把登录前的本机数据导进来？两条路：① 在 DeepSeek Harness 面板里切到「云端」，点「上传本机库到云端」（推荐，直接读库不用导出）；② 在面板「备份与迁移」导出 JSON，再在这里选文件上传。',
+  importPickFile: '选择 JSON 备份文件',
+  importBadFile: '不是有效的 memory-eternal 备份文件（应为卡片数组或含 cards 的对象）',
+  importDupSuffix: '条重复已跳过',
+  cloudInstanceDesc: '这是你的云端实例：记忆库在服务器上，通过 HTTPS 访问；本机离线时用本地库。',
   cloudVaultListLabel: '云端实例上的库',
   cloudVaultQuota: '已用 {u} / {l}',
   vaultUploadCloud: '上传本机库到云端',
@@ -2337,6 +2343,12 @@ export const EN = {
   cloudModeDesc: 'Cloud vaults live on your cloud instance (HTTPS). The local vault still works offline — switch back to "Local" to use it.',
   cloudVaultLabel: 'Cloud vault path (on server)',
   vaultOriginLocal: 'local',
+  vaultDefaultName: 'default',
+  importEntryHint: 'Bringing in data from before you logged in? Two ways: (1) in the DeepSeek Harness panel switch to Cloud and click "Upload local to cloud" (recommended, reads the vault directly); (2) export JSON from Backup & migrate, then pick the file here.',
+  importPickFile: 'Choose JSON backup',
+  importBadFile: 'Not a valid memory-eternal backup (expected a card array or an object with cards)',
+  importDupSuffix: 'duplicates skipped',
+  cloudInstanceDesc: 'This is your cloud instance: the vault lives on the server over HTTPS. Use a local vault when offline.',
   cloudVaultListLabel: 'Vaults on the cloud instance',
   cloudVaultQuota: '{u} / {l} used',
   vaultUploadCloud: 'Upload local to cloud',
@@ -8912,6 +8924,52 @@ function ConfigPanel({ t, onReload, version, compact }) {
     }
   }
 
+  /**
+   * 把**备份文件**（memory-eternal 导出的 JSON）上传到云端当前库。
+   *
+   * 为什么需要这条路：用户"没登录前"的数据在本地库里，而云端网页看不到本地磁盘 ——
+   * 在云端 UI 里他没有任何入口。两条路：
+   *   A. 在 DSH 面板里点「上传本机库到云端」（直接读库，不用导出）—— 推荐
+   *   B. 从面板「备份与迁移」导出 JSON，再来这里选文件上传 —— 本函数
+   *
+   * 走 /import/chunk 分片（200 张一片），幂等由 contentHash 保证。
+   */
+  const uploadBackupToCloud = async (file) => {
+    if (!file) return
+    setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    try {
+      const text = await file.text()
+      let payload
+      try { payload = JSON.parse(text) } catch { throw new Error(t('importBadFile')) }
+      // 兼容两种形状：纯数组 / { cards: [...] }
+      const cards = Array.isArray(payload) ? payload : (Array.isArray(payload && payload.cards) ? payload.cards : null)
+      if (!cards) throw new Error(t('importBadFile'))
+      if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
+
+      setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
+      const CHUNK = 200
+      let imported = 0, duplicate = 0
+      for (let off = 0; off < cards.length; off += CHUNK) {
+        const slice = cards.slice(off, off + CHUNK)
+        const r = await fetch(cloudApi('/import/chunk'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) },
+          body: JSON.stringify({ cards: slice, offset: off, total: cards.length }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
+        imported += Number(d.imported) || 0
+        duplicate += Number(d.duplicate) || 0
+        setImportJob({ importing: true, done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
+      }
+      setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: '' })
+      try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
+      try { loadVaults() } catch { /* 忽略 */ }
+    } catch (e) {
+      setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: String((e && e.message) || e) })
+    }
+  }
+
   /** 云端建库（只有云端租户实例可用；受 caps.vaults 限制）。 */
   const createCloudVault = async () => {
     const name = String(window.prompt(t('createVaultPrompt')) || '').trim().toLowerCase()
@@ -8929,6 +8987,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
       try { notify(String((e && e.message) || e), false) } catch { /* 忽略 */ }
     }
   }
+
+  // 本进程是不是「云端租户实例」：vaultRoot 在 cloud-vaults/<owner> 下。
+  // 这决定文案怎么说话 —— 在云端实例上，"本机"其实是服务器，说"保存在这台机器上"是错的。
+  const isCloudInstance = (() => {
+    try { return String((localVault && localVault.full) || '').includes('cloud-vaults') } catch { return false }
+  })()
 
   /** 拉本机所有库（本地 + 备份 + 云端租户）。 */
   const loadVaults = async () => {
@@ -10120,7 +10184,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     setMchSecret(null)
                   }}
                 >
-                  <option value="local">{t('cloudModeLocal')}</option>
+                  {/* 云端实例上"本地私有"没意义：数据本来就在服务器上 */}
+                          {isCloudInstance ? null : <option value="local">{t('cloudModeLocal')}</option>}
                   <option value="cloud">{t('cloudModeCloud')}</option>
                   <option value="merchant">{t('cloudTabMerchant')}</option>
                 </select>
@@ -10132,13 +10197,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {(cloudTab === 'local' || cloudTab === 'cloud') ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                   <div style={{ fontSize: 12.5, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>
-                    {cloudForm.mode === 'cloud'
-                      ? t('cloudModeDesc')
-                      : t('cloudLocalDesc')}
+                    {isCloudInstance
+                      ? t('cloudInstanceDesc')
+                      : cloudForm.mode === 'cloud' ? t('cloudModeDesc') : t('cloudLocalDesc')}
                   </div>
                   {localVault ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)' }}>
-                      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{cloudForm.mode === 'cloud' ? t('cloudVaultLabel') : t('localVaultLabel')}</div>
+                      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{isCloudInstance || cloudForm.mode === 'cloud' ? t('cloudVaultLabel') : t('localVaultLabel')}</div>
                       <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11.5, wordBreak: 'break-all' }}>{localVault.full}</div>
                     </div>
                   ) : null}
@@ -10159,7 +10224,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                             <div key={v.path} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5 }}>
                               <span style={{ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: v.isCurrent ? 'var(--me-c-success)' : 'var(--me-c-border-strong)' }} />
                               <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {v.name}{v.owner ? ' · ' + v.owner : ''}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}
+                                {/* 云端实例的库目录名就是账号名，直接显示会让人问「这里怎么会是账号」——
+                                    对租户来说它就是自己唯一的库，叫「默认库」更直白；命名库照旧显示 slug。 */}
+                                {isCloudInstance && v.vaultKind !== 'named' ? t('vaultDefaultName') : v.name}
+                                {!isCloudInstance && v.owner ? ' · ' + v.owner : ''}
+                                {v.isCurrent ? ' ' + t('vaultCurrent') : ''}
                               </span>
                               {/* 来源标签：本地库与云端库混在一列时，必须让人一眼看出它在哪 */}
                           <span style={{ flex: 'none', fontSize: 9.5, padding: '1px 5px', borderRadius: 4, opacity: 0.7, border: '1px solid var(--me-c-border)' }}>{v.kind === 'cloud' ? t('vaultOriginCloud') : t('vaultOriginLocal')}</span>
@@ -10178,8 +10247,32 @@ function ConfigPanel({ t, onReload, version, compact }) {
                           ))}
                         </div>
                       </div>
-                      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-                        {/* 云端实例上的库：与本地库分开列，各标各的来源 */}
+                      <div style={{ padding: '10px 12px', display: ((vaultList && vaultList.length > 1) || (cloudVaultList && cloudVaultList.length > 0)) ? 'flex' : 'none', flexDirection: 'column', gap: 9 }}>{/* 单库场景下没得选，整块隐藏 */}
+                        {/* 导入入口：在云端网页里用户看不到本地磁盘，必须给一条能走通的路 */}
+                    {cloudForm.mode === 'cloud' || isCloudInstance ? (
+                      <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 7, fontSize: 11.5 }}>
+                        <div style={{ opacity: 0.6, lineHeight: 1.75 }}>{t('importEntryHint')}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--me-c-border)', cursor: 'pointer', fontSize: 11.5 }}>
+                            <input
+                              type="file"
+                              accept=".json,application/json"
+                              style={{ display: 'none' }}
+                              onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) uploadBackupToCloud(f); e.target.value = '' }}
+                            />
+                            {t('importPickFile')}
+                          </label>
+                          {importJob && importJob.importing ? (
+                            <span style={{ opacity: 0.7 }}>{t('importRunning').replace('{done}', String(importJob.done)).replace('{total}', String(importJob.total))}</span>
+                          ) : null}
+                        </div>
+                        {importJob && importJob.err ? <Status tone="bad" text={importJob.err} /> : null}
+                        {importJob && !importJob.importing && importJob.total > 0 ? (
+                          <div style={{ opacity: 0.7 }}>{t('importDone').replace('{n}', String(importJob.imported || 0))}{importJob.duplicate ? ' · ' + importJob.duplicate + ' ' + t('importDupSuffix') : ''}</div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {/* 云端实例上的库：与本地库分开列，各标各的来源 */}
                         {cloudForm.mode === 'cloud' && cloudVaultList && cloudVaultList.length ? (
                           <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, opacity: 0.55 }}>
