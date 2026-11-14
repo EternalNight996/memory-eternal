@@ -813,6 +813,28 @@ export const ZH = {
   cloudTokenHint: '用「用 MengBot 账号登录」时这里留空即可；只有直连别人给的实例才需要填',
   cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
   cloudOauthIgnored: '已自动忽略 MengBot 的客户端密钥（mbo_）—— 它不是访问密钥，请用「用 MengBot 账号登录」',
+  cloudTabClient: '客户端订阅',
+  cloudTabClientHint: '个人订阅 personal / pro / max，自己用',
+  cloudTabMerchant: '商户接入',
+  cloudTabMerchantHint: '把自有云端实例接入 MengBot 托管',
+  merchantIntro: '商户接入：你的云端实例需要接入 MengBot 托管（账号体系、计费与权益下发）。注册后得到商户 ID 与商户密钥，再把它们配到你的服务端。商户密钥只显示一次，可随时轮换或吊销。',
+  merchantNameLabel: '商户名称',
+  merchantNamePlaceholder: '例如：Acme 科技',
+  merchantNameHint: '展示用，同一条名下不能重名',
+  merchantDomainLabel: '商户域名',
+  merchantDomainHint: '可选。你方云端实例的域名（全局唯一，一个域名只能接入一次）',
+  merchantRegister: '注册商户',
+  merchantRefresh: '刷新列表',
+  merchantSecretOnce: '商户密钥（只显示这一次，请立即保存）',
+  merchantIdLabel: '商户 ID',
+  merchantSecretLabel: '商户密钥',
+  merchantCopySecret: '复制密钥',
+  merchantSubscribe: '订阅商户套餐',
+  merchantMine: '我的商户',
+  merchantEmpty: '还没有商户，填上面的名称注册一个。',
+  merchantRotate: '轮换密钥',
+  merchantRevoke: '吊销',
+
   cloudUrlInvalid: '地址要以 http(s):// 开头',
   cloudTest: '测试连接',
   cloudTestOk: '连接成功 · {owner}',
@@ -1897,6 +1919,28 @@ export const EN = {
   cloudTokenHint: 'Leave empty if you sign in with MengBot; only needed when connecting to someone else instance',
   cloudTokenPeek: 'Current token: {peek} ({len} chars)',
   cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) — it is not an access key. Use "Sign in with MengBot" instead',
+  cloudTabClient: 'Client subscription',
+  cloudTabClientHint: 'personal / pro / max for your own use',
+  cloudTabMerchant: 'Merchant onboarding',
+  cloudTabMerchantHint: 'Connect your own cloud instance to MengBot hosting',
+  merchantIntro: 'Merchant onboarding: your cloud instance connects to MengBot hosting (identity, billing, entitlements). After registering you get a merchant ID and secret — put them into your own server. The secret is shown only once and can be rotated or revoked anytime.',
+  merchantNameLabel: 'Merchant name',
+  merchantNamePlaceholder: 'e.g. Acme Inc.',
+  merchantNameHint: 'Display name; must be unique per owner',
+  merchantDomainLabel: 'Merchant domain',
+  merchantDomainHint: 'Optional. Your cloud instance domain (globally unique)',
+  merchantRegister: 'Register merchant',
+  merchantRefresh: 'Refresh',
+  merchantSecretOnce: 'Merchant secret (shown only once — save it now)',
+  merchantIdLabel: 'Merchant ID',
+  merchantSecretLabel: 'Merchant secret',
+  merchantCopySecret: 'Copy secret',
+  merchantSubscribe: 'Subscribe merchant plan',
+  merchantMine: 'My merchants',
+  merchantEmpty: 'No merchants yet — fill the name above to register one.',
+  merchantRotate: 'Rotate secret',
+  merchantRevoke: 'Revoke',
+
   cloudUrlInvalid: 'URL must start with http(s)://',
   cloudTest: 'Test connection',
   cloudTestOk: 'Connected · {owner}',
@@ -5569,9 +5613,9 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     setCloudTest(
       r.ok
         ? (r.authenticated === false
-          ? { ok: true, authenticated: false, version: r.version || '' }
-          : { ok: true, authenticated: true, owner: r.owner || '' })
-        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error },
+          ? { ok: true, authenticated: false, version: r.version || '', message: r.message || '', diag: r.diag || null }
+          : { ok: true, authenticated: true, owner: r.owner || '', profile: r.profile || null, diag: r.diag || null })
+        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null },
     )
     setCloudBusy(false)
   }
@@ -7416,6 +7460,60 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudConn is not defined）。
   // 落盘与探测走模块级 persistCloud / probeCloud / markCloudFailed / activateCloud。
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
+  // 「连接云端」分两个场景（两条独立的路，不共用凭据）：
+  //   client   → 个人/客户端订阅 personal·pro·max，凭据 me_ / mb_
+  //   merchant → 商户把自有云端实例接入 MengBot 托管，凭据 mch_ / msk_
+  const [cloudTab, setCloudTab] = useState('client')
+  const [merchants, setMerchants] = useState([])
+  const [mchForm, setMchForm] = useState({ name: '', domain: '' })
+  const [mchBusy, setMchBusy] = useState(false)
+  const [mchErr, setMchErr] = useState('')
+  /** 刚生成的商户密钥（只显示一次，刷新即消失）。 */
+  const [mchSecret, setMchSecret] = useState(null)
+  const loadMerchants = async () => {
+    try {
+      const r = await fetch(API + '/cloud/merchant/me')
+      const d = await r.json().catch(() => ({}))
+      if (d && d.ok) setMerchants(Array.isArray(d.merchants) ? d.merchants : [])
+    } catch { /* 未登录等情况静默 */ }
+  }
+  useEffect(() => { if (cloudTab === 'merchant') loadMerchants() }, [cloudTab])
+  const registerMerchant = async () => {
+    setMchBusy(true); setMchErr('')
+    try {
+      const r = await fetch(API + '/cloud/merchant/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: mchForm.name, domain: mchForm.domain }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) { setMchErr(d.error || ('HTTP ' + r.status)); setMchBusy(false); return }
+      setMchSecret({ id: d.merchant.id, secret: d.secret, subscribeUrl: d.subscribeUrl })
+      setMerchants((list) => [...list, d.merchant])
+      setMchForm({ name: '', domain: '' })
+    } catch (e) { setMchErr(String((e && e.message) || e)) }
+    setMchBusy(false)
+  }
+  const rotateMerchant = async (id) => {
+    setMchBusy(true); setMchErr('')
+    try {
+      const r = await fetch(API + '/cloud/merchant/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) { setMchErr(d.error || ('HTTP ' + r.status)); setMchBusy(false); return }
+      setMchSecret({ id, secret: d.secret, subscribeUrl: null })
+    } catch (e) { setMchErr(String((e && e.message) || e)) }
+    setMchBusy(false)
+  }
+  const revokeMerchant = async (id) => {
+    if (typeof confirm === 'function' && !confirm('吊销后该商户立即不可用，确定？')) return
+    setMchBusy(true); setMchErr('')
+    try {
+      const r = await fetch(API + '/cloud/merchant/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) setMchErr(d.error || ('HTTP ' + r.status))
+      else setMerchants((list) => list.filter((m) => m.id !== id))
+    } catch (e) { setMchErr(String((e && e.message) || e)) }
+    setMchBusy(false)
+  }
   /** 已落盘的连接状态（用于状态行显示「当前在用云端/本地」「上次失败原因」）。 */
   const [cloudConn, setCloudConn] = useState(() => readCloudConn())
   const [cloudBusy, setCloudBusy] = useState(false)
@@ -7426,9 +7524,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
     setCloudTest(
       r.ok
         ? (r.authenticated === false
-          ? { ok: true, authenticated: false, version: r.version || '' }
-          : { ok: true, authenticated: true, owner: r.owner || '' })
-        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error },
+          ? { ok: true, authenticated: false, version: r.version || '', message: r.message || '', diag: r.diag || null }
+          : { ok: true, authenticated: true, owner: r.owner || '', profile: r.profile || null, diag: r.diag || null })
+        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null },
     )
     setCloudBusy(false)
   }
@@ -8522,6 +8620,85 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 （mengbot 授权控制面未上线、配额与授权校验未完成），放实验区既能让想用的人用上，
                 又不会让普通用户误以为是稳定功能、更不会影响本地使用。 */}
             <CfgSection {...secProps('sec-cloud')} id="sec-cloud" icon="🧪" title={t('cloudSection')} sub={t('cloudSectionSub')}>
+              {/* 「连接云端」有两个完全不同的场景，凭据体系不同，必须分开：
+                    · 客户端订阅 —— 个人订阅 personal/pro/max，凭据 me_ / mb_
+                    · 商户接入   —— 商户把自有云端实例接入托管，凭据 mch_ / msk_ */}
+              <div className="mc-cloud-tabs" style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                {[['client', t('cloudTabClient'), t('cloudTabClientHint')], ['merchant', t('cloudTabMerchant'), t('cloudTabMerchantHint')]].map(([k, label, hint]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    title={hint}
+                    className={`mc-cloud-mode${cloudTab === k ? ' active' : ''}`}
+                    style={{ flex: 1 }}
+                    onClick={() => { setCloudTab(k); setMchErr(''); setMchSecret(null) }}
+                  >
+                    <b>{label}</b>
+                    <span>{hint}</span>
+                  </button>
+                ))}
+              </div>
+              {cloudTab === 'merchant' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.65 }}>
+                    {t('merchantIntro')}
+                  </div>
+                  <label className="mc-field">
+                    <span className="mc-field-label">{t('merchantNameLabel')}</span>
+                    <input value={mchForm.name} onChange={(e) => setMchForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('merchantNamePlaceholder')} />
+                    <span className="mc-field-hint">{t('merchantNameHint')}</span>
+                  </label>
+                  <label className="mc-field">
+                    <span className="mc-field-label">{t('merchantDomainLabel')}</span>
+                    <input value={mchForm.domain} onChange={(e) => setMchForm((f) => ({ ...f, domain: e.target.value }))} placeholder="memory.your-company.com" />
+                    <span className="mc-field-hint">{t('merchantDomainHint')}</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Btn variant="primary" size="sm" disabled={mchBusy || !mchForm.name.trim()} onClick={registerMerchant}>
+                      {t('merchantRegister')}
+                    </Btn>
+                    <Btn variant="secondary" size="sm" disabled={mchBusy} onClick={loadMerchants}>{t('merchantRefresh')}</Btn>
+                  </div>
+                  {mchErr ? <Status tone="bad" text={mchErr} /> : null}
+                  {mchSecret ? (
+                    <div style={{ border: '1px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{t('merchantSecretOnce')}</div>
+                      <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 12, wordBreak: 'break-all', marginBottom: 4 }}>
+                        {t('merchantIdLabel')}: {mchSecret.id}
+                      </div>
+                      <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 12, wordBreak: 'break-all', marginBottom: 8 }}>
+                        {t('merchantSecretLabel')}: {mchSecret.secret}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(mchSecret.secret) } catch { /* 忽略 */ } }}>
+                          {t('merchantCopySecret')}
+                        </Btn>
+                        {mchSecret.subscribeUrl ? (
+                          <Btn variant="primary" size="sm" onClick={() => { try { location.href = mchSecret.subscribeUrl } catch { /* 忽略 */ } }}>
+                            {t('merchantSubscribe')}
+                          </Btn>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>{t('merchantMine')}（{merchants.length}）</div>
+                    {merchants.length === 0 ? (
+                      <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)' }}>{t('merchantEmpty')}</div>
+                    ) : merchants.map((m) => (
+                      <div key={m.id} style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: 140 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600 }}>{m.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--me-c-text-dim)' }}>{m.id}{m.domain ? ' · ' + m.domain : ''} · {m.status}</div>
+                        </div>
+                        <Btn variant="secondary" size="sm" disabled={mchBusy} onClick={() => rotateMerchant(m.id)}>{t('merchantRotate')}</Btn>
+                        <Btn variant="danger" size="sm" disabled={mchBusy} onClick={() => revokeMerchant(m.id)}>{t('merchantRevoke')}</Btn>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
               {/* 运行位置：点卡片只改「意图」，真正切换在保存时验证通过后发生 */}
               <div className="mc-cloud-modes" style={{ marginBottom: 12 }}>
                 {[['local', t('cloudModeLocal'), t('cloudModeLocalHint')], ['cloud', t('cloudModeCloud'), t('cloudModeCloudHint')]].map(([m, label, hint]) => (
@@ -8606,6 +8783,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 )}
               </div>
               <Hint text={t('cloudExperimentalHint')} />
+                </>
+              )}
             </CfgSection>
             {/* 备份只在「记忆」页出现一次（上面 7256 那一处）。这里原来还有一份同样的
                 `sec-backup` + `<BackupCard>`（从运行状态页搬过来时留下的），
