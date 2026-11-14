@@ -31,6 +31,7 @@ import { ensureVault, search } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb, lastBackupAt } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
+import { readActiveVault } from './lib/vault-pref.js'
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, preferenceLines, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
@@ -448,12 +449,14 @@ export function apply(ctx, config) {
     profiles: (settings.get() ?? {}).vaultProfiles,
     activeVault: (settings.get() ?? {}).activeVault,
     configured: (settings.get() ?? {}).vaultDir,
+  prefRoot: readActiveVault(),
     workspace,
   }).root
   const vaultInfo = (workspace) => resolveVaultDir({
     profiles: (settings.get() ?? {}).vaultProfiles,
     activeVault: (settings.get() ?? {}).activeVault,
     configured: (settings.get() ?? {}).vaultDir,
+  prefRoot: readActiveVault(),
     workspace,
   })
 
