@@ -29517,6 +29517,18 @@
     cloudHideKey: "\u6536\u8D77\u8BBF\u95EE\u5BC6\u94A5",
     devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
+    vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
+    vaultCurrent: "\uFF08\u5F53\u524D\uFF09",
+    vaultTargetLabel: "\u4E0E\u54EA\u4E2A\u5E93\u642C\u6570\u636E",
+    vaultPickPlaceholder: "\u9009\u62E9\u76EE\u6807\u5E93",
+    vaultDupLabel: "\u9047\u5230\u91CD\u590D\u5361\u7247",
+    vaultDupSkip: "\u8DF3\u8FC7\uFF08\u4FDD\u7559\u5DF2\u6709\u5185\u5BB9\uFF09",
+    vaultDupOverwrite: "\u8986\u76D6\uFF08\u7528\u6765\u6E90\u5185\u5BB9\u66F4\u65B0\uFF09",
+    vaultUpload: "\u4E0A\u4F20\u5230\u8FD9\u4E2A\u5E93",
+    vaultDownload: "\u4ECE\u8FD9\u4E2A\u5E93\u53D6\u56DE",
+    xferSummary: "\u5171 {total} \u5F20\uFF1A\u65B0\u589E {in} \xB7 \u8DF3\u8FC7\u91CD\u590D {dup} \xB7 \u8986\u76D6 {ow} \xB7 \u5931\u8D25 {fail}",
+    xferDone: "\u5B8C\u6210\uFF1A\u65B0\u589E {n} \u5F20\uFF0C\u8986\u76D6 {m} \u5F20",
+    xferPickVault: "\u5148\u9009\u4E00\u4E2A\u76EE\u6807\u5E93",
     qrScanHint: "\u624B\u673A\u626B\u7801\uFF0C\u6216\u70B9\u4E0B\u9762\u7684\u7801\u590D\u5236",
     qrWaiting: "\u7B49\u5F85\u6388\u6743\u2026",
     qrSecurityHint: "\u8FD9\u4E2A\u7801\u7B49\u4E8E\u4E00\u6B21\u6388\u6743\u51ED\u8BC1\uFF1A\u53EA\u5728\u4F60\u4E3B\u52A8\u53D1\u8D77\u767B\u5F55\u65F6\u4F7F\u7528\uFF0C\u522B\u628A\u5B83\u53D1\u7ED9\u4EFB\u4F55\u4EBA\u3002\u6388\u6743\u9875\u4F1A\u663E\u793A\u8BF7\u6C42\u8BBF\u95EE\u7684\u5E94\u7528\uFF0C\u786E\u8BA4\u662F memory-eternal \u518D\u70B9\u5141\u8BB8\u3002",
@@ -30686,6 +30698,18 @@
     cloudHideKey: "Hide access key",
     devicePanelTitle: "Finish signing in in your browser",
     localVaultLabel: "Vault location",
+    vaultListLabel: "Vaults on this machine",
+    vaultCurrent: "(current)",
+    vaultTargetLabel: "Transfer with",
+    vaultPickPlaceholder: "Pick a vault",
+    vaultDupLabel: "On duplicate cards",
+    vaultDupSkip: "Skip (keep existing)",
+    vaultDupOverwrite: "Overwrite (update from source)",
+    vaultUpload: "Upload to this vault",
+    vaultDownload: "Pull from this vault",
+    xferSummary: "{total} total: {in} added \xB7 {dup} skipped \xB7 {ow} overwritten \xB7 {fail} failed",
+    xferDone: "Done: {n} added, {m} overwritten",
+    xferPickVault: "Pick a target vault first",
     cloudLoginCtaHint: "Gets a token automatically \u2014 no key to paste",
     deviceTitle: "Finish signing in on any device",
     deviceOpen: "Open this on your phone or browser:",
@@ -34156,7 +34180,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T13:05:14.627Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T13:09:24.479Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -36547,6 +36571,10 @@ ${t("quoteHint")}`,
     const [mchErr, setMchErr] = (0, import_react2.useState)("");
     const [mchSecret, setMchSecret] = (0, import_react2.useState)(null);
     const [localVault, setLocalVault] = (0, import_react2.useState)(null);
+    const [vaultList, setVaultList] = (0, import_react2.useState)(null);
+    const [vaultSel, setVaultSel] = (0, import_react2.useState)("");
+    const [dupMode, setDupMode] = (0, import_react2.useState)("skip");
+    const [xfer, setXfer] = (0, import_react2.useState)(null);
     (0, import_react2.useEffect)(() => {
       let alive = true;
       (async () => {
@@ -36799,6 +36827,60 @@ ${t("quoteHint")}`,
       }
       startDeviceLogin();
     }, [cloudTab, isConnected, cloudForm.url]);
+    const loadVaults = /* @__PURE__ */ __name(async () => {
+      try {
+        const r = await fetch(API + "/vaults");
+        const d = await r.json().catch(() => ({}));
+        if (d && d.ok) {
+          setVaultList(d.vaults || []);
+          const other = (d.vaults || []).find((v) => !v.isCurrent);
+          setVaultSel((cur) => cur || (other ? other.path : ""));
+        }
+      } catch {
+      }
+    }, "loadVaults");
+    (0, import_react2.useEffect)(() => {
+      loadVaults();
+    }, []);
+    const transferVault = /* @__PURE__ */ __name(async (dir) => {
+      const other = (vaultList || []).find((v) => v.path === vaultSel);
+      const cur = (vaultList || []).find((v) => v.isCurrent);
+      if (!other || !cur) {
+        setXfer({ busy: false, err: t("xferPickVault") });
+        return;
+      }
+      const source = dir === "up" ? cur.path : other.path;
+      const target = dir === "up" ? other.path : cur.path;
+      setXfer({ busy: true });
+      try {
+        const post = /* @__PURE__ */ __name((dry) => fetch(API + "/vaults/transfer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source, target, onDuplicate: dupMode, dryRun: dry })
+        }).then((r) => r.json()).catch(() => null), "post");
+        const pre = await post(true);
+        if (!pre || !pre.ok) {
+          setXfer({ busy: false, err: pre && pre.error || "dry-run failed" });
+          return;
+        }
+        const done = await post(false);
+        if (!done || !done.ok) {
+          setXfer({ busy: false, err: done && done.error || "transfer failed" });
+          return;
+        }
+        setXfer({ busy: false, result: done });
+        try {
+          loadVaults();
+        } catch {
+        }
+        try {
+          notify2(t("xferDone").replace("{n}", String(done.imported)).replace("{m}", String(done.overwritten)), true);
+        } catch {
+        }
+      } catch (e) {
+        setXfer({ busy: false, err: String(e && e.message || e) });
+      }
+    }, "transferVault");
     const loadCloudPlan = /* @__PURE__ */ __name(async () => {
       const url = cloudApi("/cloud/billing/plan");
       if (!url) return;
@@ -37968,6 +38050,58 @@ ${t("quoteHint")}`,
                 localVault ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "9px 11px", background: "var(--me-c-surface)" }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.6, marginBottom: 3 }, children: t("localVaultLabel") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5, wordBreak: "break-all" }, children: localVault.full })
+                ] }) : null,
+                vaultList && vaultList.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)", overflow: "hidden", marginTop: 10 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--me-c-border)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.55, marginBottom: 6 }, children: [
+                      t("vaultListLabel"),
+                      " \xB7 ",
+                      vaultList.length
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 4 }, children: vaultList.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 5, height: 5, borderRadius: "50%", flex: "none", background: v.isCurrent ? "var(--me-c-success)" : "var(--me-c-border-strong)" } }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
+                        v.name,
+                        v.owner ? " \xB7 " + v.owner : "",
+                        v.isCurrent ? " " + t("vaultCurrent") : ""
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { opacity: 0.5, flex: "none" }, children: [
+                        v.cards,
+                        " \xB7 ",
+                        v.sizeMB,
+                        "MB"
+                      ] })
+                    ] }, v.path)) })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", display: "flex", flexDirection: "column", gap: 9 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("vaultTargetLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: vaultSel, onChange: (e) => setVaultSel(e.target.value), children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("vaultPickPlaceholder") }),
+                        vaultList.filter((v) => !v.isCurrent).map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: v.path, children: [
+                          v.name,
+                          v.owner ? " \xB7 " + v.owner : "",
+                          "\uFF08",
+                          v.cards,
+                          " \u5361\uFF09"
+                        ] }, v.path))
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("vaultDupLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: dupMode, onChange: (e) => setDupMode(e.target.value), children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "skip", children: t("vaultDupSkip") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "overwrite", children: t("vaultDupOverwrite") })
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("up"), children: xfer && xfer.busy ? "\u23F3" : t("vaultUpload") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("down"), children: xfer && xfer.busy ? "\u23F3" : t("vaultDownload") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: loadVaults, children: t("refresh") })
+                    ] }),
+                    xfer && xfer.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: xfer.err }) : null,
+                    xfer && xfer.result ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, lineHeight: 1.7, opacity: 0.75 }, children: t("xferSummary").replace("{total}", String(xfer.result.total)).replace("{in}", String(xfer.result.imported)).replace("{dup}", String(xfer.result.skipped)).replace("{ow}", String(xfer.result.overwritten)).replace("{fail}", String(xfer.result.failed)) }) : null
+                  ] })
                 ] }) : null
               ] }) : cloudTab === "merchant" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--me-c-text-dim)", lineHeight: 1.7 }, children: t("merchantIntro") }),

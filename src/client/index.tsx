@@ -908,6 +908,18 @@ export const ZH = {
   cloudHideKey: '收起访问密钥',
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
+  vaultListLabel: '本机记忆库',
+  vaultCurrent: '（当前）',
+  vaultTargetLabel: '与哪个库搬数据',
+  vaultPickPlaceholder: '选择目标库',
+  vaultDupLabel: '遇到重复卡片',
+  vaultDupSkip: '跳过（保留已有内容）',
+  vaultDupOverwrite: '覆盖（用来源内容更新）',
+  vaultUpload: '上传到这个库',
+  vaultDownload: '从这个库取回',
+  xferSummary: '共 {total} 张：新增 {in} · 跳过重复 {dup} · 覆盖 {ow} · 失败 {fail}',
+  xferDone: '完成：新增 {n} 张，覆盖 {m} 张',
+  xferPickVault: '先选一个目标库',
   qrScanHint: '手机扫码，或点下面的码复制',
   qrWaiting: '等待授权…',
   qrSecurityHint: '这个码等于一次授权凭证：只在你主动发起登录时使用，别把它发给任何人。授权页会显示请求访问的应用，确认是 memory-eternal 再点允许。',
@@ -2079,6 +2091,18 @@ export const EN = {
   cloudHideKey: 'Hide access key',
   devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
+  vaultListLabel: 'Vaults on this machine',
+  vaultCurrent: '(current)',
+  vaultTargetLabel: 'Transfer with',
+  vaultPickPlaceholder: 'Pick a vault',
+  vaultDupLabel: 'On duplicate cards',
+  vaultDupSkip: 'Skip (keep existing)',
+  vaultDupOverwrite: 'Overwrite (update from source)',
+  vaultUpload: 'Upload to this vault',
+  vaultDownload: 'Pull from this vault',
+  xferSummary: '{total} total: {in} added · {dup} skipped · {ow} overwritten · {fail} failed',
+  xferDone: 'Done: {n} added, {m} overwritten',
+  xferPickVault: 'Pick a target vault first',
   cloudLoginCtaHint: 'Gets a token automatically — no key to paste',
   deviceTitle: 'Finish signing in on any device',
   deviceOpen: 'Open this on your phone or browser:',
@@ -7977,6 +8001,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [mchSecret, setMchSecret] = useState(null)
   /** 本地库位置（本地模式要显示 db 到底在哪，用户才知道数据存哪儿）。 */
   const [localVault, setLocalVault] = useState(null)
+  // 库管理：枚举本机所有记忆库（本地 / 备份副本 / 云端租户），供上传下载选择
+  const [vaultList, setVaultList] = useState(null)
+  const [vaultSel, setVaultSel] = useState('')
+  const [dupMode, setDupMode] = useState('skip')
+  const [xfer, setXfer] = useState(null)
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -8217,6 +8246,48 @@ function ConfigPanel({ t, onReload, version, compact }) {
    *   ① 必须带 Authorization —— 这个接口要令牌，不带就是 401，套餐永远空着
    *   ② 地址用 cloudApi（云端绝对地址），不能用相对前缀 API（那是本地服务）
    */
+  /** 拉本机所有库（本地 + 备份 + 云端租户）。 */
+  const loadVaults = async () => {
+    try {
+      const r = await fetch(API + '/vaults')
+      const d = await r.json().catch(() => ({}))
+      if (d && d.ok) {
+        setVaultList(d.vaults || [])
+        const other = (d.vaults || []).find((v) => !v.isCurrent)
+        setVaultSel((cur) => cur || (other ? other.path : ''))
+      }
+    } catch { /* 拿不到就不显示 */ }
+  }
+  useEffect(() => { loadVaults() }, [])
+
+  /**
+   * 库之间搬卡片。dir='up' 当前库→选中的库（上传），'down' 反之（下载）。
+   * 先 dryRun 看清会动多少条再执行 —— 搬数据不可逆，必须有预演。
+   */
+  const transferVault = async (dir) => {
+    const other = (vaultList || []).find((v) => v.path === vaultSel)
+    const cur = (vaultList || []).find((v) => v.isCurrent)
+    if (!other || !cur) { setXfer({ busy: false, err: t('xferPickVault') }); return }
+    const source = dir === 'up' ? cur.path : other.path
+    const target = dir === 'up' ? other.path : cur.path
+    setXfer({ busy: true })
+    try {
+      const post = (dry) => fetch(API + '/vaults/transfer', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, target, onDuplicate: dupMode, dryRun: dry }),
+      }).then((r) => r.json()).catch(() => null)
+      const pre = await post(true)
+      if (!pre || !pre.ok) { setXfer({ busy: false, err: (pre && pre.error) || 'dry-run failed' }); return }
+      const done = await post(false)
+      if (!done || !done.ok) { setXfer({ busy: false, err: (done && done.error) || 'transfer failed' }); return }
+      setXfer({ busy: false, result: done })
+      try { loadVaults() } catch { /* 忽略 */ }
+      try { notify(t('xferDone').replace('{n}', String(done.imported)).replace('{m}', String(done.overwritten)), true) } catch { /* 忽略 */ }
+    } catch (e) {
+      setXfer({ busy: false, err: String((e && e.message) || e) })
+    }
+  }
+
   const loadCloudPlan = async () => {
     const url = cloudApi('/cloud/billing/plan')
     if (!url) return
@@ -9365,6 +9436,63 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)' }}>
                       <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{t('localVaultLabel')}</div>
                       <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11.5, wordBreak: 'break-all' }}>{localVault.full}</div>
+                    </div>
+                  ) : null}
+                  {/* 库管理：自动枚举本机所有库（含没有账号的本地库、备份副本、云端租户） */}
+                  {vaultList && vaultList.length ? (
+                    <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, background: 'var(--me-c-surface)', overflow: 'hidden', marginTop: 10 }}>
+                      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--me-c-border)' }}>
+                        <div style={{ fontSize: 10.5, opacity: 0.55, marginBottom: 6 }}>{t('vaultListLabel')} · {vaultList.length}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {vaultList.map((v) => (
+                            <div key={v.path} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5 }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: v.isCurrent ? 'var(--me-c-success)' : 'var(--me-c-border-strong)' }} />
+                              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {v.name}{v.owner ? ' · ' + v.owner : ''}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}
+                              </span>
+                              <span style={{ opacity: 0.5, flex: 'none' }}>{v.cards} · {v.sizeMB}MB</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+                        <label className="mc-field" style={{ margin: 0 }}>
+                          <span className="mc-field-label">{t('vaultTargetLabel')}</span>
+                          <select value={vaultSel} onChange={(e) => setVaultSel(e.target.value)}>
+                            <option value="">{t('vaultPickPlaceholder')}</option>
+                            {vaultList.filter((v) => !v.isCurrent).map((v) => (
+                              <option key={v.path} value={v.path}>{v.name}{v.owner ? ' · ' + v.owner : ''}（{v.cards} 卡）</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="mc-field" style={{ margin: 0 }}>
+                          <span className="mc-field-label">{t('vaultDupLabel')}</span>
+                          <select value={dupMode} onChange={(e) => setDupMode(e.target.value)}>
+                            <option value="skip">{t('vaultDupSkip')}</option>
+                            <option value="overwrite">{t('vaultDupOverwrite')}</option>
+                          </select>
+                        </label>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <Btn variant="primary" size="sm" disabled={!vaultSel || (xfer && xfer.busy)} onClick={() => transferVault('up')}>
+                            {xfer && xfer.busy ? '⏳' : t('vaultUpload')}
+                          </Btn>
+                          <Btn variant="secondary" size="sm" disabled={!vaultSel || (xfer && xfer.busy)} onClick={() => transferVault('down')}>
+                            {xfer && xfer.busy ? '⏳' : t('vaultDownload')}
+                          </Btn>
+                          <Btn variant="ghost" size="sm" onClick={loadVaults}>{t('refresh')}</Btn>
+                        </div>
+                        {xfer && xfer.err ? <Status tone="bad" text={xfer.err} /> : null}
+                        {xfer && xfer.result ? (
+                          <div style={{ fontSize: 11, lineHeight: 1.7, opacity: 0.75 }}>
+                            {t('xferSummary')
+                              .replace('{total}', String(xfer.result.total))
+                              .replace('{in}', String(xfer.result.imported))
+                              .replace('{dup}', String(xfer.result.skipped))
+                              .replace('{ow}', String(xfer.result.overwritten))
+                              .replace('{fail}', String(xfer.result.failed))}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   ) : null}
                 </div>
