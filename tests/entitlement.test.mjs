@@ -11,7 +11,7 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { signLicense } from '../lib/license.js'
-import { readEntitlement, writeEntitlement, resolveAccess, accessSummary, entitlementPath } from '../lib/entitlement.js'
+import { readEntitlement, writeEntitlement, resolveAccess, accessSummary, entitlementPath, ENTITLEMENT_FILE } from '../lib/entitlement.js'
 
 const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' })
 const pubPem = publicKey.export({ type: 'spki', format: 'pem' })
@@ -105,3 +105,79 @@ test('writeEntitlement 容错：空对象/坏输入不炸', () => withHome((env)
   assert.equal(got.plan, 'free')
   assert.equal(got.status, 'inactive')
 }))
+
+// ── 多租户隔离（本轮修的架构缺陷）────────────────────────────
+// 改之前 entitlement 是**全局单文件**：所有租户共享同一份套餐状态，
+// A 用户的对账会把 B 用户的套餐冲掉。单租户时看不出，一旦有第二个付费用户必然串号。
+
+test('按 owner 分文件：两个租户互不影响', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-mt-'))
+  const env = { ...process.env, DSH_HOME: home }
+  const A = 'alice@example.com'
+  const B = 'bob@example.com'
+  writeEntitlement({ owner: A, plan: 'max', status: 'active', version: 10, expiresAt: '2027-01-01T00:00:00Z' }, env)
+  writeEntitlement({ owner: B, plan: 'personal', status: 'active', version: 20, expiresAt: '2027-01-01T00:00:00Z' }, env)
+
+  assert.equal(readEntitlement(env, A).plan, 'max')
+  assert.equal(readEntitlement(env, B).plan, 'personal')
+  // 两个独立文件
+  const files = fs.readdirSync(home).filter((f) => f.startsWith('cloud-entitlement-'))
+  assert.equal(files.length, 2, '应有两个租户文件，实际 ' + files.join(','))
+
+  // 写 A 不能影响 B
+  writeEntitlement({ owner: A, plan: 'free', status: 'inactive', version: 11 }, env)
+  assert.equal(readEntitlement(env, A).plan, 'free')
+  assert.equal(readEntitlement(env, B).plan, 'personal', 'B 不能被 A 的对账冲掉')
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+})
+
+test('无 owner 回落到旧版全局文件（本地/单租户模式兼容）', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-mt2-'))
+  const env = { ...process.env, DSH_HOME: home }
+  writeEntitlement({ plan: 'pro', status: 'active', version: 3 }, env)
+  assert.ok(fs.existsSync(path.join(home, ENTITLEMENT_FILE)), '无 owner 应写旧版文件')
+  assert.equal(readEntitlement(env).plan, 'pro')
+  // 有 owner 时不读旧文件（避免把全局数据当成某人的）
+  assert.equal(readEntitlement(env, 'x@y.com'), null)
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+})
+
+test('owner 含特殊字符不会路径穿越', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-mt3-'))
+  const env = { ...process.env, DSH_HOME: home }
+  const homeResolved = path.resolve(home)
+  for (const evil of ['../../etc/passwd', 'a/b', 'a\\b', 'x'.repeat(300)]) {
+    const p1 = entitlementPath(env, evil)
+    // 关键判据：**解析后的绝对路径仍在 home 内**（字符里有 '..' 无所谓，encodeURIComponent 已把 / 转义）
+    assert.equal(path.resolve(p1).startsWith(homeResolved + path.sep), true, '路径必须落在 DSH_HOME 内：' + p1)
+    writeEntitlement({ owner: evil, plan: 'free', status: 'inactive', version: 1 }, env)
+    assert.equal(readEntitlement(env, evil).plan, 'free')
+  }
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+})
+
+test('**personal / max 都算付费**（旧实现只认 pro 是 bug）', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-mt4-'))
+  const env = { ...process.env, DSH_HOME: home }
+  for (const plan of ['personal', 'pro', 'max']) {
+    writeEntitlement({ owner: 'u@x.com', plan, status: 'active', version: 5, expiresAt: '2027-01-01T00:00:00Z' }, env)
+    const acc = resolveAccess(env, { owner: 'u@x.com' })
+    assert.equal(acc.source, 'mengbot', plan + ' 应被认成付费（source=mengbot）')
+    assert.equal(acc.canWrite, true)
+  }
+  // free 不算
+  writeEntitlement({ owner: 'u@x.com', plan: 'free', status: 'inactive', version: 6 }, env)
+  assert.notEqual(resolveAccess(env, { owner: 'u@x.com' }).source, 'mengbot', 'free 不算付费')
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+})
+
+test('resolveAccess 返回 owner，摘要里能看到归属', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-mt5-'))
+  const env = { ...process.env, DSH_HOME: home }
+  writeEntitlement({ owner: 'z@q.com', plan: 'pro', status: 'active', version: 2, expiresAt: '2027-01-01T00:00:00Z' }, env)
+  const acc = resolveAccess(env, { owner: 'z@q.com' })
+  assert.equal(acc.owner, 'z@q.com')
+  const sum = accessSummary(acc)
+  assert.equal(sum.owner, 'z@q.com')
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+})
