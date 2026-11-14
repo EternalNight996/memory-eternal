@@ -6325,13 +6325,16 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             {/* 运行位置切换器：本地 / 云端（云端要地址 + 密钥，或 MengBot 登录换来的令牌） */}
             <button
               type="button"
-              className={`mc-v5-sys mc-v5-sys--btn${cloudConn.mode === 'cloud' ? ' is-cloud' : ''}`}
+              className={`mc-v5-sys mc-v5-sys--btn${cloudConn.mode === 'cloud' && cloudConn.active !== false ? ' is-cloud' : ''}`}
               onClick={() => { setCloudOpen((v) => !v); setCloudTest(null) }}
               title={t('cloudSwitchHint') + ' · ' + t('paneExperimental')}
               aria-haspopup="dialog"
               aria-expanded={cloudOpen}
             >
-              <i />{cloudConn.mode === 'cloud' ? t('cloudModeCloud') : t('cloudModeLocal')}
+              <i />
+              {cloudConn.mode === 'cloud' && cloudConn.active !== false
+                ? (String(cloudConn.url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || t('cloudModeCloud'))
+                : t('cloudModeLocal')}
               <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
             </button>
             {cloudOpen && (
