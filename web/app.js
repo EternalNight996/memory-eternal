@@ -27686,8 +27686,17 @@
   transition:background var(--me-mo-fast),border-color var(--me-mo-fast),transform var(--me-mo-fast);padding:7px 12px}
 .me-btn[disabled]{opacity:.5;cursor:not-allowed}
 .me-btn:active:not([disabled]){transform:translateY(1px)}
-.me-btn--primary{background:var(--me-c-accent);border-color:var(--me-c-accent);color:#fff;font-weight:600}
-.me-btn--primary:hover:not([disabled]){filter:brightness(1.08)}
+/* \u4E3B\u6309\u94AE\uFF1A\u84DD\u5E95\u767D\u5B57 + \u4E00\u70B9\u5C42\u6B21\u3002
+   \u4E3A\u4EC0\u4E48\u4E4B\u524D\u770B\u4E0D\u6E05\uFF1A\u76AE\u80A4\u515C\u5E95\u89C4\u5219 [data-skin] .me-btn \u7684\u6743\u91CD\uFF080,2,0\uFF09\u538B\u8FC7
+   .me-btn--primary\uFF080,1,0\uFF09\uFF0C\u628A color:#fff \u6539\u6210\u4E86 --me-c-text\uFF08\u8FD1\u9ED1\uFF09\u2014\u2014
+   \u84DD\u5E95\u8FD1\u9ED1\u5B57\u5BF9\u6BD4\u5EA6\u53EA\u6709 ~2.3:1\u3002\u73B0\u5728 primary \u7528\u767D\u5B57\uFF0C\u7EA6 3.1:1\uFF0C
+   \u518D\u53E0\u4E00\u5C42\u6781\u8F7B\u7684\u5185\u9AD8\u5149\u4E0E\u6295\u5F71\uFF0C\u5C0F\u5B57\u53F7\u4E5F\u8BFB\u5F97\u6E05\u3002 */
+.me-btn--primary{background:var(--me-c-accent);border-color:var(--me-c-accent);color:#fff;font-weight:600;
+  box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.14);
+  text-shadow:0 1px 1px rgba(0,0,0,.12)}
+.me-btn--primary:hover:not([disabled]){filter:brightness(1.08);
+  box-shadow:0 2px 8px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.18)}
+.me-btn--primary:active:not([disabled]){box-shadow:inset 0 1px 3px rgba(0,0,0,.22)}
 .me-btn--secondary{background:transparent;border-color:var(--me-c-border-strong);color:var(--me-c-text)}
 .me-btn--secondary:hover:not([disabled]){border-color:var(--me-c-accent);color:var(--me-c-accent)}
 .me-btn--ghost{background:transparent;border-color:transparent;color:var(--me-c-text-dim);padding:6px 8px}
@@ -33693,7 +33702,15 @@ ${COMPONENTS_CSS}
   --me-c-border-strong: #3f5a47;
 }
 /* \u6D45\u5E95\u4E0A\u518D\u4FDD\u4E00\u904D\u53EF\u8BFB\u6027\uFF1A\u6B21\u8981\u6587\u5B57\u4E0E\u6309\u94AE\u6587\u5B57\uFF08\u7EC4\u4EF6\u5C42\u7684 border/color \u90FD\u8D70\u8FD9\u4E9B\u4EE4\u724C\uFF09 */
-[data-skin="spider"] .me-btn, [data-skin="light"] .me-btn, [data-skin="pop"] .me-btn { color: var(--me-c-text); }
+/* \u76AE\u80A4\u515C\u5E95\uFF1A\u53EA\u7ED9**\u975E\u4E3B\u6309\u94AE**\u8BBE\u6587\u5B57\u8272\u3002
+   \u539F\u5199\u6CD5 [data-skin] .me-btn\uFF080,2,0\uFF09\u7684\u6743\u91CD\u9AD8\u4E8E .me-btn--primary\uFF080,1,0\uFF09\uFF0C
+   \u4F1A\u628A\u4E3B\u6309\u94AE\u7684 color:#fff \u8986\u76D6\u6389 \u2014\u2014 \u84DD\u5E95\u9ED1\u5B57\uFF0C\u5B57\u51E0\u4E4E\u770B\u4E0D\u89C1\uFF08\u7528\u6237\u5B9E\u6D4B\uFF09\u3002
+   \u8FD9\u91CC\u6392\u9664 primary\uFF0C\u5E76\u5728\u540E\u9762\u663E\u5F0F\u515C\u4E00\u5C42\uFF0C\u907F\u514D\u4EE5\u540E\u518D\u52A0\u76AE\u80A4\u65F6\u53C8\u8E29\u540C\u4E00\u4E2A\u5751\u3002 */
+[data-skin="spider"] .me-btn:not(.me-btn--primary), [data-skin="light"] .me-btn:not(.me-btn--primary), [data-skin="pop"] .me-btn:not(.me-btn--primary) { color: var(--me-c-text); }
+/* \u4E3B\u6309\u94AE\u6C38\u8FDC\u662F\u767D\u5B57\uFF08--me-c-accent \u662F\u4E2D\u9971\u548C\u5EA6\u84DD/\u6A59\uFF0C\u767D\u5B57\u5BF9\u6BD4\u5EA6 ~4.5:1\uFF09\uFF1B
+   \u653E\u5728\u76AE\u80A4\u89C4\u5219\u4E4B\u540E\uFF0C\u540C\u6743\u91CD\u4F46\u540E\u8005\u80DC\u3002 */
+[data-skin] .me-btn--primary { color: #fff; }
+[data-skin] .me-btn--primary:hover:not([disabled]) { color: #fff; }
 [data-skin="spider"] .me-btn--secondary, [data-skin="light"] .me-btn--secondary, [data-skin="pop"] .me-btn--secondary {
   background: #fff; border-color: var(--me-c-border-strong); color: var(--me-c-text);
 }
@@ -34139,7 +34156,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T13:02:01.868Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T13:05:14.627Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
