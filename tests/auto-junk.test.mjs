@@ -197,3 +197,70 @@ test('action=both 也不做永久删除（只进回收站）', async () => {
   assert.equal(anywhere, 1, '数据必须还在（不是永久删）')
   cleanup(root)
 })
+
+// 定时自动体检的配置**必须能被保存并读回**。
+// 这条 bug 的根因：配置走的是 /api/config 的白名单 + DSH settings schema，
+// junkAuto* 字段被静默过滤 —— 用户点保存、开关弹回关，看起来"保存没生效"。
+// 现在改成独立文件（memory-eternal-junk-auto.json），守住三件事：
+//   ① 写入后立刻能读回（同一个进程内）
+//   ② 跨进程重启后仍在（落盘，不是内存）
+//   ③ 缺字段时回落默认值，不会因为坏数据炸掉
+test('自动体检配置：写独立文件 + 能原样读回', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const { readAutoSettings, writeAutoSettings, autoConfigFrom, autoConfigWithFile, autoSettingsPath } = await import('../lib/auto-junk.js')
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-junkset-'))
+  const env = { ...process.env, DSH_HOME: home }
+
+  // 默认：关闭
+  assert.equal(autoConfigFrom({}).enabled, false)
+  assert.equal(fs.existsSync(autoSettingsPath(env)), false, '没写过就不该有文件')
+
+  // 写
+  const w = writeAutoSettings({ junkAutoEnabled: true, junkAutoIntervalHours: 48, junkAutoMaxPerRun: 150, junkAutoAction: 'both' }, env)
+  assert.equal(w.ok, true)
+  assert.ok(fs.existsSync(autoSettingsPath(env)), '应落盘到独立文件')
+
+  // 读回（模拟重启：直接读文件，不依赖内存）
+  const back = autoConfigWithFile(env)
+  assert.equal(back.enabled, true)
+  assert.equal(back.intervalHours, 48)
+  assert.equal(back.maxPerRun, 150)
+  assert.equal(back.action, 'both')
+
+  // 部分更新不清掉其它字段
+  writeAutoSettings({ junkAutoMaxPerRun: 99 }, env)
+  const again = autoConfigWithFile(env)
+  assert.equal(again.enabled, true, '部分更新不该重置 enabled')
+  assert.equal(again.maxPerRun, 99)
+
+  // 坏数据不炸
+  fs.writeFileSync(autoSettingsPath(env), '{ 这不是 json')
+  assert.doesNotThrow(() => readAutoSettings(env))
+  assert.equal(autoConfigWithFile(env).enabled, false, '坏文件应按默认值处理')
+
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+})
+
+test('自动体检配置：与传入 settings 的合并优先级（独立文件优先）', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const { writeAutoSettings, autoConfigWithFile } = await import('../lib/auto-junk.js')
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-junkset2-'))
+  const env = { ...process.env, DSH_HOME: home }
+  const prevHome = process.env.DSH_HOME
+  process.env.DSH_HOME = home
+  try {
+    writeAutoSettings({ junkAutoEnabled: true, junkAutoIntervalHours: 12 }, env)
+    // settings 里给了旧值，但独立文件更新 → 应该用独立文件
+    const cfg = autoConfigWithFile(env, { junkAutoEnabled: false, junkAutoIntervalHours: 999 })
+    assert.equal(cfg.enabled, true, '独立文件优先于传入 settings')
+    assert.equal(cfg.intervalHours, 12)
+  } finally {
+    if (prevHome === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = prevHome
+    try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+  }
+})

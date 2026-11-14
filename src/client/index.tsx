@@ -905,6 +905,9 @@ export const ZH = {
   junkAutoMax: '单次最多归档',
   junkAutoCardsUnit: '张',
   junkAutoDryRun: '预演一次（不改数据）',
+  junkAutoSave: '保存体检设置',
+  junkAutoSaved: '体检设置已保存',
+  junkAutoSaveHint: '这项单独保存，不跟随上方「保存配置」',
   junkAutoLast: '上次运行：{when} · 归档 {n} 张',
   junkAutoPreview: '预演结果：本次会归档 {n} 张',
   backupSection: '备份',
@@ -2019,6 +2022,9 @@ export const EN = {
   junkAutoMax: 'Max per run',
   junkAutoCardsUnit: 'cards',
   junkAutoDryRun: 'Dry run (no changes)',
+  junkAutoSave: 'Save health-check settings',
+  junkAutoSaved: 'Health-check settings saved',
+  junkAutoSaveHint: 'Saved separately from the main Save button above',
   junkAutoLast: 'Last run: {when} · archived {n}',
   junkAutoPreview: 'Dry run: would archive {n} cards',
   backupSection: 'Backup',
@@ -7410,6 +7416,30 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [autoState, setAutoState] = useState(null)
   const [autoDry, setAutoDry] = useState(null)
   /** 预演一次自动体检（只看会归档多少，不动数据） */
+  /** 保存定时体检配置。
+   *  必须走 /junk/auto 的 save 分支 —— 走主「保存配置」会被 DSH settings 的 schema 过滤掉，
+   *  用户点了保存、开关照样弹回关（这是实际踩到的 bug）。 */
+  const saveAutoConfig = async () => {
+    setJunkBusy(true)
+    try {
+      const r = await fetch(API + '/junk/auto', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          save: {
+            junkAutoEnabled: form && form.junkAutoEnabled === true,
+            junkAutoAction: form && form.junkAutoAction === 'both' ? 'both' : 'archive',
+            junkAutoIntervalHours: Number((form && form.junkAutoIntervalHours) ?? 24) || 24,
+            junkAutoMaxPerRun: Number((form && form.junkAutoMaxPerRun) ?? 200) || 200,
+          },
+        }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) { notify((d && d.error) || '保存失败', false); setJunkBusy(false); return }
+      setAutoState(d.config || null)
+      notify(t('junkAutoSaved'), true)
+    } catch (e) { notify(String((e && e.message) || e), false) }
+    setJunkBusy(false)
+  }
   const runAutoDryRun = async () => {
     setJunkBusy(true); setJunkErr(''); setAutoDry(null)
     try {
@@ -8410,6 +8440,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       </select>
                     </div>
                     <div className="mc-cloud-actions" style={{ marginTop: 10 }}>
+                      <Btn variant="primary" size="sm" disabled={junkBusy} onClick={saveAutoConfig}>
+                        {t('junkAutoSave')}
+                      </Btn>
                       <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={runAutoDryRun}>
                         {t('junkAutoDryRun')}
                       </Btn>
