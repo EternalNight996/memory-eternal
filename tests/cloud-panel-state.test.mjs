@@ -102,7 +102,22 @@ test('回归锚点：deviceAuth / cloudForm / cloudPlan / isConnected 都在依�
 // ── ④ 云端面板必须三态互斥 ───────────────────────────────────────────────
 test('云端面板三态互斥：isConnected 同时控制「登录CTA不显示」与「表单不显示」', () => {
   const region = lines.slice(cfg.start, cfg.end).join('\n')
+  // 判据是**语义**而不是某一种写法：
+  //   · 有 isConnected 分支
+  //   · 登录面板（设备码 / 设备码面板）出现在 isConnected 的 **else** 分支里
+  //     —— 早期写成 {!isConnected && deviceAuth ? (...)} 显式排除，
+  //        后来重排成 else 分支内直接 {deviceAuth ? (...)}，语义等价。
   assert.ok(region.includes('{isConnected ? ('), '已连接分支缺失')
-  assert.ok(region.includes('{!isConnected && deviceAuth ? ('), '设备码分支必须排除已连接')
-  assert.ok(/!isConnected \? \(/.test(region), '表单必须只在未连接时显示')
+
+  const elseIdx = region.indexOf(') : (')
+  assert.ok(elseIdx > 0, '找不到 isConnected 的 else 分支')
+
+  // else 之后必须出现登录面板（会自己渲染二维码或"扫码登录"按钮）
+  const after = region.slice(elseIdx)
+  const hasLoginPanel = after.includes('{deviceAuth ? (') || after.includes('{!isConnected && deviceAuth ? (')
+  assert.ok(hasLoginPanel, '登录面板必须出现在未连接（else）分支内，否则已连接时仍会显示')
+
+  // 且 isConnected 分支**内部**不能出现登录面板（那才是真重复渲染）
+  const head = region.slice(0, elseIdx)
+  assert.ok(!head.includes('{deviceAuth ? ('), '已连接分支里不该再有设备码面板')
 })
