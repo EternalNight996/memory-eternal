@@ -28798,9 +28798,25 @@
       localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(c));
     } catch {
     }
+    function syncCloudConnToServer2(conn) {
+      try {
+        fetch(API + "/cloud/conn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || "" } })
+        }).catch(() => {
+        });
+      } catch {
+      }
+    }
+    __name(syncCloudConnToServer2, "syncCloudConnToServer");
   }
   __name(saveCloudConn, "saveCloudConn");
   function applyCloudConn(c) {
+    try {
+      syncCloudConnToServer(c || {});
+    } catch {
+    }
     const url = String(c && c.url || "").replace(/\/+$/, "");
     const wantCloud = c && c.mode === "cloud" && c.active !== false && /^https?:\/\//i.test(url);
     if (wantCloud) {
@@ -34246,7 +34262,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T13:50:45.107Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T14:12:01.495Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });

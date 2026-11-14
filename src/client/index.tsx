@@ -146,9 +146,27 @@ function readCloudConn() {
 }
 function saveCloudConn(c) {
   try { localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(c)) } catch { /* 隐私模式 */ }
+
+/**
+ * 把云端连接同步到**服务端**（$DSH_HOME/memory-eternal-cloud-conn.json）。
+ *
+ * 为什么要两边存：localStorage 只有浏览器读得到，而 agent 自动沉淀跑在 Node 侧。
+ * 不落这一份的话，「切到云端」只改了前端的 API 前缀，插件照样把卡片写本地
+ * —— 用户看到的就是「切了云端但沉淀没进去」。
+ */
+function syncCloudConnToServer(conn) {
+  try {
+    fetch(API + '/cloud/conn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || '' } }),
+    }).catch(() => { /* 同步失败不影响本地使用 */ })
+  } catch { /* 忽略 */ }
+}
 }
 /** 应用连接配置：改 API 前缀 + 记下令牌（fetch 包装据此注入头）。**只有 active 才切到云端**。 */
 function applyCloudConn(c) {
+  try { syncCloudConnToServer(c || {}) } catch { /* 忽略 */ }
   const url = String((c && c.url) || '').replace(/\/+$/, '')
   const wantCloud = c && c.mode === 'cloud' && c.active !== false && /^https?:\/\//i.test(url)
   if (wantCloud) {
