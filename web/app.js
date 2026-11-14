@@ -27585,6 +27585,7 @@
     deviceCopy: "\u590D\u5236",
     deviceWaiting: "\u7B49\u5F85\u6388\u6743\u2026\uFF08\u6388\u6743\u540E\u8FD9\u91CC\u4F1A\u81EA\u52A8\u5B8C\u6210\uFF0C\u4E0D\u7528\u5237\u65B0\uFF09",
     deviceCancel: "\u53D6\u6D88",
+    deviceOpenBtn: "\u5728\u6D4F\u89C8\u5668\u6253\u5F00\uFF08\u81EA\u52A8\u5E26\u9A8C\u8BC1\u7801\uFF09",
     deviceDone: "\u767B\u5F55\u6210\u529F",
     deviceExpired: "\u9A8C\u8BC1\u7801\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u53D1\u8D77\u767B\u5F55",
     deviceFailed: "\u767B\u5F55\u5931\u8D25",
@@ -28712,6 +28713,7 @@
     deviceCopy: "Copy",
     deviceWaiting: "Waiting for approval\u2026 (finishes automatically, no refresh needed)",
     deviceCancel: "Cancel",
+    deviceOpenBtn: "Open in browser (code pre-filled)",
     deviceDone: "Signed in",
     deviceExpired: "The code expired \u2014 please start again",
     deviceFailed: "Sign-in failed",
@@ -32081,7 +32083,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T10:13:03.385Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T10:30:36.863Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -35793,7 +35795,7 @@ ${t("quoteHint")}`,
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12, lineHeight: 1.7 }, children: [
                     t("deviceOpen"),
                     " ",
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { href: deviceAuth.verificationUri, target: "_blank", rel: "noreferrer", style: { wordBreak: "break-all" }, children: deviceAuth.verificationUri })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { href: deviceAuth.verificationUriComplete || deviceAuth.verificationUri, target: "_blank", rel: "noreferrer", style: { wordBreak: "break-all" }, children: deviceAuth.verificationUriComplete || deviceAuth.verificationUri })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, opacity: 0.8 }, children: t("deviceCodeLabel") }),
@@ -35803,7 +35805,21 @@ ${t("quoteHint")}`,
                         navigator.clipboard.writeText(deviceAuth.userCode);
                       } catch {
                       }
-                    }, children: t("deviceCopy") })
+                    }, children: t("deviceCopy") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      Btn,
+                      {
+                        variant: "primary",
+                        size: "sm",
+                        onClick: () => {
+                          try {
+                            window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, "_blank", "noopener");
+                          } catch {
+                          }
+                        },
+                        children: t("deviceOpenBtn")
+                      }
+                    )
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, opacity: 0.7 }, children: [
                     "\u23F3 ",
