@@ -909,6 +909,30 @@ export const ZH = {
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
   vaultListLabel: '本机记忆库',
+  resetSection: '恢复出厂设置',
+  resetSectionSub: '把当前库恢复到刚安装的状态；其它库不受影响',
+  resetIntro: '清空当前记忆库的全部内容（卡片、审核队列、回收站、索引、配置）。清理前会自动备份整份数据库，备份路径会在完成后显示。',
+  resetOpenBtn: '恢复出厂设置…',
+  resetTitle: '恢复出厂设置',
+  resetScopeIntro: '把【当前库】恢复到刚安装的状态。其它库（备份副本、云端租户库）不受影响。',
+  resetWillClearCards: '清空 {n} 张卡片',
+  resetQuarantined: '张隔离卡',
+  resetWillClearIndex: '清空向量索引与搜索索引',
+  resetWillClearConfig: '清空所有配置（主题、开关、密钥）',
+  resetOthersSafe: '其它记忆库不受影响',
+  resetBackupAt: '清理前自动备份到：',
+  resetTypeLabel: '输入「{w}」确认：',
+  resetConfirmWord: '恢复出厂设置',
+  resetAckLabel: '我明白这会清空当前库，并已确认上面的备份路径',
+  resetConfirmBtn: '确认恢复',
+  resetPhaseBackup: '正在备份当前库…',
+  resetPhaseClear: '正在清空数据…',
+  resetDoNotClose: '请勿关闭窗口或面板',
+  resetDone: '已恢复到刚安装的状态。',
+  resetErrHint: '任何一步失败都会中止，数据没有被清空。',
+  resetPreviewFail: '预览失败',
+  resetFail: '恢复失败',
+  resetDoneMsg: '已恢复出厂设置',
   vaultCurrent: '（当前）',
   vaultTargetLabel: '与哪个库搬数据',
   vaultPickPlaceholder: '选择目标库',
@@ -2092,6 +2116,30 @@ export const EN = {
   devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
   vaultListLabel: 'Vaults on this machine',
+  resetSection: 'Factory reset',
+  resetSectionSub: 'Reset the current vault to a fresh install; other vaults are untouched',
+  resetIntro: 'Clears everything in the current vault (cards, review queue, recycle bin, indexes, settings). A full database backup is taken first and its path is shown when done.',
+  resetOpenBtn: 'Factory reset…',
+  resetTitle: 'Factory reset',
+  resetScopeIntro: 'Resets the CURRENT vault to a fresh install. Other vaults (backups, cloud tenants) are untouched.',
+  resetWillClearCards: 'Clear {n} cards',
+  resetQuarantined: 'quarantined',
+  resetWillClearIndex: 'Clear vector and search indexes',
+  resetWillClearConfig: 'Clear all settings (theme, switches, keys)',
+  resetOthersSafe: 'Other vaults are not affected',
+  resetBackupAt: 'Auto-backup goes to:',
+  resetTypeLabel: 'Type "{w}" to confirm:',
+  resetConfirmWord: 'factory reset',
+  resetAckLabel: 'I understand this wipes the current vault and I have noted the backup path',
+  resetConfirmBtn: 'Reset now',
+  resetPhaseBackup: 'Backing up the vault…',
+  resetPhaseClear: 'Clearing data…',
+  resetDoNotClose: 'Keep this window open',
+  resetDone: 'Reset to a fresh install.',
+  resetErrHint: 'Any failure aborts the whole operation — nothing was cleared.',
+  resetPreviewFail: 'Preview failed',
+  resetFail: 'Reset failed',
+  resetDoneMsg: 'Factory reset complete',
   vaultCurrent: '(current)',
   vaultTargetLabel: 'Transfer with',
   vaultPickPlaceholder: 'Pick a vault',
@@ -8006,6 +8054,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [vaultSel, setVaultSel] = useState('')
   const [dupMode, setDupMode] = useState('skip')
   const [xfer, setXfer] = useState(null)
+  // 恢复出厂：弹窗 + 二次确认 + 进度
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetInfo, setResetInfo] = useState(null)     // dryRun 结果（会清多少、备份在哪）
+  const [resetInput, setResetInput] = useState('')      // 用户手打的确认文字
+  const [resetAck, setResetAck] = useState(false)       // 打勾
+  const [resetJob, setResetJob] = useState(null)        // { phase, pct, result, err }
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -8138,6 +8192,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
     'sec-cost': 'advanced', 'sec-audit': 'advanced',
     'sec-service': 'service',
     'sec-cloud': 'experimental',
+    // 恢复出厂：与云端连接同属「实验性」页（危险操作，但确实属于实验区的范畴）
+    'sec-reset': 'experimental',
   }
   const PAGES = [
     ['general', t('paneGeneral'), t('paneGeneralSub'), '⚙️'],
@@ -8246,6 +8302,54 @@ function ConfigPanel({ t, onReload, version, compact }) {
    *   ① 必须带 Authorization —— 这个接口要令牌，不带就是 401，套餐永远空着
    *   ② 地址用 cloudApi（云端绝对地址），不能用相对前缀 API（那是本地服务）
    */
+  /** 打开「恢复出厂」弹窗：先 dryRun 拿清单（会清多少卡、备份落在哪）。 */
+  const openFactoryReset = async () => {
+    setResetOpen(true)
+    setResetInput('')
+    setResetAck(false)
+    setResetJob(null)
+    setResetInfo(null)
+    try {
+      const d = await fetch(API + '/factory-reset', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: true }),
+      }).then((r) => r.json()).catch(() => null)
+      if (d && d.ok) setResetInfo(d)
+      else setResetJob({ phase: 'error', err: (d && d.error) || t('resetPreviewFail') })
+    } catch (e) {
+      setResetJob({ phase: 'error', err: String((e && e.message) || e) })
+    }
+  }
+
+  /**
+   * 执行恢复出厂。
+   * 三个阶段做进度：备份 → 清表 → 重建基础配置（服务端一次做完，这里按阶段给文案）。
+   * 服务端会**先备份再清**，备份失败直接中止 —— 所以这里失败也能告诉用户「东西还在」。
+   */
+  const runFactoryReset = async () => {
+    if (resetInput !== t('resetConfirmWord') || !resetAck) return
+    setResetJob({ phase: 'backup', pct: 12 })
+    try {
+      await new Promise((r) => setTimeout(r, 220))   // 让「备份中」这一帧可见
+      setResetJob({ phase: 'clear', pct: 55 })
+      const d = await fetch(API + '/factory-reset', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: t('resetConfirmWord'), expected: t('resetConfirmWord') }),
+      }).then((r) => r.json()).catch(() => null)
+      if (!d || !d.ok) {
+        setResetJob({ phase: 'error', err: (d && d.error) || t('resetFail') })
+        return
+      }
+      setResetJob({ phase: 'done', pct: 100, result: d })
+      // 清完刷新：库计数、概览
+      try { loadVaults() } catch { /* 忽略 */ }
+      try { loadCloudPlan() } catch { /* 忽略 */ }
+      try { notify(t('resetDoneMsg'), true) } catch { /* 忽略 */ }
+    } catch (e) {
+      setResetJob({ phase: 'error', err: String((e && e.message) || e) })
+    }
+  }
+
   /** 拉本机所有库（本地 + 备份 + 云端租户）。 */
   const loadVaults = async () => {
     try {
@@ -9747,6 +9851,77 @@ function ConfigPanel({ t, onReload, version, compact }) {
               )}
                             </PanelErrorBoundary>
 </CfgSection>
+
+            {/* ── 恢复出厂设置：危险操作，单独一块，默认不展开 ──────────────── */}
+            <CfgSection {...secProps('sec-reset')} id="sec-reset" icon="⚠️" title={t('resetSection')} sub={t('resetSectionSub')}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.75 }}>{t('resetIntro')}</div>
+                {resetOpen ? (
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                    <div style={{ width: 'min(520px, 100%)', maxHeight: '86vh', overflow: 'auto', background: 'var(--dsw-alias-bg-layer-1, #fff)', border: '1px solid var(--me-c-border)', borderRadius: 14, padding: '20px 22px', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12 }}>
+                        <span style={{ fontSize: 17 }}>⚠️</span><b style={{ fontSize: 15 }}>{t('resetTitle')}</b>
+                      </div>
+                      {resetJob && resetJob.phase === 'done' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <div style={{ fontSize: 13, lineHeight: 1.8 }}>{t('resetDone')}</div>
+                          {resetJob.result && resetJob.result.backupPath ? (
+                            <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)' }}>
+                              <div style={{ fontSize: 10.5, opacity: 0.55, marginBottom: 3 }}>{t('resetBackupAt')}</div>
+                              <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11, wordBreak: 'break-all' }}>{resetJob.result.backupPath}</div>
+                            </div>
+                          ) : null}
+                          <div><Btn variant="secondary" size="sm" onClick={() => setResetOpen(false)}>{t('close')}</Btn></div>
+                        </div>
+                      ) : resetJob && resetJob.phase === 'error' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <Status tone="bad" text={resetJob.err || t('resetFail')} />
+                          <div style={{ fontSize: 11.5, opacity: 0.65, lineHeight: 1.7 }}>{t('resetErrHint')}</div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <Btn variant="secondary" size="sm" onClick={() => setResetOpen(false)}>{t('close')}</Btn>
+                            <Btn variant="ghost" size="sm" onClick={openFactoryReset}>{t('retry')}</Btn>
+                          </div>
+                        </div>
+                      ) : resetJob ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                          <div style={{ fontSize: 13 }}>{resetJob.phase === 'backup' ? t('resetPhaseBackup') : t('resetPhaseClear')}</div>
+                          <div style={{ height: 6, borderRadius: 999, background: 'var(--me-c-border)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: (resetJob.pct || 0) + '%', background: 'var(--me-c-accent)', transition: 'width .35s ease' }} />
+                          </div>
+                          <div style={{ fontSize: 11, opacity: 0.55 }}>{t('resetDoNotClose')}</div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                          <div style={{ fontSize: 12.5, lineHeight: 1.8 }}>{t('resetScopeIntro')}</div>
+                          {resetInfo ? (
+                            <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '10px 12px', background: 'var(--me-c-surface)', fontSize: 11.5, lineHeight: 1.85 }}>
+                              <div>· {t('resetWillClearCards').replace('{n}', String(resetInfo.cards))}{resetInfo.quarantined ? ' + ' + resetInfo.quarantined + ' ' + t('resetQuarantined') : ''}</div>
+                              <div>· {t('resetWillClearIndex')}</div>
+                              <div>· {t('resetWillClearConfig')}</div>
+                              <div style={{ marginTop: 6, opacity: 0.65 }}>· {t('resetOthersSafe')}</div>
+                              <div style={{ marginTop: 6, fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 10.5, opacity: 0.6, wordBreak: 'break-all' }}>{t('resetBackupAt')} {String(resetInfo.backupWillBe || '').split(/[\\/]/).pop()}</div>
+                            </div>
+                          ) : <div style={{ fontSize: 12, opacity: 0.6 }}>⏳</div>}
+                          <label className="mc-field" style={{ margin: 0 }}>
+                            <span className="mc-field-label">{t('resetTypeLabel').replace('{w}', t('resetConfirmWord'))}</span>
+                            <input value={resetInput} onChange={(e) => setResetInput(e.target.value)} placeholder={t('resetConfirmWord')} autoFocus />
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, lineHeight: 1.7, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={resetAck} onChange={(e) => setResetAck(e.target.checked)} style={{ marginTop: 2 }} />
+                            <span>{t('resetAckLabel')}</span>
+                          </label>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <Btn variant="secondary" size="sm" onClick={() => setResetOpen(false)}>{t('cancel')}</Btn>
+                            <Btn variant="danger" size="sm" disabled={resetInput !== t('resetConfirmWord') || !resetAck} onClick={runFactoryReset}>{t('resetConfirmBtn')}</Btn>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+                <div><Btn variant="danger" size="sm" onClick={openFactoryReset}>{t('resetOpenBtn')}</Btn></div>
+              </div>
+            </CfgSection>
             {/* 备份只在「记忆」页出现一次（上面 7256 那一处）。这里原来还有一份同样的
                 `sec-backup` + `<BackupCard>`（从运行状态页搬过来时留下的），
                 同一个组件被渲染两遍 → 用户看到「两个🧯备份」。已删。 */}

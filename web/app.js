@@ -29518,6 +29518,30 @@
     devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
     vaultListLabel: "\u672C\u673A\u8BB0\u5FC6\u5E93",
+    resetSection: "\u6062\u590D\u51FA\u5382\u8BBE\u7F6E",
+    resetSectionSub: "\u628A\u5F53\u524D\u5E93\u6062\u590D\u5230\u521A\u5B89\u88C5\u7684\u72B6\u6001\uFF1B\u5176\u5B83\u5E93\u4E0D\u53D7\u5F71\u54CD",
+    resetIntro: "\u6E05\u7A7A\u5F53\u524D\u8BB0\u5FC6\u5E93\u7684\u5168\u90E8\u5185\u5BB9\uFF08\u5361\u7247\u3001\u5BA1\u6838\u961F\u5217\u3001\u56DE\u6536\u7AD9\u3001\u7D22\u5F15\u3001\u914D\u7F6E\uFF09\u3002\u6E05\u7406\u524D\u4F1A\u81EA\u52A8\u5907\u4EFD\u6574\u4EFD\u6570\u636E\u5E93\uFF0C\u5907\u4EFD\u8DEF\u5F84\u4F1A\u5728\u5B8C\u6210\u540E\u663E\u793A\u3002",
+    resetOpenBtn: "\u6062\u590D\u51FA\u5382\u8BBE\u7F6E\u2026",
+    resetTitle: "\u6062\u590D\u51FA\u5382\u8BBE\u7F6E",
+    resetScopeIntro: "\u628A\u3010\u5F53\u524D\u5E93\u3011\u6062\u590D\u5230\u521A\u5B89\u88C5\u7684\u72B6\u6001\u3002\u5176\u5B83\u5E93\uFF08\u5907\u4EFD\u526F\u672C\u3001\u4E91\u7AEF\u79DF\u6237\u5E93\uFF09\u4E0D\u53D7\u5F71\u54CD\u3002",
+    resetWillClearCards: "\u6E05\u7A7A {n} \u5F20\u5361\u7247",
+    resetQuarantined: "\u5F20\u9694\u79BB\u5361",
+    resetWillClearIndex: "\u6E05\u7A7A\u5411\u91CF\u7D22\u5F15\u4E0E\u641C\u7D22\u7D22\u5F15",
+    resetWillClearConfig: "\u6E05\u7A7A\u6240\u6709\u914D\u7F6E\uFF08\u4E3B\u9898\u3001\u5F00\u5173\u3001\u5BC6\u94A5\uFF09",
+    resetOthersSafe: "\u5176\u5B83\u8BB0\u5FC6\u5E93\u4E0D\u53D7\u5F71\u54CD",
+    resetBackupAt: "\u6E05\u7406\u524D\u81EA\u52A8\u5907\u4EFD\u5230\uFF1A",
+    resetTypeLabel: "\u8F93\u5165\u300C{w}\u300D\u786E\u8BA4\uFF1A",
+    resetConfirmWord: "\u6062\u590D\u51FA\u5382\u8BBE\u7F6E",
+    resetAckLabel: "\u6211\u660E\u767D\u8FD9\u4F1A\u6E05\u7A7A\u5F53\u524D\u5E93\uFF0C\u5E76\u5DF2\u786E\u8BA4\u4E0A\u9762\u7684\u5907\u4EFD\u8DEF\u5F84",
+    resetConfirmBtn: "\u786E\u8BA4\u6062\u590D",
+    resetPhaseBackup: "\u6B63\u5728\u5907\u4EFD\u5F53\u524D\u5E93\u2026",
+    resetPhaseClear: "\u6B63\u5728\u6E05\u7A7A\u6570\u636E\u2026",
+    resetDoNotClose: "\u8BF7\u52FF\u5173\u95ED\u7A97\u53E3\u6216\u9762\u677F",
+    resetDone: "\u5DF2\u6062\u590D\u5230\u521A\u5B89\u88C5\u7684\u72B6\u6001\u3002",
+    resetErrHint: "\u4EFB\u4F55\u4E00\u6B65\u5931\u8D25\u90FD\u4F1A\u4E2D\u6B62\uFF0C\u6570\u636E\u6CA1\u6709\u88AB\u6E05\u7A7A\u3002",
+    resetPreviewFail: "\u9884\u89C8\u5931\u8D25",
+    resetFail: "\u6062\u590D\u5931\u8D25",
+    resetDoneMsg: "\u5DF2\u6062\u590D\u51FA\u5382\u8BBE\u7F6E",
     vaultCurrent: "\uFF08\u5F53\u524D\uFF09",
     vaultTargetLabel: "\u4E0E\u54EA\u4E2A\u5E93\u642C\u6570\u636E",
     vaultPickPlaceholder: "\u9009\u62E9\u76EE\u6807\u5E93",
@@ -30699,6 +30723,30 @@
     devicePanelTitle: "Finish signing in in your browser",
     localVaultLabel: "Vault location",
     vaultListLabel: "Vaults on this machine",
+    resetSection: "Factory reset",
+    resetSectionSub: "Reset the current vault to a fresh install; other vaults are untouched",
+    resetIntro: "Clears everything in the current vault (cards, review queue, recycle bin, indexes, settings). A full database backup is taken first and its path is shown when done.",
+    resetOpenBtn: "Factory reset\u2026",
+    resetTitle: "Factory reset",
+    resetScopeIntro: "Resets the CURRENT vault to a fresh install. Other vaults (backups, cloud tenants) are untouched.",
+    resetWillClearCards: "Clear {n} cards",
+    resetQuarantined: "quarantined",
+    resetWillClearIndex: "Clear vector and search indexes",
+    resetWillClearConfig: "Clear all settings (theme, switches, keys)",
+    resetOthersSafe: "Other vaults are not affected",
+    resetBackupAt: "Auto-backup goes to:",
+    resetTypeLabel: 'Type "{w}" to confirm:',
+    resetConfirmWord: "factory reset",
+    resetAckLabel: "I understand this wipes the current vault and I have noted the backup path",
+    resetConfirmBtn: "Reset now",
+    resetPhaseBackup: "Backing up the vault\u2026",
+    resetPhaseClear: "Clearing data\u2026",
+    resetDoNotClose: "Keep this window open",
+    resetDone: "Reset to a fresh install.",
+    resetErrHint: "Any failure aborts the whole operation \u2014 nothing was cleared.",
+    resetPreviewFail: "Preview failed",
+    resetFail: "Reset failed",
+    resetDoneMsg: "Factory reset complete",
     vaultCurrent: "(current)",
     vaultTargetLabel: "Transfer with",
     vaultPickPlaceholder: "Pick a vault",
@@ -34180,7 +34228,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T13:09:24.479Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T13:17:11.656Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -36575,6 +36623,11 @@ ${t("quoteHint")}`,
     const [vaultSel, setVaultSel] = (0, import_react2.useState)("");
     const [dupMode, setDupMode] = (0, import_react2.useState)("skip");
     const [xfer, setXfer] = (0, import_react2.useState)(null);
+    const [resetOpen, setResetOpen] = (0, import_react2.useState)(false);
+    const [resetInfo, setResetInfo] = (0, import_react2.useState)(null);
+    const [resetInput, setResetInput] = (0, import_react2.useState)("");
+    const [resetAck, setResetAck] = (0, import_react2.useState)(false);
+    const [resetJob, setResetJob] = (0, import_react2.useState)(null);
     (0, import_react2.useEffect)(() => {
       let alive = true;
       (async () => {
@@ -36746,7 +36799,9 @@ ${t("quoteHint")}`,
       "sec-cost": "advanced",
       "sec-audit": "advanced",
       "sec-service": "service",
-      "sec-cloud": "experimental"
+      "sec-cloud": "experimental",
+      // 恢复出厂：与云端连接同属「实验性」页（危险操作，但确实属于实验区的范畴）
+      "sec-reset": "experimental"
     };
     const PAGES = [
       ["general", t("paneGeneral"), t("paneGeneralSub"), "\u2699\uFE0F"],
@@ -36827,6 +36882,56 @@ ${t("quoteHint")}`,
       }
       startDeviceLogin();
     }, [cloudTab, isConnected, cloudForm.url]);
+    const openFactoryReset = /* @__PURE__ */ __name(async () => {
+      setResetOpen(true);
+      setResetInput("");
+      setResetAck(false);
+      setResetJob(null);
+      setResetInfo(null);
+      try {
+        const d = await fetch(API + "/factory-reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dryRun: true })
+        }).then((r) => r.json()).catch(() => null);
+        if (d && d.ok) setResetInfo(d);
+        else setResetJob({ phase: "error", err: d && d.error || t("resetPreviewFail") });
+      } catch (e) {
+        setResetJob({ phase: "error", err: String(e && e.message || e) });
+      }
+    }, "openFactoryReset");
+    const runFactoryReset = /* @__PURE__ */ __name(async () => {
+      if (resetInput !== t("resetConfirmWord") || !resetAck) return;
+      setResetJob({ phase: "backup", pct: 12 });
+      try {
+        await new Promise((r) => setTimeout(r, 220));
+        setResetJob({ phase: "clear", pct: 55 });
+        const d = await fetch(API + "/factory-reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: t("resetConfirmWord"), expected: t("resetConfirmWord") })
+        }).then((r) => r.json()).catch(() => null);
+        if (!d || !d.ok) {
+          setResetJob({ phase: "error", err: d && d.error || t("resetFail") });
+          return;
+        }
+        setResetJob({ phase: "done", pct: 100, result: d });
+        try {
+          loadVaults();
+        } catch {
+        }
+        try {
+          loadCloudPlan();
+        } catch {
+        }
+        try {
+          notify2(t("resetDoneMsg"), true);
+        } catch {
+        }
+      } catch (e) {
+        setResetJob({ phase: "error", err: String(e && e.message || e) });
+      }
+    }, "runFactoryReset");
     const loadVaults = /* @__PURE__ */ __name(async () => {
       try {
         const r = await fetch(API + "/vaults");
@@ -38362,6 +38467,73 @@ ${t("quoteHint")}`,
                   cloudTest.diag.origin
                 ] })
               ] })
+            ] }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-reset"), id: "sec-reset", icon: "\u26A0\uFE0F", title: t("resetSection"), sub: t("resetSectionSub"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--me-c-text-dim)", lineHeight: 1.75 }, children: t("resetIntro") }),
+              resetOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, zIndex: 2e3, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: "min(520px, 100%)", maxHeight: "86vh", overflow: "auto", background: "var(--dsw-alias-bg-layer-1, #fff)", border: "1px solid var(--me-c-border)", borderRadius: 14, padding: "20px 22px", boxShadow: "0 24px 64px rgba(0,0,0,.32)" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 17 }, children: "\u26A0\uFE0F" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { fontSize: 15 }, children: t("resetTitle") })
+                ] }),
+                resetJob && resetJob.phase === "done" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, lineHeight: 1.8 }, children: t("resetDone") }),
+                  resetJob.result && resetJob.result.backupPath ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "9px 11px", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.55, marginBottom: 3 }, children: t("resetBackupAt") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11, wordBreak: "break-all" }, children: resetJob.result.backupPath })
+                  ] }) : null,
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => setResetOpen(false), children: t("close") }) })
+                ] }) : resetJob && resetJob.phase === "error" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: resetJob.err || t("resetFail") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.65, lineHeight: 1.7 }, children: t("resetErrHint") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => setResetOpen(false), children: t("close") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: openFactoryReset, children: t("retry") })
+                  ] })
+                ] }) : resetJob ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 14 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13 }, children: resetJob.phase === "backup" ? t("resetPhaseBackup") : t("resetPhaseClear") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 6, borderRadius: 999, background: "var(--me-c-border)", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: "100%", width: (resetJob.pct || 0) + "%", background: "var(--me-c-accent)", transition: "width .35s ease" } }) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.55 }, children: t("resetDoNotClose") })
+                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 13 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, lineHeight: 1.8 }, children: t("resetScopeIntro") }),
+                  resetInfo ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "10px 12px", background: "var(--me-c-surface)", fontSize: 11.5, lineHeight: 1.85 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                      "\xB7 ",
+                      t("resetWillClearCards").replace("{n}", String(resetInfo.cards)),
+                      resetInfo.quarantined ? " + " + resetInfo.quarantined + " " + t("resetQuarantined") : ""
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                      "\xB7 ",
+                      t("resetWillClearIndex")
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                      "\xB7 ",
+                      t("resetWillClearConfig")
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 6, opacity: 0.65 }, children: [
+                      "\xB7 ",
+                      t("resetOthersSafe")
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 6, fontFamily: "ui-monospace,Consolas,monospace", fontSize: 10.5, opacity: 0.6, wordBreak: "break-all" }, children: [
+                      t("resetBackupAt"),
+                      " ",
+                      String(resetInfo.backupWillBe || "").split(/[\\/]/).pop()
+                    ] })
+                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, opacity: 0.6 }, children: "\u23F3" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("resetTypeLabel").replace("{w}", t("resetConfirmWord")) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: resetInput, onChange: (e) => setResetInput(e.target.value), placeholder: t("resetConfirmWord"), autoFocus: true })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, lineHeight: 1.7, cursor: "pointer" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: resetAck, onChange: (e) => setResetAck(e.target.checked), style: { marginTop: 2 } }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("resetAckLabel") })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, justifyContent: "flex-end" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => setResetOpen(false), children: t("cancel") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "danger", size: "sm", disabled: resetInput !== t("resetConfirmWord") || !resetAck, onClick: runFactoryReset, children: t("resetConfirmBtn") })
+                  ] })
+                ] })
+              ] }) }) : null,
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "danger", size: "sm", onClick: openFactoryReset, children: t("resetOpenBtn") }) })
             ] }) }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cfg-actions", children: [
               dirty ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-cfg-dirty", children: t("cfgDirty") }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-cfg-clean", children: [
