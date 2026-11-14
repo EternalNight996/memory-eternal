@@ -32,7 +32,7 @@ import { migrateFromMarkdown, setAuditConfig, backupDb, lastBackupAt } from './l
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { readActiveVault } from './lib/vault-pref.js'
-import { shouldPushToCloud, pushCardToCloud } from './lib/cloud-push.js'
+import { shouldPushToCloud, pushCardToCloud, enqueueFailedPush, flushQueue } from './lib/cloud-push.js'
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, preferenceLines, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
@@ -828,8 +828,14 @@ export function apply(ctx, config) {
         .then((r) => {
           if (r && r.ok) {
             logCapture('system', 'created', '已同步到云端' + (r.skipped ? '（云端已有，跳过）' : ''), { title: String(card.title || '').slice(0, 40) })
+            // 推送成功时顺带消费队列积压（渐进式，不集中爆发）
+            flushQueue().then((f) => {
+              if (f && f.sent > 0) logCapture('system', 'created', '补推队列：又同步了 ' + f.sent + ' 张到云端')
+            }).catch(() => { /* 忽略 */ })
           } else if (r && r.error && r.error !== 'not-cloud') {
-            logCapture('system', 'warn', '云端同步失败（本地已保存）：' + r.error)
+            // 失败入队：等云端恢复后由 flushQueue 补推（本地已保存，不会丢）
+            const q = enqueueFailedPush({ title: card.title, kind: card.kind, body: card.body, source: card.source }, r.error)
+            logCapture('system', 'warn', '云端同步失败（本地已保存' + (q && q.ok ? '，已进补推队列' : '') + '）：' + r.error)
           }
         })
         .catch(() => { /* 旁路失败不影响任何事 */ })
