@@ -1,5 +1,5 @@
 // 支付链路：**下单交给 MengBot，结果靠 webhook 回来**。守五件事：
-//   ① 套餐白名单（pro/team/enterprise），别把任意字符串透传过去；
+//   ① 套餐白名单（personal/pro/max —— 以 MengBot 第 3 封 B2 定稿为准），别把任意字符串透传过去；
 //   ② 代用户调用用 OIDC access_token（缓存失效自动 refresh）；
 //   ③ 支付页地址只认契约字段 `url`（对方 B2 答复：checkoutUrl/checkout_url 不是契约字段）；
 //   ④ 下单失败给可读原因（不吞 401/402）；
@@ -44,7 +44,7 @@ const fakeDiscovery = async (url) => {
 }
 
 test('套餐白名单：未知套餐直接拒，不透传', () => withHome(async (env) => {
-  assert.deepEqual(CHECKOUT_PLANS, ['pro', 'team', 'enterprise'])
+  assert.deepEqual(CHECKOUT_PLANS, ['personal', 'pro', 'max'], 'plan 枚举以对方 B2 定稿为准')
   const r = await createCheckout({ plan: 'free-lunch', owner: 'yg@example.com', env, fetchImpl: async () => ({ ok: true, json: async () => ({ url: 'x' }) }) })
   assert.equal(r.ok, false)
   assert.match(r.error, /不支持的套餐/)
@@ -93,7 +93,7 @@ test('access_token 过期 → 自动 refresh 后下单', () => withHome(async (e
     if (String(url).endsWith('/checkout')) return { ok: true, status: 200, json: async () => ({ url: 'https://pay/c/1' }) }
     return { ok: false, status: 404, json: async () => ({}) }
   }
-  const r = await createCheckout({ plan: 'team', owner: 'yg@example.com', env, fetchImpl })
+  const r = await createCheckout({ plan: 'max', owner: 'yg@example.com', env, fetchImpl })
   assert.equal(r.ok, true)
   assert.equal(readAccessStore(env)['yg@example.com'].accessToken, 'at_new', '应用新 token 覆盖缓存')
 }))
@@ -145,7 +145,7 @@ test('planView：展示本地套餐 + 是否可下单', () => withHome((env) => 
   assert.equal(v.status, 'active')
   assert.equal(v.caps.seats, 5)
   assert.equal(v.canCheckout, true)
-  assert.deepEqual(v.plans, ['pro', 'team', 'enterprise'])
+  assert.deepEqual(v.plans, ['personal', 'pro', 'max'])
   // 无 owner 时不可下单
   assert.equal(planView('', env).canCheckout, false)
 }))
