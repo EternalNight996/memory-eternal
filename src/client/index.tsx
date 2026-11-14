@@ -1091,6 +1091,7 @@ export const ZH = {
   vaultDefaultName: '默认库',
   serverVaultListLabel: '服务器上的库',
   cloudDataLocationNote: '这里的库都在服务器上，不是你这台电脑上的数据。要把本机已有的卡片迁过来：打开 DeepSeek Harness 面板 → 记忆 → 设置 → 实验性 → 云端连接，运行模式选「云端」，然后点「上传当前库到云端」。',
+  localVaultDesc: '这个库在这台机器上，不联网也不上传。登录云端只是提供一个同步目标，本地库始终是这份。',
   cloudInstanceDesc: '这是你的云端实例：记忆库在服务器上，通过 HTTPS 访问；本机离线时用本地库。',
   cloudVaultListLabel: '云端实例上的库',
   cloudVaultQuota: '已用 {u} / {l}',
@@ -2368,6 +2369,7 @@ export const EN = {
   vaultDefaultName: 'default',
   serverVaultListLabel: 'Vaults on the server',
   cloudDataLocationNote: 'These vaults live on the server, not on your computer. To bring your existing cards over: open the DeepSeek Harness panel → Memory → Settings → Experimental → Cloud, pick Cloud mode, then click "Upload current to cloud".',
+  localVaultDesc: 'This vault lives on this machine — no network, no upload. Signing in to cloud only adds a sync target; the local vault stays this one.',
   cloudInstanceDesc: 'This is your cloud instance: the vault lives on the server over HTTPS. Use a local vault when offline.',
   cloudVaultListLabel: 'Vaults on the cloud instance',
   cloudVaultQuota: '{u} / {l} used',
@@ -8838,7 +8840,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     importCancelRef.current = false
     setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
     try {
-      const exp = await fetch(API + '/vaults/export?path=' + encodeURIComponent(src))
+      const exp = await fetchLocal('/vaults/export?path=' + encodeURIComponent(src))
       if (!exp.ok) throw new Error('读取本地库失败 HTTP ' + exp.status)
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
@@ -8886,7 +8888,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
       const cards = Array.isArray(data.cards) ? data.cards : []
       if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
       setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
-      const r = await fetch(API + '/vaults/import-into', {
+      const r = await fetchLocal('/vaults/import-into', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target: dst, cards, onDuplicate: dupMode }),
       })
@@ -8957,7 +8959,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const activateVault = async (path2) => {
     if (!path2) return
     try {
-      const r = await fetch(API + '/vaults/activate', {
+      const r = await fetchLocal('/vaults/activate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: path2 }),
       })
@@ -8978,7 +8980,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     const name = String(window.prompt(t('createVaultPrompt')) || '').trim().toLowerCase()
     if (!name) return
     try {
-      const r = await fetch(API + '/vaults/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+      const r = await fetchLocal('/vaults/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.ok) {
         try { notify((d && d.message) || (d && d.error) || t('createVaultFail'), false) } catch { /* 忽略 */ }
@@ -9017,7 +9019,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
       setCloudVaultQuota(null)
     }
     try {
-      const r = await fetch(API + '/vaults')
+      const r = await fetchLocal('/vaults')
       const d = await r.json().catch(() => ({}))
       if (d && d.ok) {
         setVaultList(d.vaults || [])
@@ -9041,7 +9043,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     const target = dir === 'up' ? other.path : cur.path
     setXfer({ busy: true })
     try {
-      const post = (dry) => fetch(API + '/vaults/transfer', {
+      const post = (dry) => fetchLocal('/vaults/transfer', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source, target, onDuplicate: dupMode, dryRun: dry }),
       }).then((r) => r.json()).catch(() => null)
@@ -10202,11 +10204,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   <div style={{ fontSize: 12.5, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>
                     {isCloudInstance
                       ? t('cloudInstanceDesc')
-                      : cloudForm.mode === 'cloud' ? t('cloudModeDesc') : t('cloudLocalDesc')}
+                      : t('localVaultDesc')}
                   </div>
                   {localVault ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)' }}>
-                      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{isCloudInstance || cloudForm.mode === 'cloud' ? t('cloudVaultLabel') : t('localVaultLabel')}</div>
+                      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{isCloudInstance ? t('cloudVaultLabel') : t('localVaultLabel')}</div>
                       <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11.5, wordBreak: 'break-all' }}>{localVault.full}</div>
                     </div>
                   ) : null}
