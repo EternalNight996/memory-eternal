@@ -803,20 +803,22 @@ export const ZH = {
   cloudExperimentalHint: '实验性功能：接口与行为可能变动。遇到问题请回「反馈异常」，不影响本地记忆库',
   cloudSwitchTitle: '运行位置',
   cloudSwitchHint: '切换本地 / 云端。云端用你自己的密钥，各人独立一个库',
-  cloudModeLocal: '本地运行',
-  cloudModeLocalHint: '用这台机器上的记忆库，不走网络',
+  cloudModeLocal: '本地私有',
+  cloudModeLocalHint: '记忆库在本机，不联网',
   cloudModeCloud: '连接云端',
-  cloudModeCloudHint: '连到云端实例（地址 + 密钥，或 MengBot 登录换来的令牌）',
+  cloudModeCloudHint: '连云端实例，个人订阅',
   cloudUrlLabel: '云端实例地址',
-  cloudUrlHint: '填 memory-eternal-cloud 部署的地址（如 https://mem.mengbot.com.cn），不是 MengBot 账号域 accounts.mengbot.com.cn——那个只有点「用 MengBot 账号登录」时才跳过去',
-  cloudTokenLabel: '访问密钥（可选）',
-  cloudTokenHint: '用「用 MengBot 账号登录」时这里留空即可；只有直连别人给的实例才需要填',
+  cloudUrlHint: 'memory-eternal-cloud 实例地址，如 https://mem.mengbot.com.cn',
+  cloudTokenLabel: '访问密钥',
+  cloudTokenHint: '登录可留空；直连他人实例才填',
   cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
   cloudOauthIgnored: '已自动忽略 MengBot 的客户端密钥（mbo_）—— 它不是访问密钥，请用「用 MengBot 账号登录」',
+  cloudLocalDesc: '记忆库保存在这台机器上，不联网、不上传。所有功能（写入、检索、导入导出、备份）都可用。',
+  cloudTestBtn: '测试连接',
   cloudTabClient: '客户端订阅',
   cloudTabClientHint: '个人订阅 personal / pro / max，自己用',
   cloudTabMerchant: '商户接入',
-  cloudTabMerchantHint: '把自有云端实例接入 MengBot 托管',
+  cloudTabMerchantHint: '接入托管，自有实例',
   merchantIntro: '商户接入：你的云端实例需要接入 MengBot 托管（账号体系、计费与权益下发）。注册后得到商户 ID 与商户密钥，再把它们配到你的服务端。商户密钥只显示一次，可随时轮换或吊销。',
   merchantNameLabel: '商户名称',
   merchantNamePlaceholder: '例如：Acme 科技',
@@ -1919,6 +1921,8 @@ export const EN = {
   cloudTokenHint: 'Leave empty if you sign in with MengBot; only needed when connecting to someone else instance',
   cloudTokenPeek: 'Current token: {peek} ({len} chars)',
   cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) — it is not an access key. Use "Sign in with MengBot" instead',
+  cloudLocalDesc: 'The vault lives on this machine — no network, no upload. All features (write, search, import/export, backup) work.',
+  cloudTestBtn: 'Test connection',
   cloudTabClient: 'Client subscription',
   cloudTabClientHint: 'personal / pro / max for your own use',
   cloudTabMerchant: 'Merchant onboarding',
@@ -7463,7 +7467,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 「连接云端」分两个场景（两条独立的路，不共用凭据）：
   //   client   → 个人/客户端订阅 personal·pro·max，凭据 me_ / mb_
   //   merchant → 商户把自有云端实例接入 MengBot 托管，凭据 mch_ / msk_
-  const [cloudTab, setCloudTab] = useState('client')
+  // 初值跟数据源一致：本地/云端直接高亮对应卡片；商户接入是主动点的
+  const [cloudTab, setCloudTab] = useState(() => (readCloudConn().mode === 'cloud' ? 'cloud' : 'local'))
   const [merchants, setMerchants] = useState([])
   const [mchForm, setMchForm] = useState({ name: '', domain: '' })
   const [mchBusy, setMchBusy] = useState(false)
@@ -8620,54 +8625,65 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 （mengbot 授权控制面未上线、配额与授权校验未完成），放实验区既能让想用的人用上，
                 又不会让普通用户误以为是稳定功能、更不会影响本地使用。 */}
             <CfgSection {...secProps('sec-cloud')} id="sec-cloud" icon="🧪" title={t('cloudSection')} sub={t('cloudSectionSub')}>
-              {/* 「连接云端」有两个完全不同的场景，凭据体系不同，必须分开：
-                    · 客户端订阅 —— 个人订阅 personal/pro/max，凭据 me_ / mb_
-                    · 商户接入   —— 商户把自有云端实例接入托管，凭据 mch_ / msk_ */}
-              <div className="mc-cloud-tabs" style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-                {[['client', t('cloudTabClient'), t('cloudTabClientHint')], ['merchant', t('cloudTabMerchant'), t('cloudTabMerchantHint')]].map(([k, label, hint]) => (
+              {/* 三种模式**平级**，不嵌套：本地私有 / 云端 / 商户接入。
+                  之前是「tab（客户端订阅/商户接入）× 模式卡片（本地/云端）」两级，
+                  用户要连点两次才能看到字段。现在一层三选一，选完立刻显示对应内容。 */}
+              <div className="mc-cloud-modes" style={{ marginBottom: 14 }}>
+                {[
+                  ['local', t('cloudModeLocal'), t('cloudModeLocalHint')],
+                  ['cloud', t('cloudModeCloud'), t('cloudModeCloudHint')],
+                  ['merchant', t('cloudTabMerchant'), t('cloudTabMerchantHint')],
+                ].map(([m, label, hint]) => (
                   <button
-                    key={k}
+                    key={m}
                     type="button"
-                    title={hint}
-                    className={`mc-cloud-mode${cloudTab === k ? ' active' : ''}`}
-                    style={{ flex: 1 }}
-                    onClick={() => { setCloudTab(k); setMchErr(''); setMchSecret(null) }}
+                    className={`mc-cloud-mode${cloudTab === m ? ' active' : ''}`}
+                    onClick={() => {
+                      setCloudTab(m)
+                      // 本地/云端会改数据源；商户接入只是注册流程，不动数据源
+                      if (m !== 'merchant') setCloudForm((f) => ({ ...f, mode: m }))
+                      setMchErr('')
+                      setMchSecret(null)
+                    }}
                   >
                     <b>{label}</b>
                     <span>{hint}</span>
                   </button>
                 ))}
               </div>
-              {cloudTab === 'merchant' ? (
+
+              {cloudTab === 'local' ? (
+                <div style={{ fontSize: 12.5, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>
+                  {t('cloudLocalDesc')}
+                </div>
+              ) : cloudTab === 'merchant' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.65 }}>
+                  <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>
                     {t('merchantIntro')}
                   </div>
-                  <label className="mc-field">
-                    <span className="mc-field-label">{t('merchantNameLabel')}</span>
-                    <input value={mchForm.name} onChange={(e) => setMchForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('merchantNamePlaceholder')} />
-                    <span className="mc-field-hint">{t('merchantNameHint')}</span>
-                  </label>
-                  <label className="mc-field">
-                    <span className="mc-field-label">{t('merchantDomainLabel')}</span>
-                    <input value={mchForm.domain} onChange={(e) => setMchForm((f) => ({ ...f, domain: e.target.value }))} placeholder="memory.your-company.com" />
-                    <span className="mc-field-hint">{t('merchantDomainHint')}</span>
-                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
+                    <label className="mc-field">
+                      <span className="mc-field-label">{t('merchantNameLabel')}</span>
+                      <input value={mchForm.name} onChange={(e) => setMchForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('merchantNamePlaceholder')} />
+                    </label>
+                    <label className="mc-field">
+                      <span className="mc-field-label">{t('merchantDomainLabel')}</span>
+                      <input value={mchForm.domain} onChange={(e) => setMchForm((f) => ({ ...f, domain: e.target.value }))} placeholder="memory.your-company.com" />
+                    </label>
+                  </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Btn variant="primary" size="sm" disabled={mchBusy || !mchForm.name.trim()} onClick={registerMerchant}>
-                      {t('merchantRegister')}
-                    </Btn>
+                    <Btn variant="primary" size="sm" disabled={mchBusy || !mchForm.name.trim()} onClick={registerMerchant}>{t('merchantRegister')}</Btn>
                     <Btn variant="secondary" size="sm" disabled={mchBusy} onClick={loadMerchants}>{t('merchantRefresh')}</Btn>
                   </div>
                   {mchErr ? <Status tone="bad" text={mchErr} /> : null}
                   {mchSecret ? (
                     <div style={{ border: '1px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '10px 12px' }}>
                       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{t('merchantSecretOnce')}</div>
-                      <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 12, wordBreak: 'break-all', marginBottom: 4 }}>
-                        {t('merchantIdLabel')}: {mchSecret.id}
+                      <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 12, wordBreak: 'break-all', marginBottom: 3 }}>
+                        {t('merchantIdLabel')} · {mchSecret.id}
                       </div>
                       <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 12, wordBreak: 'break-all', marginBottom: 8 }}>
-                        {t('merchantSecretLabel')}: {mchSecret.secret}
+                        {t('merchantSecretLabel')} · {mchSecret.secret}
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(mchSecret.secret) } catch { /* 忽略 */ } }}>
@@ -8681,111 +8697,81 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       </div>
                     </div>
                   ) : null}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700 }}>{t('merchantMine')}（{merchants.length}）</div>
-                    {merchants.length === 0 ? (
-                      <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)' }}>{t('merchantEmpty')}</div>
-                    ) : merchants.map((m) => (
-                      <div key={m.id} style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: 140 }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 600 }}>{m.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--me-c-text-dim)' }}>{m.id}{m.domain ? ' · ' + m.domain : ''} · {m.status}</div>
+                  {merchants.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, opacity: 0.75 }}>{t('merchantMine')}（{merchants.length}）</div>
+                      {merchants.map((m) => (
+                        <div key={m.id} style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, minWidth: 140 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 600 }}>{m.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--me-c-text-dim)' }}>{m.id}{m.domain ? ' · ' + m.domain : ''} · {m.status}</div>
+                          </div>
+                          <Btn variant="secondary" size="sm" disabled={mchBusy} onClick={() => rotateMerchant(m.id)}>{t('merchantRotate')}</Btn>
+                          <Btn variant="danger" size="sm" disabled={mchBusy} onClick={() => revokeMerchant(m.id)}>{t('merchantRevoke')}</Btn>
                         </div>
-                        <Btn variant="secondary" size="sm" disabled={mchBusy} onClick={() => rotateMerchant(m.id)}>{t('merchantRotate')}</Btn>
-                        <Btn variant="danger" size="sm" disabled={mchBusy} onClick={() => revokeMerchant(m.id)}>{t('merchantRevoke')}</Btn>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
-                <>
-              {/* 运行位置：点卡片只改「意图」，真正切换在保存时验证通过后发生 */}
-              <div className="mc-cloud-modes" style={{ marginBottom: 12 }}>
-                {[['local', t('cloudModeLocal'), t('cloudModeLocalHint')], ['cloud', t('cloudModeCloud'), t('cloudModeCloudHint')]].map(([m, label, hint]) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`mc-cloud-mode${cloudForm.mode === m ? ' active' : ''}`}
-                    onClick={() => setCloudForm((f) => ({ ...f, mode: m }))}
-                  >
-                    <b>{label}</b>
-                    <span>{hint}</span>
-                  </button>
-                ))}
-              </div>
-              {/* 云端字段**常驻显示**：之前只有选「连接云端」才出现，
-                  想切换得先点卡片才看到输入框、填完再保存 —— 三步且容易以为没地方填。
-                  现在一直可见，选本地时只是禁用变灰，值照样保留。 */}
-              <div className="mc-cloud-fields" style={{ opacity: cloudForm.mode === 'cloud' ? 1 : 0.55 }}>
-                <label className="mc-field">
-                  <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                  <input
-                    value={cloudForm.url}
-                    onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))}
-                    placeholder="https://mem.mengbot.com.cn"
-                    disabled={cloudForm.mode !== 'cloud'}
-                  />
-                  <span className="mc-field-hint">{t('cloudUrlHint')}</span>
-                </label>
-                <label className="mc-field">
-                  <span className="mc-field-label">{t('cloudTokenLabel')}</span>
-                  <input
-                    type="password"
-                    value={cloudForm.token}
-                    onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))}
-                    placeholder="me_… / mb_…"
-                    disabled={cloudForm.mode !== 'cloud'}
-                  />
-                  <span className="mc-field-hint">{t('cloudTokenHint')}</span>
-{cloudForm.token ? (
-  <span className="mc-field-hint" style={{ opacity: 0.5 }}>
-    {t('cloudTokenPeek').replace('{peek}', String(cloudForm.token).slice(0, 6) + '…').replace('{len}', String(String(cloudForm.token).length))}
-  </span>
-) : null}
-                </label>
-              </div>
-              <div className="mc-cloud-actions" style={{ marginTop: 12 }}>
-                <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
-                {cloudTest && cloudTest.ok && cloudTest.authenticated ? (
-                  <AccountBadge
-                    owner={cloudTest.owner || ''}
-                    profile={cloudTest.profile || null}
-                    sub={cloudConn.mode === 'cloud' && cloudConn.active !== false ? t('cloudModeCloud') : t('cloudModeLocal')}
-                    tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
-                    size={32}
-                  />
-                ) : (
-                  <Btn variant="secondary" size="sm" disabled={!String(cloudForm.url || '').trim()} onClick={startLoginRedirect}>{t('cloudLoginButton')}</Btn>
-                )}
-                <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
-              </div>
-              {/* 状态行：当前实际在用什么 + 上次失败原因（配置没丢，可重试） */}
-              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {cloudTest && (
-                  <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? (cloudTest.message || t('cloudTestReachable').replace('{version}', cloudTest.version || '')) : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
-                )}
-                {cloudTest && cloudTest.diag && (
-                  <div style={{ fontSize: 10.5, lineHeight: 1.6, opacity: 0.6, wordBreak: 'break-all' }}>
-                    诊断：目标 <code>{cloudTest.diag.url}</code> · 页面 origin <code>{cloudTest.diag.origin}</code> · 在线 {String(cloudTest.diag.online)}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <label className="mc-field">
+                    <span className="mc-field-label">{t('cloudUrlLabel')}</span>
+                    <input
+                      value={cloudForm.url}
+                      onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))}
+                      placeholder="https://mem.mengbot.com.cn"
+                    />
+                    <span className="mc-field-hint">{t('cloudUrlHint')}</span>
+                  </label>
+                  <label className="mc-field">
+                    <span className="mc-field-label">{t('cloudTokenLabel')}</span>
+                    <input
+                      type="password"
+                      value={cloudForm.token}
+                      onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))}
+                      placeholder="me_…"
+                    />
+                    <span className="mc-field-hint">{t('cloudTokenHint')}</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>
+                      {cloudBusy ? '⏳' : t('cloudTestBtn')}
+                    </Btn>
+                    {cloudTest && cloudTest.ok && cloudTest.authenticated ? (
+                      <AccountBadge
+                        owner={cloudTest.owner || ''}
+                        profile={cloudTest.profile || null}
+                        sub={cloudConn.mode === 'cloud' && cloudConn.active !== false ? t('cloudModeCloud') : t('cloudModeLocal')}
+                        tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
+                        size={30}
+                      />
+                    ) : (
+                      <Btn variant="secondary" size="sm" disabled={!String(cloudForm.url || '').trim()} onClick={startLoginRedirect}>
+                        {t('cloudLoginButton')}
+                      </Btn>
+                    )}
+                    <Btn variant="primary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
                   </div>
-                )}
-                {cloudFromHash && cloudFromHash.owner && (
-                  <Status tone="ok" text={t('cloudLoginDone').replace('{owner}', cloudFromHash.owner)} />
-                )}
-                {cloudConn.mode === 'cloud' && cloudConn.active !== false && (
-                  <Status tone="ok" text={t('cloudNowActive').replace('{url}', cloudConn.url || '')} />
-                )}
-                {cloudConn.mode === 'cloud' && cloudConn.active === false && (
-                  <Status tone="bad" text={t('cloudKeptButInactive').replace('{err}', cloudConn.lastError || '—')} />
-                )}
-                {cloudConn.mode === 'local' && (
-                  <Status tone="idle" text={t('cloudNowLocal')} />
-                )}
-              </div>
-              <Hint text={t('cloudExperimentalHint')} />
-                </>
+                  {/* 状态：只显示真正需要用户知道的那条 */}
+                  {cloudConn.mode === 'cloud' && cloudConn.active !== false && (
+                    <Status tone="ok" text={t('cloudNowActive').replace('{url}', cloudConn.url || '')} />
+                  )}
+                  {cloudConn.mode === 'cloud' && cloudConn.active === false && (
+                    <Status tone="bad" text={t('cloudKeptButInactive').replace('{err}', cloudConn.lastError || '—')} />
+                  )}
+                  {cloudConn.mode === 'local' && cloudTest && cloudTest.ok && (
+                    <Status tone="ok" text={cloudTest.message || t('cloudTestReachable').replace('{version}', cloudTest.version || '')} />
+                  )}
+                  {cloudTest && !cloudTest.ok && <Status tone="bad" text={cloudTest.error || t('cloudTestFail')} />}
+                  {cloudTest && cloudTest.diag && (
+                    <div style={{ fontSize: 10.5, lineHeight: 1.6, opacity: 0.55, wordBreak: 'break-all' }}>
+                      {cloudTest.diag.url} · origin {cloudTest.diag.origin}
+                    </div>
+                  )}
+                </div>
               )}
-            </CfgSection>
+              </CfgSection>
             {/* 备份只在「记忆」页出现一次（上面 7256 那一处）。这里原来还有一份同样的
                 `sec-backup` + `<BackupCard>`（从运行状态页搬过来时留下的），
                 同一个组件被渲染两遍 → 用户看到「两个🧯备份」。已删。 */}
