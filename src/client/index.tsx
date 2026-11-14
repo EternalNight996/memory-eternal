@@ -933,6 +933,13 @@ export const ZH = {
   logsYesterday: '昨天',
   logsLast7: '近 7 天',
   logsCopyPath: '复制卡片路径',
+  logsOpenCard: '打开这张卡',
+  logsTrend7d: '最近 7 天',
+  logsScopeLocal: '本地',
+  logsScopeCloud: '云端',
+  logsTrendTotal: '共 {n} 条',
+  logsTrendAgents: '智能体',
+  logsTrendActions: '动作',
   logsKeepUnit: '天',
   logsKeepHint: '超期的日志会自动清理（启动时 + 写入时各检查一次）；改这里会立刻按新值清一遍',
   logsKeepSaved: '保留 {n} 天 · 已清 {r} 条',
@@ -2189,6 +2196,13 @@ export const EN = {
   logsYesterday: 'Yesterday',
   logsLast7: 'Last 7d',
   logsCopyPath: 'Copy card path',
+  logsOpenCard: 'Open this card',
+  logsTrend7d: 'Last 7 days',
+  logsScopeLocal: 'Local',
+  logsScopeCloud: 'Cloud',
+  logsTrendTotal: '{n} entries',
+  logsTrendAgents: 'Agents',
+  logsTrendActions: 'Actions',
   logsKeepUnit: 'd',
   logsKeepHint: 'Expired logs are pruned automatically (on boot and while logging); changing this prunes immediately',
   logsKeepSaved: 'Keeping {n} days · removed {r}',
@@ -6089,6 +6103,10 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [logAction, setLogAction] = useState('')
   const [logData, setLogData] = useState(null)
   const [logBusy, setLogBusy] = useState(false)
+  // 最近 7 天趋势（日志页顶部柱状图）
+  const [logStats, setLogStats] = useState(null)
+  // 日志来源：本地库 / 云端库（云端模式下可看租户侧的操作）
+  const [logScope, setLogScope] = useState('local')
   // 日志保留天数（存 config 表，默认 30；改动后立刻按新值清一次）
   const [logKeep, setLogKeep] = useState(30)
   // 懒挂载：面板首次切到该视图才 mount，之后保持 mount（切页不丢状态）。
@@ -6111,12 +6129,19 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       }
       if (logQ.trim()) qs.set('q', logQ.trim())
       if (logAction) qs.set('action', logAction)
-      const r = await fetch(API + '/logs?' + qs.toString())
+      const base = logScope === 'cloud' ? cloudApi('/logs') : (API + '/logs')
+      const r = await fetch(base + '?' + qs.toString())
       const d = await r.json().catch(() => ({}))
       setLogData(d && d.ok ? d : { ok: false, total: 0, rows: [], byAction: [] })
+      // 顺手拉 7 天趋势（低频、失败只是没有图，不影响列表）
+      try {
+        const stBase = logScope === 'cloud' ? cloudApi('/logs/stats') : (API + '/logs/stats')
+        const stt = await fetch(stBase + '?days=7').then((x) => x.json()).catch(() => null)
+        if (stt && stt.ok) setLogStats(stt)
+      } catch { /* 忽略 */ }
       // 顺手读保留天数（低频、失败不影响列表）
       try {
-        const st = await fetch(API + '/logs/settings').then((x) => x.json()).catch(() => null)
+        const st = logScope === 'cloud' ? null : await fetch(API + '/logs/settings').then((x) => x.json()).catch(() => null)
         if (st && st.ok && Number(st.retentionDays) > 0) setLogKeep(Number(st.retentionDays))
       } catch { /* 忽略 */ }
     } catch (e) {
@@ -6125,7 +6150,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       setLogBusy(false)
     }
   }
-  useEffect(() => { if (view === 'logs') loadLogs() }, [view, logDate, logAction, logRange])
+  useEffect(() => { if (view === 'logs') loadLogs() }, [view, logDate, logAction, logRange, logScope])
 
   /** 导出 CSV（浏览器直接下载）。 */
   const exportLogs = () => {
@@ -7051,8 +7076,53 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         {/* 卡片列表视图：工具栏里只有「新建」是主按钮，其余都是次级/幽灵（一屏一颗） */}
         {/* 日志页：默认当天，可搜索 / 分类 / 按日期查 / 导出 / 清理 */}
         {view === 'logs' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px' }}>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px' }}>
+    {/* 最近 7 天趋势（柱高基准 maxTotal 由服务端算好，前端不在这里做算术） */}
+    {logStats && logStats.days && logStats.days.length ? (
+      <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, padding: '10px 12px', background: 'var(--me-c-surface)' }}>
+        <div style={{ fontSize: 10.5, opacity: 0.55, marginBottom: 8 }}>{t('logsTrend7d')} · {t('logsTrendTotal').replace('{n}', String(logStats.days.reduce((a, d) => a + d.total, 0)))}</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 72 }}>
+          {logStats.days.map((d) => (
+            <div key={d.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }} title={d.day + '：' + d.total + ' 条'}>
+              <div style={{ width: '100%', height: Math.max(3, Math.round((d.total / (logStats.maxTotal || 1)) * 64)), borderRadius: 3, background: d.total ? (d.day === logDate ? 'var(--me-c-accent)' : 'var(--me-c-accent-soft, rgba(59,130,246,.35))') : 'var(--me-c-border)', transition: 'height .25s ease' }} />
+              <span style={{ fontSize: 9, opacity: d.day === logDate ? 0.9 : 0.45, whiteSpace: 'nowrap' }}>{d.day.slice(5)}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap', fontSize: 10.5 }}>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ opacity: 0.5, marginBottom: 3 }}>{t('logsTrendAgents')}</div>
+            {logStats.agents.slice(0, 5).map((a) => (
+              <div key={a.agent} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, opacity: 0.8 }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.agent}</span><b>{a.n}</b>
+              </div>
+            ))}
+            {!logStats.agents.length ? <div style={{ opacity: 0.4 }}>—</div> : null}
+          </div>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ opacity: 0.5, marginBottom: 3 }}>{t('logsTrendActions')}</div>
+            {logStats.actions.slice(0, 5).map((a) => (
+              <div key={a.action} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, opacity: 0.8 }}>
+                <span>{t('logAction_' + a.action) || a.action}</span><b>{a.n}</b>
+              </div>
+            ))}
+            {!logStats.actions.length ? <div style={{ opacity: 0.4 }}>—</div> : null}
+          </div>
+        </div>
+      </div>
+    ) : null}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {/* 来源切换：本地库 / 云端租户库 */}
+        {['local', 'cloud'].map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setLogScope(k)}
+            style={{ padding: '4px 10px', borderRadius: 999, border: '1px solid ' + (logScope === k ? 'var(--me-c-accent)' : 'var(--me-c-border)'), background: logScope === k ? 'var(--me-c-accent-soft, rgba(59,130,246,.12))' : 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 11.5 }}
+          >
+            {k === 'local' ? t('logsScopeLocal') : t('logsScopeCloud')}
+          </button>
+        ))}
               <input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} style={{ fontSize: 12, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }} />
       {/* 快捷范围：今天 / 昨天 / 近 7 天 */}
       {[
@@ -7119,7 +7189,16 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.agent}>{r.agent || '-'}</span>
                     <span style={{ opacity: 0.7 }}>{t('logAction_' + r.action) || r.action}</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }} title={r.title}>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</span>
+              {r.target ? (
+                <button
+                  type="button"
+                  onClick={() => { try { openCard({ path: r.target, title: String(r.title || '') }) } catch { /* 忽略 */ } }}
+                  title={t('logsOpenCard')}
+                  style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '1px dashed var(--me-c-border-strong)' }}
+                >{r.title}</button>
+              ) : (
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</span>
+              )}
               {r.target ? (
                 <button
                   type="button"
