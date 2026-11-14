@@ -5349,10 +5349,12 @@ function TerminalGuide({ t }) {
 class PanelErrorBoundary extends React.Component {
   constructor(props) {
     super(props)
-    this.state = { error: null }
+    this.state = { error: null, componentStack: '', copied: false }
   }
   static getDerivedStateFromError(error) { return { error: error || new Error('unknown') } }
   componentDidCatch(error, info) {
+    // 组件栈也存进 state —— 兜底页要显示它（只给 message 无法定位）
+    try { this.setState({ componentStack: (info && info.componentStack) || '' }) } catch (e) { /* ignore */ }
     try { console.warn('[memory-eternal] 记忆面板渲染异常（已兜底，不再整页白屏）', error, info && info.componentStack) } catch (e) { /* ignore */ }
   }
   render() {
@@ -5363,8 +5365,34 @@ class PanelErrorBoundary extends React.Component {
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>记忆面板渲染出错</div>
         <div style={{ fontSize: 12.5, opacity: 0.75, lineHeight: 1.7, marginBottom: 14, wordBreak: 'break-all' }}>{msg}</div>
         <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 8, fontFamily: 'ui-monospace,Consolas,monospace' }}>{`脚本 build ${BUILD_AT}${BUILD_MIN === false ? ' · 未压缩' : ''}`}</div>
-        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 14, lineHeight: 1.7 }}>已经兜底住，不会再整页白屏。点「重新加载」可恢复；反复出现请用左栏「反馈异常」带上这段报错。</div>
-        <button type="button" className="mc-btn" onClick={() => { try { window.location.reload() } catch (e) { /* ignore */ } }}>重新加载</button>
+        {/* 堆栈是定位 TDZ / 渲染崩溃唯一可靠的线索 —— 必须显示出来，
+            只给一句 message 的话「Cannot access 'fe'」根本无从下手（实测吃过这个亏）。 */}
+        {this.state.error && this.state.error.stack ? (
+          <details style={{ marginBottom: 12 }} open>
+            <summary style={{ cursor: 'pointer', fontSize: 11.5, opacity: 0.6, marginBottom: 6 }}>调用堆栈（点此折叠）</summary>
+            <pre style={{ fontSize: 10.5, lineHeight: 1.55, opacity: 0.7, whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0, maxHeight: 320, overflow: 'auto', background: 'rgba(127,127,127,.08)', padding: '8px 10px', borderRadius: 6 }}>
+              {String(this.state.error.stack).split('\n').slice(0, 25).join('\n')}
+            </pre>
+          </details>
+        ) : null}
+        {this.state.componentStack ? (
+          <details style={{ marginBottom: 12 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 11.5, opacity: 0.6, marginBottom: 6 }}>组件栈</summary>
+            <pre style={{ fontSize: 10.5, lineHeight: 1.55, opacity: 0.65, whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0, maxHeight: 220, overflow: 'auto', background: 'rgba(127,127,127,.08)', padding: '8px 10px', borderRadius: 6 }}>
+              {String(this.state.componentStack).split('\n').slice(0, 20).join('\n')}
+            </pre>
+          </details>
+        ) : null}
+        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 14, lineHeight: 1.7 }}>已经兜底住，不会再整页白屏。点「重新加载」可恢复；反复出现请把上面的堆栈一起贴出来。</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="mc-btn" onClick={() => { try { window.location.reload() } catch (e) { /* ignore */ } }}>重新加载</button>
+          <button type="button" className="mc-btn" onClick={() => {
+            try {
+              const txt = [msg, 'build=' + BUILD_AT, '', String((this.state.error && this.state.error.stack) || ''), '', this.state.componentStack || ''].join('\n')
+              navigator.clipboard.writeText(txt).then(() => { try { this.setState({ copied: true }) } catch (e) { /* ignore */ } }).catch(() => {})
+            } catch (e) { /* ignore */ }
+          }}>{this.state.copied ? '已复制' : '复制堆栈'}</button>
+        </div>
       </div>
     )
   }
@@ -8781,6 +8809,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 （mengbot 授权控制面未上线、配额与授权校验未完成），放实验区既能让想用的人用上，
                 又不会让普通用户误以为是稳定功能、更不会影响本地使用。 */}
             <CfgSection {...secProps('sec-cloud')} id="sec-cloud" icon="🧪" title={t('cloudSection')} sub={t('cloudSectionSub')}>
+              {/* 局部兜底：云端面板依赖的东西最多（localStorage / fetch / 本地库路径），
+                  它自己崩了不该让整页设置打不开。这里再包一层，崩了只影响这一块。 */}
+              <PanelErrorBoundary>
               {/* 三种模式：**下拉框**选，不再用三张卡片占版面。
                   本地私有会显示记忆库 db 的真实位置 —— 用户最常问的就是「我的数据到底存哪」。 */}
               <label className="mc-field" style={{ maxWidth: 320 }}>
@@ -9002,7 +9033,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   )}
                 </div>
               )}
-              </CfgSection>
+                            </PanelErrorBoundary>
+</CfgSection>
             {/* 备份只在「记忆」页出现一次（上面 7256 那一处）。这里原来还有一份同样的
                 `sec-backup` + `<BackupCard>`（从运行状态页搬过来时留下的），
                 同一个组件被渲染两遍 → 用户看到「两个🧯备份」。已删。 */}
