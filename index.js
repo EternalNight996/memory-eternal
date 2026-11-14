@@ -32,6 +32,7 @@ import { migrateFromMarkdown, setAuditConfig, backupDb, lastBackupAt } from './l
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { readActiveVault } from './lib/vault-pref.js'
+import { shouldPushToCloud, pushCardToCloud } from './lib/cloud-push.js'
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, preferenceLines, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { createApi, json, encodeBody, crossOriginError, emptyNumericFields } from './lib/api.js'
@@ -810,6 +811,32 @@ export function apply(ctx, config) {
     return 'pending'
   }
 
+  /**
+   * captureCard 的包装：本地写完再**异步**推一份到云端。
+   *
+   * 为什么本地永远写：本地库是账本 —— 云端不可达/断网时数据不能丢，
+   * 而且 capture 由 agent 自动触发，不能因为网络问题拖慢甚至打断会话。
+   * 云端模式时再推一份，让「切云端后沉淀也进云端」成立。
+   *
+   * 推送是旁路：不 await、失败只记日志。重复推送是安全的 ——
+   * 云端 /import/chunk 按 contentHash 去重，同一张卡再推只会 skipped。
+   */
+  const captureCardThenPush = async (root, card, opts) => {
+    const out = await captureCard(root, card, opts)
+    if (out && out.ok && shouldPushToCloud()) {
+      pushCardToCloud({ title: card.title, kind: card.kind, body: card.body, source: card.source })
+        .then((r) => {
+          if (r && r.ok) {
+            logCapture('system', 'created', '已同步到云端' + (r.skipped ? '（云端已有，跳过）' : ''), { title: String(card.title || '').slice(0, 40) })
+          } else if (r && r.error && r.error !== 'not-cloud') {
+            logCapture('system', 'warn', '云端同步失败（本地已保存）：' + r.error)
+          }
+        })
+        .catch(() => { /* 旁路失败不影响任何事 */ })
+    }
+    return out
+  }
+
   const runCapture = async (agent, job) => {
     const sessionId = agent?.session?.id ?? agent?.id ?? 'unknown'
     const events = Array.isArray(job?.events) ? job.events : []
@@ -853,7 +880,7 @@ export function apply(ctx, config) {
       if (cfg.distillEnabled === false || !llm) {
         const rawTitle = deriveTitle(text)
         const rawKind = guessRawKind({ title: rawTitle, body: text })
-        const out = await captureCard(root, {
+        const out = await captureCardThenPush(root, {
           kind: rawKind,
           title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
           tags: ['raw'],
@@ -976,7 +1003,7 @@ export function apply(ctx, config) {
         // 蒸馏失败不能让内容白丢：退成原文卡（与「关闭蒸馏」同一条降级路径）。
         const rawTitle = deriveTitle(text)
         const rawKind = guessRawKind({ title: rawTitle, body: text })
-        const raw = await captureCard(root, {
+        const raw = await captureCardThenPush(root, {
           kind: rawKind,
           title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
           // 蒸馏失败产出的原文卡与被批准的噪声卡是审核中心的主要污染源（#15 评论）：
@@ -1020,7 +1047,7 @@ export function apply(ctx, config) {
         card.body = String(card.body || '') + '\n\n偏好摘要：\n- ' + prefs.join('\n- ')
         card.tags = [...(Array.isArray(card.tags) ? card.tags : []), 'preference']
       }
-      const out = await captureCard(root, card, { threshold: cfg.dedupThreshold })
+      const out = await captureCardThenPush(root, card, { threshold: cfg.dedupThreshold })
       if (out.ok) {
         countWrite()
         logCapture(sessionId, 'created', `新卡：${card.title}（${card.status === 'approved' ? '已入库' : '待审核'}）`, { path: out.path ?? out.rel, kind: card.kind, model: route.model })
