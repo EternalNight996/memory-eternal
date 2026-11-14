@@ -821,11 +821,17 @@ export const ZH = {
   cloudModeLabel: '运行模式',
   cloudConnected: '已连接',
   cloudDisconnect: '断开连接',
+  cloudSignOut: '退出登录',
+  cloudInfoInstance: '实例',
   cloudDisconnected: '已切回本地',
   cloudPlanLabel: '当前套餐',
   cloudPlanExpires: '有效期至',
   cloudPlanCards: '卡片上限',
   cloudShowKey: '或手动填访问密钥',
+  cloudManualConfig: '手动配置（地址 / 密钥）',
+  deviceStarting: '正在获取二维码…',
+  deviceIdleHint: '点下面的按钮获取登录二维码',
+  deviceScanHint: '用手机扫码，或在电脑浏览器打开链接后确认授权',
   cloudHideKey: '收起访问密钥',
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
@@ -1966,6 +1972,8 @@ export const EN = {
   cloudModeLabel: 'Mode',
   cloudConnected: 'Connected',
   cloudDisconnect: 'Disconnect',
+  cloudSignOut: 'Sign out',
+  cloudInfoInstance: 'Instance',
   cloudDisconnected: 'Switched to local',
   cloudPlanLabel: 'Plan',
   cloudPlanExpires: 'Expires',
@@ -7502,6 +7510,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [cloudPlan, setCloudPlan] = useState(null)
   // 手动填密钥默认折叠：登录是主路径，密钥是备用，两套并列会让界面没主次
   const [showKeyField, setShowKeyField] = useState(false)
+  // 账号菜单是否展开（整块可点，点开显示账号信息 / 切换账号 / 退出登录）
+  const [acctOpen, setAcctOpen] = useState(false)
+
   // PC 回跳登录：浏览器里授权完，应用轮询取票（DSH 无法被 dsh-app:// 调起，只能这样闭环）
   const [pollAuth, setPollAuth] = useState(null)   // { pollId, openedAt, interval, expiresIn }
   const [pollErr, setPollErr] = useState('')
@@ -8019,6 +8030,24 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const isConnected = cloudTab === 'cloud'
     && !!String(cloudForm.token || '').trim()
     && cloudConn.active !== false
+
+  /**
+   * 进「连接云端」就自动拉起设备码 —— 用户不该先点一次按钮才看到二维码
+   *（用户反馈：点了「连接云端」还要再点一次登录，太绕）。
+   *
+   * 两个前置：地址为空先填默认实例（首次接入就是空的，cloudApi 拼不出地址会直接失败）；
+   * 正在登录/已连接时不要重复发起。
+   */
+  useEffect(() => {
+    if (cloudTab !== 'cloud' || isConnected) return
+    if (deviceAuth || deviceBusy) return
+    if (!String(cloudForm.url || '').trim()) {
+      setCloudForm((f) => ({ ...f, url: 'https://mem.mengbot.com.cn' }))
+      return
+    }
+    startDeviceLogin()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudTab, isConnected, cloudForm.url])
 
   /**
    * 拉套餐信息（已连接时展示）。失败静默 —— 它只是锦上添花，不该影响连接状态。
@@ -9151,64 +9180,106 @@ function ConfigPanel({ t, onReload, version, compact }) {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
                   {/* 账号区放最前：登录是推荐路径，手动填密钥是备用 */}
+                  {/* 已连接：**整块可点**（不用去瞄右上角那个小按钮），点开是上拉菜单 */}
                   {isConnected ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--me-c-border)', borderRadius: 10, background: 'var(--me-c-surface)' }}>
-                      <AccountBadge
-                        owner={cloudIdentity.owner || ''}
-                        profile={cloudIdentity.profile || null}
-                        sub={cloudPlan ? String(cloudPlan.plan || '').toUpperCase() : t('cloudConnected')}
-                        tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
-                        size={38}
-                      />
-                      <div style={{ flex: 1 }} />
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {/* 切换账号 = 断开当前连接、回到未登录态。必须走 disconnectCloud：
-                            它会写 localStorage，否则重开面板又变回「已登录」（用户实测踩到）。 */}
-                        <Btn variant="ghost" size="sm" onClick={disconnectCloud}>
-                          {t('cloudSwitchAccount')}
-                        </Btn>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="me-login-cta"
-                      disabled={!String(cloudForm.url || '').trim() || deviceBusy}
-                      onClick={() => {
-                        // 自定义协议页面（DSH 桌面端）走不通授权码流程：
-                        // interaction cookie 种在 accounts.mengbot.com.cn 域上，跨不到 dsh-app://，
-                        // 授权页会直接判「不在同一个浏览器里」并 400。这类环境改走设备码。
-                        const origin = (typeof location !== 'undefined' && location.origin) || ''
-                        const isCustomScheme = !/^https?:/i.test(origin) || origin === 'null'
-                        // 设备码登录（端到端已验证）。
-                        // PC 回跳（startPollLogin）代码已就位，但整条链路还没在真实环境验证，
-                        // 先不挂主路径 —— 等验证过再切，避免把能用的换成没验过的。
-                        startDeviceLogin()
-                      }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
-                        padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                        border: '1px solid var(--me-c-accent, #2563eb)',
-                        background: 'var(--me-c-accent-soft, rgba(37,99,235,.08))',
-                        color: 'var(--me-c-accent, #2563eb)',
-                      }}
-                    >
-                      <span style={{ fontSize: 20, lineHeight: 1 }}>🔐</span>
-                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <b style={{ fontSize: 13 }}>{t('cloudLoginButton')}</b>
-                        <span style={{ fontSize: 11.5, opacity: 0.75 }}>{t('cloudLoginCtaHint')}</span>
-                        {/* 备选：设备码（拿手机操作、或浏览器弹不出来时用） */}
-                        <div style={{ marginTop: -4 }}>
-                          <button
-                            type="button"
-                            onClick={startDeviceLogin}
-                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}
-                          >
-                            {t('useDeviceCode')}
+                    <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, background: 'var(--me-c-surface)', overflow: 'hidden' }}>
+                      <button
+                        type="button"
+                        onClick={() => setAcctOpen((v) => !v)}
+                        aria-expanded={acctOpen}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+                          padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit',
+                        }}
+                      >
+                        <AccountBadge
+                          owner={cloudIdentity.owner || ''}
+                          profile={cloudIdentity.profile || null}
+                          sub={cloudPlan ? String(cloudPlan.plan || '').toUpperCase() : t('cloudConnected')}
+                          tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
+                          size={38}
+                        />
+                        <span style={{ flex: 1 }} />
+                        <span style={{ fontSize: 11, opacity: 0.5, transform: acctOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+                      </button>
+                      {acctOpen ? (
+                        <div style={{ borderTop: '1px solid var(--me-c-border)', display: 'flex', flexDirection: 'column' }}>
+                          {/* 账号信息：实例地址 + 套餐细节，展开就能看到，不用再进别的页 */}
+                          <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5, color: 'var(--me-c-text-dim)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                              <span>{t('cloudInfoInstance')}</span>
+                              <span style={{ fontFamily: 'ui-monospace,Consolas,monospace', wordBreak: 'break-all', textAlign: 'right' }}>{String(cloudForm.url || '').replace(/^https?:\/\//, '')}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                              <span>{t('cloudPlanLabel')}</span>
+                              <span>{cloudPlan ? String(cloudPlan.plan || '').toUpperCase() : '—'}{cloudPlan && cloudPlan.expiresAt ? ' · ' + String(cloudPlan.expiresAt).slice(0, 10) : ''}</span>
+                            </div>
+                            {cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                <span>{t('cloudPlanCards')}</span>
+                                <span>{Number(cloudPlan.caps.cards).toLocaleString()}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                          <button type="button" onClick={() => { setAcctOpen(false); setCloudForm((f) => ({ ...f, mode: 'cloud' })); startDeviceLogin() }} style={{ padding: '11px 14px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5 }}>
+                            {t('cloudSwitchAccount')}
+                          </button>
+                          <button type="button" onClick={() => { setAcctOpen(false); disconnectCloud() }} style={{ padding: '11px 14px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-danger, #dc2626)', font: 'inherit', fontSize: 12.5 }}>
+                            {t('cloudSignOut')}
                           </button>
                         </div>
-                      </span>
-                    </button>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <>
+                    {/* 极简：二维码优先；地址与密钥收进「手动配置」，普通用户看不到 */}
+                    {deviceAuth ? (
+                      <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '16px 18px', background: 'var(--me-c-surface)' }}>
+                        <QrCode text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} size={132} label={t('deviceQrLabel')} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600 }}>{t('cloudLoginButton')}</div>
+                          <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.65 }}>{t('deviceScanHint')}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 18, fontWeight: 700, letterSpacing: 2 }}>{deviceAuth.userCode}</span>
+                            <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode) } catch { /* 忽略 */ } }}>{t('deviceCopy')}</Btn>
+                            <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('deviceOpenBtn')}</Btn>
+                          </div>
+                          <div style={{ fontSize: 11.5, opacity: 0.55, display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span>⏳ {t('deviceWaiting')}</span>
+                            <Btn variant="ghost" size="sm" onClick={cancelDeviceLogin}>{t('pollCancel')}</Btn>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '22px 20px', textAlign: 'center', background: 'var(--me-c-surface)' }}>
+                        <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 12 }}>{deviceBusy ? t('deviceStarting') : t('deviceIdleHint')}</div>
+                        <Btn variant="primary" size="sm" disabled={deviceBusy} onClick={startDeviceLogin}>{t('cloudLoginButton')}</Btn>
+                      </div>
+                    )}
+                    {deviceErr ? <Status tone="bad" text={deviceErr} /> : null}
+                    <div>
+                      <button type="button" onClick={() => setShowKeyField((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}>
+                        {showKeyField ? t('cloudHideKey') : t('cloudManualConfig')}
+                      </button>
+                    </div>
+                    {showKeyField ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <label className="mc-field">
+                          <span className="mc-field-label">{t('cloudUrlLabel')}</span>
+                          <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
+                        </label>
+                        <label className="mc-field">
+                          <span className="mc-field-label">{t('cloudTokenLabel')}</span>
+                          <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_…" />
+                          <span className="mc-field-hint">{t('cloudTokenHint')}</span>
+                        </label>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <Btn variant="primary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
+                          <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳' : t('cloudTestBtn')}</Btn>
+                        </div>
+                      </div>
+                    ) : null}
+                    </>
                   )}
                     {/* 设备码登录面板：桌面端/无浏览器环境走这条。
                         授权码流程在自定义协议页面上必然失败，这里改为「显示短码 + 轮询」。 */}
@@ -9273,36 +9344,56 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       </div>
                     ) : null}
                   {/* 未连接才显示表单：已连接时只保留上面的身份卡片，界面才有主次 */}
+                  {/* 未连接：**极简** —— 二维码 + 已在浏览器打开的主按钮。
+      地址/密钥收进折叠区，默认根本不需要看见它。 */}
                   {!isConnected ? (
                     <>
-                  <label className="mc-field">
-                    <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                    <input
-                      value={cloudForm.url}
-                      onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))}
-                      placeholder="https://mem.mengbot.com.cn"
-                    />
-                    <span className="mc-field-hint">{t('cloudUrlHint')}</span>
-                  </label>
-                  <label className="mc-field">
-                    <span className="mc-field-label">{t('cloudTokenLabel')}</span>
-                    <input
-                      type="password"
-                      value={cloudForm.token}
-                      onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))}
-                      placeholder="me_…"
-                    />
-                    <span className="mc-field-hint">{t('cloudTokenHint')}</span>
-                  </label>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>
-                      {cloudBusy ? '⏳' : t('cloudTestBtn')}
-                    </Btn>
-                    <Btn variant="primary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
-                  </div>
-                  {cloudConn.mode === 'cloud' && cloudConn.active !== false && (
-                    <Status tone="ok" text={t('cloudNowActive').replace('{url}', cloudConn.url || '')} />
-                  )}
+                      {deviceAuth ? (
+                        <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '16px 18px', background: 'var(--me-c-surface)' }}>
+                          <QrCode text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} size={132} label={t('deviceQrLabel')} />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 600 }}>{t('cloudLoginButton')}</div>
+                            <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.65 }}>{t('deviceScanHint')}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <span style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 18, fontWeight: 700, letterSpacing: 2 }}>{deviceAuth.userCode}</span>
+                              <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode) } catch { /* 忽略 */ } }}>{t('deviceCopy')}</Btn>
+                              <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('deviceOpenBtn')}</Btn>
+                            </div>
+                            <div style={{ fontSize: 11.5, opacity: 0.55 }}>⏳ {t('deviceWaiting')}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '18px', textAlign: 'center', background: 'var(--me-c-surface)' }}>
+                          <div style={{ fontSize: 12.5, opacity: 0.7 }}>{deviceBusy ? t('deviceStarting') : t('deviceIdleHint')}</div>
+                          <div style={{ marginTop: 10 }}>
+                            <Btn variant="primary" size="sm" disabled={deviceBusy} onClick={startDeviceLogin}>{t('cloudLoginButton')}</Btn>
+                          </div>
+                        </div>
+                      )}
+                      {deviceErr ? <Status tone="bad" text={deviceErr} /> : null}
+                      {/* 手动配置（地址 / 密钥）：默认收起，普通用户根本不需要 */}
+                      <div>
+                        <button type="button" onClick={() => setShowKeyField((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}>
+                          {showKeyField ? t('cloudHideKey') : t('cloudManualConfig')}
+                        </button>
+                      </div>
+                      {showKeyField ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <label className="mc-field">
+                            <span className="mc-field-label">{t('cloudUrlLabel')}</span>
+                            <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
+                          </label>
+                          <label className="mc-field">
+                            <span className="mc-field-label">{t('cloudTokenLabel')}</span>
+                            <input type="password" value={cloudForm.token} onChange={(e) => setCloudForm((f) => ({ ...f, token: e.target.value }))} placeholder="me_…" />
+                            <span className="mc-field-hint">{t('cloudTokenHint')}</span>
+                          </label>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <Btn variant="primary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
+                            <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={testCloud}>{cloudBusy ? '⏳' : t('cloudTestBtn')}</Btn>
+                          </div>
+                        </div>
+                      ) : null}
                     </>
                   ) : null}
                   {cloudConn.mode === 'cloud' && cloudConn.active === false && (
