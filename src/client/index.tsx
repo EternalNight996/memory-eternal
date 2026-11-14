@@ -892,8 +892,8 @@ export const ZH = {
   cloudSwitchHint: '切换本地 / 云端。云端用你自己的密钥，各人独立一个库',
   cloudModeLocal: '本地私有',
   cloudModeLocalHint: '记忆库在本机，不联网',
-  cloudModeCloud: '连接云端',
-  cloudModeCloudHint: '连云端实例，个人订阅',
+  cloudModeCloud: '云端',
+  cloudModeCloudHint: '连你的云端实例，跨设备同步',
   cloudUrlLabel: '云端实例地址',
   cloudUrlHint: 'memory-eternal-cloud 实例地址，如 https://mem.mengbot.com.cn',
   cloudTokenLabel: '访问密钥',
@@ -1065,6 +1065,10 @@ export const ZH = {
   merchantEndpointHint: '要接入的 MengBot 服务地址；换域名时改这里',
   cloudVaultLabel: '云端库位置（服务端路径）',
   vaultOriginLocal: '本地',
+  cloudVaultListLabel: '云端实例上的库',
+  cloudVaultQuota: '已用 {u} / {l}',
+  vaultUploadCloud: '上传本机库到云端',
+  vaultUploadCloudHint: '把选中的本机库整份推到云端当前库（复制，本地保留）',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
   vaultCopyFrom: '从选中库复制',
@@ -2333,6 +2337,10 @@ export const EN = {
   cloudModeDesc: 'Cloud vaults live on your cloud instance (HTTPS). The local vault still works offline — switch back to "Local" to use it.',
   cloudVaultLabel: 'Cloud vault path (on server)',
   vaultOriginLocal: 'local',
+  cloudVaultListLabel: 'Vaults on the cloud instance',
+  cloudVaultQuota: '{u} / {l} used',
+  vaultUploadCloud: 'Upload local to cloud',
+  vaultUploadCloudHint: 'Push the selected local vault into the current cloud vault (copy, local kept)',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
   vaultCopyFrom: 'Copy from selected',
@@ -8505,6 +8513,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [localVault, setLocalVault] = useState(null)
   // 库管理：枚举本机所有记忆库（本地 / 备份副本 / 云端租户），供上传下载选择
   const [vaultList, setVaultList] = useState(null)
+  // 云端实例上的库（与本地库分开存：两边的 isCurrent 各算各的，混在一起会打架）
+  const [cloudVaultList, setCloudVaultList] = useState(null)
+  const [cloudVaultQuota, setCloudVaultQuota] = useState(null)
   const [vaultSel, setVaultSel] = useState('')
   const [dupMode, setDupMode] = useState('skip')
   const [xfer, setXfer] = useState(null)
@@ -8921,6 +8932,23 @@ function ConfigPanel({ t, onReload, version, compact }) {
 
   /** 拉本机所有库（本地 + 备份 + 云端租户）。 */
   const loadVaults = async () => {
+    // 云端模式下额外拉一份**云端实例**的库 —— 切到云端后仍要能看见本机的库，
+    // 否则「把本地库传上去」就没有入口了。两路分开拉、分开存。
+    if (cloudForm.mode === 'cloud' && String(cloudForm.url || '').trim()) {
+      try {
+        // 必须带 token：云端 /vaults 要鉴权，漏了就是 401（第一次写的时候漏了，列表一直是空的）
+        const cr = await fetch(cloudApi('/vaults'), {
+          headers: cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {},
+        }).then((x) => x.json()).catch(() => null)
+        if (cr && cr.ok) {
+          setCloudVaultList(cr.vaults || [])
+          setCloudVaultQuota(cr.quota || null)
+        } else setCloudVaultList(null)
+      } catch { setCloudVaultList(null) }
+    } else {
+      setCloudVaultList(null)
+      setCloudVaultQuota(null)
+    }
     try {
       const r = await fetch(API + '/vaults')
       const d = await r.json().catch(() => ({}))
@@ -8932,7 +8960,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
       }
     } catch { /* 拿不到就不显示 */ }
   }
-  useEffect(() => { loadVaults() }, [])
+  useEffect(() => { loadVaults() }, [cloudForm.mode, cloudForm.url])
 
   /**
    * 库之间搬卡片。dir='up' 当前库→选中的库（上传），'down' 反之（下载）。
@@ -10151,6 +10179,26 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         </div>
                       </div>
                       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+                        {/* 云端实例上的库：与本地库分开列，各标各的来源 */}
+                        {cloudForm.mode === 'cloud' && cloudVaultList && cloudVaultList.length ? (
+                          <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, opacity: 0.55 }}>
+                              <span>{t('cloudVaultListLabel')} · {cloudVaultList.length}</span>
+                              {cloudVaultQuota && cloudVaultQuota.limited ? (
+                                <span>{t('cloudVaultQuota').replace('{u}', String(cloudVaultQuota.used)).replace('{l}', String(cloudVaultQuota.limit))}</span>
+                              ) : null}
+                              <span style={{ flex: 1 }} />
+                              <button type="button" onClick={createCloudVault} style={{ background: 'none', border: 'none', color: 'var(--me-c-accent, #2563eb)', cursor: 'pointer', fontSize: 10.5, padding: 0 }}>{t('createVaultBtn')}</button>
+                            </div>
+                            {cloudVaultList.map((v) => (
+                              <div key={v.path} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5 }}>
+                                <span style={{ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: v.isCurrent ? 'var(--me-c-success)' : 'var(--me-c-border-strong)' }} />
+                                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}</span>
+                                <span style={{ opacity: 0.5, flex: 'none' }}>{v.cards} · {v.sizeMB}MB</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                         <label className="mc-field" style={{ margin: 0 }}>
                           <span className="mc-field-label">{t('vaultTargetLabel')}</span>
                           <select value={vaultSel} onChange={(e) => setVaultSel(e.target.value)}>
@@ -10179,12 +10227,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
                             {xfer && xfer.busy ? '⏳' : t('vaultCopyFrom')}
                           </Btn>
                         {/* 云端专属：和云端之间搬数据（本地 ↔ 云端），复用 uploadVaultToCloud / downloadCloudToVault */}
-                        {cloudForm.mode === 'cloud' ? (
-                          <Btn variant="ghost" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud(vaultSel)}>{t('cfUploadBtn')}</Btn>
-                        ) : null}
-                        {cloudForm.mode === 'cloud' ? (
-                          <Btn variant="ghost" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => downloadCloudToVault(vaultSel)}>{t('cfDownloadBtn')}</Btn>
-                        ) : null}
+                        
+                        
+                          {/* 把选中的本机库推到云端（复制，本地保留） */}
+                          <Btn variant="ghost" size="sm" disabled={!vaultSel || !!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud(vaultSel)} title={t('vaultUploadCloudHint')}>{t('vaultUploadCloud')}</Btn>
                           <Btn variant="ghost" size="sm" onClick={loadVaults}>{t('refresh')}</Btn>
                         </div>
                         {xfer && xfer.err ? <Status tone="bad" text={xfer.err} /> : null}

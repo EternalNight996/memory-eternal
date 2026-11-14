@@ -29499,8 +29499,8 @@
     cloudSwitchHint: "\u5207\u6362\u672C\u5730 / \u4E91\u7AEF\u3002\u4E91\u7AEF\u7528\u4F60\u81EA\u5DF1\u7684\u5BC6\u94A5\uFF0C\u5404\u4EBA\u72EC\u7ACB\u4E00\u4E2A\u5E93",
     cloudModeLocal: "\u672C\u5730\u79C1\u6709",
     cloudModeLocalHint: "\u8BB0\u5FC6\u5E93\u5728\u672C\u673A\uFF0C\u4E0D\u8054\u7F51",
-    cloudModeCloud: "\u8FDE\u63A5\u4E91\u7AEF",
-    cloudModeCloudHint: "\u8FDE\u4E91\u7AEF\u5B9E\u4F8B\uFF0C\u4E2A\u4EBA\u8BA2\u9605",
+    cloudModeCloud: "\u4E91\u7AEF",
+    cloudModeCloudHint: "\u8FDE\u4F60\u7684\u4E91\u7AEF\u5B9E\u4F8B\uFF0C\u8DE8\u8BBE\u5907\u540C\u6B65",
     cloudUrlLabel: "\u4E91\u7AEF\u5B9E\u4F8B\u5730\u5740",
     cloudUrlHint: "memory-eternal-cloud \u5B9E\u4F8B\u5730\u5740\uFF0C\u5982 https://mem.mengbot.com.cn",
     cloudTokenLabel: "\u8BBF\u95EE\u5BC6\u94A5",
@@ -29672,6 +29672,10 @@
     merchantEndpointHint: "\u8981\u63A5\u5165\u7684 MengBot \u670D\u52A1\u5730\u5740\uFF1B\u6362\u57DF\u540D\u65F6\u6539\u8FD9\u91CC",
     cloudVaultLabel: "\u4E91\u7AEF\u5E93\u4F4D\u7F6E\uFF08\u670D\u52A1\u7AEF\u8DEF\u5F84\uFF09",
     vaultOriginLocal: "\u672C\u5730",
+    cloudVaultListLabel: "\u4E91\u7AEF\u5B9E\u4F8B\u4E0A\u7684\u5E93",
+    cloudVaultQuota: "\u5DF2\u7528 {u} / {l}",
+    vaultUploadCloud: "\u4E0A\u4F20\u672C\u673A\u5E93\u5230\u4E91\u7AEF",
+    vaultUploadCloudHint: "\u628A\u9009\u4E2D\u7684\u672C\u673A\u5E93\u6574\u4EFD\u63A8\u5230\u4E91\u7AEF\u5F53\u524D\u5E93\uFF08\u590D\u5236\uFF0C\u672C\u5730\u4FDD\u7559\uFF09",
     vaultOriginCloud: "\u4E91\u7AEF",
     vaultCopyTo: "\u590D\u5236\u5230\u9009\u4E2D\u5E93",
     vaultCopyFrom: "\u4ECE\u9009\u4E2D\u5E93\u590D\u5236",
@@ -30938,6 +30942,10 @@
     cloudModeDesc: 'Cloud vaults live on your cloud instance (HTTPS). The local vault still works offline \u2014 switch back to "Local" to use it.',
     cloudVaultLabel: "Cloud vault path (on server)",
     vaultOriginLocal: "local",
+    cloudVaultListLabel: "Vaults on the cloud instance",
+    cloudVaultQuota: "{u} / {l} used",
+    vaultUploadCloud: "Upload local to cloud",
+    vaultUploadCloudHint: "Push the selected local vault into the current cloud vault (copy, local kept)",
     vaultOriginCloud: "cloud",
     vaultCopyTo: "Copy into selected",
     vaultCopyFrom: "Copy from selected",
@@ -34393,7 +34401,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T17:14:52.829Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T17:20:19.458Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -37060,6 +37068,8 @@ ${t("quoteHint")}`,
     const [mchSecret, setMchSecret] = (0, import_react2.useState)(null);
     const [localVault, setLocalVault] = (0, import_react2.useState)(null);
     const [vaultList, setVaultList] = (0, import_react2.useState)(null);
+    const [cloudVaultList, setCloudVaultList] = (0, import_react2.useState)(null);
+    const [cloudVaultQuota, setCloudVaultQuota] = (0, import_react2.useState)(null);
     const [vaultSel, setVaultSel] = (0, import_react2.useState)("");
     const [dupMode, setDupMode] = (0, import_react2.useState)("skip");
     const [xfer, setXfer] = (0, import_react2.useState)(null);
@@ -37522,6 +37532,22 @@ ${t("quoteHint")}`,
       }
     }, "createCloudVault");
     const loadVaults = /* @__PURE__ */ __name(async () => {
+      if (cloudForm.mode === "cloud" && String(cloudForm.url || "").trim()) {
+        try {
+          const cr = await fetch(cloudApi2("/vaults"), {
+            headers: cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {}
+          }).then((x) => x.json()).catch(() => null);
+          if (cr && cr.ok) {
+            setCloudVaultList(cr.vaults || []);
+            setCloudVaultQuota(cr.quota || null);
+          } else setCloudVaultList(null);
+        } catch {
+          setCloudVaultList(null);
+        }
+      } else {
+        setCloudVaultList(null);
+        setCloudVaultQuota(null);
+      }
       try {
         const r = await fetch(API + "/vaults");
         const d = await r.json().catch(() => ({}));
@@ -37535,7 +37561,7 @@ ${t("quoteHint")}`,
     }, "loadVaults");
     (0, import_react2.useEffect)(() => {
       loadVaults();
-    }, []);
+    }, [cloudForm.mode, cloudForm.url]);
     const transferVault = /* @__PURE__ */ __name(async (dir) => {
       const other = (vaultList || []).find((v) => v.path === vaultSel);
       const cur = (vaultList || []).find((v) => v.isCurrent);
@@ -38782,6 +38808,31 @@ ${t("quoteHint")}`,
                     ] }, v.path)) })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", display: "flex", flexDirection: "column", gap: 9 }, children: [
+                    cloudForm.mode === "cloud" && cloudVaultList && cloudVaultList.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 10.5, opacity: 0.55 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                          t("cloudVaultListLabel"),
+                          " \xB7 ",
+                          cloudVaultList.length
+                        ] }),
+                        cloudVaultQuota && cloudVaultQuota.limited ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("cloudVaultQuota").replace("{u}", String(cloudVaultQuota.used)).replace("{l}", String(cloudVaultQuota.limit)) }) : null,
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: createCloudVault, style: { background: "none", border: "none", color: "var(--me-c-accent, #2563eb)", cursor: "pointer", fontSize: 10.5, padding: 0 }, children: t("createVaultBtn") })
+                      ] }),
+                      cloudVaultList.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 5, height: 5, borderRadius: "50%", flex: "none", background: v.isCurrent ? "var(--me-c-success)" : "var(--me-c-border-strong)" } }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
+                          v.name,
+                          v.isCurrent ? " " + t("vaultCurrent") : ""
+                        ] }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { opacity: 0.5, flex: "none" }, children: [
+                          v.cards,
+                          " \xB7 ",
+                          v.sizeMB,
+                          "MB"
+                        ] })
+                      ] }, v.path))
+                    ] }) : null,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("vaultTargetLabel") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: vaultSel, onChange: (e) => setVaultSel(e.target.value), children: [
@@ -38806,8 +38857,7 @@ ${t("quoteHint")}`,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("up"), children: xfer && xfer.busy ? "\u23F3" : t("vaultCopyTo") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("down"), children: xfer && xfer.busy ? "\u23F3" : t("vaultCopyFrom") }),
-                      cloudForm.mode === "cloud" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: !vaultSel || !!(importJob && importJob.importing), onClick: () => uploadVaultToCloud(vaultSel), children: t("cfUploadBtn") }) : null,
-                      cloudForm.mode === "cloud" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: !vaultSel || !!(importJob && importJob.importing), onClick: () => downloadCloudToVault(vaultSel), children: t("cfDownloadBtn") }) : null,
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: !vaultSel || !!(importJob && importJob.importing), onClick: () => uploadVaultToCloud(vaultSel), title: t("vaultUploadCloudHint"), children: t("vaultUploadCloud") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: loadVaults, children: t("refresh") })
                     ] }),
                     xfer && xfer.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: xfer.err }) : null,
