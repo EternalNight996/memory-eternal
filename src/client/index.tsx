@@ -70,9 +70,13 @@ function readCloudConn() {
       active: mode === 'cloud' ? raw.active !== false : false,
       lastError: String(raw.lastError || ''),
       lastCheckAt: raw.lastCheckAt || null,
+      // owner / profile 也要持久化：重开面板要能直接显示「谁连着」，
+      // 否则已连接状态只能显示一行「已连接」，认不出身份（实测过）。
+      owner: String(raw.owner || ''),
+      profile: raw.profile && typeof raw.profile === 'object' ? raw.profile : null,
     }
   } catch {
-    return { mode: 'local', url: '', token: '', active: false, lastError: '', lastCheckAt: null }
+    return { mode: 'local', url: '', token: '', active: false, lastError: '', lastCheckAt: null, owner: '', profile: null }
   }
 }
 function saveCloudConn(c) {
@@ -814,6 +818,15 @@ export const ZH = {
   cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
   cloudOauthIgnored: '已自动忽略 MengBot 的客户端密钥（mbo_）—— 它不是访问密钥，请用「用 MengBot 账号登录」',
   cloudModeLabel: '运行模式',
+  cloudConnected: '已连接',
+  cloudDisconnect: '断开连接',
+  cloudDisconnected: '已切回本地',
+  cloudPlanLabel: '当前套餐',
+  cloudPlanExpires: '有效期至',
+  cloudPlanCards: '卡片上限',
+  cloudShowKey: '或手动填访问密钥',
+  cloudHideKey: '收起访问密钥',
+  devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
   cloudLoginCtaHint: '自动获取令牌，不用手动填密钥',
   deviceTitle: '在任意设备上完成登录',
@@ -1944,6 +1957,15 @@ export const EN = {
   cloudTokenPeek: 'Current token: {peek} ({len} chars)',
   cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) — it is not an access key. Use "Sign in with MengBot" instead',
   cloudModeLabel: 'Mode',
+  cloudConnected: 'Connected',
+  cloudDisconnect: 'Disconnect',
+  cloudDisconnected: 'Switched to local',
+  cloudPlanLabel: 'Plan',
+  cloudPlanExpires: 'Expires',
+  cloudPlanCards: 'Card limit',
+  cloudShowKey: 'Or paste an access key',
+  cloudHideKey: 'Hide access key',
+  devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
   cloudLoginCtaHint: 'Gets a token automatically — no key to paste',
   deviceTitle: 'Finish signing in on any device',
@@ -7425,6 +7447,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudConn is not defined）。
   // 落盘与探测走模块级 persistCloud / probeCloud / markCloudFailed / activateCloud。
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
+  // 已连接时展示套餐（比只有一行地址更能证明"真的连上了"）
+  const [cloudPlan, setCloudPlan] = useState(null)
+  // 手动填密钥默认折叠：登录是主路径，密钥是备用，两套并列会让界面没主次
+  const [showKeyField, setShowKeyField] = useState(false)
   /**
    * 云端专属接口的绝对地址。
    *
@@ -7540,6 +7566,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
           if (next.ok) {
             activateCloud({ ...next.next, token: d.token })
             setCloudConn(readCloudConn())
+            // owner/profile 落盘：重开面板仍能显示是谁（readCloudConn 会读回来）
+            try { saveCloudConn({ ...readCloudConn(), mode: 'cloud', token: d.token, active: true, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
             setCloudForm((f) => ({ ...f, mode: 'cloud', token: d.token }))
             setCloudTest({ ok: true, authenticated: true, owner: d.owner || '', profile: d.profile || null })
             setDeviceAuth(null)
@@ -7649,6 +7677,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   //   merchant → 商户把自有云端实例接入 MengBot 托管，凭据 mch_ / msk_
   // 初值跟数据源一致：本地/云端直接高亮对应卡片；商户接入是主动点的
   const [cloudTab, setCloudTab] = useState(() => (readCloudConn().mode === 'cloud' ? 'cloud' : 'local'))
+
   const [merchants, setMerchants] = useState([])
   const [mchForm, setMchForm] = useState(() => ({ name: '', domain: '', endpoint: String(readCloudConn().merchantEndpoint || 'https://mem.mengbot.com.cn') }))
   const [mchBusy, setMchBusy] = useState(false)
@@ -7853,6 +7882,64 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [toast, setToast] = useState(null)
   const [appliedPlan, setAppliedPlan] = useState('')
   const [dirty, setDirty] = useState(false)
+
+  // 已连接时取一次套餐。
+  // 注意：这里**不能**用 isConnected —— 它在下面才声明，依赖数组在渲染期同步求值会 TDZ。
+  // 直接用同样的判据（token 有值）表达，效果一致且不引入顺序耦合。
+  useEffect(() => {
+    if (cloudTab === 'cloud' && String(cloudForm.token || '').trim()) loadCloudPlan()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudTab, cloudForm.token])
+
+  /**
+   * 是否「已连接云端」。
+   *
+   * 判据宽松一点：token 有值且没被标记失效就算连接 —— 刚连上那一刻 cloudConn 可能
+   * 还是旧快照，用严格判据会出现「明明连上了、界面还让你登录」。
+   */
+  const isConnected = cloudTab === 'cloud'
+    && !!String(cloudForm.token || '').trim()
+    && cloudConn.active !== false
+
+  /**
+   * 拉套餐信息（已连接时展示）。失败静默 —— 它只是锦上添花，不该影响连接状态。
+   *
+   * 注意两点（都踩过）：
+   *   ① 必须带 Authorization —— 这个接口要令牌，不带就是 401，套餐永远空着
+   *   ② 地址用 cloudApi（云端绝对地址），不能用相对前缀 API（那是本地服务）
+   */
+  const loadCloudPlan = async () => {
+    const url = cloudApi('/cloud/billing/plan')
+    if (!url) return
+    const token = String(cloudForm.token || '').trim()
+    if (!token) return
+    try {
+      const r = await fetch(url, {
+        headers: { Authorization: 'Bearer ' + token },
+        signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
+      })
+      const d = await r.json().catch(() => ({}))
+      if (d && d.ok && d.plan) setCloudPlan(d.plan)
+    } catch { /* 忽略 */ }
+  }
+
+  /** 已连接时的身份展示（probe 结果优先，回落 localStorage）。 */
+  const cloudIdentity = (cloudTest && cloudTest.authenticated)
+    ? { owner: cloudTest.owner || '', profile: cloudTest.profile || null }
+    : { owner: (cloudConn && cloudConn.owner) || '', profile: (cloudConn && cloudConn.profile) || null }
+
+  /** 断开：切回本地、清令牌，但**保留地址**方便一键重连。 */
+  const disconnectCloud = () => {
+    const next = persistCloud({ mode: 'local', url: cloudForm.url, token: '' })
+    if (next && next.ok) saveCloudConn({ ...next.next, mode: 'local', active: false, lastError: '', owner: null })
+    setCloudForm((f) => ({ ...f, mode: 'local', token: '' }))
+    setCloudConn(readCloudConn())
+    setCloudTab('local')
+    setShowKeyField(false)
+    setCloudPlan(null)
+    setCloudTest(null)
+    try { notify(t('cloudDisconnected'), true) } catch { /* 忽略 */ }
+  }
   // 配置页滚动位置：编辑/保存/按钮触发的重渲染不能把视图弹回顶部。
   const scrollRef = useRef(null)
   const scrollTopRef = useRef(0)
@@ -8931,12 +9018,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
                   {/* 账号区放最前：登录是推荐路径，手动填密钥是备用 */}
-                  {cloudTest && cloudTest.ok && cloudTest.authenticated ? (
+                  {isConnected ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--me-c-border)', borderRadius: 10, background: 'var(--me-c-surface)' }}>
                       <AccountBadge
-                        owner={cloudTest.owner || ''}
-                        profile={cloudTest.profile || null}
-                        sub={cloudConn.mode === 'cloud' && cloudConn.active !== false ? t('cloudModeCloud') : t('cloudNowLocal')}
+                        owner={cloudIdentity.owner || ''}
+                        profile={cloudIdentity.profile || null}
+                        sub={cloudPlan ? String(cloudPlan.plan || '').toUpperCase() : t('cloudConnected')}
                         tone={cloudConn.mode === 'cloud' && cloudConn.active !== false ? 'ok' : 'warn'}
                         size={38}
                       />
@@ -8985,7 +9072,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         ) : null}
                       </div>
                     ) : null}
-                    {deviceAuth ? (
+                    {!isConnected && deviceAuth ? (
                       <div style={{ border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent-soft, rgba(37,99,235,.08))', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t('deviceTitle')}</div>
                         <div style={{ fontSize: 12, lineHeight: 1.7 }}>
@@ -9017,6 +9104,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         </div>
                       </div>
                     ) : null}
+                  {/* 未连接才显示表单：已连接时只保留上面的身份卡片，界面才有主次 */}
+                  {!isConnected ? (
+                    <>
                   <label className="mc-field">
                     <span className="mc-field-label">{t('cloudUrlLabel')}</span>
                     <input
@@ -9045,6 +9135,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   {cloudConn.mode === 'cloud' && cloudConn.active !== false && (
                     <Status tone="ok" text={t('cloudNowActive').replace('{url}', cloudConn.url || '')} />
                   )}
+                    </>
+                  ) : null}
                   {cloudConn.mode === 'cloud' && cloudConn.active === false && (
                     <Status tone="bad" text={t('cloudKeptButInactive').replace('{err}', cloudConn.lastError || '—')} />
                   )}
