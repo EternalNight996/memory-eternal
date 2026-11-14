@@ -10311,7 +10311,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                           {/* 把选中的本机库推到云端（复制，本地保留） */}
                           {/* 云端实例上这个按钮没意义：当前库就在这台服务器上，"上传"等于自己传自己 */}
                           {isCloudInstance ? null : (
-                            <Btn variant="ghost" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)} title={t('vaultUploadCloudHint')}>{t('vaultUploadCloud')}</Btn>
+                            <Btn variant="primary" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)} title={t('vaultUploadCloudHint')}>{'☁ ' + t('vaultUploadCloud')}</Btn>
                           )}
                           <Btn variant="ghost" size="sm" onClick={loadVaults}>{t('refresh')}</Btn>
                         </div>
