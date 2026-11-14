@@ -26871,10 +26871,14 @@
         token: String(raw.token || ""),
         active: mode === "cloud" ? raw.active !== false : false,
         lastError: String(raw.lastError || ""),
-        lastCheckAt: raw.lastCheckAt || null
+        lastCheckAt: raw.lastCheckAt || null,
+        // owner / profile 也要持久化：重开面板要能直接显示「谁连着」，
+        // 否则已连接状态只能显示一行「已连接」，认不出身份（实测过）。
+        owner: String(raw.owner || ""),
+        profile: raw.profile && typeof raw.profile === "object" ? raw.profile : null
       };
     } catch {
-      return { mode: "local", url: "", token: "", active: false, lastError: "", lastCheckAt: null };
+      return { mode: "local", url: "", token: "", active: false, lastError: "", lastCheckAt: null, owner: "", profile: null };
     }
   }
   __name(readCloudConn, "readCloudConn");
@@ -27577,6 +27581,15 @@
     cloudTokenPeek: "\u5F53\u524D\u4EE4\u724C\uFF1A{peek}\uFF08\u5171 {len} \u5B57\u7B26\uFF09",
     cloudOauthIgnored: "\u5DF2\u81EA\u52A8\u5FFD\u7565 MengBot \u7684\u5BA2\u6237\u7AEF\u5BC6\u94A5\uFF08mbo_\uFF09\u2014\u2014 \u5B83\u4E0D\u662F\u8BBF\u95EE\u5BC6\u94A5\uFF0C\u8BF7\u7528\u300C\u7528 MengBot \u8D26\u53F7\u767B\u5F55\u300D",
     cloudModeLabel: "\u8FD0\u884C\u6A21\u5F0F",
+    cloudConnected: "\u5DF2\u8FDE\u63A5",
+    cloudDisconnect: "\u65AD\u5F00\u8FDE\u63A5",
+    cloudDisconnected: "\u5DF2\u5207\u56DE\u672C\u5730",
+    cloudPlanLabel: "\u5F53\u524D\u5957\u9910",
+    cloudPlanExpires: "\u6709\u6548\u671F\u81F3",
+    cloudPlanCards: "\u5361\u7247\u4E0A\u9650",
+    cloudShowKey: "\u6216\u624B\u52A8\u586B\u8BBF\u95EE\u5BC6\u94A5",
+    cloudHideKey: "\u6536\u8D77\u8BBF\u95EE\u5BC6\u94A5",
+    devicePanelTitle: "\u5728\u6D4F\u89C8\u5668\u4E2D\u5B8C\u6210\u767B\u5F55",
     localVaultLabel: "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E",
     cloudLoginCtaHint: "\u81EA\u52A8\u83B7\u53D6\u4EE4\u724C\uFF0C\u4E0D\u7528\u624B\u52A8\u586B\u5BC6\u94A5",
     deviceTitle: "\u5728\u4EFB\u610F\u8BBE\u5907\u4E0A\u5B8C\u6210\u767B\u5F55",
@@ -28705,6 +28718,15 @@
     cloudTokenPeek: "Current token: {peek} ({len} chars)",
     cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) \u2014 it is not an access key. Use "Sign in with MengBot" instead',
     cloudModeLabel: "Mode",
+    cloudConnected: "Connected",
+    cloudDisconnect: "Disconnect",
+    cloudDisconnected: "Switched to local",
+    cloudPlanLabel: "Plan",
+    cloudPlanExpires: "Expires",
+    cloudPlanCards: "Card limit",
+    cloudShowKey: "Or paste an access key",
+    cloudHideKey: "Hide access key",
+    devicePanelTitle: "Finish signing in in your browser",
     localVaultLabel: "Vault location",
     cloudLoginCtaHint: "Gets a token automatically \u2014 no key to paste",
     deviceTitle: "Finish signing in on any device",
@@ -32083,7 +32105,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T10:30:36.863Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T10:48:57.204Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -34123,6 +34145,8 @@ ${t("quoteHint")}`,
   function ConfigPanel({ t, onReload, version, compact }) {
     const [page, setPage] = (0, import_react2.useState)("general");
     const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
+    const [cloudPlan, setCloudPlan] = (0, import_react2.useState)(null);
+    const [showKeyField, setShowKeyField] = (0, import_react2.useState)(false);
     const cloudApi = /* @__PURE__ */ __name((path) => {
       const base = String(cloudForm && cloudForm.url || "").trim().replace(/\/+$/, "");
       if (!base) return "";
@@ -34239,6 +34263,10 @@ ${t("quoteHint")}`,
             if (next.ok) {
               activateCloud({ ...next.next, token: d.token });
               setCloudConn(readCloudConn());
+              try {
+                saveCloudConn({ ...readCloudConn(), mode: "cloud", token: d.token, active: true, lastError: "", owner: d.owner || "", profile: d.profile || null });
+              } catch {
+              }
               setCloudForm((f) => ({ ...f, mode: "cloud", token: d.token }));
               setCloudTest({ ok: true, authenticated: true, owner: d.owner || "", profile: d.profile || null });
               setDeviceAuth(null);
@@ -34617,6 +34645,40 @@ ${t("quoteHint")}`,
     const [toast, setToast] = (0, import_react2.useState)(null);
     const [appliedPlan, setAppliedPlan] = (0, import_react2.useState)("");
     const [dirty, setDirty] = (0, import_react2.useState)(false);
+    (0, import_react2.useEffect)(() => {
+      if (cloudTab === "cloud" && String(cloudForm.token || "").trim()) loadCloudPlan();
+    }, [cloudTab, cloudForm.token]);
+    const isConnected = cloudTab === "cloud" && !!String(cloudForm.token || "").trim() && cloudConn.active !== false;
+    const loadCloudPlan = /* @__PURE__ */ __name(async () => {
+      const url = cloudApi("/cloud/billing/plan");
+      if (!url) return;
+      const token = String(cloudForm.token || "").trim();
+      if (!token) return;
+      try {
+        const r = await fetch(url, {
+          headers: { Authorization: "Bearer " + token },
+          signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0
+        });
+        const d = await r.json().catch(() => ({}));
+        if (d && d.ok && d.plan) setCloudPlan(d.plan);
+      } catch {
+      }
+    }, "loadCloudPlan");
+    const cloudIdentity = cloudTest && cloudTest.authenticated ? { owner: cloudTest.owner || "", profile: cloudTest.profile || null } : { owner: cloudConn && cloudConn.owner || "", profile: cloudConn && cloudConn.profile || null };
+    const disconnectCloud = /* @__PURE__ */ __name(() => {
+      const next = persistCloud({ mode: "local", url: cloudForm.url, token: "" });
+      if (next && next.ok) saveCloudConn({ ...next.next, mode: "local", active: false, lastError: "", owner: null });
+      setCloudForm((f) => ({ ...f, mode: "local", token: "" }));
+      setCloudConn(readCloudConn());
+      setCloudTab("local");
+      setShowKeyField(false);
+      setCloudPlan(null);
+      setCloudTest(null);
+      try {
+        notify2(t("cloudDisconnected"), true);
+      } catch {
+      }
+    }, "disconnectCloud");
     const scrollRef = (0, import_react2.useRef)(null);
     const scrollTopRef = (0, import_react2.useRef)(0);
     const onScroll = /* @__PURE__ */ __name((e) => {
@@ -35735,13 +35797,13 @@ ${t("quoteHint")}`,
                   ] }, m.id))
                 ] }) : null
               ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }, children: [
-                cloudTest && cloudTest.ok && cloudTest.authenticated ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)" }, children: [
+                isConnected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)" }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                     AccountBadge,
                     {
-                      owner: cloudTest.owner || "",
-                      profile: cloudTest.profile || null,
-                      sub: cloudConn.mode === "cloud" && cloudConn.active !== false ? t("cloudModeCloud") : t("cloudNowLocal"),
+                      owner: cloudIdentity.owner || "",
+                      profile: cloudIdentity.profile || null,
+                      sub: cloudPlan ? String(cloudPlan.plan || "").toUpperCase() : t("cloudConnected"),
                       tone: cloudConn.mode === "cloud" && cloudConn.active !== false ? "ok" : "warn",
                       size: 38
                     }
@@ -35790,7 +35852,7 @@ ${t("quoteHint")}`,
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 4 }, children: deviceErr }),
                   /grant_not_allowed|未被允许/.test(deviceErr) ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 6, opacity: 0.85 }, children: t("deviceFallbackHint") }) : null
                 ] }) : null,
-                deviceAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-accent, #2563eb)", background: "var(--me-c-accent-soft, rgba(37,99,235,.08))", borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }, children: [
+                !isConnected && deviceAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-accent, #2563eb)", background: "var(--me-c-accent-soft, rgba(37,99,235,.08))", borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, fontWeight: 700 }, children: t("deviceTitle") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12, lineHeight: 1.7 }, children: [
                     t("deviceOpen"),
@@ -35827,36 +35889,38 @@ ${t("quoteHint")}`,
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cancelDeviceLogin, children: t("deviceCancel") }) })
                 ] }) : null,
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    "input",
-                    {
-                      value: cloudForm.url,
-                      onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })),
-                      placeholder: "https://mem.mengbot.com.cn"
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudUrlHint") })
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    "input",
-                    {
-                      type: "password",
-                      value: cloudForm.token,
-                      onChange: (e) => setCloudForm((f) => ({ ...f, token: e.target.value })),
-                      placeholder: "me_\u2026"
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudTokenHint") })
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: cloudBusy, onClick: testCloud, children: cloudBusy ? "\u23F3" : t("cloudTestBtn") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: saveCloud, children: t("cloudSave") })
-                ] }),
-                cloudConn.mode === "cloud" && cloudConn.active !== false && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "ok", text: t("cloudNowActive").replace("{url}", cloudConn.url || "") }),
+                !isConnected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "input",
+                      {
+                        value: cloudForm.url,
+                        onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })),
+                        placeholder: "https://mem.mengbot.com.cn"
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudUrlHint") })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "input",
+                      {
+                        type: "password",
+                        value: cloudForm.token,
+                        onChange: (e) => setCloudForm((f) => ({ ...f, token: e.target.value })),
+                        placeholder: "me_\u2026"
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudTokenHint") })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: cloudBusy, onClick: testCloud, children: cloudBusy ? "\u23F3" : t("cloudTestBtn") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: saveCloud, children: t("cloudSave") })
+                  ] }),
+                  cloudConn.mode === "cloud" && cloudConn.active !== false && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "ok", text: t("cloudNowActive").replace("{url}", cloudConn.url || "") })
+                ] }) : null,
                 cloudConn.mode === "cloud" && cloudConn.active === false && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: t("cloudKeptButInactive").replace("{err}", cloudConn.lastError || "\u2014") }),
                 cloudTest && cloudTest.authenticated === false && cloudTest.ok && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "ok", text: cloudTest.message || t("cloudTestReachable").replace("{version}", cloudTest.version || "") }),
                 cloudTest && !cloudTest.ok && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: cloudTest.error || t("cloudTestFail") }),
