@@ -1,125 +1,89 @@
-// 支付链路端到端：真起 HTTP，跑通
-//   登录（假 IdP）→ 拿到 access_token → POST /cloud/billing/checkout → 拿到支付页
-//   → 模拟 MengBot 支付成功推 webhook → GET /cloud/billing/plan 变成 pro
+// 支付闭环 e2e：登录态 → 拿到 subscribe 深链 → webhook 回推 → 套餐生效
+//
+// 注意链路已经**简化**了（MengBot 第 4 封 Q2）：不再代用户调 checkout 端点，
+// 所以这里不需要假 MengBot 的 /checkout，也不需要 access_token。
+// 现在只需要验证：
+//   ① /cloud/billing/checkout 返回正确的 subscribe 深链（纯本地拼接，零网络）
+//   ② webhook 推 entitlement.updated 后 /cloud/billing/plan 立刻变
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import http from 'node:http'
-import { startFakeIdp } from './fixtures/fake-idp.mjs'
 import { createCloudServer } from '../lib/cloud-server.js'
-import { storeAccessToken } from '../lib/oidc.js'
 
-const CLIENT_ID = 'memory-eternal-cloud'
-const CLIENT_SECRET = 'fake-secret'
-const USER = { sub: 'u_1', email: 'yg@example.com', name: 'YG' }
-
-async function startOurCloud(env) {
-  const handler = createCloudServer({ env })
-  const srv = http.createServer(async (req, res) => {
-    const handled = await handler(req, res)
-    if (!handled) { res.writeHead(404); res.end('not cloud') }
+function withHome(env, fn) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-bille2e-'))
+  fs.writeFileSync(path.join(home, 'cloud-keys.json'), JSON.stringify({ version: 1, keys: [], mengbot: {} }), { mode: 0o600 })
+  const handler = createCloudServer({
+    env: {
+      ...process.env,
+      DSH_HOME: home,
+      MEMORY_WEBHOOK_SECRET: 'whsec_e2e',
+      MEMORY_CLOUD_PUBLIC_URL: 'http://127.0.0.1',
+      MEMORY_CLOUD_ACCESS_LOG: '0',
+      ...env,
+    },
   })
-  await new Promise((r) => srv.listen(0, '127.0.0.1', r))
-  return { base: `http://127.0.0.1:${srv.address().port}`, close: () => new Promise((r) => srv.close(r)) }
+  const srv = http.createServer(async (req, res) => { await handler(req, res) })
+  return new Promise((resolve, reject) => {
+    srv.listen(0, '127.0.0.1', async () => {
+      let err = null
+      try { await fn(`http://127.0.0.1:${srv.address().port}`, home) } catch (e) { err = e }
+      await new Promise((r) => srv.close(r))
+      try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+      if (err) reject(err); else resolve()
+    })
+  })
 }
 
-test('支付闭环：登录 → 下单拿支付页 → webhook 回推 → 套餐变 pro', async () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-pay-e2e-'))
-  fs.writeFileSync(path.join(home, 'cloud-keys.json'), JSON.stringify({ version: 1, keys: [], mengbot: {} }), { mode: 0o600 })
-  const idp = await startFakeIdp({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, user: USER })
+const sign = (secret, body) => 'sha256=' + crypto.createHmac('sha256', secret).update(body, 'utf8').digest('hex')
 
-  // 假 MengBot 云端 API：checkout 返回支付页
-  const paid = []
-  const api = http.createServer((req, res) => {
-    if (req.url === '/api/cloud/desktop/checkout') {
-      let b = ''
-      req.on('data', (c) => { b += c })
-      req.on('end', () => {
-        paid.push({ auth: req.headers.authorization, body: b })
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ url: 'https://pay.mengbot.com.cn/c/e2e' }))
-      })
-      return
-    }
-    res.writeHead(404); res.end()
+test('支付闭环：登录 → 拿 subscribe 深链 → webhook 回推 → 套餐生效', () => withHome({}, async (base) => {
+  const API = base + '/memory-eternal/api'
+  // ① 签一把租户密钥当"已登录"
+  const kj = await (await fetch(API + '/cloud/keys', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"owner":"yg@example.com"}',
+  })).json()
+  const H = { Authorization: 'Bearer ' + kj.token }
+
+  // ② 下单：应拿到 subscribe 深链，且整个过程零网络
+  const co = await (await fetch(API + '/cloud/billing/checkout', {
+    method: 'POST', headers: { ...H, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan: 'pro', source: 'memory-eternal' }),
+  })).json()
+  assert.equal(co.ok, true, JSON.stringify(co))
+  assert.equal(co.url, 'https://pay.mengbot.com.cn/subscribe?sku=sub-pro&source=memory-eternal')
+  assert.equal(co.sku, 'sub-pro')
+
+  // ③ 支付成功 → MengBot 推 webhook
+  const payload = JSON.stringify({
+    id: 'evt_e2e_1', event: 'entitlement.updated', account: 'yg@example.com',
+    plan: 'pro', status: 'active', version: 101,
+    expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+    caps: { seats: 10, apps: 5, cards: 10000, rpm: 300, vaults: 1 },
   })
-  await new Promise((r) => api.listen(0, '127.0.0.1', r))
-  const apiBase = `http://127.0.0.1:${api.address().port}`
+  const wh = await fetch(API + '/cloud/webhook/mengbot', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-MengBot-Signature': sign('whsec_e2e', payload),
+      'X-MengBot-Event': 'entitlement.updated',
+      'X-MengBot-Event-Id': 'evt_e2e_1',
+    },
+    body: payload,
+  })
+  assert.equal(wh.status, 200)
+  const wj = await wh.json()
+  assert.equal(wj.applied, true, JSON.stringify(wj))
 
-  const env = {
-    DSH_HOME: home,
-    MEMORY_CLOUD: '1',
-    MEMORY_OIDC_ISSUER: idp.base,
-    MEMORY_OIDC_CLIENT_ID: CLIENT_ID,
-    MEMORY_OIDC_CLIENT_SECRET: CLIENT_SECRET,
-    MEMORY_OIDC_REDIRECT_URI: 'http://127.0.0.1:9/cb',
-    MEMORY_CLOUD_PUBLIC_URL: 'http://127.0.0.1:9',
-    MEMORY_MENGBOT_API_BASE: apiBase,
-    MEMORY_WEBHOOK_SECRET: 'whsec_e2e',
-    MEMORY_CLOUD_ADMIN_TOKEN: 'adm_e2e',
-  }
-  const cloud = await startOurCloud(env)
-  try {
-    // ① 先签一把租户密钥（走管理面），拿它访问 billing
-    const keyRes = await fetch(`${cloud.base}/memory-eternal/api/cloud/keys`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer adm_e2e' },
-      body: JSON.stringify({ owner: USER.email }),
-    })
-    assert.equal(keyRes.status, 200)
-    const { token: tenantToken } = await keyRes.json()
-    assert.ok(tenantToken.startsWith('me_'))
-
-    // ② 给这个 owner 预置 access_token（等价于「他刚用 OIDC 登录过」）
-    storeAccessToken(USER.email, { accessToken: 'at_live', expiresIn: 3600 }, env)
-
-    // ③ 下单
-    const co = await fetch(`${cloud.base}/memory-eternal/api/cloud/billing/checkout`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tenantToken },
-      body: JSON.stringify({ plan: 'pro', source: 'memory-eternal-cloud' }),
-    })
-    assert.equal(co.status, 200)
-    const coBody = await co.json()
-    assert.equal(coBody.url, 'https://pay.mengbot.com.cn/c/e2e')
-    assert.equal(paid.length, 1, '应真的调了 MengBot checkout')
-    assert.equal(paid[0].auth, 'Bearer at_live')
-
-    // ④ 下单前：free
-    const before = await (await fetch(`${cloud.base}/memory-eternal/api/cloud/billing/plan`, { headers: { Authorization: 'Bearer ' + tenantToken } })).json()
-    assert.equal(before.plan.plan, 'free')
-
-    // ⑤ MengBot 支付成功 → 推 webhook
-    const payload = JSON.stringify({
-      id: 'evt_pay_1', event: 'entitlement.updated', account: USER.email,
-      plan: 'pro', status: 'active', version: 1,
-      expiresAt: new Date(Date.now() + 86400000 * 365).toISOString(), caps: { seats: 3 },
-    })
-    const sig = 'sha256=' + crypto.createHmac('sha256', 'whsec_e2e').update(payload, 'utf8').digest('hex')
-    const wh = await fetch(`${cloud.base}/memory-eternal/api/cloud/webhook/mengbot`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-MengBot-Signature': sig, 'X-MengBot-Event': 'entitlement.updated', 'X-MengBot-Event-Id': 'evt_pay_1' },
-      body: payload,
-    })
-    assert.equal(wh.status, 200)
-    assert.equal((await wh.json()).applied, true)
-
-    // ⑥ 下单后：pro（同一个租户令牌，服务端重启也不用动）
-    const after = await (await fetch(`${cloud.base}/memory-eternal/api/cloud/billing/plan`, { headers: { Authorization: 'Bearer ' + tenantToken } })).json()
-    assert.equal(after.plan.plan, 'pro', 'webhook 后套餐应立刻生效')
-    assert.equal(after.plan.status, 'active')
-    assert.equal(after.plan.caps.seats, 3)
-
-    // ⑦ 业务接口的写权限也随套餐走（warn 策略下都允许，这里只验证接口可用）
-    const ov = await fetch(`${cloud.base}/memory-eternal/api/overview`, { headers: { Authorization: 'Bearer ' + tenantToken } })
-    assert.equal(ov.status, 200)
-  } finally {
-    await cloud.close()
-    await new Promise((r) => api.close(r))
-    await idp.close()
-    try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
-  }
-})
+  // ④ 套餐立刻生效，且 caps 用的是**显式字段**（不是 seats 兜底）
+  const pv = await (await fetch(API + '/cloud/billing/plan', { headers: H })).json()
+  assert.equal(pv.ok, true)
+  assert.equal(pv.plan.plan, 'pro')
+  assert.equal(pv.plan.status, 'active')
+  assert.equal(pv.plan.caps.cards, 10000, '显式 caps.cards 要落库')
+  assert.equal(pv.plan.canCheckout, true, '登录后就能下单')
+}))

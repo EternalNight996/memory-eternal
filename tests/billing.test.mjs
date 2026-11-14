@@ -1,165 +1,93 @@
-// 支付链路：**下单交给 MengBot，结果靠 webhook 回来**。守五件事：
-//   ① 套餐白名单（personal/pro/max —— 以 MengBot 第 3 封 B2 定稿为准），别把任意字符串透传过去；
-//   ② 代用户调用用 OIDC access_token（缓存失效自动 refresh）；
-//   ③ 支付页地址只认契约字段 `url`（对方 B2 答复：checkoutUrl/checkout_url 不是契约字段）；
-//   ④ 下单失败给可读原因（不吞 401/402）；
-//   ⑤ webhook 收到 entitlement.updated 后本地套餐立刻生效。
+﻿// 支付：**直接拼 subscribe 深链**，不代用户调 MengBot 端点。
+// （MengBot 第 4 封 Q2 确认：`?sku=` 是深链，`order` 非必需，`source` 会写进订单 note）
+//
+// 这样做的收益：不需要 omc_ 设备令牌、不需要 OIDC access_token/refresh_token、
+// 支付会话不经过第三方服务端。代价是拿不到 priceFen（可读 /api/v1/market/plans 补）。
+//
+// 守六件事：
+//   ① plan 白名单是 personal/pro/max（对方 B2 定稿），废弃的 team/enterprise 要拒；
+//   ② 也接受直接传 sku（sub-xxx）；
+//   ③ 拼出的 URL 是 https://pay.mengbot.com.cn/subscribe?sku=...&source=...；
+//   ④ 没有 owner 就不能下单（必须先登录）；
+//   ⑤ 不做任何网络调用（纯字符串拼接，不可能因网络失败）；
+//   ⑥ planView 的 canCheckout 不再依赖 access_token。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { createCheckout, planView, mengbotApiBase, CHECKOUT_PLANS } from '../lib/billing.js'
-import { storeAccessToken, readAccessStore, getValidAccessToken, readOidcConfig, clearDiscoveryCache, discoverOidc } from '../lib/oidc.js'
-import { applyWebhookEvent } from '../lib/webhook.js'
-import { readEntitlement } from '../lib/entitlement.js'
+import { createCheckout, planView, CHECKOUT_PLANS } from '../lib/billing.js'
+import { writeEntitlement } from '../lib/entitlement.js'
 
-function withHome(fn) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-bill-'))
-  fs.writeFileSync(path.join(home, 'cloud-keys.json'), JSON.stringify({ version: 1, keys: [], mengbot: {} }), { mode: 0o600 })
-  const env = {
-    ...process.env,
-    DSH_HOME: home,
-    MEMORY_OIDC_ISSUER: 'https://accounts.mengbot.example',
-    MEMORY_OIDC_CLIENT_SECRET: 'sec',
-    MEMORY_OIDC_REDIRECT_URI: 'https://mem.mengbot.com.cn/memory-eternal/api/cloud/auth/callback',
-    MEMORY_MENGBOT_API_BASE: 'https://accounts.mengbot.example',
-  }
-  return Promise.resolve(fn(env, home)).finally(() => { try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ } })
+function tmpHome() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'me-bill-'))
 }
-
-const fakeDiscovery = async (url) => {
-  if (String(url).includes('/.well-known/openid-configuration')) {
-    return {
-      ok: true, status: 200,
-      json: async () => ({
-        issuer: 'https://accounts.mengbot.example',
-        authorization_endpoint: 'https://accounts.mengbot.example/auth',
-        token_endpoint: 'https://accounts.mengbot.example/token',
-        userinfo_endpoint: 'https://accounts.mengbot.example/me',
-      }),
-    }
-  }
-  return { ok: false, status: 404, json: async () => ({}) }
+function cleanup(home) {
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
 }
+const envWith = (home, extra = {}) => ({ ...process.env, DSH_HOME: home, ...extra })
 
-test('套餐白名单：未知套餐直接拒，不透传', () => withHome(async (env) => {
-  assert.deepEqual(CHECKOUT_PLANS, ['personal', 'pro', 'max'], 'plan 枚举以对方 B2 定稿为准')
-  const r = await createCheckout({ plan: 'free-lunch', owner: 'yg@example.com', env, fetchImpl: async () => ({ ok: true, json: async () => ({ url: 'x' }) }) })
-  assert.equal(r.ok, false)
-  assert.match(r.error, /不支持的套餐/)
-}))
+test('plan 白名单是 personal/pro/max（MengBot B2 定稿）', () => {
+  assert.deepEqual(CHECKOUT_PLANS, ['personal', 'pro', 'max'])
+})
 
-test('缺 owner / 缺 API 根 → 明确报错', () => withHome(async (env) => {
-  const noOwner = await createCheckout({ plan: 'pro', env, fetchImpl: async () => ({}) })
-  assert.equal(noOwner.ok, false)
-  assert.match(noOwner.error, /必须先登录/)
-
-  const noBase = await createCheckout({ plan: 'pro', owner: 'a@b.c', env: { ...env, MEMORY_MENGBOT_API_BASE: '', MEMORY_OIDC_ISSUER: '' }, fetchImpl: async () => ({}) })
-  assert.equal(noBase.ok, false)
-  assert.match(noBase.error, /未配置 MengBot API 根/)
-}))
-
-test('有可用 access_token → 正常下单并返回支付页 URL', () => withHome(async (env) => {
-  clearDiscoveryCache()
-  storeAccessToken('yg@example.com', { accessToken: 'at_live', expiresIn: 3600 }, env)
-  const calls = []
-  const fetchImpl = async (url, init) => {
-    calls.push({ url, body: init.body, auth: init.headers.Authorization })
-    if (String(url).includes('openid-configuration')) return fakeDiscovery(url)
-    if (String(url).endsWith('/api/cloud/desktop/checkout')) {
-      return { ok: true, status: 200, json: async () => ({ url: 'https://pay.mengbot.com.cn/c/abc123' }) }
-    }
-    return { ok: false, status: 404, json: async () => ({}) }
+test('废弃的 plan 被拒（team / enterprise 不存在了）', async () => {
+  for (const bad of ['team', 'enterprise', 'whatever', '']) {
+    const r = await createCheckout({ plan: bad, owner: 'u@x.com', env: {} })
+    assert.equal(r.ok, false, bad + ' 应被拒')
+    if (bad) assert.match(String(r.error), /不支持的套餐/)
   }
-  const r = await createCheckout({ plan: 'pro', source: 'memory-eternal-cloud', owner: 'yg@example.com', env, fetchImpl })
+})
+
+test('拼出 subscribe 深链：sku + source', async () => {
+  const r = await createCheckout({ plan: 'max', owner: 'u@x.com', source: 'memory-eternal', env: {} })
   assert.equal(r.ok, true)
-  assert.equal(r.url, 'https://pay.mengbot.com.cn/c/abc123')
-  const co = calls.find((c) => c.url.endsWith('/api/cloud/desktop/checkout'))
-  assert.ok(co, '应调 MengBot checkout')
-  assert.equal(co.auth, 'Bearer at_live', '应带 access_token')
-  assert.deepEqual(JSON.parse(co.body), { plan: 'pro', source: 'memory-eternal-cloud' })
-}))
+  assert.equal(r.url, 'https://pay.mengbot.com.cn/subscribe?sku=sub-max&source=memory-eternal')
+  assert.equal(r.sku, 'sub-max')
+  assert.equal(r.plan, 'max')
+  assert.equal(r.via, 'subscribe-deeplink')
+})
 
-test('access_token 过期 → 自动 refresh 后下单', () => withHome(async (env) => {
-  clearDiscoveryCache()
-  // 存一个已过期的
-  const f = path.join(env.DSH_HOME, 'cloud-oidc-access.json')
-  fs.writeFileSync(f, JSON.stringify({ 'yg@example.com': { accessToken: 'at_old', expiresAt: new Date(Date.now() - 1000).toISOString() } }))
-  fs.writeFileSync(path.join(env.DSH_HOME, 'cloud-oidc-refresh.json'), JSON.stringify({ 'yg@example.com': { refreshToken: 'rt_1' } }))
-  const fetchImpl = async (url, init) => {
-    if (String(url).includes('openid-configuration')) return fakeDiscovery(url)
-    if (String(url).endsWith('/token')) return { ok: true, status: 200, json: async () => ({ access_token: 'at_new', refresh_token: 'rt_2', expires_in: 3600 }) }
-    if (String(url).endsWith('/checkout')) return { ok: true, status: 200, json: async () => ({ url: 'https://pay/c/1' }) }
-    return { ok: false, status: 404, json: async () => ({}) }
-  }
-  const r = await createCheckout({ plan: 'max', owner: 'yg@example.com', env, fetchImpl })
+test('直接传 sku 也认（sub-pro）', async () => {
+  const r = await createCheckout({ plan: 'sub-pro', owner: 'u@x.com', env: {} })
   assert.equal(r.ok, true)
-  assert.equal(readAccessStore(env)['yg@example.com'].accessToken, 'at_new', '应用新 token 覆盖缓存')
-}))
+  assert.equal(r.sku, 'sub-pro')
+  assert.equal(r.plan, 'pro')
+})
 
-test('MengBot 下单失败 → 可读原因（不吞 402/401）', () => withHome(async (env) => {
-  clearDiscoveryCache()
-  storeAccessToken('yg@example.com', { accessToken: 'at', expiresIn: 3600 }, env)
-  const fetchImpl = async (url) => {
-    if (String(url).includes('openid-configuration')) return fakeDiscovery(url)
-    return { ok: false, status: 402, json: async () => ({ error: 'quota_exceeded' }) }
-  }
-  const r = await createCheckout({ plan: 'pro', owner: 'yg@example.com', env, fetchImpl })
+test('没有 owner 不能下单（必须先登录）', async () => {
+  const r = await createCheckout({ plan: 'pro', env: {} })
   assert.equal(r.ok, false)
-  assert.match(r.error, /下单失败/)
-  assert.match(r.error, /quota_exceeded/)
-}))
+  assert.match(String(r.error), /必须先登录/)
+})
 
-test('支付页地址只认契约字段 url（对方 B2：checkoutUrl/checkout_url 不是契约字段）', () => withHome(async (env) => {
-  clearDiscoveryCache()
-  // ① url 有 → 成功
-  storeAccessToken('a@b.c', { accessToken: 'at', expiresIn: 3600 }, env)
-  const ok = await createCheckout({
-    plan: 'pro', owner: 'a@b.c', env,
-    fetchImpl: async (url) => (String(url).includes('openid-configuration')
-      ? fakeDiscovery(url)
-      : { ok: true, status: 200, json: async () => ({ url: 'https://pay/x' }) }),
+test('可配置支付域（MEMORY_MENGBOT_PAY_BASE）', async () => {
+  const r = await createCheckout({ plan: 'pro', owner: 'u@x.com', env: { MEMORY_MENGBOT_PAY_BASE: 'https://pay.test/' } })
+  assert.equal(r.ok, true)
+  assert.ok(String(r.url).startsWith('https://pay.test/subscribe?'), '去掉尾部斜杠再拼')
+})
+
+test('**不做网络调用**：给个会抛错的 fetchImpl 也不该被用上', async () => {
+  const r = await createCheckout({
+    plan: 'pro', owner: 'u@x.com', env: {},
+    fetchImpl: () => { throw new Error('不该被调用') },
   })
-  assert.equal(ok.ok, true)
-  assert.equal(ok.url, 'https://pay/x')
+  assert.equal(r.ok, true, '纯拼接，不依赖网络')
+})
 
-  // ② 只有 checkoutUrl / checkout_url → 明确报缺字段，不再"宽容"解析
-  for (const bad of [{ checkoutUrl: 'https://pay/y' }, { checkout_url: 'https://pay/z' }]) {
-    const r = await createCheckout({
-      plan: 'pro', owner: 'a@b.c', env,
-      fetchImpl: async (url) => (String(url).includes('openid-configuration')
-        ? fakeDiscovery(url)
-        : { ok: true, status: 200, json: async () => bad }),
-    })
-    assert.equal(r.ok, false, '非契约字段不该被当成 url：' + JSON.stringify(bad))
-    assert.match(String(r.error), /url/, '错误里要指出缺的是 url')
-  }
-}))
-
-test('planView：展示本地套餐 + 是否可下单', () => withHome((env) => {
-  applyWebhookEvent({ event: 'entitlement.updated', payload: { plan: 'pro', status: 'active', version: 3, expiresAt: new Date(Date.now() + 86400000 * 30).toISOString(), caps: { seats: 5 } }, eventId: 'e1' }, env)
-  storeAccessToken('yg@example.com', { accessToken: 'at', expiresIn: 3600 }, env)
-  const v = planView('yg@example.com', env)
+test('planView：读本地 entitlement，canCheckout 只看有没有 owner', () => {
+  const home = tmpHome()
+  const env = envWith(home)
+  writeEntitlement({ owner: 'u@x.com', plan: 'pro', status: 'active', version: 3, expiresAt: '2027-01-01T00:00:00Z' }, env)
+  const v = planView('u@x.com', env)
   assert.equal(v.plan, 'pro')
   assert.equal(v.status, 'active')
-  assert.equal(v.caps.seats, 5)
-  assert.equal(v.canCheckout, true)
+  assert.equal(v.canCheckout, true, '登录了就能下单（不再依赖 access_token）')
+  assert.equal(v.canCheckoutReason, 'subscribe-deeplink')
   assert.deepEqual(v.plans, ['personal', 'pro', 'max'])
-  // 无 owner 时不可下单
-  assert.equal(planView('', env).canCheckout, false)
-}))
-
-test('webhook 支付成功 → 本地套餐立刻生效（闭环）', () => withHome((env) => {
-  assert.equal(readEntitlement(env), null)
-  applyWebhookEvent({
-    event: 'entitlement.updated',
-    payload: { account: 'yg@example.com', plan: 'pro', status: 'active', version: 9, expiresAt: new Date(Date.now() + 86400000 * 365).toISOString(), caps: { seats: 3 } },
-    eventId: 'pay_1',
-  }, env)
-  const e = readEntitlement(env)
-  assert.equal(e.plan, 'pro')
-  assert.equal(e.version, 9)
-  assert.equal(e.caps.seats, 3)
-  assert.equal(readEntitlement(env).source, 'mengbot')
-}))
+  // 未登录
+  const anon = planView('', env)
+  assert.equal(anon.canCheckout, false)
+  assert.equal(anon.canCheckoutReason, 'need-login')
+  cleanup(home)
+})
