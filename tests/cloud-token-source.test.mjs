@@ -107,3 +107,53 @@ test('mba_（管理员令牌）拒绝 —— 对方 C3 明确「不要发给第�
   assert.match(String(b.error), /管理员令牌/, '要说清 mba_ 是管理员令牌')
   assert.match(String(b.error), /mbt_/, '要指引去建 mbt_ 令牌')
 }))
+
+// ── 会话令牌只存 hash（云端的 cloud-keys.json 是全局单文件）──────────────
+// 明文会话令牌 = "能冒充该用户的密码"，而 cloud-keys.json 所有租户共用，
+// 一旦泄漏全员沦陷。改成只存 sha256，校验时算 hash 比对。
+test('会话令牌只存 hash：文件里不出现明文，但登录仍可用', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const { issueSessionTokenForOwner, resolveTenant, revokeSessionToken } = await import('../lib/cloud-auth.js')
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-sess-'))
+  const env = { ...process.env, DSH_HOME: home }
+  fs.writeFileSync(path.join(home, 'cloud-keys.json'), JSON.stringify({ version: 1, keys: [], mengbot: {} }))
+
+  const issued = issueSessionTokenForOwner('s@x.com', 'oidc', env)
+  const token = issued.token || issued
+  const rawText = fs.readFileSync(path.join(home, 'cloud-keys.json'), 'utf8')
+  assert.equal(rawText.includes(String(token)), false, '明文令牌不能出现在文件里')
+  const sess = JSON.parse(rawText).mengbot.sessions[0]
+  assert.ok(sess.tokenHash, '应存 tokenHash')
+  assert.equal(sess.token, undefined, '不该再存明文 token')
+
+  // 校验仍然通过
+  const ok = resolveTenant('Bearer ' + token, env)
+  assert.equal(ok.ok, true)
+  assert.equal(ok.owner, 's@x.com')
+
+  // 吊销后失效
+  assert.equal(revokeSessionToken(token, env).ok, true)
+  assert.equal(resolveTenant('Bearer ' + token, env).ok, false)
+
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+})
+
+test('老格式（存明文 token）的记录仍能校验 —— 兼容迁移前的数据', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const { resolveTenant } = await import('../lib/cloud-auth.js')
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-sess2-'))
+  const env = { ...process.env, DSH_HOME: home }
+  // 手工造一条老格式记录
+  fs.writeFileSync(path.join(home, 'cloud-keys.json'), JSON.stringify({
+    version: 1, keys: [],
+    mengbot: { sessions: [{ token: 'mb_legacy_plaintext_123', owner: 'old@x.com', via: 'oidc', expiresAt: new Date(Date.now() + 86400000).toISOString() }] },
+  }))
+  const r = resolveTenant('Bearer mb_legacy_plaintext_123', env)
+  assert.equal(r.ok, true, '老记录必须还能用（否则迁移会踢掉所有人）')
+  assert.equal(r.owner, 'old@x.com')
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
+})

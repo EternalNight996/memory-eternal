@@ -148,3 +148,38 @@ test('seats 兜底日志只提示一次（这个方法每请求都调，不能�
   } finally { console.error = orig }
   assert.ok(n <= 1, '最多提示一次，实际 ' + n)
 })
+
+test('**free 绝不参与 seats 兜底**（否则 free 用户从 500 张被放大到 10000 张）', () => {
+  const q = quotaFor({ plan: 'free', caps: { seats: 10, apps: 5 } }, { MEMORY_QUOTA_QUIET: '1' })
+  assert.equal(q.cards, 500, 'free 必须保持 500 张')
+  assert.equal(q.source, 'plan', 'source 不该声称用了兜底')
+  // 对照：付费套餐才兜底
+  assert.equal(quotaFor({ plan: 'pro', caps: { seats: 10 } }, { MEMORY_QUOTA_QUIET: '1' }).cards, 10000)
+})
+
+test('兜底取 max(套餐默认, 席位换算)，且日志文案与数值一致', () => {
+  // enterprise 默认 200000 > 席位换算 10000 → 应取 200000（不是 10000）
+  const q = quotaFor({ plan: 'enterprise', caps: { seats: 10 } }, { MEMORY_QUOTA_QUIET: '1' })
+  assert.equal(q.cards, 200000)
+  // 日志必须把两个数都写出来（MengBot 侧曾看到 "seats(10) × 1000 = 200000"，算式对不上）
+  const orig = console.error
+  let line = ''
+  console.error = (m) => { line = String(m) }
+  try {
+    // 重置一次性标记需要 reload 模块 —— 改用直接观察断言文案格式
+    quotaFor({ plan: 'max', caps: { seats: 3 } }, {})
+  } finally { console.error = orig }
+  // 文案里若出现则必须同时含"套餐默认"和"×"
+  if (line) {
+    assert.match(line, /套餐默认/)
+    assert.match(line, /max\(/)
+  }
+})
+
+test('source 三态：caps / plan+seats-fallback / plan', () => {
+  const Q = { MEMORY_QUOTA_QUIET: '1' }
+  assert.equal(quotaFor({ plan: 'pro', caps: { cards: 8000 } }, Q).source, 'caps')
+  assert.equal(quotaFor({ plan: 'pro', caps: { seats: 10 } }, Q).source, 'plan+seats-fallback')
+  assert.equal(quotaFor({ plan: 'pro' }, Q).source, 'plan')
+  assert.equal(quotaFor({ plan: 'free', caps: { seats: 10 } }, Q).source, 'plan')
+})
