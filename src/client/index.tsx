@@ -60,6 +60,70 @@ const CLOUD_CFG_KEY = 'me-cloud-conn'
  *   · 运行中熔断 → 只把 active 置 false，url/token 原样保留，下次刷新自动重试
  *   · 只有用户主动选「本地运行」才真正清空 url/token
  */
+/**
+ * 多账号台账：登录过的账号都记下来，菜单里可以直接切回去。
+ *
+ * 为什么需要：一个人常有工作号/个人号，或者公司里共用一台机器。
+ * 每次切换都重新扫码很烦，所以把「账号 → 令牌」留在本地（和当前连接同一份存储，
+ * 都是 localStorage，同源访问，不额外增加暴露面）。
+ *
+ * 安全边界：令牌本来就以明文存在 localStorage（当前连接也是），
+ * 这里只是多存几份，不改变既有风险面。退出登录只清**当前**那个，
+ * 想彻底清空需要「退出全部账号」—— 那一步会删掉整个台账。
+ */
+const ACCOUNTS_KEY = 'me-cloud-accounts'
+
+function readAccounts() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '[]')
+    if (!Array.isArray(raw)) return []
+    return raw
+      .filter((a) => a && typeof a === 'object' && String(a.token || '').trim())
+      .map((a) => ({
+        owner: String(a.owner || ''),
+        token: String(a.token || ''),
+        url: String(a.url || ''),
+        profile: a.profile && typeof a.profile === 'object' ? a.profile : null,
+        plan: String(a.plan || ''),
+        lastUsed: Number(a.lastUsed) || 0,
+      }))
+      .sort((x, y) => y.lastUsed - x.lastUsed)
+  } catch {
+    return []
+  }
+}
+
+function saveAccounts(list) {
+  try {
+    // 只留最近 8 个，避免无限增长（每份就是一个令牌）
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 8)))
+  } catch { /* 隐私模式 */ }
+}
+
+/** 登录成功后登记账号（同 owner 覆盖，并置顶）。 */
+function rememberAccount(acc) {
+  const owner = String((acc && acc.owner) || '').trim()
+  const token = String((acc && acc.token) || '').trim()
+  if (!owner || !token) return
+  const list = readAccounts().filter((a) => a.owner !== owner)
+  list.unshift({
+    owner,
+    token,
+    url: String((acc && acc.url) || ''),
+    profile: (acc && acc.profile) || null,
+    plan: String((acc && acc.plan) || ''),
+    lastUsed: Date.now(),
+  })
+  saveAccounts(list)
+}
+
+/** 从台账移除某个账号（退出登录时用；不动其他账号）。 */
+function forgetAccount(owner) {
+  const o = String(owner || '').trim()
+  if (!o) return
+  saveAccounts(readAccounts().filter((a) => a.owner !== o))
+}
+
 function readCloudConn() {
   try {
     const raw = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || '{}')
@@ -846,8 +910,11 @@ export const ZH = {
   localVaultLabel: '记忆库位置',
   qrScanHint: '手机扫码，或点下面的码复制',
   qrWaiting: '等待授权…',
+  qrSecurityHint: '这个码等于一次授权凭证：只在你主动发起登录时使用，别把它发给任何人。授权页会显示请求访问的应用，确认是 memory-eternal 再点允许。',
   qrOpen: '在浏览器打开',
   qrLogin: '扫码登录',
+  otherAccounts: '其他账号',
+  switchedTo: '已切换到 {who}',
   managePlan: '升级 / 续费',
   perMinute: '次/分',
   cloudPlanRpm: '请求速率',
@@ -1991,6 +2058,7 @@ export const EN = {
   cloudConnected: 'Connected',
   qrScanHint: 'Scan with your phone, or tap the code to copy',
   qrWaiting: 'Waiting for approval…',
+  qrSecurityHint: 'This code is a one-time grant: use it only when you started the sign-in. Never share it. On the approval page, confirm the app is memory-eternal before allowing.',
   qrOpen: 'Open in browser',
   qrLogin: 'Sign in with QR',
   cloudDisconnect: 'Disconnect',
@@ -7719,6 +7787,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
           if (next.ok) {
             activateCloud({ ...next.next, token: d.token })
             try { saveCloudConn({ ...readCloudConn(), mode: 'cloud', token: d.token, active: true, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
+            try { rememberAccount({ owner: d.owner, token: d.token, url: cloudForm.url, profile: d.profile }) } catch { /* 忽略 */ }
             setCloudConn(readCloudConn())
             setCloudForm((f) => ({ ...f, mode: 'cloud', token: d.token }))
             setCloudTest({ ok: true, authenticated: true, owner: d.owner || '', profile: d.profile || null })
@@ -8222,6 +8291,39 @@ function ConfigPanel({ t, onReload, version, compact }) {
     : { owner: (cloudConn && cloudConn.owner) || '', profile: (cloudConn && cloudConn.profile) || null }
 
   /** 断开：切回本地、清令牌，但**保留地址**方便一键重连。 */
+  /**
+   * 切换账号：**清掉当前连接的令牌**（但保留地址与账号台账），然后立刻拉起设备码。
+   * 不清令牌的话 isConnected 仍为 true，设备码面板会被已连接卡片挡在外面 —— 看起来「点了没反应」。
+   */
+  const switchAccount = () => {
+    const cur = readCloudConn()
+    const cleared = { ...cur, mode: 'local', active: false, token: '', owner: '', profile: null, lastError: '' }
+    saveCloudConn(cleared)
+    applyCloudConn({ mode: 'local', url: cur.url, token: '' })
+    setCloudForm((f) => ({ ...f, mode: 'cloud', token: '', url: f.url || cur.url }))
+    setCloudConn(readCloudConn())
+    setCloudPlan(null)
+    setCloudTest(null)
+    setAcctOpen(false)
+    // 下一帧再发起：让 isConnected 先翻成 false，否则设备码面板不会渲染
+    setTimeout(() => { try { startDeviceLogin() } catch { /* 忽略 */ } }, 0)
+  }
+
+  /** 直接切到台账里的另一个账号（不重新登录）。 */
+  const useAccount = (acc) => {
+    if (!acc || !acc.token) return
+    const url = String(acc.url || cloudForm.url || '').trim().replace(/\/+$/, '')
+    activateCloud({ mode: 'cloud', url, token: acc.token, active: true, owner: acc.owner, profile: acc.profile || null })
+    // 置顶 + 记 plan 以备展示
+    rememberAccount({ ...acc, url, lastUsed: Date.now() })
+    setCloudConn(readCloudConn())
+    setCloudForm((f) => ({ ...f, mode: 'cloud', url, token: acc.token }))
+    setCloudTest({ ok: true, authenticated: true, owner: acc.owner, profile: acc.profile || null })
+    setAcctOpen(false)
+    try { loadCloudPlan() } catch { /* 忽略 */ }
+    try { notify(t('switchedTo').replace('{who}', acc.owner), true) } catch { /* 忽略 */ }
+  }
+
   const disconnectCloud = () => {
     // **不能用 persistCloud**：它在切本地时故意保留上次的 token
     //（"临时回本地、之后还能切回云端"）。而「切换账号」的语义是**真断开**，
@@ -9384,7 +9486,33 @@ function ConfigPanel({ t, onReload, version, compact }) {
                             <div style={{ fontSize: 10.5, opacity: 0.45, marginTop: 6, lineHeight: 1.6 }}>{t('importCopyNote')}</div>
                             {importJob && importJob.err ? <Status tone="bad" text={importJob.err} /> : null}
                           </div>
-                          <button type="button" onClick={() => { setAcctOpen(false); setCloudForm((f) => ({ ...f, mode: 'cloud' })); startDeviceLogin() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5 }}>
+                          {/* 其他账号：台账里除当前账号外的，点一下直接切（不用重新扫码） */}
+                          {(() => {
+                            const others = readAccounts().filter((a) => a.owner && a.owner !== (cloudIdentity.owner || ''))
+                            if (!others.length) return null
+                            return (
+                              <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '10px 15px' }}>
+                                <div style={{ fontSize: 10.5, opacity: 0.5, letterSpacing: 0.3, marginBottom: 6 }}>{t('otherAccounts')}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  {others.map((a) => (
+                                    <button
+                                      key={a.owner}
+                                      type="button"
+                                      onClick={() => useAccount(a)}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5, textAlign: 'left' }}
+                                    >
+                                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--me-c-accent-soft, rgba(37,99,235,.12))', color: 'var(--me-c-accent, #2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flex: 'none' }}>
+                                        {String(a.owner || '?').slice(0, 1).toUpperCase()}
+                                      </span>
+                                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.owner}</span>
+                                      {a.plan ? <span style={{ fontSize: 10.5, opacity: 0.5 }}>{planLabelOf(a.plan, true)}</span> : null}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })()}
+                          <button type="button" onClick={() => { setAcctOpen(false); switchAccount() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'inherit', font: 'inherit', fontSize: 12.5 }}>
                             {t('cloudSwitchAccount')}
                           </button>
                           <button type="button" onClick={() => { setAcctOpen(false); disconnectCloud() }} style={{ display: 'block', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-danger, #dc2626)', font: 'inherit', fontSize: 12.5 }}>
@@ -9415,6 +9543,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
       <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('qrOpen')}</Btn>
     </div>
                           <div style={{ fontSize: 11, opacity: 0.45 }}>⏳ {t('qrWaiting')}</div>
+            <div style={{ fontSize: 10.5, lineHeight: 1.6, opacity: 0.5, display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+              <span style={{ flex: 'none' }}>⚠</span>
+              <span>{t('qrSecurityHint')}</span>
+            </div>
                         </div>
                       </div>
                     ) : (
