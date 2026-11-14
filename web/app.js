@@ -34428,7 +34428,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-14T18:20:24.717Z" : "dev";
+  var BUILD_AT = true ? "2026-11-14T18:28:53.943Z" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoryLibraryInner, { ...props }) });
@@ -38905,7 +38905,7 @@ ${t("quoteHint")}`,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("up"), children: xfer && xfer.busy ? "\u23F3" : t("vaultCopyTo") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !vaultSel || xfer && xfer.busy, onClick: () => transferVault("down"), children: xfer && xfer.busy ? "\u23F3" : t("vaultCopyFrom") }),
-                      isCloudInstance ? null : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: !!(importJob && importJob.importing), onClick: () => uploadVaultToCloud(vaultList && (vaultList.find((v) => v.isCurrent) || {}).path || vaultSel), title: t("vaultUploadCloudHint"), children: t("vaultUploadCloud") }),
+                      isCloudInstance ? null : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !!(importJob && importJob.importing), onClick: () => uploadVaultToCloud(vaultList && (vaultList.find((v) => v.isCurrent) || {}).path || vaultSel), title: t("vaultUploadCloudHint"), children: "\u2601 " + t("vaultUploadCloud") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: loadVaults, children: t("refresh") })
                     ] }),
                     xfer && xfer.err ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: xfer.err }) : null,
