@@ -1096,6 +1096,17 @@ export const ZH = {
   cloudVaultListLabel: '云端实例上的库',
   cloudVaultQuota: '已用 {u} / {l}',
   vaultUploadCloud: '上传当前库到云端',
+  btnUpload: '上传',
+  btnDownload: '下载',
+  btnUploading: '上传中…',
+  btnDownloading: '下载中…',
+  btnUploadHint: '把当前本机库整份复制到云端（本地保留，重复自动跳过）',
+  btnDownloadHint: '把云端当前库整份复制到本机库（重复自动跳过）',
+  xferProgress: '已传输 {d} / {t} 张',
+  xferDone: '完成 · 新增 {in} · 重复 {dup} · 失败 {fail}',
+  xferIdle: '就绪：点「上传」把本机库推到云端，「下载」把云端拉回本机',
+  xferNeedLogin: '未登录云端：先在上方扫码登录才能上传/下载',
+  xferPickFirst: '先在「与哪个库搬数据」里选一个目标库',
   vaultUploadCloudHint: '把当前本机库整份推到云端（复制，本地保留）；云端已有同内容会自动跳过',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
@@ -2374,6 +2385,17 @@ export const EN = {
   cloudVaultListLabel: 'Vaults on the cloud instance',
   cloudVaultQuota: '{u} / {l} used',
   vaultUploadCloud: 'Upload current to cloud',
+  btnUpload: 'Upload',
+  btnDownload: 'Download',
+  btnUploading: 'Uploading…',
+  btnDownloading: 'Downloading…',
+  btnUploadHint: 'Copy the current local vault to cloud (local kept, duplicates skipped)',
+  btnDownloadHint: 'Copy the current cloud vault into the local vault',
+  xferProgress: '{d} / {t} transferred',
+  xferDone: 'Done · {in} added · {dup} duplicates · {fail} failed',
+  xferIdle: 'Ready: Upload pushes the local vault up, Download pulls the cloud vault down',
+  xferNeedLogin: 'Not signed in — scan the code above first',
+  xferPickFirst: 'Pick a target vault first',
   vaultUploadCloudHint: 'Push the current local vault to cloud (copy, local kept); identical cards are skipped',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
@@ -8835,17 +8857,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
    * 不只是「当前库」——用户的旧库/副本也能搬上云。
    */
   const uploadVaultToCloud = async (src) => {
-    if (!src) { setImportJob({ importing: false, err: t('cfPickLocalVault') }); return }
+    if (!src) { setImportJob({ importing: false, dir: 'up', err: t('cfPickLocalVault') }); return }
     if (importJob && importJob.importing) return
     importCancelRef.current = false
-    setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    setImportJob({ importing: true, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
     try {
       const exp = await fetchLocal('/vaults/export?path=' + encodeURIComponent(src))
       if (!exp.ok) throw new Error('读取本地库失败 HTTP ' + exp.status)
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
-      if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
-      setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
+      if (!cards.length) { setImportJob({ importing: false, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
+      setImportJob({ importing: true, dir: 'up', done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
       const CHUNK = 200
       let imported = 0, duplicate = 0
       for (let off = 0; off < cards.length; off += CHUNK) {
@@ -8860,9 +8882,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
         if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
         imported += Number(d.imported) || 0
         duplicate += Number(d.duplicate) || 0
-        setImportJob({ importing: true, done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
+        setImportJob({ importing: true, dir: 'up', done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
       }
-      setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: '' })
+      setImportJob({ importing: false, dir: 'up', done: cards.length, total: cards.length, imported, duplicate, err: '' })
       try { loadVaults() } catch { /* 忽略 */ }
       try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
     } catch (e) {
@@ -8878,7 +8900,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     if (!dst) { setImportJob({ importing: false, err: t('cfPickLocalVault') }); return }
     if (importJob && importJob.importing) return
     importCancelRef.current = false
-    setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    setImportJob({ importing: true, dir: 'down', done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
     try {
       const exp = await fetch(cloudApi('/export'), {
         headers: cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {},
@@ -8886,15 +8908,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
       if (!exp.ok) throw new Error('读取云端失败 HTTP ' + exp.status)
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
-      if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
-      setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
+      if (!cards.length) { setImportJob({ importing: false, dir: 'down', done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
+      setImportJob({ importing: true, dir: 'down', done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
       const r = await fetchLocal('/vaults/import-into', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target: dst, cards, onDuplicate: dupMode }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
-      setImportJob({ importing: false, done: cards.length, total: cards.length, imported: Number(d.imported) || 0, duplicate: Number(d.skipped) || 0, err: '' })
+      setImportJob({ importing: false, dir: 'down', done: cards.length, total: cards.length, imported: Number(d.imported) || 0, duplicate: Number(d.skipped) || 0, err: '' })
       try { loadVaults() } catch { /* 忽略 */ }
       try { notify(t('importDone').replace('{n}', String(d.imported || 0)), true) } catch { /* 忽略 */ }
     } catch (e) {
@@ -9096,15 +9118,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const importLocalToCloud = async () => {
     if (importJob && importJob.importing) return
     importCancelRef.current = false
-    setImportJob({ importing: true, done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    setImportJob({ importing: true, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
     try {
       // ① 从**本地**导出（API 是相对前缀 = 本机），要正文必须走 /export
       const exp = await fetch(API + '/export')
       if (!exp.ok) throw new Error('本地导出失败 HTTP ' + exp.status)
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
-      if (!cards.length) { setImportJob({ importing: false, done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
-      setImportJob({ importing: true, done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
+      if (!cards.length) { setImportJob({ importing: false, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
+      setImportJob({ importing: true, dir: 'up', done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
 
       // ② 分片上传到**云端**（cloudApi 拼绝对地址）
       const CHUNK = 200
@@ -9125,9 +9147,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
         if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
         imported += Number(d.imported) || 0
         duplicate += Number(d.duplicate) || 0
-        setImportJob({ importing: true, done: Math.min(offset + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
+        setImportJob({ importing: true, dir: 'up', done: Math.min(offset + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
       }
-      setImportJob({ importing: false, done: cards.length, total: cards.length, imported, duplicate, err: '' })
+      setImportJob({ importing: false, dir: 'up', done: cards.length, total: cards.length, imported, duplicate, err: '' })
       try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
     } catch (e) {
       setImportJob((j) => ({ ...(j || {}), importing: false, err: String((e && e.message) || e) }))
@@ -10458,21 +10480,47 @@ function ConfigPanel({ t, onReload, version, compact }) {
                           </select>
                         </label>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <Btn variant="primary" size="sm" disabled={!vaultSel || (xfer && xfer.busy)} onClick={() => transferVault('up')}>
-                            {xfer && xfer.busy ? '⏳' : t('vaultCopyTo')}
+                          {/* 只留两个动作：☁ 上传（本机→云端）、⬇ 下载（云端→本机）。 */}
+                          {/* 本机库之间的复制收进「与哪个库搬数据」下拉，不再单独占按钮。 */}
+                          <Btn
+                            variant="primary"
+                            size="sm"
+                            disabled={!vaultSel || !!(importJob && importJob.importing) || !cloudForm.token}
+                            onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)}
+                            title={t('btnUploadHint')}
+                          >
+                            {importJob && importJob.importing && importJob.dir === 'up' ? '⏳ ' + t('btnUploading') : '☁ ' + t('btnUpload')}
                           </Btn>
-                          <Btn variant="secondary" size="sm" disabled={!vaultSel || (xfer && xfer.busy)} onClick={() => transferVault('down')}>
-                            {xfer && xfer.busy ? '⏳' : t('vaultCopyFrom')}
+                          <Btn
+                            variant="secondary"
+                            size="sm"
+                            disabled={!vaultSel || !!(importJob && importJob.importing) || !cloudForm.token}
+                            onClick={() => downloadCloudToVault(vaultSel)}
+                            title={t('btnDownloadHint')}
+                          >
+                            {importJob && importJob.importing && importJob.dir === 'down' ? '⏳ ' + t('btnDownloading') : '⬇ ' + t('btnDownload')}
                           </Btn>
-                        {/* 云端专属：和云端之间搬数据（本地 ↔ 云端），复用 uploadVaultToCloud / downloadCloudToVault */}
-                        
-                        
-                          {/* 把选中的本机库推到云端（复制，本地保留） */}
-                          {/* 云端实例上这个按钮没意义：当前库就在这台服务器上，"上传"等于自己传自己 */}
-                          {isCloudInstance ? null : (
-                            <Btn variant="primary" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)} title={t('vaultUploadCloudHint')}>{'☁ ' + t('vaultUploadCloud')}</Btn>
-                          )}
-                          <Btn variant="ghost" size="sm" onClick={loadVaults}>{t('refresh')}</Btn>
+                          <Btn variant="ghost" size="sm" onClick={loadVaults} title={t('refresh')}>⟳</Btn>
+                          {/* 进度条 + 状态：传输中实时同步；空闲/成功/失败都有提示，任何状态不留空白 */}
+                          <div style={{ flexBasis: '100%', marginTop: 2 }}>
+                            {importJob && importJob.importing ? (
+                              <>
+                                <div style={{ height: 6, borderRadius: 999, background: 'var(--me-c-border)', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: Math.max(2, Math.round(((importJob.done || 0) / Math.max(1, importJob.total || 1)) * 100)) + '%', background: 'var(--me-c-accent)', transition: 'width .3s ease' }} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, opacity: 0.6, marginTop: 4 }}>
+                                  <span>{t('xferProgress').replace('{d}', String(importJob.done || 0)).replace('{t}', String(importJob.total || 1))}</span>
+                                  <span>{Math.round(((importJob.done || 0) / Math.max(1, importJob.total || 1)) * 100)}%</span>
+                                </div>
+                              </>
+                            ) : importJob && importJob.err ? (
+                              <Status tone="bad" text={importJob.err} />
+                            ) : importJob && importJob.total > 0 ? (
+                              <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.7 }}>{t('xferDone').replace('{in}', String(importJob.imported || 0)).replace('{dup}', String(importJob.duplicate || 0)).replace('{fail}', String(importJob.failed || 0))}</div>
+                            ) : (
+                              <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{!cloudForm.token ? t('xferNeedLogin') : (vaultSel ? t('xferIdle') : t('xferPickFirst'))}</div>
+                            )}
+                          </div>
                         </div>
                         {xfer && xfer.err ? <Status tone="bad" text={xfer.err} /> : null}
                         {xfer && xfer.result ? (
