@@ -139,9 +139,15 @@ async function probeCloud(form) {
     return { ok: false, error: '连不上服务端（' + msg + '）', diag }
   }
 
-  // ② 有令牌才验身份
+  // ② 没有令牌 → 服务端可达但未登录。这是**正常状态**，不是错误：
+  //    用户刚清空密钥、或还没点「用 MengBot 账号登录」时都会走到这里。
+  //    必须告诉用户"该去登录"，而不是让他以为连接失败。
   if (!token) {
-    return { ok: true, reachable: true, authenticated: false, owner: '', version: health.version || '' }
+    return {
+      ok: true, reachable: true, authenticated: false, owner: '', version: health.version || '',
+      needLogin: true,
+      message: '服务端可达（v' + (health.version || '?') + '），当前未登录 —— 点「用 MengBot 账号登录」，或在访问密钥里填 me_ 开头的密钥',
+    }
   }
   try {
     const r = await globalThis.fetch(url + '/memory-eternal/api/cloud/whoami', {
@@ -275,16 +281,28 @@ function markModeReady() {
   try { modeReadyResolve() } catch { /* 忽略 */ }
 }
 
-/** 探一次云端：可用返回 true；不可用则回退本地并返回 false。最多等 3 秒。 */
+/**
+ * 探一次云端：可用返回 true；不可用则回退本地并返回 false。最多等 3 秒。
+ *
+ * **打的是不鉴权的 `/cloud/health`，不是 `/overview`**（这是修过的一个真 bug）：
+ * `/overview` 需要令牌，用户刚清空密钥 / 还没登录时必然 401 ——
+ * 于是「服务端明明活着、只是没登录」会被判成「云端暂不可用」并回退本地，
+ * 用户看到的是"连接失败"，完全误导。
+ * `/cloud/health` 不需要令牌：能通就说明地址对、网络通、证书 OK，
+ * 剩下只是"要不要登录"的问题，由 probeCloud 的 whoami 那一步判断。
+ */
 function probeCloudBoot(timeoutMs = 3000) {
   const target = API_TARGET_URL
   if (!target) return Promise.resolve(true)
-  const pingUrl = target + LOCAL_PREFIX + '/overview'
+  const pingUrl = target + LOCAL_PREFIX + '/cloud/health'
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
   const timer = setTimeout(() => { try { ctrl && ctrl.abort() } catch { /* 忽略 */ } }, timeoutMs)
   return Promise.resolve()
     .then(() => globalThis.fetch(pingUrl, { method: 'GET', signal: ctrl ? ctrl.signal : undefined }))
     .then((r) => {
+      // 401/403 说明服务端活着、只是这次没认证 —— **不该回退本地**，
+      // 保持云端模式，让用户去登录即可（否则会莫名其妙切回本地库）。
+      if (r && (r.status === 401 || r.status === 403)) return true
       if (r && !cloudFailureStatus(r.status)) return true
       fallbackToLocal('启动探活失败（HTTP ' + (r && r.status) + '）')
       return false
@@ -6199,7 +6217,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                   <div className="mc-cloud-actions">
                     <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
                     {cloudTest && (
-                      <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? t('cloudTestReachable').replace('{version}', cloudTest.version || '') : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
+                      <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? (cloudTest.message || t('cloudTestReachable').replace('{version}', cloudTest.version || '')) : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
                     )}
                   </div>
                 </div>
@@ -8549,7 +8567,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {/* 状态行：当前实际在用什么 + 上次失败原因（配置没丢，可重试） */}
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {cloudTest && (
-                  <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? t('cloudTestReachable').replace('{version}', cloudTest.version || '') : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
+                  <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? (cloudTest.message || t('cloudTestReachable').replace('{version}', cloudTest.version || '')) : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
                 )}
                 {cloudTest && cloudTest.diag && (
                   <div style={{ fontSize: 10.5, lineHeight: 1.6, opacity: 0.6, wordBreak: 'break-all' }}>
