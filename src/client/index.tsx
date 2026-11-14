@@ -822,6 +822,7 @@ export const ZH = {
   deviceCopy: '复制',
   deviceWaiting: '等待授权…（授权后这里会自动完成，不用刷新）',
   deviceCancel: '取消',
+  deviceOpenBtn: '在浏览器打开（自动带验证码）',
   deviceDone: '登录成功',
   deviceExpired: '验证码已过期，请重新发起登录',
   deviceFailed: '登录失败',
@@ -1951,6 +1952,7 @@ export const EN = {
   deviceCopy: 'Copy',
   deviceWaiting: 'Waiting for approval… (finishes automatically, no refresh needed)',
   deviceCancel: 'Cancel',
+  deviceOpenBtn: 'Open in browser (code pre-filled)',
   deviceDone: 'Signed in',
   deviceExpired: 'The code expired — please start again',
   deviceFailed: 'Sign-in failed',
@@ -8988,7 +8990,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t('deviceTitle')}</div>
                         <div style={{ fontSize: 12, lineHeight: 1.7 }}>
                           {t('deviceOpen')}{' '}
-                          <a href={deviceAuth.verificationUri} target="_blank" rel="noreferrer" style={{ wordBreak: 'break-all' }}>{deviceAuth.verificationUri}</a>
+                          <a href={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} target="_blank" rel="noreferrer" style={{ wordBreak: 'break-all' }}>{(deviceAuth.verificationUriComplete || deviceAuth.verificationUri)}</a>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 12, opacity: 0.8 }}>{t('deviceCodeLabel')}</span>
@@ -8997,6 +8999,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
                           </span>
                           <Btn variant="secondary" size="sm" onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode) } catch { /* 忽略 */ } }}>
                             {t('deviceCopy')}
+                          </Btn>
+                          <Btn
+                            variant="primary"
+                            size="sm"
+                            onClick={() => {
+                              // 带 code 的直达链接（MengBot P1 已确认 /device?user_code=... 在线）
+                              try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ }
+                            }}
+                          >
+                            {t('deviceOpenBtn')}
                           </Btn>
                         </div>
                         <div style={{ fontSize: 11.5, opacity: 0.7 }}>⏳ {t('deviceWaiting')}</div>
