@@ -205,12 +205,12 @@ test('refresh_token 存储 / 轮换 / 失败清除', () => withHome(async (env) 
     env, fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ access_token: 'at2', refresh_token: 'rt_2' }) }),
   })
   assert.equal(ok.ok, true)
-  assert.equal(readRefreshStore(env)['yg@example.com'].refreshToken, 'rt_2')
+  assert.equal(readRefreshStore(env, 'yg@example.com')['yg@example.com'].refreshToken, 'rt_2')
   const bad = await refreshAccessToken(cfg, d.endpoints, 'yg@example.com', {
     env, fetchImpl: async () => ({ ok: false, status: 400, json: async () => ({ error: 'invalid_grant' }) }),
   })
   assert.equal(bad.ok, false)
-  assert.equal(readRefreshStore(env)['yg@example.com'], undefined)
+  assert.equal(readRefreshStore(env, 'yg@example.com')['yg@example.com'], undefined)
 }))
 
 // C1：MengBot 的 refresh_token 是一次性轮换的（对方答复原文："每次刷新签发新 token，
@@ -234,7 +234,7 @@ test('refreshAccessToken 单飞：并发只打一次，令牌不被误清', asyn
   )
   assert.equal(calls, 1, '并发 5 次只该打 1 次 token 端点，实际 ' + calls)
   assert.equal(results.filter((r) => r.ok).length, 5, '5 个调用都应拿到结果')
-  assert.equal(readRefreshStore(env).u1.refreshToken, 'RT_NEW', '新令牌要存下来')
+  assert.equal(readRefreshStore(env, 'u1').u1.refreshToken, 'RT_NEW', '新令牌要存下来')
   try { fs.rmSync(home, { recursive: true, force: true }) } catch {}
 })
 
@@ -252,6 +252,33 @@ test('refresh 失败但令牌已被别的请求轮换 → 不清令牌', async (
   const r = await refreshAccessToken(cfg, endpoints, 'u2', { fetchImpl, env })
   assert.equal(r.ok, false)
   assert.match(String(r.error), /并发刷新/, '要识别出并发场景')
-  assert.equal(readRefreshStore(env).u2.refreshToken, 'RT_BY_OTHER', '别人的新令牌不能被清')
+  assert.equal(readRefreshStore(env, 'u2').u2.refreshToken, 'RT_BY_OTHER', '别人的新令牌不能被清')
   try { fs.rmSync(home, { recursive: true, force: true }) } catch {}
+})
+
+// refresh_token 缓存已改为**按租户分文件**（原来是全局一个 map，存着所有人的长效凭据）
+test('refresh_token 按租户分文件：两个用户互不可见', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const { storeRefreshToken, readRefreshStore, forgetRefreshToken } = await import('../lib/oidc.js')
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-rt-'))
+  const env = { ...process.env, DSH_HOME: home }
+
+  storeRefreshToken('alice@x.com', 'RT_A', env)
+  storeRefreshToken('bob@y.com', 'RT_B', env)
+  assert.equal(readRefreshStore(env, 'alice@x.com')['alice@x.com'].refreshToken, 'RT_A')
+  assert.equal(readRefreshStore(env, 'bob@y.com')['bob@y.com'].refreshToken, 'RT_B')
+  // alice 读不到 bob 的
+  assert.equal(readRefreshStore(env, 'alice@x.com')['bob@y.com'], undefined, '不能跨租户读到别人的 refresh_token')
+  // 两个独立文件
+  const files = fs.readdirSync(home).filter((f) => f.startsWith('cloud-oidc-refresh-'))
+  assert.equal(files.length, 2, '应有两个租户文件，实际 ' + files.join(','))
+
+  // 删除只删自己的
+  forgetRefreshToken('alice@x.com', env)
+  assert.equal(readRefreshStore(env, 'alice@x.com')['alice@x.com'], undefined)
+  assert.equal(readRefreshStore(env, 'bob@y.com')['bob@y.com'].refreshToken, 'RT_B', 'bob 不能被连带删除')
+
+  try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ }
 })

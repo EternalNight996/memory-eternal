@@ -98,8 +98,9 @@ test('授权全链路：discovery→start→登录→回调→换token→userinf
     assert.equal(ov.status, 200, '本地令牌应能访问业务接口')
 
     // ⑤ refresh_token 已落盘（供静默续期）
-    const store = readRefreshStore({ DSH_HOME: home })
-    assert.ok(store[USER.email] && store[USER.email].refreshToken, 'refresh_token 应已保存')
+    // refresh 缓存已按租户分文件，读的时候要带 owner
+    const store = readRefreshStore({ DSH_HOME: home }, USER.email)
+    assert.ok(store[USER.email] && store[USER.email].refreshToken, 'refresh_token 应已保存（按租户文件）')
 
     // ⑥ IdP 侧调用序列：discovery → auth → token → me
     const paths = idp.hits.map((h) => h.path)
