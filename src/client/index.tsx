@@ -40,6 +40,7 @@ import {
 } from './graph-planet.js'
 // 保存后不闪烁：宿主 volatile 回流滞后期间，用本地叠加层顶住输入框的值
 import { mergeLocalOverlay } from './config-merge.js'
+import { makeQrMatrix } from './qr.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
@@ -836,6 +837,7 @@ export const ZH = {
   deviceWaiting: '等待授权…（授权后这里会自动完成，不用刷新）',
   deviceCancel: '取消',
   deviceOpenBtn: '在浏览器打开（自动带验证码）',
+  deviceQrLabel: '扫码直接打开授权页',
   deviceDone: '登录成功',
   deviceExpired: '验证码已过期，请重新发起登录',
   deviceFailed: '登录失败',
@@ -1975,6 +1977,7 @@ export const EN = {
   deviceWaiting: 'Waiting for approval… (finishes automatically, no refresh needed)',
   deviceCancel: 'Cancel',
   deviceOpenBtn: 'Open in browser (code pre-filled)',
+  deviceQrLabel: 'Scan to open the approval page',
   deviceDone: 'Signed in',
   deviceExpired: 'The code expired — please start again',
   deviceFailed: 'Sign-in failed',
@@ -5370,6 +5373,41 @@ function TerminalGuide({ t }) {
 // 面板级错误边界：插件此前没有 ErrorBoundary —— 任何渲染期异常（组件/effect）都会让
 // React 直接卸载整棵树，用户看到的就是「整页白屏，Console 里只有一个红字」。
 // 现在最外层兜住：显示可读的错误 + 一键重新加载，至少不丢上下文、能自助恢复。
+/**
+ * 二维码（SVG 矢量）。用 SVG 而不是 canvas：不用管 devicePixelRatio，缩放不糊。
+ * 静默区留 4 个模块 —— 少了手机扫不出来（二维码规范的硬要求）。
+ */
+function QrCode({ text, size = 128, label }) {
+  const qr = useMemo(() => {
+    const v = String(text || '')
+    if (!v) return null
+    try { return makeQrMatrix(v) } catch { return null }
+  }, [text])
+  if (!qr) return null
+  const quiet = 4
+  const dim = qr.size + quiet * 2
+  const rects = []
+  for (let r = 0; r < qr.size; r++) {
+    for (let c = 0; c < qr.size; c++) {
+      if (qr.modules[r][c]) rects.push(<rect key={r + '-' + c} x={c + quiet} y={r + quiet} width={1} height={1} />)
+    }
+  }
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={'0 0 ' + dim + ' ' + dim}
+      role="img"
+      aria-label={label || 'QR code'}
+      shapeRendering="crispEdges"
+      style={{ background: '#fff', borderRadius: 8, display: 'block', flex: 'none' }}
+    >
+      <rect x={0} y={0} width={dim} height={dim} fill="#fff" />
+      <g fill="#000">{rects}</g>
+    </svg>
+  )
+}
+
 class PanelErrorBoundary extends React.Component {
   constructor(props) {
     super(props)
@@ -9078,6 +9116,14 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     {!isConnected && deviceAuth ? (
                       <div style={{ border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent-soft, rgba(37,99,235,.08))', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t('deviceTitle')}</div>
+                        {/* 扫码直达：受信设备上不用手输，扫一下就跳到确认页（MengBot P1 已确认该页面在线） */}
+                        <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 12px' }}>
+                          <QrCode
+                            text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri}
+                            size={132}
+                            label={t('deviceQrLabel')}
+                          />
+                        </div>
                         <div style={{ fontSize: 12, lineHeight: 1.7 }}>
                           {t('deviceOpen')}{' '}
                           <a href={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} target="_blank" rel="noreferrer" style={{ wordBreak: 'break-all' }}>{(deviceAuth.verificationUriComplete || deviceAuth.verificationUri)}</a>
