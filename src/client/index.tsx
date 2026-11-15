@@ -5020,7 +5020,12 @@ ${COMPONENTS_CSS}
 .mc-cards-head-count { padding: 1px 8px; border-radius: 999px; background: rgba(127,127,127,.14); font-size: 10.5px; font-weight: 600; }
 .mc-cards-head-hint { margin-left: auto; font-size: 10.5px; opacity: .5; }
 .mc-v5-card-title { font-size: 15px; font-weight: 650; }
-.mc-cardrow:hover .mc-v5-card-title { color: var(--dsw-alias-brand-primary, #ff7a45); }
+/* hover 时**不改标题颜色**，只加一条下划线表示"可点开"。
+   为什么：标题色原来取 --dsw-alias-brand-primary，而这个变量在几套皮肤里是高饱和的
+   状态色（spider #e62429 报错红 / pop #ff2e63 玫红 / resident #7cff3f 毒绿）—— 鼠标
+   一划过，白卡面上的黑标题突然变红，看起来像"这张卡出错了"（用户实测反馈）。
+   下划线颜色仍用品牌色，既保留可点提示，又不改文字本身的墨色。 */
+.mc-cardrow:hover .mc-v5-card-title { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--dsw-alias-brand-primary, #ff7a45); }
 .mc-v5-feature h3 { font-size: 22px; }
 @media (max-width: 720px) { .mc-v5-feature h3 { font-size: 18px; } .mc-cards-head h2 { font-size: 14px; } }
 [data-skin="pop"] .mc-cards-head { border-bottom: 2px solid var(--pop-ink); padding-bottom: 8px; }
@@ -5029,7 +5034,7 @@ ${COMPONENTS_CSS}
 [data-skin="pop"] .mc-cards-head-hint { color: #6b5f4e; opacity: 1; }
 [data-skin="pop"] .mc-v5-card::before { height: 4px; border-radius: 2px 2px 0 0; }
 [data-skin="pop"] .mc-v5-card-title { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
-[data-skin="pop"] .mc-cardrow:hover .mc-v5-card-title { color: var(--pop-red); }
+[data-skin="pop"] .mc-cardrow:hover .mc-v5-card-title { color: var(--pop-ink); text-decoration-color: var(--pop-red); }
 [data-skin="light"] .mc-cards-head h2 { font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif; font-size: 18px; font-weight: 700; }
 [data-skin="light"] .mc-cards-head-count { background: #f1ece2; color: #6b5f4e; }
 [data-skin="light"] .mc-cards-head-hint { color: #8a7f70; opacity: 1; }

@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.48.1-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.48.2-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 [English](README.en.md) · **简体中文（默认）**
 
-## ☁️ 云端记忆（v0.48.1 主打）
+## ☁️ 云端记忆（v0.48.2 主打）
 
 **记忆库跟着人走，不跟着机器走。** 本机库照旧离线可用；登录云端后，同一套知识卡在你的每台设备、每个
 Agent 上都能读到 —— 换电脑不用搬家，换客户端不用重新喂上下文。
@@ -89,39 +89,6 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 > ※ **必须标注的状态**：`getzep/zep` 仓库是 Zep Cloud 的示例 / 集成目录，产品本体闭源（开源图引擎是 graphiti）；
 > `letta-ai/letta` 主仓已归档，活跃源码迁到 `letta-code`。这两家不能当"开源版 star"读。
 
-**表 3 · 知识库 / RAG 平台类（定位不同，看生态与规模）**
-
-| 项目 | Stars | 定位 | 与我们的关系 |
-|---|---|---|---|
-| Dify | 161,183 | Agent 工作流 + RAG 应用平台 | 做应用编排，记忆要靠插件补 |
-| RAGFlow | 94,169 | 深度文档理解 RAG 引擎 | 面向文档库检索，不是会话记忆 |
-| AnythingLLM | 68,293 | 本地优先的私有知识助手 | 有 workspace，但没有「先审后入」闸门 |
-| LlamaIndex | 52,907 | 文档索引与检索编排框架 | 是库，不是开箱即用的记忆应用 |
-| Khoj | 38,128 | 自托管 AI 第二大脑 | 最接近，偏个人语义搜索 |
-| Qdrant / Milvus / Chroma / Weaviate | 35,563 / 46,666 / 29,688 / 16,948 | 向量数据库 | 我们默认 SQLite + FTS5，需要向量时才外接 |
-
-**我们不是这里最大的。** Dify 有 16.1 万星、Mem0 有 6.9 万星和成熟团队，我们做的不一样的是**写入路径**：
-人审闸门、物理三库分离、可指认的审计链，外加一本能自己核对"召回到底值不值"的记忆账本 —— 这些在表 1 的「治理」列里体现，而不是靠宣传。
-
-在**你自己的库**上复跑：
-
-```bash
-node scripts/bench-search.mjs --rebuild   # 重建耗时 + p50/p95/max 延迟
-node scripts/bench-recall.mjs             # 自建金标题 R@5 / Top1
-dsh-memory ledger --days 30 --json        # 召回注入 / 沉淀调用 / 有用率
-```
-
-| 我们实测的基线（2026-11-12，2,943 张卡） | 数值 |
-|---|---|
-| 金标 109 题 R@5（内置 / bge-m3） | 96.3% / **99.1%** |
-| 金标 109 题 Top1（内置 / bge-m3） | 86.2% / **89.9%** |
-| 改写题 10 条 R@5（内置 / bge-m3） | 40% / **70%** |
-| LongMemEval-S 500 题 R@5（内置 / bge-m3） | 95.4% / **97.2%** |
-| 召回延迟（词法 / 语义） | 约 7 ms / 81 ms |
-| 召回模型调用（内置语义） | 0 |
-
-> 检索分 ≠ QA 分。表 2 我们两行是 **检索 R@5**；Mem0 的 94.4 是它自报的 **LongMemEval QA**（且是托管平台口径），两列不混比。
-
 ## ⚡ 快速开始
 
 ```bash
@@ -187,16 +154,48 @@ npx -y -p memory-eternal dsh-memory tui     # 终端里的实时待审队列
 - 知识星图里核心节点显示为橙色菱形 + ★；
 - **不要把密钥 / Token 的值写进核心卡**，只保存凭证目录的引用。
 
-## 🧩 一个库，所有 Agent
 
-| 入口 | 你能得到什么 |
+## 🧩 宿主支持（一份库，谁都能用）
+
+同一份 SQLite 库，下面这些宿主都能读写；写入一律进**待审队列**，审核在 DSH / Web 面板里做（与宿主是谁无关）。
+
+- **DeepSeek Harness（桌面版 / `dsh web`）** —— 插件：`dsh plugin --profile desktop add memory-eternal`；内嵌完整面板（审核 · 星图 · 账本 · 云端切换 · 密钥管理）。
+- **Claude Code** —— MCP：`dsh-memory connect claude`；会话结束自动沉淀（写用户级 hook）。
+- **Codex / Codex Desktop** —— MCP：`dsh-memory connect codex`；同上，不依赖插件。
+- **Cursor** —— MCP：`dsh-memory connect cursor`；另有 [Cursor / VS Code 扩展](cursor-extension/README.md)。
+- **MengBot** —— MCP（按 bot 配）：bot 的 MCP server 里加一条 stdio，`npx -y -p memory-eternal dsh-memory mcp`；每个 bot 一个库或共用一份，见 [INTEGRATIONS](docs/INTEGRATIONS.md)。
+- **OpenClaw** —— MCP：`mcp.servers` 加一条 stdio，用 `openclaw mcp doctor memory-eternal --probe` 验连通。
+- **Hermes Agent（NousResearch）** —— MCP：`~/.hermes/config.yaml` 的 `mcp_servers` 加一条，启动自动发现工具。
+- **WorkBuddy 等其它 MCP 客户端** —— MCP：标准 stdio，`command: npx` / `args: ["-y","-p","memory-eternal","dsh-memory","mcp"]`。
+- **终端（TUI）** —— `npx -y -p memory-eternal dsh-memory tui`：实时队列、全选、批量批/驳、长文读卡。
+- **Web 端** —— `dsh-memory open` → http://127.0.0.1:7999：独立部署，不需要宿主也能审核/检索/备份。
+- **Orca 启动器** —— 见 [orca-plugin](orca-plugin/README.md)：一键带库启动。
+- **云端实例** —— 登录后同一套 API 走 HTTPS（见上面的「云端记忆」），本机离线时用本地库。
+
+> MCP 对外就是标准 stdio server，5 个工具：`memory_recall` / `memory_capture` / `memory_stats` / `memory_audit_list` / `memory_revise`。没列到的客户端按上面那行 stdio 配置写即可。
+
+
+**我们不是这里最大的。** Mem0 有 6.9 万星和成熟团队，我们做的不一样的是**写入路径**：
+人审闸门、物理三库分离、可指认的审计链，外加一本能自己核对"召回到底值不值"的记忆账本 —— 这些在表 1 的「治理」列里体现，而不是靠宣传。
+
+在**你自己的库**上复跑：
+
+```bash
+node scripts/bench-search.mjs --rebuild   # 重建耗时 + p50/p95/max 延迟
+node scripts/bench-recall.mjs             # 自建金标题 R@5 / Top1
+dsh-memory ledger --days 30 --json        # 召回注入 / 沉淀调用 / 有用率
+```
+
+| 我们实测的基线（2026-11-12，2,943 张卡） | 数值 |
 |---|---|
-| **DSH 桌面版 / Web** | 内嵌记忆界面：审核、星图、配置、云端切换、账本 |
-| **Claude Code / Codex / Cursor** | MCP server，同一个库，`dsh-memory connect` |
-| **任意 MCP 客户端** | `npx -y -p memory-eternal dsh-memory mcp` |
-| **终端** | `dsh-memory tui` —— 实时队列、全选、批量批/驳、长文读卡 |
-| **浏览器** | `dsh-memory open` → http://127.0.0.1:7999 |
-| **云端** | 登录后同一套 API 走 HTTPS，本机离线时用本地库 |
+| 金标 109 题 R@5（内置 / bge-m3） | 96.3% / **99.1%** |
+| 金标 109 题 Top1（内置 / bge-m3） | 86.2% / **89.9%** |
+| 改写题 10 条 R@5（内置 / bge-m3） | 40% / **70%** |
+| LongMemEval-S 500 题 R@5（内置 / bge-m3） | 95.4% / **97.2%** |
+| 召回延迟（词法 / 语义） | 约 7 ms / 81 ms |
+| 召回模型调用（内置语义） | 0 |
+
+> 检索分 ≠ QA 分。表 2 我们两行是 **检索 R@5**；Mem0 的 94.4 是它自报的 **LongMemEval QA**（且是托管平台口径），两列不混比。
 
 ## 🔍 语义召回（默认内置，无需装模型）
 
