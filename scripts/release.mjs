@@ -116,7 +116,22 @@ if (!SKIP_TESTS) {
 // package.json 的版本号（__ME_CLIENT_VERSION__）。如果改完版本号忘了先 npm run build 就提交，
 // 这一步会把工作区弄脏 —— 结果是 tag/仓库里的 bundle 嵌的是旧版本号，而 npm 上的却是新的。
 // 一旦 tag 与 npm 都发出去就很难收回，所以在打 tag、发布**之前**直接拦住。
-const dirtyAfter = run('git', ['status', '--porcelain']).out
+const dirtyRaw = run('git', ['status', '--porcelain']).out
+// 唯一允许的"脏"：两个 bundle 里**只有构建时间戳**那一行不同。
+// 为什么必须容忍：build.mjs 会把 `__ME_BUILD_AT__` 内联进产物，而 `npm test` 内部会跑一次 build；
+// 只要时间戳跟着"这次提交"变，把产物提交上去之后闸门就必然判脏 —— 发版被流水线自己拦死。
+// 这里只放行「diff 的增删行全部是 BUILD_AT」的情形：版本号不一致、源码改动、其它文件被动过，照样拦。
+const onlyStampDrift = (() => {
+  const lines = String(dirtyRaw || '').split('\n').map((s) => s.trim()).filter(Boolean)
+  if (!lines.length) return false
+  const allowed = new Set(['lib/client.js', 'web/app.js'])
+  if (!lines.every((l) => allowed.has(l.slice(3).trim()))) return false
+  const d = run('git', ['diff', '-U0', '--', 'lib/client.js', 'web/app.js']).out
+  const changed = d.split('\n').filter((l) => (l.startsWith('+') || l.startsWith('-')) && !l.startsWith('+++') && !l.startsWith('---'))
+  return changed.length > 0 && changed.every((l) => /__ME_BUILD_AT__|\bBUILD_AT\b/.test(l))
+})()
+const dirtyAfter = onlyStampDrift ? '' : dirtyRaw
+if (onlyStampDrift) say('构建产物只有 BUILD_AT 时间戳漂移（可复现构建的时间戳来源不同），按一致处理 ✓')
 if (dirtyAfter && !flag('allow-dirty')) {
   throw new Error(
     '测试/构建后工作区变脏 —— 多半是改了版本号却没先 npm run build：\n' + dirtyAfter +
