@@ -27,11 +27,11 @@ const versionRef = (() => { try { const p = JSON.parse(readFileSync(path.join(PA
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { workingPrompt, readWorking, writeWorking, clearWorking, archiveStaleWorking } from './lib/working-memory.js'
-import { ensureVault, search } from './lib/vault.js'
+import { ensureVault, search, readCard as readVaultCard, parseCard } from './lib/vault.js'
 import { migrateFromMarkdown, setAuditConfig, backupDb, lastBackupAt } from './lib/db.js'
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
-import { readActiveVault } from './lib/vault-pref.js'
+import { readActiveVault, writeActiveVault } from './lib/vault-pref.js'
 import { shouldPushToCloud, pushCardToCloud, enqueueFailedPush, flushQueue } from './lib/cloud-push.js'
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, preferenceLines, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
@@ -746,6 +746,23 @@ export function apply(ctx, config) {
     }
   }
   const preview = (text) => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60)
+  // -- 日志必须回答「操作了哪张卡」：只有一句「模型判定属于已有卡」等于没有信息。
+  // 只存标题 / 内容摘要，绝不落正文全文（单条 entry 的体积上限由 lib/capture-log.js 负责）。
+  const shortTitle = (s, n = 48) => {
+    const t = String(s ?? '').replace(/\s+/g, ' ').trim()
+    if (!t) return ''
+    return t.length > n ? t.slice(0, n - 1) + '…' : t
+  }
+  // 写卡结果的形状不统一（写卡结果 / 卡片对象 / 去重命中），这里尽力取标题。
+  const cardTitleOf = (x) => shortTitle(x?.title || x?.card?.title || x?.duplicate?.title || '')
+  // 追加 / 去重命中时，操作对象是**已经存在的那张卡**：按路径反查它的标题。
+  // 读不到（卡刚被删 / 库不可用）就返回空串，由调用方退回草稿标题或正文摘要。
+  const titleAtPath = async (root, rel) => {
+    try {
+      const got = await readVaultCard(root, String(rel || ''), { allowUnapproved: true })
+      return shortTitle(parseCard(got.text).meta.title)
+    } catch { return '' }
+  }
   // 单次沉淀送进 LLM 的对话上限（字符）：够覆盖一轮长对话，又不会把整段历史塞进去。
   const CAPTURE_TEXT_MAX = 20000
   // 启动留痕：面板里看不到这条 = host 半边没加载（而不是「没东西可沉淀」）。
@@ -824,7 +841,10 @@ export function apply(ctx, config) {
    * 云端 /import/chunk 按 contentHash 去重，同一张卡再推只会 skipped。
    */
   const captureCardThenPush = async (root, card, opts) => {
-    const out = await captureCard(root, card, opts)
+    const written = await captureCard(root, card, opts)
+    // 日志要能说清「操作了哪张卡」：把草稿标题挂到写卡结果上，
+    // 调用方（写卡 / 去重 / 失败兜底）不必各自再记一遍标题。
+    const out = written && typeof written === 'object' ? { ...written, title: card.title } : written
     // 操作日志：只记**标题**不记正文（正文动辄几十 KB，日志存正文纯浪费）。
     // 写失败绝不抛 —— 日志是旁路，不能影响读写卡。
     try {
@@ -841,10 +861,10 @@ export function apply(ctx, config) {
           if (r && r.ok) {
             // skipped 也算同步完成：云端已有同内容，标记后前端就不该再灰着
             try { markCloudSynced(root, out.path || out.rel) } catch { /* 标记失败不影响数据 */ }
-            logCapture('system', 'created', '已同步到云端' + (r.skipped ? '（云端已有，跳过）' : ''), { title: String(card.title || '').slice(0, 40) })
+            logCapture('system', 'created', '已同步到云端' + (r.skipped ? '（云端已有，跳过）' : ''), { title: shortTitle(card.title), path: out.path || out.rel || '' })
             // 推送成功时顺带消费队列积压（渐进式，不集中爆发）
             flushQueue().then((f) => {
-              if (f && f.sent > 0) logCapture('system', 'created', '补推队列：又同步了 ' + f.sent + ' 张到云端')
+              if (f && f.sent > 0) logCapture('system', 'created', '补推队列：又同步了 ' + f.sent + ' 张到云端', { title: `云端补推队列（${f.sent} 张）` })
             }).catch(() => { /* 忽略 */ })
           } else if (r && r.error && r.error !== 'not-cloud') {
             // 失败入队：等云端恢复后由 flushQueue 补推（本地已保存，不会丢）
@@ -875,23 +895,23 @@ export function apply(ctx, config) {
       // 噪声闸门（P0）：extractLastTurn 已剥掉运行时注入（环境快照 / team 广播 / 工具说明），
       // 这里再判一次「剥完还有没有真实内容」——只有注入残留的轮次不进 LLM、不写卡。
       if (!hasUsableContent(text)) {
-        logCapture(sessionId, 'skip', `有效内容不足：剥离运行时注入后只剩 ${text.trim().length} 字（多为环境快照 / 广播 / 工具说明）`)
+        logCapture(sessionId, 'skip', `有效内容不足：剥离运行时注入后只剩 ${text.trim().length} 字（多为环境快照 / 广播 / 工具说明）`, { preview: preview(text) })
         return
       }
       if (text.length < (cfg.captureMinChars ?? 120)) {
-        logCapture(sessionId, 'skip', `内容太短：${text.length} < ${cfg.captureMinChars ?? 120} 字（调小「捕获最小长度」可放宽）`)
+        logCapture(sessionId, 'skip', `内容太短：${text.length} < ${cfg.captureMinChars ?? 120} 字（调小「捕获最小长度」可放宽）`, { preview: preview(text) })
         return
       }
       // 会话冷却：同一会话频繁收尾时避免每轮都烧一次 LLM。
       const cooldown = Number(cfg.captureCooldownMs ?? 60000) || 0
       const lastAt = lastCaptureAt.get(sessionId) ?? 0
       if (cooldown > 0 && Date.now() - lastAt < cooldown) {
-        logCapture(sessionId, 'skip', `冷却中：距上次沉淀 ${Math.round((Date.now() - lastAt) / 1000)}s < ${Math.round(cooldown / 1000)}s`)
+        logCapture(sessionId, 'skip', `冷却中：距上次沉淀 ${Math.round((Date.now() - lastAt) / 1000)}s < ${Math.round(cooldown / 1000)}s`, { preview: preview(text) })
         return
       }
       // 日配额：防止一次大扫荡烧光 token（只统计真正写卡/追加的次数）。
       if (!underDailyQuota(cfg.maxCardsPerDay)) {
-        logCapture(sessionId, 'skip', `日配额已满（24h 已写 ${quotaUsed()} 张 / 上限 ${cfg.maxCardsPerDay ?? 1000}）`)
+        logCapture(sessionId, 'skip', `日配额已满（24h 已写 ${quotaUsed()} 张 / 上限 ${cfg.maxCardsPerDay ?? 1000}）`, { preview: preview(text) })
         return
       }
       lastCaptureAt.set(sessionId, Date.now())
@@ -900,9 +920,10 @@ export function apply(ctx, config) {
       if (cfg.distillEnabled === false || !llm) {
         const rawTitle = deriveTitle(text)
         const rawKind = guessRawKind({ title: rawTitle, body: text })
+        const rawCardTitle = rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录'
         const out = await captureCardThenPush(root, {
           kind: rawKind,
-          title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
+          title: rawCardTitle,
           tags: ['raw'],
           body: text,
           source,
@@ -911,9 +932,16 @@ export function apply(ctx, config) {
           severity: 'info',
           reason: 'AI 自动沉淀（原文卡）',
         }, { threshold: cfg.dedupThreshold })
-        if (out.ok) { countWrite(); logCapture(sessionId, 'created', '原文卡（蒸馏已关闭）', { path: out.path ?? out.rel, kind: rawKind }) }
-        else if (out.duplicate) { countWrite(); logCapture(sessionId, 'appended', '与已有卡重复 → 追加更新记录', { path: out.duplicate.path }) }
-        else logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`)
+        const rawT = cardTitleOf(out) || shortTitle(preview(text))
+        if (out.ok) {
+          countWrite()
+          logCapture(sessionId, 'created', `原文卡「${rawT}」（蒸馏已关闭）`, { path: out.path ?? out.rel, kind: rawKind, title: rawT, preview: preview(text) })
+        } else if (out.duplicate) {
+          countWrite()
+          // 追加的目标是**已存在的那张卡**：标题按路径反查，读不到就退回草稿标题
+          const dupT = (await titleAtPath(root, out.duplicate.path)) || rawT
+          logCapture(sessionId, 'appended', `追加更新「${dupT}」（与已有卡重复）`, { path: out.duplicate.path, kind: rawKind, title: dupT, preview: preview(text) })
+        } else logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`, { title: rawT, preview: preview(text) })
         return
       }
       // 候选路由：显式配置优先，其余按注册顺序兜底（多 provider 下 providers[0] 可能是没配 key 的官方 provider → issue #3）。
@@ -1023,9 +1051,10 @@ export function apply(ctx, config) {
         // 蒸馏失败不能让内容白丢：退成原文卡（与「关闭蒸馏」同一条降级路径）。
         const rawTitle = deriveTitle(text)
         const rawKind = guessRawKind({ title: rawTitle, body: text })
+        const rawCardTitle = rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录'
         const raw = await captureCardThenPush(root, {
           kind: rawKind,
-          title: rawTitle.length >= 6 && !looksTruncated(rawTitle) ? rawTitle : '对话原文记录',
+          title: rawCardTitle,
           // 蒸馏失败产出的原文卡与被批准的噪声卡是审核中心的主要污染源（#15 评论）：
           // 打上独立 tag，便于按 tag 过滤 / 批量处理，不再和正常卡混作一团。
           tags: ['raw', 'distill-failed'],
@@ -1037,17 +1066,25 @@ export function apply(ctx, config) {
           severity: 'info',
           reason: `AI 自动沉淀（蒸馏无输出 → 原文卡兜底；主因：${why}）`,
         }, { threshold: cfg.dedupThreshold })
-        if (raw.ok) { countWrite(); logCapture(sessionId, 'created', `蒸馏失败（${why}）→ 原文卡兜底`, { path: raw.path ?? raw.rel, kind: rawKind, model: route.model }) }
-        else if (raw.duplicate) { countWrite(); logCapture(sessionId, 'appended', '蒸馏无输出 + 与已有卡重复 → 追加更新', { path: raw.duplicate.path, model: route.model }) }
-        else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || '未知原因'}`, { model: route.model })
+        const rawT = cardTitleOf(raw) || shortTitle(preview(text))
+        if (raw.ok) {
+          countWrite()
+          logCapture(sessionId, 'created', `蒸馏失败（${why}）→ 原文卡「${rawT}」兜底`, { path: raw.path ?? raw.rel, kind: rawKind, model: route.model, title: rawT, preview: preview(text) })
+        } else if (raw.duplicate) {
+          countWrite()
+          const dupT = (await titleAtPath(root, raw.duplicate.path)) || rawT
+          logCapture(sessionId, 'appended', `追加更新「${dupT}」（蒸馏无输出 + 与已有卡重复）`, { path: raw.duplicate.path, model: route.model, title: dupT, preview: preview(text) })
+        } else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || '未知原因'}`, { model: route.model, preview: preview(text) })
         return
       }
-      if (result.save !== true) { logCapture(sessionId, 'skip', '模型判定不值得保存', { model: route.model }); return }
+      if (result.save !== true) { logCapture(sessionId, 'skip', '模型判定不值得保存', { model: route.model, preview: preview(text) }); return }
       if (result.append_to) {
         // 模型判定属于已有卡 → 追加更新记录，不新建（boujoy 语义）。
         await captureUpdate(root, result.append_to, result.update, { threshold: cfg.dedupThreshold })
         countWrite()
-        logCapture(sessionId, 'appended', '模型判定属于已有卡 → 追加更新', { path: result.append_to, model: route.model })
+        // 操作对象是已有卡：优先反查它的标题，读不到再用这次追加的内容开头兜底
+        const appT = (await titleAtPath(root, result.append_to)) || shortTitle(result.update) || shortTitle(result.title) || shortTitle(preview(text))
+        logCapture(sessionId, 'appended', `追加更新「${appT}」（模型判定属于已有卡）`, { path: result.append_to, model: route.model, title: appT, preview: preview(text) })
         return
       }
       const card = {
@@ -1068,9 +1105,10 @@ export function apply(ctx, config) {
         card.tags = [...(Array.isArray(card.tags) ? card.tags : []), 'preference']
       }
       const out = await captureCardThenPush(root, card, { threshold: cfg.dedupThreshold })
+      const newT = cardTitleOf(out) || shortTitle(card.title) || shortTitle(preview(text))
       if (out.ok) {
         countWrite()
-        logCapture(sessionId, 'created', `新卡：${card.title}（${card.status === 'approved' ? '已入库' : '待审核'}）`, { path: out.path ?? out.rel, kind: card.kind, model: route.model })
+        logCapture(sessionId, 'created', `新卡「${newT}」（${card.status === 'approved' ? '已入库' : '待审核'}）`, { path: out.path ?? out.rel, kind: card.kind, model: route.model, title: newT, preview: preview(text) })
         return
       }
       if (out.duplicate) {
@@ -1079,10 +1117,11 @@ export function apply(ctx, config) {
           threshold: cfg.dedupThreshold,
         })
         countWrite()
-        logCapture(sessionId, 'appended', '词法去重命中 → 追加更新记录', { path: out.duplicate.path, model: route.model })
+        const lexT = (await titleAtPath(root, out.duplicate.path)) || shortTitle(result.title) || newT
+        logCapture(sessionId, 'appended', `追加更新「${lexT}」（词法去重命中）`, { path: out.duplicate.path, model: route.model, title: lexT, preview: preview(text) })
         return
       }
-      logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`)
+      logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`, { title: newT, preview: preview(text) })
     } catch (error) {
       logCapture(sessionId, 'fail', `异常：${error?.message || error}`)
       console.error('[memory-eternal] capture failed:', error)
@@ -1615,6 +1654,26 @@ export function apply(ctx, config) {
     beatHostMarker()
     const handleApi = createApi({
       vaultDir, vaultRoots, getSettings: settings.get,
+      // 宿主形态的「热切库」：宿主里的 vaultDir() **每个请求都重算**（settings + 共享偏好），
+      // 所以只要把用户的选择写下来，下一次请求就已经是新库了 —— 不需要重启进程。
+      // 配置（vaultDir / activeVault）由 lib/api.js 的 persistVaultChoice 在同一请求里落盘；
+      // 这里负责「先确认目标库可用」+ 写共享偏好（独立 web / CLI / MCP 也靠它对齐）。
+      switchVault: async (rawTarget) => {
+        const want = String(rawTarget || '').trim() ? path.resolve(String(rawTarget).trim()) : ''
+        if (!want) return { ok: false, error: '路径为空' }
+        const prev = path.resolve(vaultDir())
+        if (want === prev) return { ok: true, hot: true, root: want, prev, isCurrent: true, message: '已经是当前库' }
+        try {
+          const st = await fs.stat(want)          // 注意：本文件的 fs 是 promises 版，没有 statSync
+          if (!st.isDirectory()) return { ok: false, error: '不是目录：' + want }
+        } catch { return { ok: false, error: '目录不存在：' + want } }
+        // 目标库先开一次（建表 + 写探针）：打不开就别切，否则面板会整体落进一个坏库
+        try { await ensureVault(want) } catch (e) { return { ok: false, error: '目标库打不开：' + String((e && e.message) || e) } }
+        const w = writeActiveVault(want, process.env)
+        if (!w || !w.ok) return { ok: false, error: (w && w.error) || '写共享偏好失败' }
+        syncAudit(want)         // 审核配置按库隔离：切库后要给新库再同步一次
+        return { ok: true, hot: true, root: want, prev, isCurrent: true, prefFile: w.file, message: '已切到 ' + path.basename(want) }
+      },
       // 会话工作区：面板没传 session 时按「最近活跃会话」兜底
       getActiveSession: () => activeSession,
       // 矛盾扫描（#36）在宿主侧跑模型：这里给它 llm 句柄，独立 web 进程拿不到就会如实报错

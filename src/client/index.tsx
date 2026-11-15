@@ -50,8 +50,78 @@ const API = '/memory-eternal/api'
 let LOCAL_PREFIX = API
 let cloudToken = ''
 const CLOUD_CFG_KEY = 'me-cloud-conn'
+/**
+ * 管理面令牌（签发/吊销访问密钥用）。
+ *
+ * 与租户令牌 `me-cloud-conn` **分开存**：前者只用来进云端实例的管理面
+ * （`/cloud/keys`、`/cloud/config`），后者是"我是谁"。混在一起的话，
+ * 用户一换租户令牌就把管理能力弄丢了。
+ */
+const CLOUD_ADMIN_KEY = 'me-cloud-admin'
+/** 读管理令牌（隐私模式 / 无 localStorage 时按"没有"处理）。 */
+function readCloudAdminToken() {
+  try { return String(localStorage.getItem(CLOUD_ADMIN_KEY) || '') } catch { return '' }
+}
+/** 写管理令牌（空串 = 清除）。返回实际落库的值，供调用方回显。 */
+function saveCloudAdminToken(v) {
+  const t = String(v || '').trim()
+  try {
+    if (t) localStorage.setItem(CLOUD_ADMIN_KEY, t)
+    else localStorage.removeItem(CLOUD_ADMIN_KEY)
+  } catch { /* 隐私模式：本次进程内仍然是生效的 */ }
+  return t
+}
+/** 掩码：只露前 4 位 + …（令牌本体不铺在界面上）。 */
+const maskCloudAdminToken = (t) => (t ? String(t).slice(0, 4) + '…' : '')
+/** 管理令牌的形态校验（够长就够了，不猜前缀 —— 用户自己 openssl rand 出来的也要能用）。 */
+const isLikelyAdminToken = (t) => String(t || '').trim().length >= 32
 /** 断点续传：上传被打断（关页面/断网/崩溃）后，下次点上传从上次的 offset 接着传 */
 const XFER_RESUME_KEY = 'me-xfer-resume'
+
+/**
+ * 换库 / 换数据源（本地 ↔ 云端）之后的广播事件。
+ *
+ * 为什么要广播而不是 location.reload()：用户明确要求「随意切换，不用重启客户端」。
+ * 整棵记忆库子树收到事件后重挂载一次 = 概览、卡片、图谱、待审、回收站、配置全部按新库重拉，
+ * 又不用刷新页面（也就不会丢掉当前页面位置，见 LAST_VIEW / LAST_CFG_PAGE）。
+ */
+const VAULT_SWITCH_EVT = 'me-vault-switched'
+/** 切库前停在哪个页面：重挂载后回到原地，否则切完库会被弹回卡片列表 */
+let LAST_VIEW = ''
+/**
+ * 跨重挂载的提示语。
+ * 切库要重挂载整棵面板（否则半数视图会继续显示旧库数据），而提示语是组件内 state ——
+ * 一重挂载就没了，用户会得到「点了一下，什么都没说」的体验。把要说的话存这里，重挂载后再弹一次。
+ */
+let PENDING_TOAST = null
+let LAST_CFG_PAGE = ''
+
+/**
+ * 读上传断点。
+ * 返回值只回答一件事：**有没有一趟没传完的上传**（有就给用户「继续 / 取消」两个选择）。
+ * 源库不存在 / 已经传完 / 记录坏了 —— 一律当作没有，别让用户对着一条永远点不动的横幅发愣。
+ */
+function readXferResume() {
+  try {
+    const rs = JSON.parse(localStorage.getItem(XFER_RESUME_KEY) || 'null')
+    if (!rs || typeof rs !== 'object') return null
+    if (!rs.src) return null
+    const total = Number(rs.total) || 0
+    const done = Number(rs.done) || 0
+    if (total <= 0 || done <= 0 || done >= total) return null
+    return { ...rs, total, done }
+  } catch { return null }
+}
+
+/** 丢掉断点（用户点「取消」，或全量传完）。 */
+function clearXferResume() {
+  try { localStorage.removeItem(XFER_RESUME_KEY) } catch { /* 隐私模式 */ }
+}
+
+/** 记一次断点（dir 缺省 up：目前只有上传能续）。 */
+function saveXferResume(rs) {
+  try { localStorage.setItem(XFER_RESUME_KEY, JSON.stringify({ dir: 'up', at: Date.now(), ...rs })) } catch { /* 隐私模式 */ }
+}
 
 /**
  * 只打**本机**服务的 fetch（绕过云端重写）。
@@ -491,15 +561,33 @@ const QUOTES = [
 // 语录出处：书名 + 尊号
 const QUOTE_SOURCE = '《蛊真人》· 大爱仙尊'
 
+/** 只开一次：<a target=_blank rel=noopener> 在浏览器与 Electron 里都能开，且不需要返回值判断。 */
+function openViaAnchor(url) {
+  try {
+    const a = document.createElement('a')
+    a.href = url
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => { try { a.remove() } catch { /* 忽略 */ } }, 0)
+    return true
+  } catch { return false }
+}
+
 async function openExternal(url) {
+  // ① 服务端用系统默认浏览器打开（最可靠，也绕开弹窗拦截）
   try {
     const r = await fetch(`${API}/open-external?url=${encodeURIComponent(url)}`, { method: 'POST' })
     const d = await r.json().catch(() => null)
     if (r.ok && d && d.ok) return true
-  } catch { /* 落到 window.open */ }
-  try { const w = window.open(url, '_blank', 'noopener,noreferrer'); if (w) return true } catch { /* ignore */ }
-  try { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.click(); return true } catch { /* ignore */ }
-  return false
+  } catch { /* 落到前端兜底 */ }
+  // ② 前端兜底**只能开一次**。
+  //    踩过的坑：原来先 window.open(url,'_blank','noopener,noreferrer')，返回 null 就当失败，
+  //    再补一个 a.click() —— 而带 noopener 的 window.open **按规范就返回 null**（其实已经开出来了），
+  //    于是每点一次「Web 版」弹两个标签页（用户报的就是这个）。现在只走 anchor。
+  return openViaAnchor(url)
 }
 // 真分页页大小：首屏只拉一页（服务端 offset/limit），滚到底再续拉下一页
 const PAGE_SIZE = 100
@@ -949,6 +1037,42 @@ export const ZH = {
   deviceCopied: '已复制验证码',
   scanLogin: '扫码登录',
   cloudHideKey: '收起访问密钥',
+  // ---- 服务端密钥管理（管理面 /cloud/keys）------------------------------------
+  cloudAdminTitle: '服务端密钥管理',
+  cloudAdminHint: '仅对云端实例的管理面生效；令牌只存在本机浏览器',
+  cloudAdminNeedCloud: '连上云端后可在这里签发访问密钥',
+  cloudAdminTokenLabel: '管理令牌',
+  cloudAdminTokenPlaceholder: '粘贴 MEMORY_CLOUD_ADMIN_TOKEN（首次启动会打印在服务端日志）',
+  cloudAdminTokenSave: '保存',
+  cloudAdminTokenClear: '清除',
+  cloudAdminTokenSaved: '已保存：{v}（只存在本机浏览器）',
+  cloudAdminTokenEmpty: '还没有填管理令牌',
+  cloudAdminTokenBad: '管理令牌格式不对（应为一整串随机字符，≥32 位）',
+  cloudAdminTest: '测试',
+  cloudAdminTestOk: '管理面可用（来源={src}）',
+  cloudAdminLocalOnly: '管理面仅本机可访问：远程请 ssh -L 7999:127.0.0.1:7999 后在本机打开，或在服务端配置 MEMORY_CLOUD_ADMIN_TOKEN',
+  cloudAdminList: '读取密钥列表',
+  cloudAdminListEmpty: '还没有签发过密钥；给每个客户端/设备各签一把，方便单独吊销',
+  cloudAdminIssue: '新建访问密钥',
+  cloudAdminOwnerLabel: 'owner',
+  cloudAdminOwnerPlaceholder: '给谁用，例如 alice@x.com',
+  cloudAdminNoteLabel: '备注',
+  cloudAdminNotePlaceholder: '可选，例如 我的笔记本',
+  cloudAdminOwnerInvalid: 'owner 只能用字母、数字、点、下划线、连字符（1–64 位）',
+  cloudAdminIssuedOnce: '只显示这一次，关掉就再也看不到',
+  cloudAdminCopy: '复制',
+  cloudAdminCopied: '已复制',
+  cloudAdminRevoke: '吊销',
+  cloudAdminRevokeConfirm: '吊销后这把密钥立刻失效（用它的客户端会 401），确定？',
+  cloudAdminRevoked: '已吊销',
+  cloudAdminRevokeDone: '已吊销 {id}',
+  cloudAdminColOwner: 'owner',
+  cloudAdminColNote: '备注',
+  cloudAdminColVault: '库',
+  cloudAdminColCreated: '创建时间',
+  cloudAdminColLastUsed: '最近使用',
+  cloudAdminColRevoked: '状态',
+  cloudAdminColOps: '操作',
   devicePanelTitle: '在浏览器中完成登录',
   localVaultLabel: '记忆库位置',
   vaultListLabel: '本机记忆库',
@@ -995,6 +1119,23 @@ export const ZH = {
   logsColAgent: '智能体',
   logsColAction: '动作',
   logsColTitle: '标题',
+  // 「操作了哪张卡」：两块日志共用这套列头/兜底文案（详细度一致才不至于一页看得懂、另一页看不懂）
+  logsColCard: '卡片',
+  logsColDetail: '详情',
+  logsNoTitle: '（无标题）',
+  captureColTime: '时间',
+  captureColAction: '动作',
+  captureColCard: '卡片',
+  captureColDetail: '明细',
+  captureNoCard: '（无卡片标题）',
+  captureContentHint: '内容摘要',
+  captureAction_boot: '启动',
+  captureAction_listen: '监听',
+  captureAction_created: '新建',
+  captureAction_appended: '追加',
+  captureAction_skip: '跳过',
+  captureAction_warn: '告警',
+  captureAction_fail: '失败',
   logsEmpty: '这一天没有日志',
   logsEmptyRange: '这 7 天没有日志',
   logsFooterHint: '只记录标题，不含正文；保留 {n} 天，超期自动清理。日志写入是旁路，不会影响读写卡。',
@@ -1111,7 +1252,37 @@ export const ZH = {
   xferReadLocalFail: '读取本地库失败（HTTP {s}）',
   xferResume: '上次传到 {d} / {t} 张，点上传接着传',
   xferDone: '完成 · 新增 {in} · 重复 {dup} · 失败 {fail}',
-  xferIdle: '就绪：点「上传」把本机库推到云端，「下载」把云端拉回本机',
+  xferIdle: '就绪：点「上传 / 下载」先选两端库再传；换库在下拉里选，再点「立即切换」',
+  switchVaultBtn: '切换库',
+  switchNowBtn: '立即切换',
+  switchNowHint: '先在下拉里选库，点这里确认后再切（会换掉整个界面看的数据）',
+  switchConfirmTitle: '切换记忆库？',
+  switchConfirmBody: '确认后：知识卡、知识图谱、待审、回收站、统计都会换成这个库的数据。云端账号不会被注销，随时可以切回来。',
+  switchConfirmOk: '确认切换',
+  switchAlready: '已经是这个库了',
+  switchVaultHint: '下拉只负责选中（默认显示当前库）；点「立即切换」并确认后才真正换库',
+  switchingVault: '切换中…',
+  switchToVaultBtn: '切换',
+  switchVaultDone: '已切到 {n}（立即生效）',
+  switchVaultNeedRestart: '已记录。当前服务形态需要重启后才生效',
+  switchVaultFail: '切换库失败',
+  cloudVaultEntry: '云端库',
+  switchBackLocal: '切回本机库',
+  switchToCloudDone: '已切到云端库（立即生效）',
+  switchToLocalDone: '已切回本机库（立即生效）',
+  switchNeedLogin: '还没登录云端：先在上方扫码登录，再切到云端库',
+  xferResumeBanner: '上次上传「{n}」中断：已传 {d} / {t} 张',
+  xferResumeGo: '继续上传',
+  xferResumeDrop: '取消',
+  xferDlgUpTitle: '上传（本机 → 云端）',
+  xferDlgLocalTitle: '复制（本机库 → 本机库）',
+  xferDlgDownTitle: '下载（云端 / 别处 → 本机）',
+  xferDlgHint: '选「从哪个库」到「到哪个库」：云端 → 本机、本机 → 云端、本机 → 本机都走这一套。',
+  xferDlgFrom: '从',
+  xferDlgTo: '到',
+  xferDlgStart: '开始传输',
+  xferPickBoth: '两端的库都要选',
+  xferSameVault: '两端不能是同一个库',
   xferNeedLogin: '未登录云端：先在上方扫码登录才能上传/下载',
   xferPickFirst: '先在「与哪个库搬数据」里选一个目标库',
   vaultUploadCloudHint: '把当前本机库整份推到云端（复制，本地保留）；云端已有同内容会自动跳过',
@@ -1138,6 +1309,8 @@ export const ZH = {
   merchantSecretLabel: '商户密钥',
   merchantCopySecret: '复制密钥',
   merchantSubscribe: '订阅商户套餐',
+  merchantEntry: '商户接入（自有实例）',
+  merchantBack: '← 返回云端连接',
   merchantMine: '我的商户',
   merchantEmpty: '还没有商户，填上面的名称注册一个。',
   merchantRotate: '轮换密钥',
@@ -1584,6 +1757,7 @@ export const ZH = {
   restoreToQueue: '退回审核',
   fbCopyManual: '自动复制被浏览器拦截，已把内容放在下面：点「全选」再按 Ctrl+C',
   vcPage: '页面脚本',
+  verTitle: '页面脚本版本（顶栏胶囊里的 vX.Y.Z）；点了没反应是正常的，按 Ctrl+F5 刷新可换成磁盘上的新版本',
   vcPageStale: '⚠ 当前页面仍在运行旧版脚本（页面 v{page} / 磁盘 v{disk}）：按 Ctrl+F5 刷新页面即生效；若「运行中」仍是旧版号，则还需重启桌面版 / DSH',
   vcLoaded: '运行中（服务本页的进程）',
   vcResident: '常驻实例',
@@ -1695,6 +1869,12 @@ export const ZH = {
   healthBackupAge: '{n} 个 · 最近 {d} 天前',
   healthBackupToday: '{n} 个 · 今天',
   healthCapture: '自动沉淀',
+  healthCapSeq: '沉淀自检',
+  healthCapSeqOk: '发号器正常（seq={n}）',
+  healthCapSeqBad: '发号器缺失（card_sequence）→ 所有写入都会失败：dsh-memory 里随便写一张卡即可自愈，或升级到含自愈的版本',
+  healthCapLastFail: '最近失败 {t}：{r}',
+  healthCapLastOk: '最近成功 {t}',
+  healthCapOff: '自动沉淀已关闭',
   healthNoRecords: '暂无记录（还没触发过沉淀）',
   healthCapOk: '最近一次成功写卡',
   healthCapFail: '最近一次失败',
@@ -2259,6 +2439,42 @@ export const EN = {
   cloudPlanCards: 'Card limit',
   cloudShowKey: 'Or paste an access key',
   cloudHideKey: 'Hide access key',
+  // ---- Server-side key management (admin plane /cloud/keys) -------------------
+  cloudAdminTitle: 'Server-side key management',
+  cloudAdminHint: 'Only affects the admin plane of a cloud instance; the token stays in this browser',
+  cloudAdminNeedCloud: 'Connect to a cloud instance to issue access keys here',
+  cloudAdminTokenLabel: 'Admin token',
+  cloudAdminTokenPlaceholder: 'Paste MEMORY_CLOUD_ADMIN_TOKEN (printed once on first server start)',
+  cloudAdminTokenSave: 'Save',
+  cloudAdminTokenClear: 'Clear',
+  cloudAdminTokenSaved: 'Saved: {v} (kept in this browser only)',
+  cloudAdminTokenEmpty: 'No admin token saved yet',
+  cloudAdminTokenBad: 'That does not look like an admin token (one long random string, ≥32 chars)',
+  cloudAdminTest: 'Test',
+  cloudAdminTestOk: 'Admin plane reachable (source={src})',
+  cloudAdminLocalOnly: 'Admin plane is local-only: from a remote machine run ssh -L 7999:127.0.0.1:7999 and open it locally, or set MEMORY_CLOUD_ADMIN_TOKEN on the server',
+  cloudAdminList: 'Load key list',
+  cloudAdminListEmpty: 'No keys issued yet; issue one per client/device so each can be revoked separately',
+  cloudAdminIssue: 'New access key',
+  cloudAdminOwnerLabel: 'owner',
+  cloudAdminOwnerPlaceholder: 'Who it is for, e.g. alice@x.com',
+  cloudAdminNoteLabel: 'Note',
+  cloudAdminNotePlaceholder: 'Optional, e.g. my laptop',
+  cloudAdminOwnerInvalid: 'owner allows letters, digits, dot, underscore and hyphen only (1–64)',
+  cloudAdminIssuedOnce: 'Shown only once — it is gone when you close this',
+  cloudAdminCopy: 'Copy',
+  cloudAdminCopied: 'Copied',
+  cloudAdminRevoke: 'Revoke',
+  cloudAdminRevokeConfirm: 'Revoking kills this key immediately (its clients get 401). Continue?',
+  cloudAdminRevoked: 'revoked',
+  cloudAdminRevokeDone: 'Revoked {id}',
+  cloudAdminColOwner: 'owner',
+  cloudAdminColNote: 'Note',
+  cloudAdminColVault: 'Vault',
+  cloudAdminColCreated: 'Created',
+  cloudAdminColLastUsed: 'Last used',
+  cloudAdminColRevoked: 'State',
+  cloudAdminColOps: 'Actions',
   devicePanelTitle: 'Finish signing in in your browser',
   localVaultLabel: 'Vault location',
   vaultListLabel: 'Vaults on this machine',
@@ -2305,6 +2521,24 @@ export const EN = {
   logsColAgent: 'Agent',
   logsColAction: 'Action',
   logsColTitle: 'Title',
+  // "Which card did it touch": both log tables share these headers / fallbacks,
+  // so the two pages read with the same detail level.
+  logsColCard: 'Card',
+  logsColDetail: 'Detail',
+  logsNoTitle: '(no title)',
+  captureColTime: 'Time',
+  captureColAction: 'Action',
+  captureColCard: 'Card',
+  captureColDetail: 'Detail',
+  captureNoCard: '(no card title)',
+  captureContentHint: 'Content preview',
+  captureAction_boot: 'Boot',
+  captureAction_listen: 'Listen',
+  captureAction_created: 'Created',
+  captureAction_appended: 'Appended',
+  captureAction_skip: 'Skipped',
+  captureAction_warn: 'Warning',
+  captureAction_fail: 'Failed',
   logsEmpty: 'No logs for this day',
   logsEmptyRange: 'No logs in the last 7 days',
   logsFooterHint: 'Titles only, never card bodies; kept for {n} days and pruned automatically. Logging never blocks reads/writes.',
@@ -2405,7 +2639,37 @@ export const EN = {
   xferReadLocalFail: 'Failed to read the local vault (HTTP {s})',
   xferResume: 'Last run reached {d} / {t} — Upload continues from there',
   xferDone: 'Done · {in} added · {dup} duplicates · {fail} failed',
-  xferIdle: 'Ready: Upload pushes the local vault up, Download pulls the cloud vault down',
+  xferIdle: 'Ready: Upload/Download pick both vaults first; pick a vault and press “Switch now” to swap',
+  switchVaultBtn: 'Swap vault',
+  switchNowBtn: 'Switch now',
+  switchNowHint: 'Pick a vault below, then confirm here to actually switch',
+  switchConfirmTitle: 'Switch memory vault?',
+  switchConfirmBody: 'After switching, cards, graph, review queue, recycle bin and stats all read the new vault. Your cloud account stays signed in.',
+  switchConfirmOk: 'Switch',
+  switchAlready: 'Already on this vault',
+  switchVaultHint: 'The dropdown only selects (it shows the current vault); press “Switch now” and confirm to switch',
+  switchingVault: 'Switching…',
+  switchToVaultBtn: 'Switch',
+  switchVaultDone: 'Switched to {n} (takes effect now)',
+  switchVaultNeedRestart: 'Saved. This server shape applies it after a restart',
+  switchVaultFail: 'Failed to switch vault',
+  cloudVaultEntry: 'Cloud vault',
+  switchBackLocal: 'Back to local vault',
+  switchToCloudDone: 'Switched to the cloud vault (takes effect now)',
+  switchToLocalDone: 'Switched back to the local vault (takes effect now)',
+  switchNeedLogin: 'Not signed in to cloud yet — scan the code above first',
+  xferResumeBanner: 'Previous upload of "{n}" was interrupted: {d} / {t} transferred',
+  xferResumeGo: 'Resume upload',
+  xferResumeDrop: 'Cancel',
+  xferDlgUpTitle: 'Upload (local → cloud)',
+  xferDlgLocalTitle: 'Copy (local → local)',
+  xferDlgDownTitle: 'Download (cloud / elsewhere → local)',
+  xferDlgHint: 'Pick “from” and “to”: cloud → local, local → cloud, and local → local all use this dialog.',
+  xferDlgFrom: 'From',
+  xferDlgTo: 'To',
+  xferDlgStart: 'Start transfer',
+  xferPickBoth: 'Pick both vaults first',
+  xferSameVault: 'Source and target must differ',
   xferNeedLogin: 'Not signed in — scan the code above first',
   xferPickFirst: 'Pick a target vault first',
   vaultUploadCloudHint: 'Push the current local vault to cloud (copy, local kept); identical cards are skipped',
@@ -2431,6 +2695,8 @@ export const EN = {
   merchantSecretLabel: 'Merchant secret',
   merchantCopySecret: 'Copy secret',
   merchantSubscribe: 'Subscribe merchant plan',
+  merchantEntry: 'Merchant onboarding (own instance)',
+  merchantBack: '← Back to cloud connection',
   merchantMine: 'My merchants',
   merchantEmpty: 'No merchants yet — fill the name above to register one.',
   merchantRotate: 'Rotate secret',
@@ -2906,6 +3172,7 @@ export const EN = {
   vcResidentReplaceBlocked: 'The resident instance **cannot be replaced** (environment limit): the watchdog lock directory is not writable ({err}; {path}) → the port will stay on v{served} **long-term**. This is not "temporarily behind": automatic replacement is refused on purpose to avoid leaving an orphan. Way out: fix that directory permissions and run {cmd}, or run dsh-memory watchdog --port 7999 in the foreground',
   vcResidentLockUnknown: 'The resident instance serves v{served}, but the **watchdog lock file cannot be written** (restricted environment: sandbox, ACLs, non-system drive) → whether it is managed cannot be determined (this is not "unmanaged"). Cause: {err} ({path}). Keep-alive usually still works; the button below can put it back under management on the new code.',
   vcPage: 'Page script',
+  verTitle: 'Page script version (the vX.Y.Z in the top-right pill); it is plain text — press Ctrl+F5 to load the newer build from disk',
   vcPageStale: '⚠ This page is still running an older script (page v{page} / disk v{disk}): press Ctrl+F5 to refresh. If the running version is still old, restart the desktop app / DSH as well',
   vcOutdated: 'update available',
   vcUpToDate: 'up to date',
@@ -2990,6 +3257,12 @@ export const EN = {
   healthBackupAge: '{n} files · newest {d} day(s) ago',
   healthBackupToday: '{n} files · newest today',
   healthCapture: 'Auto capture',
+  healthCapSeq: 'Capture self-check',
+  healthCapSeqOk: 'id sequence ok (seq={n})',
+  healthCapSeqBad: 'id sequence missing (card_sequence) → every write fails; write any card once to self-heal, or upgrade to a build with self-heal',
+  healthCapLastFail: 'last failure {t}: {r}',
+  healthCapLastOk: 'last success {t}',
+  healthCapOff: 'auto capture is off',
   healthNoRecords: 'no records yet (capture has not run)',
   healthCapOk: 'last capture wrote a card',
   healthCapFail: 'last capture failed',
@@ -3163,14 +3436,47 @@ const KNOWN_AGENTS = [DSH_AGENT, 'claude', 'codex', 'cursor', 'codex-desktop']
 const agentOptions = (existing = []) => [...new Set([...KNOWN_AGENTS, ...(existing || []).map(normAgent)])]
 
 // 自动沉淀日志的动作标记（与 index.js 的 logCapture(action) 一一对应）。
+// 第二项是**胶囊色调**而不是色值：颜色统一由 .mc-logpill--<tone> 从设计令牌里取，
+// 换皮肤时跟着 --me-c-* 变量走（写死 hex 会在浅底皮肤上变成看不清的深块）。
 const CAPTURE_ACTIONS = {
-  boot: ['🚀', '#8b5cf6'],
-  listen: ['👂', 'inherit'],
-  created: ['✅', '#10b981'],
-  appended: ['➕', '#3b82f6'],
-  skip: ['⏭', '#f59e0b'],
-  warn: ['⚠️', '#f59e0b'],
-  fail: ['❌', '#ef4444'],
+  boot: ['🚀', 'boot'],
+  listen: ['👂', 'plain'],
+  created: ['✅', 'ok'],
+  appended: ['➕', 'info'],
+  skip: ['⏭', 'mute'],
+  warn: ['⚠️', 'warn'],
+  fail: ['❌', 'bad'],
+}
+// 操作日志页的动作 → 同一套色调：同一个动作在两页必须同一个颜色，否则「绿的是写入？还是成功？」
+const LOG_ACTION_TONES = {
+  capture: 'ok',
+  write: 'info',
+  upsert: 'info',
+  import: 'info',
+  'import-fail': 'bad',
+  dedup: 'mute',
+  recall: 'info',
+  'recall-miss': 'warn',
+}
+/** 动作 → 胶囊色调（自动沉淀 / 操作日志共用）。 */
+const logTone = (action) => {
+  const known = CAPTURE_ACTIONS[action]
+  if (known) return known[1]
+  return LOG_ACTION_TONES[action] || 'plain'
+}
+/** 动作 → emoji（未知动作给一个中性圆点，不留空）。 */
+const logEmoji = (action) => (CAPTURE_ACTIONS[action] ? CAPTURE_ACTIONS[action][0] : '•')
+/** 动作 → 显示文案：没登记的动作（config-fail / config-warn）退回原 action，别把 i18n key 甩到界面上。 */
+const captureActionLabel = (t, action) => {
+  const key = 'captureAction_' + action
+  const label = t(key)
+  return label && label !== key ? label : String(action || '')
+}
+/** 长 IP / 主机名中间省略（123.…89）：尾部几位通常才是辨识点，完整值放 title。 */
+const midEllipsis = (s, head = 8, tail = 5) => {
+  const v = String(s || '')
+  if (v.length <= head + tail + 1) return v
+  return v.slice(0, head) + '…' + v.slice(-tail)
 }
 
 const ZOMBIE_ART = residentThemeArt
@@ -3375,7 +3681,14 @@ ${COMPONENTS_CSS}
 .mc-field { gap: 6px; }
 .mc-field input:not([type="checkbox"]):not([type="radio"]), .mc-field select { height: 34px; padding: 0 10px; border-radius: 9px; }
 .mc-field input[type="number"] { max-width: 220px; }
+/* 内容区底部留白：粘性保存条（.mc-cfg-actions）会盖住最后一屏，issue #65 报告的就是
+   「多库区块最下方/右侧控件被遮挡」。留出与保存条等高的空白，滚到底也能完整露出。 */
+.mc-cfg-sections { padding-bottom: 76px; }
 .mc-cfg-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* 多库行里的「激活库」下拉：窄屏时不许撑破卡片（右侧控件被裁掉/错位的根因之一） */
+.mc-cfg-tools > label { min-width: 0; max-width: 100%; }
+.mc-cfg-tools select { max-width: 100%; min-width: 0; }
+@media (max-width: 860px) { .mc-cfg-sections { padding-bottom: 104px; } }
 .mc-cfg-switches.is-single { grid-template-columns: minmax(0, 1fr); }
 .mc-cfg-actions { position: sticky; bottom: 0; z-index: 24; margin: 16px 0 0; padding: 10px 14px; border: 1px solid var(--dsw-alias-border-l1, #e5e7eb); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); box-shadow: 0 12px 32px rgba(0,0,0,.22); }
 .me-v5 .mc-cfg-actions { background: #21252c; border-color: #333943; }
@@ -4192,6 +4505,9 @@ ${COMPONENTS_CSS}
 .me-v5 .mc-v5-top.in-host::before { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 108px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.028)); pointer-events: none; }
 .me-v5 .mc-v5-top.in-host::after { content: ''; position: absolute; right: 108px; top: 13px; bottom: 13px; width: 1px; background: rgba(255,255,255,.07); pointer-events: none; }
 .me-v5 .mc-v5-top.in-host .mc-v5-top-actions { position: relative; z-index: 1; gap: 6px; }
+/* 宿主内嵌：右侧要给窗口控制条让位，胶囊里的版本号先让出来（只留运行位置 + 「?」），
+   保证胶囊总宽不把面包屑挤没。 */
+.me-v5 .mc-v5-top.in-host .mc-v5-ver { display: none; }
 @media (max-width: 900px) { .me-v5 .mc-v5-top.in-host { padding-right: 92px; } .me-v5 .mc-v5-top.in-host::before { width: 92px; } .me-v5 .mc-v5-top.in-host::after { right: 92px; } }
 .me-v5 .mc-v5-logo { width: 22px; height: 22px; border-radius: 7px; object-fit: cover; flex: none; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
 .me-v5 .mc-v5-crumb { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #b0b7c1; white-space: nowrap; }
@@ -4320,7 +4636,7 @@ ${COMPONENTS_CSS}
 .me-v5 .mc-v5-feature-shuffle { margin-top: 5px; padding: 2px 6px; border: 1px solid rgba(255,122,69,.28); border-radius: 5px; background: transparent; color: #ff9a72; font-size: 9px; cursor: pointer; }
 .me-v5 .mc-v5-feature-shuffle:hover { background: rgba(255,122,69,.1); }
 @media (max-width: 720px) { .me-v5 .mc-v5-feature { flex-direction: column; padding: 15px; } .me-v5 .mc-v5-feature-side { width: 100%; flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 8px; border-left: 0; border-top: 1px solid rgba(255,122,69,.16); padding: 8px 0 0; } .me-v5 .mc-v5-feature h3 { font-size: 17px; } }
-@media (max-width: 760px) { .me-v5 .mc-v5-top { height: 50px; padding: 0 10px; gap: 6px; } .me-v5 .mc-v5-top.in-host { padding-right: 96px; } .me-v5 .mc-v5-ver, .me-v5 .mc-v5-star-label { display: none; } .me-v5 .mc-v5-star { padding: 0 7px; } .me-v5 .mc-v5-sys { padding: 0 7px; } }
+@media (max-width: 760px) { .me-v5 .mc-v5-top { height: 50px; padding: 0 10px; gap: 6px; } .me-v5 .mc-v5-top.in-host { padding-right: 96px; } .me-v5 .mc-v5-ver, .me-v5 .mc-v5-star-label { display: none; } .me-v5 .mc-v5-star { padding: 0 7px; } .me-v5 .mc-v5-sys { padding: 0 7px; } .me-v5 .mc-v5-sys.mc-v5-sys--pill { padding: 0 3px 0 0; } .me-v5 .mc-v5-sys.mc-v5-sys--pill .mc-v5-sys--btn { padding: 0 6px 0 7px; } .me-v5 .mc-v5-sys.mc-v5-sys--pill .mc-v5-sys-label { max-width: 92px; } .me-v5 .mc-v5-sys.mc-v5-sys--pill .mc-v5-help { width: 14px; height: 14px; min-width: 14px; margin: 0 2px; font-size: 9px; } }
 .me-v5 .mc-v5-statusgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .me-v5 .mc-v5-statuscard { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 13px 14px; border: 1px solid #30353e; border-radius: 12px; background: #1c1f25; min-width: 0; }
 .me-v5 .mc-v5-status-ico { position: absolute; right: 12px; top: 11px; opacity: .55; font-size: 14px; }
@@ -5546,6 +5862,18 @@ ${COMPONENTS_CSS}
 .mc-v5-sys--btn:hover { border-color: rgba(127, 127, 127, 0.5); }
 .mc-v5-sys.is-cloud i { background: #4f7cff; box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.18); }
 .mc-v5-sys-caret { font-size: 9px; opacity: 0.7; margin-left: 2px; }
+/* ---- 顶栏右侧「收口胶囊」内部紧凑化 ----
+   .mc-v5-sys 当外壳（五套皮肤靠它上色），里面是「运行位置按钮 + 版本号 + ?」三段。
+   这些规则写在皮肤覆盖之后、且都带父级（.mc-v5-sys ...），特异性高于
+   [data-skin=x] .mc-v5-ver / .mc-v5-help：只压掉版本号与「?」自己的边框底色，
+   颜色一律 color: inherit，皮肤上的配色照旧继承下来。 */
+.me-v5 .mc-v5-sys.mc-v5-sys--pill { gap: 0; padding: 0 6px 0 0; max-width: 100%; }
+.me-v5 .mc-v5-sys .mc-v5-sys--btn { height: 100%; min-width: 0; padding: 0 8px 0 9px; border: 0; border-radius: 999px; background: transparent; color: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.me-v5 .mc-v5-sys .mc-v5-sys--btn:hover { background: rgba(127,127,127,.14); border-color: transparent; }
+.me-v5 .mc-v5-sys .mc-v5-sys-label { min-width: 0; max-width: 168px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-v5 .mc-v5-sys .mc-v5-ver { height: auto; padding: 0 6px 0 7px; border: 0; border-left: 1px solid rgba(127,127,127,.3); border-radius: 0; background: transparent; color: inherit; opacity: .62; font-size: 9.5px; line-height: 1; }
+.me-v5 .mc-v5-sys .mc-v5-help { width: 15px; height: 15px; min-width: 15px; margin: 0 0 0 3px; border: 0; border-radius: 999px; background: rgba(127,127,127,.16); color: inherit; font-size: 10px; font-weight: 700; line-height: 1; opacity: .8; }
+.me-v5 .mc-v5-sys .mc-v5-help:hover { opacity: 1; background: rgba(127,127,127,.28); }
 .mc-cloud-pop {
   position: absolute; right: 12px; top: 46px; z-index: 1200;
   width: 384px; max-width: calc(100vw - 24px);
@@ -5575,6 +5903,117 @@ ${COMPONENTS_CSS}
 [data-skin="spider"] .mc-cloud-pop { background: #fffdf7; border-color: var(--sp-ink); }
 [data-skin="light"] .mc-cloud-pop { background: #fff; border-color: #cfcfca; }
 [data-skin="pop"] .mc-cloud-pop { background: #fffdf5; border-color: var(--pop-ink); }
+
+/* ---- 日志两块表：动作胶囊 / 卡片标题 / 明细（「扫一眼就懂」靠结构，不靠装饰）----
+   配色一律走 --me-c-* 令牌：五套皮肤覆盖的是变量，这里的规则不用各写一遍。
+   底色全用 rgba 叠色（不写死 hex），浅底皮肤上也不会变成一块深色。 */
+.mc-logpill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px; border-radius: var(--me-r-pill, 999px);
+  border: 1px solid var(--me-c-border, rgba(127,127,127,.3));
+  background: rgba(127,127,127,.10); color: var(--me-c-text-dim, inherit);
+  font-size: 10.5px; line-height: 1.7; white-space: nowrap; max-width: 100%;
+}
+.mc-logpill--ok { color: var(--me-c-success, #10b981); border-color: var(--me-c-success, #10b981); background: var(--me-c-success-soft, rgba(16,185,129,.16)); }
+.mc-logpill--info { color: var(--me-c-info, #38bdf8); border-color: var(--me-c-info, #38bdf8); background: var(--me-c-info-soft, rgba(56,189,248,.16)); }
+.mc-logpill--warn { color: var(--me-c-warn, #f59e0b); border-color: var(--me-c-warn, #f59e0b); background: var(--me-c-warn-soft, rgba(245,158,11,.16)); }
+.mc-logpill--bad { color: var(--me-c-danger, #ef4444); border-color: var(--me-c-danger, #ef4444); background: var(--me-c-danger-soft, rgba(239,68,68,.16)); }
+.mc-logpill--mute { color: var(--me-c-text-muted, #8f97a6); border-color: transparent; background: rgba(127,127,127,.14); }
+.mc-logpill--boot { color: var(--me-c-accent, #3b82f6); border-color: transparent; background: var(--me-c-accent-soft, rgba(59,130,246,.16)); }
+.mc-logpill--plain { color: var(--me-c-text-dim, inherit); border-color: transparent; background: rgba(127,127,127,.10); }
+
+/* 自动沉淀日志表：表头粘性 + 行 hover（斑马纹与 hover 二选一，不做双份底纹） */
+.mc-logtable-wrap { max-height: 280px; overflow: auto; border: 1px solid var(--me-c-border, rgba(127,127,127,.3)); border-radius: var(--me-r-md, 10px); }
+.mc-logtable { width: 100%; border-collapse: collapse; font-size: var(--me-fs-sm, 12px); table-layout: fixed; }
+.mc-logtable thead th {
+  position: sticky; top: 0; z-index: 1;
+  padding: 6px 8px; text-align: left; font-weight: 600;
+  font-size: var(--me-fs-xxs, 10px); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--me-c-text-muted, #8f97a6);
+  background: var(--me-c-panel-alt, #262c36);
+  border-bottom: 1px solid var(--me-c-border, rgba(127,127,127,.3));
+}
+.mc-logtable tbody td { padding: 5px 8px; vertical-align: top; border-bottom: 1px solid rgba(127,127,127,.12); }
+.mc-logtable tbody tr:last-child td { border-bottom: 0; }
+.mc-logtable tbody tr:hover td { background: rgba(127,127,127,.08); }
+.mc-logtable .mc-logtime { width: 88px; color: var(--me-c-text-muted, #8f97a6); font-size: var(--me-fs-xxs, 10px); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-logtable .mc-logaction { width: 96px; }
+.mc-logtable .mc-logcard { width: 30%; }
+/* 明细：最多两行，超两行省略；完整内容在 title 里（不撑高整张表） */
+.mc-logtable .mc-logdetail {
+  color: var(--me-c-text-dim, inherit); line-height: var(--me-lh-normal, 1.55); word-break: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.mc-logcard-name { font-weight: 600; color: var(--me-c-text, inherit); }
+.mc-logcard-btn {
+  background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--me-c-text, inherit);
+  cursor: pointer; text-align: left; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-bottom: 1px dashed var(--me-c-border-strong, rgba(127,127,127,.5));
+}
+.mc-logcard-btn:hover { color: var(--me-c-accent, #3b82f6); border-bottom-color: var(--me-c-accent, #3b82f6); }
+.mc-logcard-prev {
+  color: var(--me-c-text-muted, #8f97a6); font-style: italic;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: break-word;
+}
+.mc-logcard-none { color: var(--me-c-text-muted, #8f97a6); opacity: .7; }
+
+/* 操作日志表：时间 / IP / 智能体 / 动作 / 卡片（行 hover，窄屏退化成两行卡片） */
+.mc-logrows { border: 1px solid var(--me-c-border, rgba(127,127,127,.3)); border-radius: var(--me-r-md, 10px); overflow: hidden; }
+.mc-logrows-head,
+.mc-logrow { display: grid; grid-template-columns: 108px 118px 132px 96px minmax(0, 1fr); gap: 8px; align-items: center; }
+.mc-logrows-head {
+  padding: 7px 11px; font-size: var(--me-fs-xxs, 10px); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--me-c-text-muted, #8f97a6); border-bottom: 1px solid var(--me-c-border, rgba(127,127,127,.3));
+  background: rgba(127,127,127,.06);
+}
+.mc-logrow { padding: 7px 11px; font-size: 11.5px; border-bottom: 1px solid var(--me-c-border, rgba(127,127,127,.3)); transition: background var(--me-mo-fast, .12s) var(--me-mo-ease, ease); }
+.mc-logrow:last-child { border-bottom: 0; }
+.mc-logrow:hover { background: rgba(127,127,127,.08); }
+.mc-logrow > * { min-width: 0; }
+.mc-logrow .mc-logtime { color: var(--me-c-text-muted, #8f97a6); font-family: ui-monospace, Consolas, monospace; font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-logrow .mc-logip { color: var(--me-c-text-dim, inherit); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-logrow .mc-logagent { opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-logrow .mc-logcard { display: flex; align-items: center; gap: 6px; overflow: hidden; }
+.mc-logrow .mc-logcard > .mc-logcard-btn { min-width: 0; }
+
+/* 最近 7 天趋势：只收口（柱宽上限 + 图例两栏对齐），不重画。
+   原来柱宽跟着列宽走 —— 只有一天有数据时就是一块 180×64 的蓝板子。 */
+.mc-logtrend-bars { display: flex; align-items: flex-end; gap: 6px; height: 72px; max-width: 560px; }
+.mc-logtrend-col { flex: 1 1 0; min-width: 0; max-width: 64px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.mc-logtrend-legend { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; font-size: 10.5px; align-items: flex-start; }
+.mc-logtrend-legend > div { flex: 0 1 300px; min-width: 140px; max-width: 320px; }
+.mc-logtrend-row { display: flex; justify-content: space-between; gap: 8px; line-height: 1.75; }
+
+/* 筛选条芯片：选中态统一（原来三处各写一份 inline 三元，颜色/间距对不齐） */.mc-logchip {
+  padding: 4px 10px; border-radius: var(--me-r-pill, 999px); border: 1px solid var(--me-c-border, rgba(127,127,127,.3));
+  background: transparent; color: inherit; cursor: pointer; font-size: 11.5px; line-height: 1.5;
+  transition: background var(--me-mo-fast, .12s), border-color var(--me-mo-fast, .12s), color var(--me-mo-fast, .12s);
+}
+.mc-logchip:hover { border-color: var(--me-c-border-strong, rgba(127,127,127,.5)); background: rgba(127,127,127,.08); }
+.mc-logchip.is-on { border-color: var(--me-c-accent, #3b82f6); background: var(--me-c-accent-soft, rgba(59,130,246,.12)); color: var(--me-c-text, inherit); font-weight: 600; }
+
+@media (max-width: 720px) {
+  /* 操作日志：一行挤五列必然横向溢出 → 退成两行卡片（第一行 时间+动作+标题，第二行 智能体 · IP） */
+  .mc-logrows { border: 0; }
+  .mc-logrows-head { display: none; }
+  .mc-logrow {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-areas: "time action title" "agent agent ip";
+    row-gap: 5px; column-gap: 8px; margin-bottom: 8px; padding: 9px 11px;
+    border: 1px solid var(--me-c-border, rgba(127,127,127,.3)); border-radius: var(--me-r-md, 10px);
+  }
+  .mc-logrow:hover { background: transparent; }
+  .mc-logrow > .mc-logtime { grid-area: time; }
+  .mc-logrow > .mc-logip { grid-area: ip; justify-self: end; }
+  .mc-logrow > .mc-logagent { grid-area: agent; }
+  .mc-logrow > .mc-logaction { grid-area: action; }
+  .mc-logrow > .mc-logcard { grid-area: title; }
+  /* 自动沉淀日志：窄屏把明细折到卡片下面，时间列收窄 */
+  .mc-logtable { table-layout: auto; }
+  .mc-logtable .mc-logtime { width: 62px; }
+  .mc-logtable .mc-logaction,
+  .mc-logtable .mc-logcard { width: auto; }
+}
 
 `
 
@@ -6063,7 +6502,19 @@ const BUILD_AT = typeof __ME_BUILD_AT__ !== 'undefined' ? __ME_BUILD_AT__ : 'dev
 const BUILD_MIN = typeof __ME_BUILD_MIN__ !== 'undefined' ? __ME_BUILD_MIN__ : null
 
 export function MemoryLibrary(props) {
-  return <PanelErrorBoundary><MemoryLibraryInner {...props} /></PanelErrorBoundary>
+  // 换库 / 换数据源后整棵子树重挂载（key=epoch）：一次把概览、卡片、图谱、待审、回收站、日志
+  // 全按新库重拉。比"给每个 effect 都加一个 epoch 依赖"可靠 —— 漏一个就会在切库后继续显示旧库数据。
+  const [epoch, setEpoch] = useState(0)
+  useEffect(() => {
+    const onSwitch = () => {
+      // 卡片类型是模块级缓存（跨挂载保留），换库后必须清掉，否则芯片行还是旧库的类型
+      try { TYPE_CACHE.clear() } catch { /* 忽略 */ }
+      setEpoch((n) => n + 1)
+    }
+    try { window.addEventListener(VAULT_SWITCH_EVT, onSwitch) } catch { /* 非浏览器环境 */ }
+    return () => { try { window.removeEventListener(VAULT_SWITCH_EVT, onSwitch) } catch { /* 忽略 */ } }
+  }, [])
+  return <PanelErrorBoundary><MemoryLibraryInner key={epoch} {...props} /></PanelErrorBoundary>
 }
 /** 首次使用引导：默认全开 + 语义三选一；不写死配置，点完成才落盘。 */
 function FirstRunWizard({ t, onDone }) {
@@ -6215,6 +6666,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [tagPick, setTagPick] = useState('')
   // 'cards' | 'graph' | 'news' | 'stats' | 'audit' | 'optimize' | 'config' | 'terminal'
   const [view, setView] = useState(() => {
+    // 换库会重挂载本组件：先认「切库前停在哪一页」，否则用户切个库就被弹回卡片列表
+    if (LAST_VIEW) return LAST_VIEW
     try {
       const tab = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('tab')
       const map = { cards: 'cards', graph: 'graph', news: 'news', usage: 'stats', stats: 'stats', audit: 'audit', recycle: 'optimize', optimize: 'optimize', config: 'config', terminal: 'terminal' }
@@ -6222,6 +6675,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     } catch {}
     return 'cards'
   })
+  // 记住当前页：切库 → 子树重挂载 → 回到同一页（而不是「切完库像被踢出门」）
+  useEffect(() => { LAST_VIEW = view }, [view])
   // 「关于」弹窗：作者语录从侧栏底部迁到这里（侧栏位置留给更常用的功能）
   const [aboutOpen, setAboutOpen] = useState(false)
   // 日志页：日期 / 搜索 / 分类
@@ -6486,7 +6941,14 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   //       ② 失败再退回 window.open（老宿主还没有这条路由时，至少能在浏览器/新窗口打开）
   //       ③ 都失败就把地址显示出来，让用户自己粘。
   const webBusyRef = useRef(false)
+  /** 上一次「Web 版」打开的毫秒时间：防连击（一次点击开出两个标签页）。 */
+  const webOpenAtRef = useRef(0)
   const openWebVersion = useCallback(async () => {
+    // 防连击：一次点击在极端情况下可能被触发两遍（按钮 + 快捷键/宿主转发），
+    // 1.2 秒内只认第一下 —— 用户的原话是「Web 版会弹出两个」。
+    const now = Date.now()
+    if (now - Number(webOpenAtRef.current || 0) < 1200) return
+    webOpenAtRef.current = now
     // 云端模式：反代在**远端服务器**上，127.0.0.1 指的是用户自己的机器 —— 打开必然白屏。
     // 所以云端模式直接打开配置的云端域名；本地模式才走 /open-web（系统浏览器开本机实例）。
     if (cloudForm.mode === 'cloud' && String(cloudForm.url || '').trim()) {
@@ -6512,8 +6974,9 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       const info = await fetch(`${API}/web-info`).then((x) => x.json()).catch(() => null)
       // 兜底地址用常驻实例默认端口，而不是宿主同源壳：宿主壳在外部浏览器里要 DSH 登录态，不叫「Web 版」。
       const url = (info && info.ok && info.url) || 'http://127.0.0.1:7999/'
-      const w = window.open(url, '_blank', 'noopener,noreferrer')
-      show(w ? t('webOpened') + ' · ' + url : t('webOpenFail') + ' · ' + url, !!w)
+      // 同上：带 noopener 的 window.open 返回 null 不代表失败，别拿它当判据（否则弹两个 + 报"失败"）
+      const opened = openViaAnchor(url)
+      show(opened ? t('webOpened') + ' · ' + url : t('webOpenFail') + ' · ' + url, opened)
     } catch (e) {
       show(t('webOpenFail'), false)
     } finally {
@@ -6976,21 +7439,37 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           <span className="mc-v5-crumb"><b>{t('memoryTitle')}</b><i>/</i><span>{t(view === 'cards' ? 'cardsTab' : view === 'graph' ? 'graphTab' : view === 'news' ? 'newsTab' : view === 'stats' ? 'tabUsage' : view === 'audit' ? 'tabAudit' : view === 'optimize' ? 'tabRecycle' : view === 'terminal' ? 'terminalTab' : 'tabConfig')}</span></span>
           <div className="spacer" />
           <div className="mc-v5-top-actions">
-            {/* 运行位置切换器：本地 / 云端（云端要地址 + 密钥，或 MengBot 登录换来的令牌） */}
-            <button
-              type="button"
-              className={`mc-v5-sys mc-v5-sys--btn${cloudConn.mode === 'cloud' && cloudConn.active !== false ? ' is-cloud' : ''}`}
-              onClick={() => { setCloudOpen((v) => !v); setCloudTest(null) }}
-              title={t('cloudSwitchHint') + ' · ' + t('paneExperimental')}
-              aria-haspopup="dialog"
-              aria-expanded={cloudOpen}
-            >
-              <i />
-              {cloudConn.mode === 'cloud' && cloudConn.active !== false
-                ? (String(cloudConn.url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || t('cloudModeCloud'))
-                : t('cloudModeLocal')}
-              <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
-            </button>
+            {/* 顶栏右侧「收口胶囊」：运行位置（点/域名 + caret）＋ 版本号 ＋ 帮助合并成一颗。
+                外壳用 span 而不是 button —— 按钮里不能再嵌一颗「?」按钮。
+                外壳保留 .mc-v5-sys（五套皮肤靠它上色），版本号与 ? 仍是子元素且继续带
+                .mc-v5-ver / .mc-v5-help 类名，皮肤覆盖自动继承。 */}
+            <span className={`mc-v5-sys mc-v5-sys--pill${cloudConn.mode === 'cloud' && cloudConn.active !== false ? ' is-cloud' : ''}`}>
+              {/* 胶囊主体：本地 / 云端（云端要地址 + 密钥，或 MengBot 登录换来的令牌）。点它开关云端弹层 */}
+              <button
+                type="button"
+                className="mc-v5-sys--btn"
+                onClick={() => { setCloudOpen((v) => !v); setCloudTest(null) }}
+                title={t('cloudSwitchHint') + ' · ' + t('paneExperimental')}
+                aria-haspopup="dialog"
+                aria-expanded={cloudOpen}
+              >
+                <i />
+                <span className="mc-v5-sys-label">{cloudConn.mode === 'cloud' && cloudConn.active !== false
+                  ? (String(cloudConn.url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || t('cloudModeCloud'))
+                  : t('cloudModeLocal')}</span>
+                <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
+              </button>
+              {/* 版本号：只是文本，不是按钮（放在主体按钮外，点它天然不会开云端弹层） */}
+              <span className="mc-v5-ver" title={t('verTitle')}>v{CLIENT_VERSION}</span>
+              {/* 帮助：胶囊内独立可点的小按钮，stopPropagation 防止同时开云端弹层 */}
+              <button
+                type="button"
+                className="mc-v5-help"
+                onClick={(e) => { e.stopPropagation(); openSupport('group') }}
+                title={t('supportTitle')}
+                aria-label={t('supportTitle')}
+              >?</button>
+            </span>
             {/* 登录后的头像：OIDC 登录用真头像，key 登录用首字母 */}
             {cloudConn.mode === 'cloud' && cloudConn.active !== false ? (
               <button
@@ -7040,7 +7519,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
 ) : null}
                   </label>
                   <div className="mc-cloud-actions">
-                    <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? '⏳ ' + t('loading') : t('cloudTest')}</Btn>
+                    <Btn variant="secondary" size="sm" disabled={cloudBusy || cloudForm.mode !== 'cloud'} onClick={testCloud}>{cloudBusy ? t('loading') : t('cloudTest')}</Btn>
                     {cloudTest && (
                       <Status tone={cloudTest.ok ? 'ok' : 'bad'} text={cloudTest.ok ? (cloudTest.authenticated === false ? (cloudTest.message || t('cloudTestReachable').replace('{version}', cloudTest.version || '')) : t('cloudTestOk').replace('{owner}', cloudTest.owner || '-')) : (cloudTest.error || t('cloudTestFail'))} />
                     )}
@@ -7054,8 +7533,6 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 </div>
               </div>
             )}
-            <span className="mc-v5-ver">v{CLIENT_VERSION}</span>
-            <button type="button" className="mc-v5-help" onClick={() => openSupport('group')} title={t('supportTitle')} aria-label={t('supportTitle')}>?</button>
           </div>
         </div>
       )}
@@ -7225,30 +7702,30 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px' }}>
     {/* 最近 7 天趋势（柱高基准 maxTotal 由服务端算好，前端不在这里做算术） */}
     {logStats && logStats.days && logStats.days.length ? (
-      <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, padding: '10px 12px', background: 'var(--me-c-surface)' }}>
-        <div style={{ fontSize: 10.5, opacity: 0.55, marginBottom: 8 }}>{t('logsTrend7d')} · {t('logsTrendTotal').replace('{n}', String(logStats.days.reduce((a, d) => a + d.total, 0)))}</div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 72 }}>
+      <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, padding: '12px 14px', background: 'var(--me-c-surface)' }}>
+        <div style={{ fontSize: 10.5, opacity: 0.55, marginBottom: 10, letterSpacing: '.02em' }}>{t('logsTrend7d')} · {t('logsTrendTotal').replace('{n}', String(logStats.days.reduce((a, d) => a + d.total, 0)))}</div>
+        <div className="mc-logtrend-bars">
           {logStats.days.map((d) => (
-            <div key={d.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }} title={d.day + '：' + d.total + ' 条'}>
+            <div key={d.day} className="mc-logtrend-col" title={d.day + '：' + d.total + ' 条'}>
               <div style={{ width: '100%', height: Math.max(3, Math.round((d.total / (logStats.maxTotal || 1)) * 64)), borderRadius: 3, background: d.total ? (d.day === logDate ? 'var(--me-c-accent)' : 'var(--me-c-accent-soft, rgba(59,130,246,.35))') : 'var(--me-c-border)', transition: 'height .25s ease' }} />
               <span style={{ fontSize: 9, opacity: d.day === logDate ? 0.9 : 0.45, whiteSpace: 'nowrap' }}>{d.day.slice(5)}</span>
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap', fontSize: 10.5 }}>
-          <div style={{ flex: 1, minWidth: 140 }}>
-            <div style={{ opacity: 0.5, marginBottom: 3 }}>{t('logsTrendAgents')}</div>
+        <div className="mc-logtrend-legend">
+          <div>
+            <div style={{ opacity: 0.5, marginBottom: 4 }}>{t('logsTrendAgents')}</div>
             {logStats.agents.slice(0, 5).map((a) => (
-              <div key={a.agent} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, opacity: 0.8 }}>
+              <div key={a.agent} className="mc-logtrend-row" style={{ opacity: 0.8 }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.agent}</span><b>{a.n}</b>
               </div>
             ))}
             {!logStats.agents.length ? <div style={{ opacity: 0.4 }}>—</div> : null}
           </div>
-          <div style={{ flex: 1, minWidth: 140 }}>
-            <div style={{ opacity: 0.5, marginBottom: 3 }}>{t('logsTrendActions')}</div>
+          <div>
+            <div style={{ opacity: 0.5, marginBottom: 4 }}>{t('logsTrendActions')}</div>
             {logStats.actions.slice(0, 5).map((a) => (
-              <div key={a.action} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, opacity: 0.8 }}>
+              <div key={a.action} className="mc-logtrend-row" style={{ opacity: 0.8 }}>
                 <span>{t('logAction_' + a.action) || a.action}</span><b>{a.n}</b>
               </div>
             ))}
@@ -7263,8 +7740,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           <button
             key={k}
             type="button"
+            className={'mc-logchip' + (logScope === k ? ' is-on' : '')}
             onClick={() => setLogScope(k)}
-            style={{ padding: '4px 10px', borderRadius: 999, border: '1px solid ' + (logScope === k ? 'var(--me-c-accent)' : 'var(--me-c-border)'), background: logScope === k ? 'var(--me-c-accent-soft, rgba(59,130,246,.12))' : 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 11.5 }}
           >
             {k === 'local' ? t('logsScopeLocal') : t('logsScopeCloud')}
           </button>
@@ -7286,6 +7763,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           <button
             key={k}
             type="button"
+            className={'mc-logchip' + (active ? ' is-on' : '')}
             onClick={() => {
               const d = new Date()
               if (k === 'yesterday') d.setDate(d.getDate() - 1)
@@ -7293,7 +7771,6 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
               setLogDate(f)
               setLogRange(k === '7d' ? '7d' : 'day')
             }}
-            style={{ padding: '4px 10px', borderRadius: 999, border: '1px solid ' + (active ? 'var(--me-c-accent)' : 'var(--me-c-border)'), background: active ? 'var(--me-c-accent-soft, rgba(59,130,246,.12))' : 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 11.5 }}
           >
             {label}
           </button>
@@ -7305,7 +7782,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11.5 }}>
               <span style={{ opacity: 0.55 }}>{t('logsActionLabel')}</span>
               {['', 'capture', 'dedup', 'write', 'upsert', 'import', 'import-fail', 'recall', 'recall-miss'].map((a) => (
-                <button key={a || 'all'} type="button" onClick={() => setLogAction(a)} style={{ padding: '3px 9px', borderRadius: 999, border: '1px solid ' + (logAction === a ? 'var(--me-c-accent)' : 'var(--me-c-border)'), background: logAction === a ? 'var(--me-c-accent-soft, rgba(59,130,246,.12))' : 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 11.5 }}>
+                <button key={a || 'all'} type="button" className={'mc-logchip' + (logAction === a ? ' is-on' : '')} onClick={() => setLogAction(a)}>
                   {a ? t('logAction_' + a) : t('logsAll')}
                   {a && logData && Array.isArray(logData.byAction) ? (() => { const hit = logData.byAction.find((x) => x.action === a); return hit ? ' ' + hit.n : '' })() : ''}
                 </button>
@@ -7324,26 +7801,28 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       <Btn variant="ghost" size="sm" onClick={cleanupLogs} title={t('logsCleanupHint')}>{t('logsCleanupNow')}</Btn>
             </div>
             {logData && logData.rows && logData.rows.length ? (
-              <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '150px 120px 130px 90px 1fr', gap: 8, padding: '7px 11px', fontSize: 10.5, opacity: 0.5, borderBottom: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)' }}>
-                  <span>{t('logsColTime')}</span><span>{t('logsColIP')}</span><span>{t('logsColAgent')}</span><span>{t('logsColAction')}</span><span>{t('logsColTitle')}</span>
+              /* 一行五列（时间 · IP · 智能体 · 动作 · 卡片）：小时宽下 hover 高亮，
+                 ≤720px 由 .mc-logrow 的媒体查询退化成「时间+动作+标题 / 智能体·IP」两行卡片。 */
+              <div className="mc-logrows">
+                <div className="mc-logrows-head">
+                  <span>{t('logsColTime')}</span><span>{t('logsColIP')}</span><span>{t('logsColAgent')}</span><span>{t('logsColAction')}</span><span>{t('logsColCard')}</span>
                 </div>
                 {logData.rows.map((r) => (
-                  <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '150px 120px 130px 90px 1fr', gap: 8, padding: '7px 11px', fontSize: 11.5, borderBottom: '1px solid var(--me-c-border)' }}>
-                    <span style={{ opacity: 0.65, fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 10.5 }}>{String(r.at || '').slice(11, 19)}</span>
-                    <span style={{ opacity: 0.7 }}>{r.ip || '-'}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.agent}>{r.agent || '-'}</span>
-                    <span style={{ opacity: 0.7 }}>{t('logAction_' + r.action) || r.action}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }} title={r.title}>
+                  <div key={r.id} className="mc-logrow">
+                    <span className="mc-logtime">{String(r.at || '').slice(11, 19)}</span>
+                    <span className="mc-logip" title={r.ip || ''}>{midEllipsis(r.ip || '') || '-'}</span>
+                    <span className="mc-logagent" title={r.agent}>{r.agent || '-'}</span>
+                    <span className="mc-logaction"><span className={'mc-logpill mc-logpill--' + logTone(r.action)}>{logEmoji(r.action)} {t('logAction_' + r.action) || r.action}</span></span>
+                    <span className="mc-logcard" title={r.title || ''}>
               {r.target ? (
                 <button
                   type="button"
+                  className="mc-logcard-btn"
                   onClick={() => { try { openCard({ path: r.target, title: String(r.title || '') }) } catch { /* 忽略 */ } }}
-                  title={t('logsOpenCard')}
-                  style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '1px dashed var(--me-c-border-strong)' }}
-                >{r.title}</button>
+                  title={t('logsOpenCard') + '：' + (r.title || '')}
+                >{r.title || t('logsNoTitle')}</button>
               ) : (
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title || t('logsNoTitle')}</span>
               )}
               {r.target ? (
                 <button
@@ -7564,7 +8043,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />}
         </div>
         <div style={{ display: view === 'stats' ? 'contents' : 'none' }}>
-          {visited.has('stats') && <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} />}
+          {visited.has('stats') && <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} onOpenCard={openCard} />}
         </div>
         <div style={{ display: view === 'audit' ? 'contents' : 'none' }}>
           {visited.has('audit') && <AuditPanel t={t} onReload={() => { loadAll(); bump() }} version={dataVer} />}
@@ -8281,7 +8760,9 @@ function EmbeddingPanel({ t, hidden }) {
 
 function ConfigPanel({ t, onReload, version, compact }) {
   // 弹窗形态：分页导航（保留 5 个分类，第 5 个是「实验性」）
-  const [page, setPage] = useState('general')
+  // 切库会重挂载外层：回到切库前那一页（通常是「实验性」），不要跳回「通用」。
+  const [page, setPage] = useState(() => LAST_CFG_PAGE || 'general')
+  useEffect(() => { LAST_CFG_PAGE = page }, [page])
   // ── 垃圾清理（「记忆」页）──────────────────────────────────────────────
   // 全部是本组件自己的 state：借用主面板的会白屏（cloudConn is not defined 那类事故）。
   // 实验性页的云端连接：**本组件自己的 state**（不能借用主面板的，否则白屏 cloudConn is not defined）。
@@ -8296,6 +8777,21 @@ function ConfigPanel({ t, onReload, version, compact }) {
   // 本地→云端导入进度。null = 未开始；{ done, total, importing, err, imported, duplicate }
   const [importJob, setImportJob] = useState(null)
   const importCancelRef = useRef(false)
+  // ── 断点续传横幅 / 热切库 / 传输弹窗 ───────────────────────────────────
+  /** 有没有一趟没传完的上传（关页面 / 断网 / 崩溃留下的断点）。 */
+  const [resume, setResume] = useState(() => readXferResume())
+  /** 正在切换的库（'' / 'cloud' / 本机库路径）：切换期间按钮禁用，避免连点来回切。 */
+  const [switching, setSwitching] = useState('')
+  /**
+   * 下拉里「选中」的库（待切换目标）。
+   * 下拉不再直接切库：它只负责选，真正切换要按「立即切换」并在弹窗里确认 ——
+   * 换库会改变整个界面看到的数据（知识卡/图谱/待审…），一次误触代价太大。
+   */
+  const [vaultPick, setVaultPick] = useState('')
+  /** 切换确认弹窗：{ from, to }；null = 关闭。 */
+  const [switchConfirm, setSwitchConfirm] = useState(null)
+  /** 传输弹窗：{ from, to } 两个库标识（'cloud' = 云端库，其余为本机库路径）；null = 关闭。 */
+  const [xferDlg, setXferDlg] = useState(null)
 
   // PC 回跳登录：浏览器里授权完，应用轮询取票（DSH 无法被 dsh-app:// 调起，只能这样闭环）
   const [pollAuth, setPollAuth] = useState(null)   // { pollId, openedAt, interval, expiresIn }
@@ -8367,6 +8863,39 @@ function ConfigPanel({ t, onReload, version, compact }) {
   /** 自动体检状态（GET /junk/auto） */
   const [autoState, setAutoState] = useState(null)
   const [autoDry, setAutoDry] = useState(null)
+  /**
+   * 「定时自动体检」的**真实配置**：它存在独立文件（$DSH_HOME/memory-eternal-junk-auto.json），
+   * 不在 /config 里 —— 因为 DSH settings 的 schema 没有 junkAuto* 字段，走主保存会被静默过滤掉。
+   *
+   * 旧实现把开关绑在 form（= /config）上：保存其实成功了（写进独立文件），但界面回读 /config
+   * 永远拿不到 junkAutoEnabled → 开关立刻弹回「关」，用户看到的就是「开启后保存无效」（issue #65 同批反馈）。
+   * 现在这块控件只认 /junk/auto 的 config，独立加载、独立保存。
+   */
+  const [autoCfg, setAutoCfg] = useState(null)
+  const aCfg = autoCfg || { enabled: false, action: 'archive', intervalHours: 24, maxPerRun: 200 }
+  const setA = (patch) => setAutoCfg((c) => ({ ...(c || aCfg), ...patch }))
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const d = await fetch(API + '/junk/auto').then((x) => x.json()).catch(() => null)
+        if (!alive || !d || !d.ok) return
+        if (d.config) setAutoCfg(d.config)
+        setAutoState({ lastRunAt: d.lastRunAt || 0, lastReport: d.lastReport || null })
+      } catch { /* 拿不到就按默认值渲染，不影响其它设置 */ }
+    })()
+    return () => { alive = false }
+  }, [])
+  /** 保存后回读一次：让「上次运行 / 下次到期」立刻是服务端真值 */
+  const reloadAutoState = async () => {
+    try {
+      const d = await fetch(API + '/junk/auto').then((x) => x.json()).catch(() => null)
+      if (d && d.ok) {
+        if (d.config) setAutoCfg(d.config)
+        setAutoState({ lastRunAt: d.lastRunAt || 0, lastReport: d.lastReport || null })
+      }
+    } catch { /* 忽略 */ }
+  }
   /** 预演一次自动体检（只看会归档多少，不动数据） */
   // 设备码登录（RFC 8628）：桌面端 / 无浏览器环境走这条。
   // 授权码流程在自定义协议页面上必然失败（interaction cookie 跨不过 origin）。
@@ -8506,20 +9035,21 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const saveAutoConfig = async () => {
     setJunkBusy(true)
     try {
+      const payload = {
+        junkAutoEnabled: aCfg.enabled === true,
+        junkAutoAction: aCfg.action === 'both' ? 'both' : 'archive',
+        junkAutoIntervalHours: Number(aCfg.intervalHours) || 24,
+        junkAutoMaxPerRun: Number(aCfg.maxPerRun) || 200,
+      }
       const r = await fetch(API + '/junk/auto', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          save: {
-            junkAutoEnabled: form && form.junkAutoEnabled === true,
-            junkAutoAction: form && form.junkAutoAction === 'both' ? 'both' : 'archive',
-            junkAutoIntervalHours: Number((form && form.junkAutoIntervalHours) ?? 24) || 24,
-            junkAutoMaxPerRun: Number((form && form.junkAutoMaxPerRun) ?? 200) || 200,
-          },
-        }),
+        body: JSON.stringify({ save: payload }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.ok) { notify((d && d.error) || '保存失败', false); setJunkBusy(false); return }
-      setAutoState(d.config || null)
+      // 以**服务端回读**为准渲染（而不是把本地 form 当真相）：这样"开关保存后弹回"不会再发生
+      setAutoCfg(d.config || aCfg)
+      await reloadAutoState()
       notify(t('junkAutoSaved'), true)
     } catch (e) { notify(String((e && e.message) || e), false) }
     setJunkBusy(false)
@@ -8680,6 +9210,105 @@ function ConfigPanel({ t, onReload, version, compact }) {
     } catch (e) { setMchErr(String((e && e.message) || e)) }
     setMchBusy(false)
   }
+  // ── 服务端密钥管理（管理面 /cloud/keys）─────────────────────────────────────
+  //
+  // 用户痛点：「MEMORY_CLOUD_ADMIN_TOKEN 一般谁生成？然后怎么填？」——以前只能 ssh 上服务器
+  // 用 curl 签发密钥。这里把「签发 / 列表 / 吊销」搬进面板：
+  //   · 管理令牌存 localStorage（key=me-cloud-admin），与租户令牌分开；
+  //   · 明文访问密钥只在签发成功那一刻显示一次，收起/关闭即从内存清掉（绝不落 localStorage）；
+  //   · 请求走 adminFetch（绕开全局 fetch 包装），否则会被注入**租户**令牌而 403。
+  const [admOpen, setAdmOpen] = useState(false)
+  const [admStored, setAdmStored] = useState(() => readCloudAdminToken())
+  const [admDraft, setAdmDraft] = useState(() => readCloudAdminToken())
+  const [admBusy, setAdmBusy] = useState('')
+  const [admMsg, setAdmMsg] = useState(null)          // { tone, text }
+  const [admErr, setAdmErr] = useState('')            // 列表/请求失败（走 ErrorBar）
+  const [admKeys, setAdmKeys] = useState(null)        // 密钥列表（null = 还没读过）
+  const [admForm, setAdmForm] = useState({ owner: '', note: '' })
+  const [admSecret, setAdmSecret] = useState('')      // 一次性明文：只在内存里
+  const admOwnerOk = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(String(admForm.owner || '').trim())
+  /**
+   * 管理面请求：**显式带管理令牌，并走未打补丁的原始 fetch**。
+   *
+   * 为什么不能用 `fetch(API + path)`：文件顶部的 `applyCloudConn` 把全局 fetch 包了一层，
+   * 会给请求注入**租户** `Authorization`（见 `globalThis.fetch = (input, init) => …`）。
+   * 管理面拿到租户令牌必然 403；更糟的是 403 会累计云端熔断计数（三次就把整个面板踢回本地库）。
+   * 所以这里自己拼绝对地址（apiPrefix()）+ `__meRawFetch`，头里只放管理令牌。
+   */
+  const adminFetch = (path, init = {}) => {
+    const raw = (typeof globalThis !== 'undefined' && globalThis.__meRawFetch) || globalThis.fetch
+    const tok = String(admStored || '').trim()
+    const headers = { ...((init && init.headers) || {}) }
+    if (tok) headers.Authorization = 'Bearer ' + tok
+    return raw(apiPrefix() + path, { ...(init || {}), headers })
+  }
+  /** 管理面错误文案：401/403 说清"为什么进不来、怎么进"；其余原样回显后端 error。 */
+  const adminErrText = (status, d) => (status === 401 || status === 403)
+    ? t('cloudAdminLocalOnly') + (d && d.error ? '（' + d.error + '）' : '')
+    : String((d && d.error) || ('HTTP ' + status))
+  const saveAdmToken = () => {
+    const v = String(admDraft || '').trim()
+    if (v && !isLikelyAdminToken(v)) { setAdmMsg({ tone: 'bad', text: t('cloudAdminTokenBad') }); return }
+    const saved = saveCloudAdminToken(v)
+    setAdmStored(saved)
+    setAdmMsg(saved ? { tone: 'ok', text: t('cloudAdminTokenSaved').replace('{v}', maskCloudAdminToken(saved)) } : null)
+  }
+  const clearAdmToken = () => {
+    saveCloudAdminToken('')
+    setAdmStored(''); setAdmDraft(''); setAdmKeys(null); setAdmErr('')
+    setAdmMsg({ tone: 'idle', text: t('cloudAdminTokenEmpty') })
+  }
+  const testAdmin = async () => {
+    setAdmBusy('test'); setAdmMsg(null); setAdmErr('')
+    try {
+      const r = await adminFetch('/cloud/config')
+      const d = await r.json().catch(() => ({}))
+      if (r.ok && d && d.ok !== false) setAdmMsg({ tone: 'ok', text: t('cloudAdminTestOk').replace('{src}', String(d.adminTokenSource || 'none')) })
+      else setAdmErr(adminErrText(r.status, d))
+    } catch (e) { setAdmErr(String((e && e.message) || e)) }
+    setAdmBusy('')
+  }
+  const loadAdmKeys = async () => {
+    setAdmBusy('list'); setAdmErr('')
+    try {
+      const r = await adminFetch('/cloud/keys')
+      const d = await r.json().catch(() => ({}))
+      if (r.ok && d && d.ok) setAdmKeys(Array.isArray(d.keys) ? d.keys : [])
+      else { setAdmKeys(null); setAdmErr(adminErrText(r.status, d)) }
+    } catch (e) { setAdmKeys(null); setAdmErr(String((e && e.message) || e)) }
+    setAdmBusy('')
+  }
+  const issueAdmKey = async () => {
+    if (!admOwnerOk) { setAdmMsg({ tone: 'bad', text: t('cloudAdminOwnerInvalid') }); return }
+    setAdmBusy('issue'); setAdmErr('')
+    try {
+      const r = await adminFetch('/cloud/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: String(admForm.owner || '').trim(), note: String(admForm.note || '').trim() }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d || !d.ok || !d.token) { setAdmErr(adminErrText(r.status, d)); setAdmBusy(''); return }
+      // 明文只进 state（一次），绝不写 localStorage / 日志
+      setAdmSecret(String(d.token))
+      setAdmMsg(null)
+      setAdmForm((f) => ({ ...f, note: '' }))
+      await loadAdmKeys()
+    } catch (e) { setAdmErr(String((e && e.message) || e)) }
+    setAdmBusy('')
+  }
+  const revokeAdmKey = async (id) => {
+    if (typeof confirm === 'function' && !confirm(t('cloudAdminRevokeConfirm'))) return
+    setAdmBusy('revoke:' + id); setAdmErr('')
+    try {
+      const r = await adminFetch('/cloud/keys/' + encodeURIComponent(id), { method: 'DELETE' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d || d.ok === false) { setAdmErr(adminErrText(r.status, d)); setAdmBusy(''); return }
+      setAdmMsg({ tone: 'ok', text: t('cloudAdminRevokeDone').replace('{id}', id) })
+      await loadAdmKeys()
+    } catch (e) { setAdmErr(String((e && e.message) || e)) }
+    setAdmBusy('')
+  }
   /** 已落盘的连接状态（用于状态行显示「当前在用云端/本地」「上次失败原因」）。 */
   const [cloudConn, setCloudConn] = useState(() => readCloudConn())
   const [cloudBusy, setCloudBusy] = useState(false)
@@ -8834,9 +9463,56 @@ function ConfigPanel({ t, onReload, version, compact }) {
    * 判据宽松一点：token 有值且没被标记失效就算连接 —— 刚连上那一刻 cloudConn 可能
    * 还是旧快照，用严格判据会出现「明明连上了、界面还让你登录」。
    */
-  const isConnected = cloudTab === 'cloud'
-    && !!String(cloudForm.token || '').trim()
+  // 「登录了就是云端，没登录就是本地」——只以**有没有令牌**为判据。
+  // 运行模式下拉已经删掉（用户要的口径），所以不能再拿 cloudTab 当条件；
+  // active=false 只表示这次探活失败（人还是登录着的），界面仍按已登录渲染，状态行会标黄。
+  const isConnected = !!(String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim())
+  /**
+   * 「现在面板读的是云端库」。
+   *
+   * 与 isConnected 的区别：isConnected 看的是**这个子页签里的意图**（打开「连接云端」页且已登录），
+   * 这里看的是**已落盘的数据源**（切到云端之后，即使关掉这个页签也仍然在云端）。
+   * 库列表用它决定：本机库不标「当前」、云端库行标「当前」。
+   */
+  const cloudDataActive = cloudConn.mode === 'cloud'
     && cloudConn.active !== false
+    && !!(String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim())
+
+  /** 当前**真正在读**的库：'cloud' 或本机库路径。下拉默认显示它。 */
+  const currentVaultKey = cloudDataActive
+    ? 'cloud'
+    : String((((vaultList || []).find((v) => v.isCurrent)) || {}).path || '')
+
+  /**
+   * 下拉里的库清单（值 → 显示名）。**包含当前库**：下拉要能显示"现在用的是哪个"，
+   * 而不是让用户面对一个空白的「切换库」占位。
+   */
+  const vaultPickChoices = () => {
+    const out = []
+    if (String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim()) {
+      out.push({
+        value: 'cloud',
+        label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (cloudDataActive ? ' ' + t('vaultCurrent') : ''),
+      })
+    }
+    for (const v of (vaultList || [])) {
+      out.push({
+        value: v.path,
+        label: (v.name || v.path) + '（' + v.cards + ' ' + t('cardsUnit') + '）' + (v.isCurrent && !cloudDataActive ? t('vaultCurrent') : ''),
+      })
+    }
+    return out
+  }
+  const vaultPickLabel = (key) => {
+    const hit = vaultPickChoices().find((o) => o.value === key)
+    return hit ? hit.label : (key === 'cloud' ? t('cloudVaultEntry') : String(key || '').split(/[\\/]/).filter(Boolean).pop() || '')
+  }
+  // 下拉默认落在「当前库」；列表刷新/切换完成后跟着走（用户已经选了别的库时不打断他）
+  useEffect(() => {
+    if (!currentVaultKey) return
+    setVaultPick((cur) => (cur && vaultPickChoices().some((o) => o.value === cur) ? cur : currentVaultKey))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVaultKey, vaultList, cloudDataActive])
 
   /**
    * 进「连接云端」就自动拉起设备码 —— 用户不该先点一次按钮才看到二维码
@@ -8881,22 +9557,20 @@ function ConfigPanel({ t, onReload, version, compact }) {
       if (!cards.length) { setImportJob({ importing: false, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, failed: 0, err: t('importEmpty') }); return }
 
       const CHUNK = 200
+      const srcName = String(src).split(/[\\/]/).filter(Boolean).pop() || src
       // 断点续传：上次传到第几张就接上去（对齐到分片边界，避免重复消耗）
       let startOff = 0
-      try {
-        const rs = JSON.parse(localStorage.getItem(XFER_RESUME_KEY) || 'null')
-        if (rs && rs.src === src && rs.total === cards.length && rs.done > 0 && rs.done < cards.length) {
-          startOff = Math.floor(rs.done / CHUNK) * CHUNK
-        }
-      } catch { /* 忽略 */ }
+      const rs = readXferResume()
+      if (rs && rs.src === src && rs.total === cards.length) startOff = Math.floor(rs.done / CHUNK) * CHUNK
 
       let imported = 0, duplicate = 0, failed = 0
       setImportJob({ importing: true, dir: 'up', done: startOff, total: cards.length, imported: 0, duplicate: 0, failed: 0, err: '' })
 
       for (let off = startOff; off < cards.length; off += CHUNK) {
         if (importCancelRef.current) {
-          // 手动取消：保留断点，下次能接着传
+          // 手动取消：保留断点，下次能接着传（横幅会一直摆在那儿，等用户决定继续还是丢掉）
           setImportJob((j) => ({ ...(j || {}), importing: false, err: t('xferCancelled') }))
+          refreshResume()
           return
         }
         const slice = cards.slice(off, off + CHUNK)
@@ -8924,19 +9598,21 @@ function ConfigPanel({ t, onReload, version, compact }) {
           }
         }
         if (!ok) failed += slice.length
-        try { localStorage.setItem(XFER_RESUME_KEY, JSON.stringify({ src, total: cards.length, done: Math.min(off + slice.length, cards.length), at: Date.now() })) } catch { /* 忽略 */ }
+        saveXferResume({ src, srcName, total: cards.length, done: Math.min(off + slice.length, cards.length) })
         setImportJob({ importing: true, dir: 'up', done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, failed, err: failed ? lastErr : '' })
       }
 
       const done = failed === 0
-      if (done) { try { localStorage.removeItem(XFER_RESUME_KEY) } catch { /* 忽略 */ } }
+      if (done) clearXferResume()
       setImportJob({ importing: false, dir: 'up', done: cards.length, total: cards.length, imported, duplicate, failed, err: done ? '' : t('xferPartial') })
+      refreshResume()
       try { loadVaults() } catch { /* 忽略 */ }
       try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
     } catch (e) {
       // 失败也保留断点（本地库里那份 data 下次还能对得上 src+total 就续传）
       const msg = String((e && e.message) || e)
       setImportJob((j) => ({ ...(j || {}), importing: false, err: msg }))
+      refreshResume()
     }
   }
 
@@ -9020,30 +9696,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
     }
   }
 
-  /**
-   * 切换当前库：写共享偏好（$DSH_HOME/memory-eternal-active-vault.json）。
-   * 进程内的 vaultRoot 是启动时钉死的，所以这里只**记录**并告知需要重启；
-   * 不自动重启 —— 可能正在写卡，交给用户决定时机。
-   * web 端与 DSH 插件端都读这份偏好，因此一端切换、另一端起飞时就会跟着用。
-   */
-  const activateVault = async (path2) => {
-    if (!path2) return
-    try {
-      const r = await fetchLocal('/vaults/activate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: path2 }),
-      })
-      const d = await r.json().catch(() => ({}))
-      if (!r.ok || !d.ok) { try { notify((d && d.error) || t('activateFail'), false) } catch { /* 忽略 */ } return }
-      try {
-        notify(d.isCurrent ? t('activateAlready') : t('activateNeedRestart'), true)
-      } catch { /* 忽略 */ }
-      try { loadVaults() } catch { /* 忽略 */ }
-    } catch (e) {
-      try { notify(String((e && e.message) || e), false) } catch { /* 忽略 */ }
-    }
-  }
-
+  // 注：原来这里有个「activateVault」，只写共享偏好并提示「重启后生效」。
+  // 现在换库走 switchLocalVault（/vaults/switch：就地改指向 + 同步落配置），
+  // 旧实现留着只会让人以为「还有一个只能重启才生效的入口」——已删（服务端 /vaults/activate 保留给外部调用方）。
 
   /** 云端建库（只有云端租户实例可用；受 caps.vaults 限制）。 */
   const createCloudVault = async () => {
@@ -9073,7 +9728,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const loadVaults = async () => {
     // 云端模式下额外拉一份**云端实例**的库 —— 切到云端后仍要能看见本机的库，
     // 否则「把本地库传上去」就没有入口了。两路分开拉、分开存。
-    if (cloudForm.mode === 'cloud' && String(cloudForm.url || '').trim()) {
+    // 判据改成「有没有令牌」：运行模式下拉已删，登录了就该能看见云端库目录。
+    if ((String(cloudConn.token || '').trim() || cloudForm.mode === 'cloud') && String(cloudForm.url || '').trim()) {
       try {
         // 必须带 token：云端 /vaults 要鉴权，漏了就是 401（第一次写的时候漏了，列表一直是空的）
         const cr = await fetch(cloudApi('/vaults'), {
@@ -9129,6 +9785,211 @@ function ConfigPanel({ t, onReload, version, compact }) {
     }
   }
 
+  // ── 断点续传横幅 ───────────────────────────────────────────────────────
+  /** 重读断点（每次传输结束、面板重新挂载、切库之后都要重读一次）。 */
+  const refreshResume = () => setResume(readXferResume())
+  /** 丢掉断点：用户点「取消」明确表示这趟不传了。 */
+  const dropResume = () => { clearXferResume(); setResume(null) }
+  // 面板一出现就把上次没传完的那趟捡回来（关页面/断网/崩溃后重开就是这个场景）
+  useEffect(() => { refreshResume() }, [])
+
+  /**
+   * 老宿主（进程里还加载着旧 API，没有 /vaults/switch）的降级：偏好 + 配置。
+   * 宿主的 vaultDir() 每个请求都重算，所以写进配置就等于当场切了（实测回 applied:["vaultDir"]）。
+   * @returns {Promise<{ok:boolean, hot:boolean}>}
+   */
+  const switchLocalVaultLegacy = async (path2) => {
+    const a = await fetchLocal('/vaults/activate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path2 }),
+    }).catch(() => null)
+    const ad = a ? await a.json().catch(() => ({})) : null
+    if (a && !a.ok) {
+      try { notify((ad && ad.error) || t('switchVaultFail'), false) } catch { /* 忽略 */ }
+      return { ok: false, hot: false }
+    }
+    const want = String(path2)
+    const norm = (x) => String(x || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+    // 命中已有 profile 就写 activeVault（保留用户原有的 profile 体系），否则写 vaultDir 并清掉 activeVault
+    const cfgNow = await fetchLocal('/config').then((x) => x.json()).catch(() => null)
+    const profiles = (cfgNow && cfgNow.config && Array.isArray(cfgNow.config.vaultProfiles)) ? cfgNow.config.vaultProfiles : []
+    const hitProf = profiles.find((p) => p && p.path && norm(p.path) === norm(want))
+    const patch = hitProf ? { activeVault: String(hitProf.name || '') } : { vaultDir: want, activeVault: '' }
+    const cd = await fetchLocal('/config', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patch }),
+    }).then((x) => x.json()).catch(() => null)
+    return { ok: true, hot: !!(cd && cd.ok) }
+  }
+
+  /**
+   * 切到**某个本机库**：服务端换库 →（若当前在读云端）把数据源落回本地（**令牌保留，账号不注销**）
+   * → 广播一次事件让整棵面板重挂载。知识卡、图谱、待审、回收站、统计都会因此按新库重拉。
+   */
+  const switchLocalVault = async (path2) => {
+    if (!path2 || switching) return
+    setSwitching(path2)
+    try {
+      const r = await fetchLocal('/vaults/switch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: path2 }),
+      })
+      const d = await r.json().catch(() => ({}))
+      let ok = false
+      let hot = false
+      if (r.status === 404) {
+        // 老宿主：没有这条路由 → 走偏好 + 配置那两条老路（同样当场生效，见 switchLocalVaultLegacy）
+        const legacy = await switchLocalVaultLegacy(path2)
+        ok = legacy.ok
+        hot = legacy.hot
+      } else if (r.ok && d && d.ok) {
+        ok = true
+        hot = !!d.hot
+      } else {
+        try { notify((d && d.error) || t('switchVaultFail'), false) } catch { /* 忽略 */ }
+        return
+      }
+      if (!ok) return
+      // 当前在读云端 → 数据源落回本地（不动令牌：切到本机库 ≠ 退出登录）
+      if (cloudDataActive) {
+        try {
+          const conn = readCloudConn()
+          const next = { ...conn, mode: 'local', active: false }
+          saveCloudConn(next)
+          applyCloudConn(next)
+          setCloudConn(next)
+          fetchLocal('/cloud/conn', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conn: { mode: next.mode, url: next.url, token: next.token, active: next.active, owner: next.owner || '' } }),
+          }).catch(() => { /* 记录失败不影响本次切换 */ })
+        } catch { /* 忽略 */ }
+      }
+      notifyAcrossRemount(hot
+        ? t('switchVaultDone').replace('{n}', String(path2).split(/[\\/]/).filter(Boolean).pop())
+        : t('switchVaultNeedRestart'), true)
+      try { window.dispatchEvent(new CustomEvent(VAULT_SWITCH_EVT, { detail: { kind: 'local', root: path2 } })) } catch { /* 非浏览器 */ }
+    } catch (e) {
+      try { notify(String((e && e.message) || e), false) } catch { /* 忽略 */ }
+    } finally { setSwitching('') }
+  }
+
+  /**
+   * 切数据源：本地 ↔ 云端（**不重启客户端**）。
+   *
+   * 以前切云端/本地只能靠 location.reload()，用户点了之后整页白一下、还得重新找回来。
+   * 现在只改两块：① 前端请求前缀（applyCloudConn）② 本机服务端的 cloud/conn 记录
+   * （决定自动沉淀写哪里），然后广播事件让界面按新数据源重拉。
+   */
+  const switchDataSource = (kind) => {
+    if (switching) return
+    const conn = readCloudConn()
+    const url = String(conn.url || cloudForm.url || '').trim()
+    const token = String(cloudForm.token || conn.token || '').trim()
+    if (kind === 'cloud' && (!url || !token)) {
+      try { notify(t('switchNeedLogin'), false) } catch { /* 忽略 */ }
+      return
+    }
+    setSwitching(kind)
+    const next = kind === 'cloud'
+      ? { ...conn, mode: 'cloud', active: true, url, token, owner: conn.owner || '' }
+      : { ...conn, mode: 'local', active: false }
+    try {
+      saveCloudConn(next)
+      applyCloudConn(next)
+      setCloudConn(next)
+      // 本机服务端也要知道：自动沉淀 / 召回该写哪个库
+      fetchLocal('/cloud/conn', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conn: { mode: next.mode, url: next.url, token: next.token, active: next.active, owner: next.owner || '' } }),
+      }).catch(() => { /* 记录失败不影响本次切换 */ })
+      notifyAcrossRemount(kind === 'cloud' ? t('switchToCloudDone') : t('switchToLocalDone'), true)
+      window.dispatchEvent(new CustomEvent(VAULT_SWITCH_EVT, { detail: { kind } }))
+    } catch (e) {
+      try { notify(String((e && e.message) || e), false) } catch { /* 忽略 */ }
+    } finally { setSwitching('') }
+  }
+
+  /**
+   * 真正执行「切库」：下拉只负责选中，这里（经弹窗确认后）才动手。
+   * 目标是云端 → 切数据源；目标是本机库 → 换库（同时在读云端的话把数据源落回本地，令牌保留）。
+   */
+  const switchToLibrary = async (target) => {
+    if (!target || switching) return
+    setSwitchConfirm(null)
+    if (target === currentVaultKey) {
+      try { notify(t('switchAlready'), true) } catch { /* 忽略 */ }
+      return
+    }
+    if (target === 'cloud') { switchDataSource('cloud'); return }
+    await switchLocalVault(target)
+  }
+
+  /**
+   * 打开传输弹窗：**点上传/下载先弹窗选目标库**（云端库 or 本机某个库）。
+   *
+   * 为什么不再"点一下就闷头传当前库"：本机可能有多个库、云端也有多个库，
+   * 一次误点就是把上万张卡搬到错的地方。先把「从哪 → 到哪」摆出来，让人看一眼再确认。
+   */
+  const openXferDialog = (dir) => {
+    if (importJob && importJob.importing) return
+    const cur = (vaultList || []).find((v) => v.isCurrent)
+    const curPath = (cur && cur.path) || localVault && localVault.full || ''
+    const other = (vaultList || []).find((v) => !v.isCurrent)
+    const cloudReady = !!(String(cloudForm.token || '').trim() || String(cloudConn.token || '').trim())
+    setXferDlg(dir === 'up'
+      ? { dir, from: curPath, to: cloudReady ? 'cloud' : ((other && other.path) || '') }
+      : { dir, from: cloudReady ? 'cloud' : ((other && other.path) || ''), to: curPath })
+  }
+
+  /** 弹窗里点「开始」：按 from/to 的组合选路径（云端↔本机走云端接口，本机↔本机走 transfer）。 */
+  const runXfer = async () => {
+    const d = xferDlg
+    if (!d || !d.from || !d.to) { try { notify(t('xferPickBoth'), false) } catch { /* 忽略 */ } return }
+    if (d.from === d.to) { try { notify(t('xferSameVault'), false) } catch { /* 忽略 */ } return }
+    setXferDlg(null)
+    if (d.from === 'cloud') { await downloadCloudToVault(d.to); return }
+    if (d.to === 'cloud') { await uploadVaultToCloud(d.from); return }
+    await transferLocalVaults(d.from, d.to)
+  }
+
+  /**
+   * 传输弹窗里的「库」选项：云端库在最上面（真有令牌才出现），其后是本机各库。
+   * 单独抽出来，是因为「从哪」和「到哪」两个下拉必须完全一致 —— 各写一遍迟早会走样。
+   */
+  const vaultChoices = () => {
+    const out = []
+    // 有令牌就给出「云端库」这个选项（不再看运行模式：登录了就是云端）
+    if (String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim()) {
+      const n = cloudVaultList && cloudVaultList.length ? Number(cloudVaultList[0].cards) || 0 : null
+      out.push({ value: 'cloud', label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (n === null ? '' : '（' + n + ' ' + t('cardsUnit') + '）') })
+    }
+    for (const v of (vaultList || [])) {
+      out.push({ value: v.path, label: (v.name || v.path) + (v.owner ? ' · ' + v.owner : '') + (v.isCurrent ? ' ' + t('vaultCurrent') : '') + '（' + v.cards + ' ' + t('cardsUnit') + '）' })
+    }
+    return out
+  }
+
+  /** 本机库之间搬卡（弹窗里选了「本机 → 本机」时走这条）。 */
+  const transferLocalVaults = async (source, target) => {
+    setXfer({ busy: true })
+    setImportJob({ importing: true, dir: 'local', done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    try {
+      const r = await fetchLocal('/vaults/transfer', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, target, onDuplicate: dupMode }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) throw new Error((d && d.error) || ('HTTP ' + r.status))
+      setImportJob({ importing: false, dir: 'local', done: Number(d.total) || 0, total: Number(d.total) || 0, imported: Number(d.imported) || 0, duplicate: Number(d.skipped) || 0, err: '' })
+      setXfer({ busy: false, result: d })
+      try { loadVaults() } catch { /* 忽略 */ }
+      try { notify(t('xferDone').replace('{n}', String(d.imported || 0)).replace('{m}', String(d.overwritten || 0)), true) } catch { /* 忽略 */ }
+    } catch (e) {
+      setImportJob({ importing: false, dir: 'local', done: 0, total: 0, imported: 0, duplicate: 0, err: String((e && e.message) || e) })
+      setXfer({ busy: false, err: String((e && e.message) || e) })
+    }
+  }
+
   const loadCloudPlan = async () => {
     const url = cloudApi('/cloud/billing/plan')
     if (!url) return
@@ -9158,9 +10019,13 @@ function ConfigPanel({ t, onReload, version, compact }) {
    */
   /** 订阅/续费深链（MengBot 的 subscribe 页，source 必须是 memory-eternal 才记账）。 */
   const subscribeUrl = () => {
-    const plan = String((cloudPlan && cloudPlan.plan) || '').toLowerCase()
-    const sku = plan && plan !== 'free' ? 'sub-' + plan : 'sub-pro'
-    return 'https://pay.mengbot.com.cn/subscribe?sku=' + encodeURIComponent(sku) + '&source=memory-eternal'
+    // 这里的「续费/升级」是**记忆云**的订阅，不是 MengBot 客户端的三档。
+    // 所以：① 必须带 merchant=memory-eternal（订阅页靠它切到记忆云视图）；② SKU 用 sub-memory-*，
+    // 不能拼成 sub-pro —— 那是客户端 Pro，用户点进来会以为买错东西。
+    const plan = String((cloudPlan && cloudPlan.plan) || '').toLowerCase().replace(/^memory-/, '')
+    const sku = plan && plan !== 'free' ? 'sub-memory-' + plan : 'sub-memory-pro'
+    const params = new URLSearchParams({ merchant: 'memory-eternal', sku, source: 'memory-eternal' })
+    return 'https://pay.mengbot.com.cn/subscribe?' + params.toString()
   }
 
   const importLocalToCloud = async () => {
@@ -9280,6 +10145,21 @@ function ConfigPanel({ t, onReload, version, compact }) {
   })
   const toastTimer = useRef(null)
   const notify = (msg, ok = true) => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast({ msg, ok }); toastTimer.current = setTimeout(() => setToast(null), 1900) }
+  /**
+   * 跨重挂载的提示：切库会重挂载整棵面板（见 MemoryLibrary 的 key=epoch），本组件的 toast 会跟着消失。
+   * 先把要说的话存到模块级，重挂载时再补弹一次 —— 否则用户只会看到「点了一下，界面换了，什么都没说」。
+   */
+  const notifyAcrossRemount = (msg, ok = true) => {
+    PENDING_TOAST = { msg, ok }
+    try { notify(msg, ok) } catch { /* 忽略 */ }
+  }
+  useEffect(() => {
+    if (!PENDING_TOAST) return
+    const p = PENDING_TOAST
+    PENDING_TOAST = null
+    notify(p.msg, p.ok)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // 「重启常驻实例」：常驻 web（默认 7999）比 DSH 宿主活得久 —— 升级只换磁盘文件，端口上那个
   // 进程仍跑着启动时加载的旧代码。这里一键用新代码重启它（服务端走 watchdog --replace 助手：
   // 收旧实例 → 抢锁 → 拉起新 web → 自检端口上真正服务的版本），不需要重启 DSH。
@@ -9719,6 +10599,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
         {/* 可编辑配置表单 */}
         {form ? (
           <div className="mc-cfg">
+            {/* 所有配置区块包一层：底部留出与「粘性保存条」等高的空白，
+                否则滚到底时最后一块（多库 / 恢复出厂）会被保存条压住 —— issue #65 */}
+            <div className="mc-cfg-sections">
             {/* 一键推荐配置：三方案填充 */}
             <CfgSection {...secProps('sec-preset')} id="sec-preset" icon="🎯" title={t('presetConfig')} sub={t('presetHint')}>
               <div className="mc-plan-grid">
@@ -9833,12 +10716,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
             <CfgSection {...secProps('sec-junk')} id="sec-junk" icon="🧹" title={t('junkSection')} sub={t('junkSectionSub')}>
               <div className="mc-cloud-actions" style={{ marginBottom: 10 }}>
                 <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={scanJunkNow}>
-                  {junkBusy ? '⏳ ' + t('loading') : t('junkScanBtn')}
+                  {junkBusy ? t('loading') : t('junkScanBtn')}
                 </Btn>
                 {/* 「立即清理」：一步做到位 —— 可回收的清到回收站、陈旧/从未召回的归档，先弹确认。
                     注意「清理到回收站」= 软删（deleteCard 默认 permanent:false），可随时恢复。 */}
                 <Btn variant="secondary" size="sm" disabled={junkBusy} onClick={cleanNow}>
-                  {junkBusy ? '⏳ ' + t('loading') : t('junkCleanNow')}
+                  {junkBusy ? t('loading') : t('junkCleanNow')}
                 </Btn>
                 {junk && <Status tone="ok" text={t('junkScanned').replace('{total}', String(junk.summary.total))} />}
                 {junkErr && <Status tone="bad" text={junkErr} />}
@@ -9957,7 +10840,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{t('junkAutoTitle')}</div>
                     <Hint text={t('junkAutoHint')} />
                     <div className="mc-cfg-switches is-single" style={{ marginTop: 8 }}>
-                      <Bool k="junkAutoEnabled" label={t('junkAutoEnabled')} />
+                      {/* 开关状态来自 /junk/auto（独立文件），不绑 form —— 见 autoCfg 的注释 */}
+                      <label className="mc-switch">
+                        <input type="checkbox" checked={aCfg.enabled === true} onChange={(e) => setA({ enabled: e.target.checked })} />
+                        <span>{t('junkAutoEnabled')}</span>
+                      </label>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, fontSize: 12, flexWrap: 'wrap' }}>
                       <span style={{ opacity: 0.8 }}>{t('junkAutoInterval')}</span>
@@ -9965,8 +10852,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         type="number"
                         min={1}
                         max={30}
-                        value={String(Math.max(1, Math.round(((form && form.junkAutoIntervalHours) ?? 24) / 24)))}
-                        onChange={(e) => set('junkAutoIntervalHours', (Number(e.target.value) || 1) * 24)}
+                        value={String(Math.max(1, Math.round((Number(aCfg.intervalHours) || 24) / 24)))}
+                        onChange={(e) => setA({ intervalHours: (Number(e.target.value) || 1) * 24 })}
                         style={{ width: 70 }}
                       />
                       <span style={{ opacity: 0.7 }}>{t('junkAutoDaysUnit')}</span>
@@ -9975,8 +10862,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         type="number"
                         min={1}
                         max={2000}
-                        value={String((form && form.junkAutoMaxPerRun) ?? 200)}
-                        onChange={(e) => set('junkAutoMaxPerRun', Number(e.target.value) || 200)}
+                        value={String(Number(aCfg.maxPerRun) || 200)}
+                        onChange={(e) => setA({ maxPerRun: Number(e.target.value) || 200 })}
                         style={{ width: 90 }}
                       />
                       <span style={{ opacity: 0.7 }}>{t('junkAutoCardsUnit')}</span>
@@ -9985,8 +10872,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, fontSize: 12 }}>
                       <span style={{ opacity: 0.8 }}>{t('junkAutoAction')}</span>
                       <select
-                        value={form && form.junkAutoAction === 'both' ? 'both' : 'archive'}
-                        onChange={(e) => set('junkAutoAction', e.target.value)}
+                        value={aCfg.action === 'both' ? 'both' : 'archive'}
+                        onChange={(e) => setA({ action: e.target.value })}
                         style={{ minWidth: 220 }}
                       >
                         <option value="archive">{t('junkAutoActionArchive')}</option>
@@ -10244,32 +11131,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {/* 局部兜底：云端面板依赖的东西最多（localStorage / fetch / 本地库路径），
                   它自己崩了不该让整页设置打不开。这里再包一层，崩了只影响这一块。 */}
               <PanelErrorBoundary>
-              {/* 三种模式：**下拉框**选，不再用三张卡片占版面。
-                  本地私有会显示记忆库 db 的真实位置 —— 用户最常问的就是「我的数据到底存哪」。 */}
-              <label className="mc-field" style={{ maxWidth: 320 }}>
-                <span className="mc-field-label">{t('cloudModeLabel')}</span>
-                <select
-                  value={cloudTab}
-                  onChange={(e) => {
-                    const m = e.target.value
-                    setCloudTab(m)
-                    // 本地/云端会改数据源；商户接入只是注册流程，不动数据源
-                    if (m !== 'merchant') setCloudForm((f) => ({ ...f, mode: m }))
-                    setMchErr('')
-                    setMchSecret(null)
-                  }}
-                >
-                  {/* 云端实例上"本地私有"没意义：数据本来就在服务器上 */}
-                          {isCloudInstance ? null : <option value="local">{t('cloudModeLocal')}</option>}
-                  <option value="cloud">{t('cloudModeCloud')}</option>
-                  <option value="merchant">{t('cloudTabMerchant')}</option>
-                </select>
-                <span className="mc-field-hint">
-                  {cloudTab === 'local' ? t('cloudModeLocalHint') : cloudTab === 'cloud' ? t('cloudModeCloudHint') : t('cloudTabMerchantHint')}
-                </span>
-              </label>
-
-              {(cloudTab === 'local' || cloudTab === 'cloud') ? (
+              {/* 运行模式下拉已删：登录了就是云端、没登录就是本地（用户口径）。
+                  云↔本地的切换只走下面「⇄ 切换库」——它列的是**库**，不是"模式"，
+                  所以切到本机库不会把云端账号注销掉。 */}
+              {cloudTab !== 'merchant' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                   {isConnected ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, background: 'var(--me-c-surface)', overflow: 'hidden' }}>
@@ -10430,65 +11295,27 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     ) : null}
                     </>
                   )}
-                  <div style={{ fontSize: 12.5, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>
-                    {isCloudInstance
-                      ? t('cloudInstanceDesc')
-                      : t('localVaultDesc')}
-                  </div>
-                  {localVault ? (
+                  {/* 登录之后才显示下面这些（账号卡/库位置/传输区）：没登录时这里只有登录入口，
+                      免得用户对着"没有库"的空面板发呆。 */}
+                  {isConnected && localVault ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)' }}>
                       <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{isCloudInstance ? t('cloudVaultLabel') : t('localVaultLabel')}</div>
                       <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11.5, wordBreak: 'break-all' }}>{localVault.full}</div>
                     </div>
                   ) : null}
-                  {/* 库管理：自动枚举本机所有库（含没有账号的本地库、备份副本、云端租户） */}
-                  {vaultList && vaultList.length ? (
+                  {/* 传输区（上传/下载/切换库）：登录态下才有意义 */}
+                  {isConnected && vaultList && vaultList.length ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 10, background: 'var(--me-c-surface)', overflow: 'hidden', marginTop: 10 }}>
-                      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--me-c-border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, opacity: 0.55, marginBottom: 6 }}>
-                          <span>{isCloudInstance ? t('serverVaultListLabel') : t('vaultListLabel')} · {vaultList.length}</span>
-                          <span style={{ flex: 1 }} />
-                          {/* 云端实例才给建库入口；本地库是用户自己放的目录 */}
-                          {cloudForm.mode === 'cloud' ? (
-                            <button type="button" onClick={createCloudVault} style={{ background: 'none', border: 'none', color: 'var(--me-c-accent, #2563eb)', cursor: 'pointer', fontSize: 10.5, padding: 0 }}>{t('createVaultBtn')}</button>
-                          ) : null}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {vaultList.map((v) => (
-                            <div key={v.path} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5 }}>
-                              <span style={{ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: v.isCurrent ? 'var(--me-c-success)' : 'var(--me-c-border-strong)' }} />
-                              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {/* 云端实例的库目录名就是账号名，直接显示会让人问「这里怎么会是账号」——
-                                    对租户来说它就是自己唯一的库，叫「默认库」更直白；命名库照旧显示 slug。 */}
-                                {isCloudInstance && v.vaultKind !== 'named' ? t('vaultDefaultName') : v.name}
-                                {!isCloudInstance && v.owner ? ' · ' + v.owner : ''}
-                                {v.isCurrent ? ' ' + t('vaultCurrent') : ''}
-                              </span>
-                              {/* 来源标签：本地库与云端库混在一列时，必须让人一眼看出它在哪 */}
-                          <span style={{ flex: 'none', fontSize: 9.5, padding: '1px 5px', borderRadius: 4, opacity: 0.7, border: '1px solid var(--me-c-border)' }}>{v.kind === 'cloud' ? t('vaultOriginCloud') : t('vaultOriginLocal')}</span>
-                          <span style={{ opacity: 0.5, flex: 'none' }}>{v.cards} · {v.sizeMB}MB</span>
-                                {/* 切到该库：写共享偏好，重启后生效（web 与 DSH 端共用这份偏好） */}
-                                {v.isCurrent ? null : (
-                                  <button
-                                    type="button"
-                                    onClick={() => activateVault(v.path)}
-                                    style={{ flex: 'none', background: 'none', border: 'none', padding: '0 0 0 6px', cursor: 'pointer', fontSize: 10.5, color: 'var(--me-c-accent, #2563eb)' }}
-                                  >
-                                    {t('activateVaultBtn')}
-                                  </button>
-                                )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div style={{ padding: '10px 12px', display: ((vaultList && vaultList.length > 1) || (cloudVaultList && cloudVaultList.length > 0)) ? 'flex' : 'none', flexDirection: 'column', gap: 9 }}>{/* 单库场景下没得选，整块隐藏 */}
+                      {/* 本机库列表整块删掉：库的切换统一走下面「⇄ 切换库」（它列的是库，不是"模式"）。
+                          原来这里又列一遍本机库 + 云端库 + 切回本机库，和下拉重复，还把面板撑得很长。 */}
+                      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
                     {isCloudInstance ? (
                       <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: '1px dashed var(--me-c-border)', fontSize: 11, lineHeight: 1.75, opacity: 0.75 }}>
                         {t('cloudDataLocationNote')}
                       </div>
                     ) : null}
-                    {/* 云端实例上的库：与本地库分开列，各标各的来源 */}
-                        {cloudForm.mode === 'cloud' && cloudVaultList && cloudVaultList.length ? (
+                    {/* 云端实例上的库（多库时才有意义，单库会显得啰嗦） */}
+                        {cloudVaultList && cloudVaultList.length > 1 ? (
                           <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, opacity: 0.55 }}>
                               <span>{t('cloudVaultListLabel')} · {cloudVaultList.length}</span>
@@ -10507,58 +11334,81 @@ function ConfigPanel({ t, onReload, version, compact }) {
                             ))}
                           </div>
                         ) : null}
-                        <label className="mc-field" style={{ margin: 0 }}>
-                          <span className="mc-field-label">{t('vaultTargetLabel')}</span>
-                          <select value={vaultSel} onChange={(e) => setVaultSel(e.target.value)}>
-                            <option value="">{t('vaultPickPlaceholder')}</option>
-                            {/* 全部列出（含当前库，标「（当前）」且不可选）。
-                                只列「其它库」的话，本机只有一个库时下拉是空的，用户会以为功能没生效。 */}
-                            {vaultList.map((v) => (
-                              <option key={v.path} value={v.path} disabled={v.isCurrent}>
-                                {v.name}{v.owner ? ' · ' + v.owner : ''}{v.isCurrent ? ' ' + t('vaultCurrent') : ''}（{v.cards} 卡）
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="mc-field" style={{ margin: 0 }}>
-                          <span className="mc-field-label">{t('vaultDupLabel')}</span>
-                          <select value={dupMode} onChange={(e) => setDupMode(e.target.value)}>
-                            <option value="skip">{t('vaultDupSkip')}</option>
-                            <option value="overwrite">{t('vaultDupOverwrite')}</option>
-                          </select>
-                        </label>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {/* 只留两个动作：☁ 上传（本机→云端）、⬇ 下载（云端→本机）。 */}
-                          {/* 本机库之间的复制收进「与哪个库搬数据」下拉，不再单独占按钮。 */}
+                        {/* 断点续传横幅：关页面/断网/崩溃之后重开面板，这里显示进度 + 继续 / 取消。
+                            点「继续」从上次的分片边界接着传（已传的不重传），点「取消」丢掉断点。 */}
+                        {resume && !(importJob && importJob.importing) ? (
+                          <div style={{ border: '1px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                            <div style={{ fontSize: 11.5, lineHeight: 1.7 }}>
+                              {t('xferResumeBanner').replace('{n}', String(resume.srcName || (String(resume.src || '').split(/[\\/]/).filter(Boolean).pop()) || '')).replace('{d}', String(resume.done)).replace('{t}', String(resume.total))}
+                            </div>
+                            <div style={{ height: 6, borderRadius: 999, background: 'rgba(0,0,0,.12)', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: Math.max(2, Math.round((resume.done / Math.max(1, resume.total)) * 100)) + '%', background: 'var(--me-c-warn)', transition: 'width .3s ease' }} />
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <Btn variant="secondary" size="sm" disabled={!!switching} onClick={() => uploadVaultToCloud(resume.src)}>{t('xferResumeGo')}</Btn>
+                              <Btn variant="ghost" size="sm" onClick={dropResume}>{t('xferResumeDrop')}</Btn>
+                              <span style={{ flex: 1 }} />
+                              <span style={{ fontSize: 10.5, opacity: 0.6 }}>{Math.round((resume.done / Math.max(1, resume.total)) * 100)}%</span>
+                            </div>
+                          </div>
+                        ) : null}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          {/* 动作顺序：立即切换 | 上传 | 下载 | 库下拉 | ⟳
+                              · 下拉**只负责选中**（默认显示当前库），选完不会自己切；
+                              · 「立即切换」才是执行入口，而且要先过一道确认弹窗（换库会改变整个界面看的数据）。 */}
                           <Btn
                             variant="primary"
                             size="sm"
-                            disabled={!!(importJob && importJob.importing) || !cloudForm.token}
-                            onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)}
-                            title={t('btnUploadHint')}
+                            disabled={!!switching || !!(importJob && importJob.importing) || !vaultPick || vaultPick === currentVaultKey}
+                            onClick={() => setSwitchConfirm({ from: currentVaultKey, to: vaultPick })}
+                            title={t('switchNowHint')}
                           >
-                            {importJob && importJob.importing && importJob.dir === 'up' ? '⏳ ' + t('btnUploading') : '☁ ' + t('btnUpload')}
+                            {switching ? t('switchingVault') : t('switchNowBtn')}
                           </Btn>
                           <Btn
                             variant="secondary"
                             size="sm"
-                            disabled={!vaultSel || !!(importJob && importJob.importing) || !cloudForm.token}
-                            onClick={() => downloadCloudToVault(vaultSel)}
+                            disabled={!!(importJob && importJob.importing)}
+                            onClick={() => openXferDialog('up')}
+                            title={t('btnUploadHint')}
+                          >
+                            {importJob && importJob.importing && importJob.dir === 'up' ? t('btnUploading') : t('btnUpload')}
+                          </Btn>
+                          <Btn
+                            variant="secondary"
+                            size="sm"
+                            disabled={!!(importJob && importJob.importing)}
+                            onClick={() => openXferDialog('down')}
                             title={t('btnDownloadHint')}
                           >
-                            {importJob && importJob.importing && importJob.dir === 'down' ? '⏳ ' + t('btnDownloading') : '⬇ ' + t('btnDownload')}
+                            {importJob && importJob.importing && importJob.dir === 'down' ? t('btnDownloading') : t('btnDownload')}
                           </Btn>
+                          {/* 库选择器：显示**当前库**（含"（当前）"），选中只代表待切换 */}
+                          <select
+                            value={vaultPick || currentVaultKey || ''}
+                            disabled={!!switching || !!(importJob && importJob.importing)}
+                            onChange={(e) => setVaultPick(e.target.value)}
+                            title={t('switchVaultHint')}
+                            style={{ fontSize: 11.5, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', maxWidth: 260 }}
+                          >
+                            {vaultPickChoices().map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
                           <Btn variant="ghost" size="sm" onClick={loadVaults} title={t('refresh')}>⟳</Btn>
-                          {/* 进度条 + 状态：传输中实时同步；空闲/成功/失败都有提示，任何状态不留空白 */}
+                          {/* 进度条 + 状态：传输中实时同步（并且可以取消）；空闲/成功/失败都有提示，任何状态不留空白 */}
                           <div style={{ flexBasis: '100%', marginTop: 2 }}>
                             {importJob && importJob.importing ? (
                               <>
                                 <div style={{ height: 6, borderRadius: 999, background: 'var(--me-c-border)', overflow: 'hidden' }}>
                                   <div style={{ height: '100%', width: Math.max(2, Math.round(((importJob.done || 0) / Math.max(1, importJob.total || 1)) * 100)) + '%', background: 'var(--me-c-accent)', transition: 'width .3s ease' }} />
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, opacity: 0.6, marginTop: 4 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10.5, opacity: 0.75, marginTop: 4, gap: 8 }}>
                                   <span>{t('xferProgress').replace('{d}', String(importJob.done || 0)).replace('{t}', String(importJob.total || 1))}</span>
+                                  <span style={{ flex: 1 }} />
                                   <span>{Math.round(((importJob.done || 0) / Math.max(1, importJob.total || 1)) * 100)}%</span>
+                                  {/* 传输中也能取消：断点保留在横幅里，随时可以接着传 */}
+                                  <Btn variant="ghost" size="sm" onClick={() => { importCancelRef.current = true }}>{t('cancel')}</Btn>
                                 </div>
                               </>
                             ) : importJob && importJob.err ? (
@@ -10566,7 +11416,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                             ) : importJob && importJob.total > 0 ? (
                               <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.7 }}>{t('xferDone').replace('{in}', String(importJob.imported || 0)).replace('{dup}', String(importJob.duplicate || 0)).replace('{fail}', String(importJob.failed || 0))}</div>
                             ) : (
-                              <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{!cloudForm.token ? t('xferNeedLogin') : (vaultSel ? t('xferIdle') : t('xferPickFirst'))}</div>
+                              <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{!cloudForm.token ? t('xferNeedLogin') : t('xferIdle')}</div>
                             )}
                           </div>
                         </div>
@@ -10581,12 +11431,220 @@ function ConfigPanel({ t, onReload, version, compact }) {
                               .replace('{fail}', String(xfer.result.failed))}
                           </div>
                         ) : null}
+                        {/* ── 传输弹窗：点上传/下载先选「从哪个库 → 到哪个库」 ──────────────
+                            以前点一下就直接搬当前库，本机/云端各有多个库时很容易搬错地方。
+                            现在把方向（上传/下载）与两端（云端库或某个本机库）都摆出来，确认了再动。 */}
+                        {xferDlg ? (
+                          <div style={{ position: 'fixed', inset: 0, zIndex: 2100, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                            <div style={{ width: 'min(480px, 100%)', maxHeight: '86vh', overflow: 'auto', background: 'var(--dsw-alias-bg-layer-1, #fff)', border: '1px solid var(--me-c-border)', borderRadius: 14, padding: '18px 20px', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+                                <span style={{ fontSize: 17 }}>{xferDlg.from === 'cloud' ? '⬇' : xferDlg.to === 'cloud' ? '☁' : '⇄'}</span>
+                                <b style={{ fontSize: 15 }}>{xferDlg.from === 'cloud' ? t('xferDlgDownTitle') : xferDlg.to === 'cloud' ? t('xferDlgUpTitle') : t('xferDlgLocalTitle')}</b>
+                              </div>
+                              <div style={{ fontSize: 11.5, opacity: 0.7, lineHeight: 1.75, marginBottom: 12 }}>{t('xferDlgHint')}</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <label className="mc-field" style={{ margin: 0 }}>
+                                  <span className="mc-field-label">{t('xferDlgFrom')}</span>
+                                  <select value={xferDlg.from} onChange={(e) => setXferDlg((d) => ({ ...d, from: e.target.value }))}>
+                                    <option value="">{t('vaultPickPlaceholder')}</option>
+                                    {vaultChoices().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                  </select>
+                                </label>
+                                <label className="mc-field" style={{ margin: 0 }}>
+                                  <span className="mc-field-label">{t('xferDlgTo')}</span>
+                                  <select value={xferDlg.to} onChange={(e) => setXferDlg((d) => ({ ...d, to: e.target.value }))}>
+                                    <option value="">{t('vaultPickPlaceholder')}</option>
+                                    {vaultChoices().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                  </select>
+                                </label>
+                                <label className="mc-field" style={{ margin: 0 }}>
+                                  <span className="mc-field-label">{t('vaultDupLabel')}</span>
+                                  <select value={dupMode} onChange={(e) => setDupMode(e.target.value)}>
+                                    <option value="skip">{t('vaultDupSkip')}</option>
+                                    <option value="overwrite">{t('vaultDupOverwrite')}</option>
+                                  </select>
+                                </label>
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
+                                <Btn variant="secondary" size="sm" onClick={() => setXferDlg(null)}>{t('cancel')}</Btn>
+                                <Btn variant="primary" size="sm" disabled={!xferDlg.from || !xferDlg.to} onClick={runXfer}>{t('xferDlgStart')}</Btn>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ) : null}
+                  {/* ── 切换库确认弹窗：下拉只选中，这里才是"真的换" ──────────────────
+                      换库会改变整个界面看的数据（知识卡/图谱/待审/回收站/统计），所以必须确认一次。 */}
+                  {switchConfirm ? (
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 2200, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                      <div style={{ width: 'min(440px, 100%)', background: 'var(--dsw-alias-bg-layer-1, #fff)', border: '1px solid var(--me-c-border)', borderRadius: 14, padding: '18px 20px', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+                          <span style={{ fontSize: 17 }}>⇄</span>
+                          <b style={{ fontSize: 15 }}>{t('switchConfirmTitle')}</b>
+                        </div>
+                        <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)', fontSize: 11.5, lineHeight: 1.85, marginBottom: 10, wordBreak: 'break-all' }}>
+                          <div>{t('xferDlgFrom')}：{vaultPickLabel(switchConfirm.from)}</div>
+                          <div>{t('xferDlgTo')}：<b>{vaultPickLabel(switchConfirm.to)}</b></div>
+                        </div>
+                        <div style={{ fontSize: 11.5, opacity: 0.72, lineHeight: 1.75 }}>{t('switchConfirmBody')}</div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
+                          <Btn variant="secondary" size="sm" onClick={() => setSwitchConfirm(null)}>{t('cancel')}</Btn>
+                          <Btn variant="primary" size="sm" disabled={!!switching} onClick={() => switchToLibrary(switchConfirm.to)}>{t('switchConfirmOk')}</Btn>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                  {/* ── 服务端密钥管理：签发 / 列表 / 吊销（云端管理面）───────────────
+                      痛点：以前签发密钥只能 ssh 上服务器 curl，还要自己 openssl rand 出一个
+                      管理令牌写进 env。现在令牌由服务端首次启动自动生成并打印一次，这里粘进来
+                      就能签发/吊销访问密钥。折叠态不发任何请求；明文密钥只在签发那一刻显示一次。 */}
+                  {cloudConn.mode === 'cloud' ? (
+                    <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, background: 'var(--me-c-surface)', overflow: 'hidden' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setAdmOpen((v) => !v); setAdmSecret('') }}
+                        aria-expanded={admOpen}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '13px 15px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit' }}
+                      >
+                        <span style={{ flex: 'none', fontSize: 15 }}>🔑</span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: 'block', fontSize: 13, fontWeight: 600 }}>{t('cloudAdminTitle')}</span>
+                          <span style={{ display: 'block', fontSize: 10.5, opacity: 0.5, lineHeight: 1.6 }}>{t('cloudAdminHint')}</span>
+                        </span>
+                        <span style={{ flex: 'none', fontSize: 11, opacity: 0.45, transform: admOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+                      </button>
+                      {admOpen ? (
+                        <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {/* ① 管理令牌：存本机浏览器，显示只给前 4 位 */}
+                          <label className="mc-field" style={{ margin: 0 }}>
+                            <span className="mc-field-label">{t('cloudAdminTokenLabel')}</span>
+                            <input
+                              type="password"
+                              value={admDraft}
+                              autoComplete="off"
+                              spellCheck={false}
+                              onChange={(e) => setAdmDraft(e.target.value)}
+                              placeholder={t('cloudAdminTokenPlaceholder')}
+                            />
+                            <span className="mc-field-hint">{admStored ? t('cloudAdminTokenSaved').replace('{v}', maskCloudAdminToken(admStored)) : t('cloudAdminHint')}</span>
+                          </label>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <Btn variant="secondary" size="sm" onClick={saveAdmToken}>{t('cloudAdminTokenSave')}</Btn>
+                            <Btn variant="ghost" size="sm" onClick={clearAdmToken}>{t('cloudAdminTokenClear')}</Btn>
+                            <Btn variant="secondary" size="sm" disabled={admBusy === 'test'} onClick={testAdmin}>{admBusy === 'test' ? '⏳' : t('cloudAdminTest')}</Btn>
+                          </div>
+                          {admMsg ? <Status tone={admMsg.tone === 'ok' ? 'ok' : admMsg.tone === 'bad' ? 'bad' : 'idle'} text={admMsg.text} /> : null}
+                          {admErr ? <ErrorBar error={admErr} onRetry={testAdmin} retryText={t('retry')} /> : null}
+
+                          {/* ② 现有密钥列表 */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <Btn variant="secondary" size="sm" disabled={admBusy === 'list'} onClick={loadAdmKeys}>{admBusy === 'list' ? '⏳' : t('cloudAdminList')}</Btn>
+                            {admKeys && admKeys.length ? <span style={{ fontSize: 10.5, opacity: 0.5 }}>{admKeys.length}</span> : null}
+                          </div>
+                          {admKeys && !admKeys.length ? (
+                            <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{t('cloudAdminListEmpty')}</div>
+                          ) : null}
+                          {admKeys && admKeys.length ? (
+                            <table className="mc-logtable">
+                              <thead>
+                                <tr>
+                                  {['cloudAdminColOwner', 'cloudAdminColNote', 'cloudAdminColVault', 'cloudAdminColCreated', 'cloudAdminColLastUsed', 'cloudAdminColRevoked', 'cloudAdminColOps'].map((k) => (
+                                    <th key={k}>{t(k)}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {admKeys.map((k) => (
+                                  <tr key={k.id} style={{ opacity: k.revoked ? 0.45 : 1 }}>
+                                    <td style={{ wordBreak: 'break-all' }}>{String(k.owner || '')}{k.revoked ? ' · ' + t('cloudAdminRevoked') : ''}</td>
+                                    <td style={{ wordBreak: 'break-all' }}>{String(k.note || '') || '—'}</td>
+                                    <td style={{ wordBreak: 'break-all' }}>{String(k.vault || '') ? String(k.vault).split(/[\\/]/).pop() : '—'}</td>
+                                    <td style={{ wordBreak: 'break-all' }}>{String(k.createdAt || '').replace('T', ' ').slice(0, 16) || '—'}</td>
+                                    <td style={{ wordBreak: 'break-all' }}>{String(k.lastUsedAt || '').replace('T', ' ').slice(0, 16) || '—'}</td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>{k.revoked ? t('cloudAdminRevoked') : '✓'}</td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                      {k.revoked ? null : (
+                                        <Btn variant="danger" size="sm" disabled={admBusy === 'revoke:' + k.id} onClick={() => revokeAdmKey(k.id)}>
+                                          {admBusy === 'revoke:' + k.id ? '⏳' : t('cloudAdminRevoke')}
+                                        </Btn>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : null}
+
+                          {/* ③ 新建访问密钥（明文只显示一次） */}
+                          <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8 }}>
+                              <label className="mc-field" style={{ margin: 0 }}>
+                                <span className="mc-field-label">{t('cloudAdminOwnerLabel')}</span>
+                                <input
+                                  value={admForm.owner}
+                                  spellCheck={false}
+                                  onChange={(e) => setAdmForm((f) => ({ ...f, owner: e.target.value }))}
+                                  placeholder={t('cloudAdminOwnerPlaceholder')}
+                                />
+                              </label>
+                              <label className="mc-field" style={{ margin: 0 }}>
+                                <span className="mc-field-label">{t('cloudAdminNoteLabel')}</span>
+                                <input
+                                  value={admForm.note}
+                                  onChange={(e) => setAdmForm((f) => ({ ...f, note: e.target.value }))}
+                                  placeholder={t('cloudAdminNotePlaceholder')}
+                                />
+                              </label>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <Btn variant="secondary" size="sm" disabled={!admOwnerOk || admBusy === 'issue'} onClick={issueAdmKey}>{admBusy === 'issue' ? '⏳' : t('cloudAdminIssue')}</Btn>
+                              {!admOwnerOk && String(admForm.owner || '').trim() ? (
+                                <span style={{ fontSize: 10.5, color: 'var(--me-c-danger, #dc2626)' }}>{t('cloudAdminOwnerInvalid')}</span>
+                              ) : null}
+                            </div>
+                          </div>
+                          {admSecret ? (
+                            <div style={{ border: '2px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '10px 12px' }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>⚠ {t('cloudAdminIssuedOnce')}</div>
+                              <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 12, wordBreak: 'break-all', marginBottom: 8 }}>{admSecret}</div>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <Btn
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => { try { navigator.clipboard.writeText(admSecret); notify(t('cloudAdminCopied'), true) } catch { /* 剪贴板不可用就手动选 */ } }}
+                                >
+                                  {t('cloudAdminCopy')}
+                                </Btn>
+                                <Btn variant="ghost" size="sm" onClick={() => setAdmSecret('')}>{t('cloudAdminTokenClear')}</Btn>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, opacity: 0.5, lineHeight: 1.7 }}>{t('cloudAdminNeedCloud')}</div>
+                  )}
+                  {/* 商户接入：原来靠"运行模式"下拉进入，下拉删掉后给一条不占版面的文字入口 */}
+                  <button
+                    type="button"
+                    onClick={() => { setCloudTab('merchant'); setMchErr(''); setMchSecret(null) }}
+                    style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}
+                  >
+                    {t('merchantEntry')}
+                  </button>
                 </div>
               ) : cloudTab === 'merchant' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setCloudTab('cloud'); setMchErr(''); setMchSecret(null) }}
+                    style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11.5, color: 'var(--me-c-accent, #2563eb)' }}
+                  >
+                    {t('merchantBack')}
+                  </button>
                   <div style={{ fontSize: 12, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>{t('merchantIntro')}</div>
                   <label className="mc-field">
                     <span className="mc-field-label">{t('merchantEndpointLabel')}</span>
@@ -10759,6 +11817,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
             {/* 备份只在「记忆」页出现一次（上面 7256 那一处）。这里原来还有一份同样的
                 `sec-backup` + `<BackupCard>`（从运行状态页搬过来时留下的），
                 同一个组件被渲染两遍 → 用户看到「两个🧯备份」。已删。 */}
+            </div>{/* /.mc-cfg-sections */}
             <div className="mc-cfg-actions">
               {dirty ? <span className="mc-cfg-dirty">{t('cfgDirty')}</span> : <span className="mc-cfg-clean">✓ {t('cfgClean')}</span>}
               <span className="mc-cfg-spacer" />
@@ -12421,7 +13480,7 @@ function BackupCard({ t, notify }) {
 }
 
 // 管理面板：用量/今日 + 整理建议（非破坏预览）+ 会话预算。
-function LibraryAdmin({ t, tab, onReload, version }) {
+function LibraryAdmin({ t, tab, onReload, version, onOpenCard }) {
   const [stats, setStats] = useState(null)
   const [err, setErr] = useState('')
   // 面板内提示条：这个组件里的 notify 一直只有调用、没有定义（点「检查/整理」就 ReferenceError），
@@ -12434,6 +13493,12 @@ function LibraryAdmin({ t, tab, onReload, version }) {
     toastTimer.current = setTimeout(() => setToast(null), 3200)
   }
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
+  // 自动沉淀日志里点卡片标题 = 打开那张卡（与操作日志页同一套 openCard）。
+  // 写卡记录里刚出来的卡可能是 pending，openCard 自己会先去查状态，这里不做判断。
+  const openCaptureCard = (path, title) => {
+    if (!path || typeof onOpenCard !== 'function') return
+    try { onOpenCard({ path: String(path), title: String(title || '') }) } catch { /* 打开失败不影响日志浏览 */ }
+  }
   const [opt, setOpt] = useState(null)
   const [budget, setBudget] = useState(null)
   const [captureLog, setCaptureLog] = useState(null)
@@ -12506,7 +13571,7 @@ function LibraryAdmin({ t, tab, onReload, version }) {
       if (b && b.ok) setBudget(b)
       if (c && c.ok) setCaptureLog(c)
       if (k && k.ok) setAgentCards(k.cards || [])
-      if (o && o.ok) setHealth({ db: o.db, backups: o.backups, total: o.total, version: o.version, degraded: o.degraded === true })
+      if (o && o.ok) setHealth({ db: o.db, backups: o.backups, total: o.total, version: o.version, degraded: o.degraded === true, capture: o.capture || null })
       setLedger(l && l.ok ? l : { ok: false, error: (l && l.error) || '' })
       setErr(!s || !s.ok ? t('adminLoadFail') : '')
     } catch (e) { setErr(t('adminLoadFail')) }
@@ -12718,6 +13783,28 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                       level: capLevel,
                       text: !cap ? t('healthNoRecords') : (cap.ok ? t('healthCapOk') : t('healthCapFail') + '：' + (cap.reason || '')),
                     },
+                    (() => {
+                      // 沉淀自检：发号器在不在 / 最近一次蒸馏成功或失败 —— 「没有新卡片」时一眼看出卡在哪一环
+                      const cs = health.capture
+                      if (!cs) return { label: t('healthCapSeq'), level: 'none', text: t('healthNoRecords') }
+                      const seqBad = cs.seqOk === false
+                      const failAt = Number(cs.lastFail && cs.lastFail.at) || 0
+                      const okAt = Number(cs.lastCreatedAt) || 0
+                      const stale = failAt > okAt   // 最近一次是失败，比最近一次成功还新
+                      const fmt = (ms) => (ms ? new Date(ms).toLocaleString() : '—')
+                      const level = seqBad ? 'bad' : (stale ? 'warn' : 'ok')
+                      const seqText = seqBad
+                        ? t('healthCapSeqBad')
+                        : t('healthCapSeqOk').replace('{n}', String(cs.cardSeq == null ? '—' : cs.cardSeq))
+                      const tail = stale
+                        ? ' · ' + t('healthCapLastFail').replace('{t}', fmt(failAt)).replace('{r}', String((cs.lastFail && cs.lastFail.reason) || '').slice(0, 160))
+                        : (okAt ? ' · ' + t('healthCapLastOk').replace('{t}', fmt(okAt)) : '')
+                      return {
+                        label: t('healthCapSeq'),
+                        level,
+                        text: seqText + tail + (cs.autoCapture === false ? ' · ' + t('healthCapOff') : ''),
+                      }
+                    })(),
                     {
                       label: t('healthVersion'),
                       level: ver,
@@ -12824,17 +13911,49 @@ function LibraryAdmin({ t, tab, onReload, version }) {
                     : (captureLog.entries || []).length === 0
                       ? <EmptyState icon="🪵" title={t('captureLogEmpty')} hint={t('captureLogHint')} />
                       : (
-                        <div style={{ maxHeight: 260, overflow: 'auto', marginTop: 8 }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        /* 四列：时间 · 动作(胶囊) · 卡片标题 · 明细。
+                           「卡片标题」是这轮补的：原来只有 reason，用户看不出操作了哪张卡。 */
+                        <div className="mc-logtable-wrap" style={{ marginTop: 8 }}>
+                          <table className="mc-logtable">
+                            <thead>
+                              <tr>
+                                <th>{t('captureColTime')}</th>
+                                <th>{t('captureColAction')}</th>
+                                <th>{t('captureColCard')}</th>
+                                <th>{t('captureColDetail')}</th>
+                              </tr>
+                            </thead>
                             <tbody>
                               {(captureLog.entries || []).map((e, i) => {
-                                const conf = CAPTURE_ACTIONS[e.action] || ['•', 'inherit']
+                                const tone = logTone(e.action)
+                                const cardTitle = String(e.title || '').trim()
+                                const cardPreview = String(e.preview || '').trim()
                                 return (
-                                  <tr key={i} style={{ borderBottom: '1px solid rgba(127,127,127,0.12)' }}>
-                                    <td style={{ padding: '4px 6px', opacity: 0.55, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(e.time ? new Date(e.time).toISOString() : '')}</td>
-                                    <td style={{ padding: '4px 6px', whiteSpace: 'nowrap', color: conf[1], fontWeight: 600 }}>{conf[0]} {e.action}</td>
-                                    <td style={{ padding: '4px 6px' }}>{e.reason || ''}</td>
-                                    <td style={{ padding: '4px 6px', opacity: 0.55, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.preview || ''}>{e.preview || ''}</td>
+                                  <tr key={i}>
+                                    <td className="mc-logtime">{fmtDate(e.time ? new Date(e.time).toISOString() : '')}</td>
+                                    <td className="mc-logaction">
+                                      <span className={'mc-logpill mc-logpill--' + tone}>{logEmoji(e.action)} {captureActionLabel(t, e.action)}</span>
+                                    </td>
+                                    <td className="mc-logcard">
+                                      {cardTitle ? (
+                                        e.path ? (
+                                          <button
+                                            type="button"
+                                            className="mc-logcard-btn"
+                                            title={cardTitle}
+                                            onClick={() => openCaptureCard(e.path, cardTitle)}
+                                          >{cardTitle}</button>
+                                        ) : (
+                                          <span className="mc-logcard-name" title={cardTitle}>{cardTitle}</span>
+                                        )
+                                      ) : cardPreview ? (
+                                        /* 没有标题（跳过/失败/系统行）→ 退成内容摘要，仍然看得出「本来要处理什么」 */
+                                        <span className="mc-logcard-prev" title={t('captureContentHint') + '：' + cardPreview}>{cardPreview}…</span>
+                                      ) : (
+                                        <span className="mc-logcard-none">{t('captureNoCard')}</span>
+                                      )}
+                                    </td>
+                                    <td className="mc-logdetail" title={e.reason || ''}>{e.reason || ''}</td>
                                   </tr>
                                 )
                               })}

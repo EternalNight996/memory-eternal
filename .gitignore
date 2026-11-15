@@ -4,10 +4,12 @@ lib/client.tmp.js
 .DS_Store
 .dsh-vision-router
 .npmrc
-/preview/*
+
 # 面板视觉验收产物（node scripts/panel-check.mjs）
+/preview/*
 .panel/
 .panel-*
+*.log
 
 # pnpm 副作用（仓库用 npm 发布；下游 profile 各自 pnpm add）
 pnpm-lock.yaml
@@ -15,18 +17,28 @@ pnpm-workspace.yaml
 
 # 本地工作笔记（不入库）
 docs/sessions/
-# ���չ�����ʱ�������ͼ�� JSON ���治��⣩
+
+# 验收工具临时输出（截图与 JSON 报告不入库）
 .shots/
 *-out.json
 bench/longmemeval/*.json
 
+# 环境变量文件（里面有 MEMORY_CLOUD_ADMIN_TOKEN 这类管理令牌）：
+# 只允许提交 *.example 模板，真文件一律不进仓库
+.env
+.env.*
+!.env.example
+deploy/.env
+deploy/.env.*
+
+# 运行时产物
 runs/
 dist/
 .tmp-cloud-pack/
+.tmp-*
 *.stale-*
 
+# 私有签名材料（只留代码，不留密钥）
 private/license-private.pem
 private/license-public.pem
 *.pem.bak
-
-.tmp-*

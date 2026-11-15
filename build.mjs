@@ -17,6 +17,10 @@ const BUILD_AT = new Date().toISOString()
 // 体积收益（约 300KB）抵不上排查成本。想改回来只改这一处，别在下面两处各写一遍。
 const MINIFY = false
 const clientDefine = {
+  // React / 运行时按 **production** 分支编译：不加这一条，react-dom 的 development 版
+  // 会被原样打进两个 bundle（实测 web/app.js 多 888KB），面板还会带上开发期警告。
+  // 这是纯 DCE（死代码消除），不重命名标识符，线上堆栈照样可读。
+  'process.env.NODE_ENV': JSON.stringify('production'),
   __ME_CLIENT_VERSION__: JSON.stringify(pkg.version),
   // 构建时刻 + 是否压缩：面板与错误兜底页都显示它。
   // 用户报「还是报错」时，先看这一行就能判断他加载的是不是旧包。

@@ -60,7 +60,11 @@ test('④ 左侧栏入口：点一下就开浏览器，失败要能退回/给出
   assert.match(src, /const openWebVersion = useCallback\(async \(\) => \{/, '回调必须在')
   assert.match(src, /fetch\(`\$\{API\}\/open-web`, \{ method: 'POST' \}\)/, '优先走服务端打开（iframe 里 window.open 会被拦）')
   assert.match(src, /const info = await fetch\(`\$\{API\}\/web-info`\)/, '失败时先查地址')
-  assert.match(src, /window\.open\(url, '_blank', 'noopener,noreferrer'\)/, '再退回 window.open')
+  // 兜底**只开一次**：带 noopener 的 window.open 按规范返回 null，旧代码把它当失败又补一次 a.click()
+  // → 每点一次弹两个标签页（用户实测）。现在统一走 openViaAnchor（单个 <a target=_blank>）。
+  assert.match(src, /function openViaAnchor\(url\)/, '兜底要抽成 openViaAnchor（只开一次）')
+  assert.match(src, /const opened = openViaAnchor\(url\)/, 'Web 版兜底必须走 openViaAnchor')
+  assert.doesNotMatch(src, /window\.open\(url, '_blank', 'noopener,noreferrer'\)/, '不能再 window.open + a.click() 双开')
   assert.match(src, /t\('webOpened'\) \+ ' · ' \+ r\.url/, '成功要告诉用户开的是哪个地址')
   assert.match(src, /t\('webOpenFail'\) \+ ' · ' \+ url/, '失败要把地址亮出来（用户可手粘）')
   assert.match(src, /\|\| 'http:\/\/127\.0\.0\.1:7999\/'/, '兜底地址必须是常驻实例默认端口，不是宿主同源壳（宿主壳在外部浏览器要登录态）')

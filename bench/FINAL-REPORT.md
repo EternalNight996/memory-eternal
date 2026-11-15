@@ -84,7 +84,8 @@
 node scripts/bench-recall.mjs --vault <快照> --label lexical
 node scripts/bench-recall.mjs --vault <快照> --golden bench/paraphrase.json --label para
 
-# LongMemEval-S（需先下载 longmemeval_s_cleaned.json 到 bench/longmemeval/）
+# LongMemEval-S（数据集不进仓库：先跑下面这条把它下下来）
+node scripts/fetch-longmemeval.mjs            # → bench/longmemeval/longmemeval_s_cleaned.json（可用 --head 只探）
 node scripts/bench-longmemeval.mjs --data bench/longmemeval/longmemeval_s_cleaned.json --label lme
 node scripts/bench-longmemeval.mjs --data bench/longmemeval/longmemeval_s_cleaned.json --label lme-embed --embed
 
