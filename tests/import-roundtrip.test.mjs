@@ -117,8 +117,10 @@ test('④ 同一份备份再导一次：如实报「已存在」，不是静默 
   assert.equal(again.imported, 0)
   assert.equal(again.skipped, 2)
   assert.equal(again.total, 2)
-  assert.equal(again.failed.length, 2)
-  assert.match(again.failed[0].reason, /已存在/)
+  // 重复不是「失败」：failed 是**写不进去**（正文为空 / 写入报错）那一档，
+  // 重复只进 duplicate / skipped。否则面板上的「失败 N 条」会把正常的重复导入说成故障。
+  assert.equal(again.duplicate, 2, '重复要在 duplicate 里如实报出来，不是静默 0')
+  assert.equal(again.failed.length, 0, '重复不算失败')
   assert.equal((await listCards(root)).length, 2, '重复导入不得产生副本')
 })
 

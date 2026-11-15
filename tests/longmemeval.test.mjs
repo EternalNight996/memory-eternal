@@ -35,7 +35,7 @@ test('端到端：每题独立库，金标会话能被题目召回且排名第 1
     tmpRoots.push(root)
     const map = await ingestQuestion(root, q)
     assert.equal(map.size, q.sessions.length, '每段会话都要落成一张卡')
-    const r = await evalQuestion(root, q, { limit: 10 })
+    const r = await evalQuestion(root, q, { limit: 10, pathToSession: map })   // 复用上面的摄入结果，不重复写卡
     assert.equal(r.rank, 1, `${q.id} 应命中金标会话`)
   }
 })

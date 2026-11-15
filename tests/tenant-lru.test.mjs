@@ -55,7 +55,8 @@ test('源码层面：有淘汰逻辑与 closeDb 调用', () => {
   assert.match(src, /function evictTenant\(/, '要有淘汰函数')
   assert.match(src, /closeDb\(rec\.vaultRoot\)/, '淘汰时必须关连接')
   assert.match(src, /import \{ closeDb \} from '\.\/db\.js'/, '要静态 import closeDb（异步关会留窗口）')
-  assert.match(src, /tenants\.delete\(owner\)[\s\S]{0,80}tenants\.set\(owner, hit\)/, '命中要提升到队尾')
+  // 缓存键从 owner 演进成了 cacheKey（同租户可能有不同配置实例）—— 用反向引用断言"删同一个键再插回"
+  assert.match(src, /tenants\.delete\((\w+)\)[\s\S]{0,80}tenants\.set\(\1, hit\)/, '命中要提升到队尾')
 })
 
 test('驻留实例数不超过上限', () => withServer({ MEMORY_TENANT_LRU: '3' }, async (base) => {

@@ -32,6 +32,42 @@ $env:MEMORY_CLOUD='1'; node lib\web.js --port 7999
 
 ## 3. 密钥
 
+> **管理面是分层的**（v0.48.0 起）：
+> - 配了 `MEMORY_CLOUD_ADMIN_TOKEN` → `/cloud/keys`、`/cloud/config` 必须带 `Authorization: Bearer <它>` 或 `X-Admin-Token: <它>`，**任何来源**都能用；
+> - 没配 → 只允许 **`127.0.0.1` / `::1` 直连**（不要以为"同网段就安全"：同网段任何人都能自签密钥）。
+>   容器 / K8s / 反代部署请务必配 token，否则管理面从外部一律 403，带 `x-forwarded-for` 的请求即使来自回环也不算本机。
+> - 业务面（`/cards`、`/overview`、`/backup/*` …）只认**租户令牌**，与这条无关。
+
+### 3.1 三条签发路径（v0.48.0 起任选）
+
+| 方式 | 怎么做 | 要管理令牌吗 |
+|---|---|---|
+| **面板**（日常） | 设置 → 🧪 实验性 → 云端连接 → 「🔑 服务端密钥管理」：粘贴管理令牌 → 读取列表 / 新建（明文只显示这一次）/ 吊销 | 远程要；本机回环可免 |
+| **CLI**（运维） | `dsh-memory cloud keys issue --owner alice --note 笔记本` | **不要** —— 能在这台机跑命令就是管理员 |
+| curl | `POST /cloud/keys`（下面示例） | 要 |
+
+**管理令牌是自动生成的**：首次以 `MEMORY_CLOUD=1` 启动时，若环境变量没有、落盘文件也没有，
+服务端会 `randomBytes(32)` 生成并写入 `$DSH_HOME/cloud-admin-token`（0600），并在启动日志里打印**一次**完整值。
+优先级：`MEMORY_CLOUD_ADMIN_TOKEN` → 该文件 → 自动生成。`GET /cloud/config` 会回
+`adminTokenSource`（`env`/`file`/`generated`/`none`）与 `hasAdminToken`，**不回令牌本身**。
+
+```bash
+# CLI（本地台账模式：不需要任何令牌；签发/吊销对运行中的服务立即生效）
+dsh-memory cloud info
+dsh-memory cloud keys issue --owner alice --note 笔记本
+dsh-memory cloud keys ls
+dsh-memory cloud whoami --token me_xxx
+dsh-memory cloud keys revoke --owner alice --all
+
+# 不在同一台机：走管理面 HTTP（需要管理令牌）
+dsh-memory cloud keys ls --url https://mem.example.com --admin-token <tok>
+```
+
+> 为什么 CLI 不用令牌：台账 `$DSH_HOME/cloud-keys.json` 与服务端是同一个文件，而且 `resolveTenant`
+> **每个请求都重新读盘** —— 所以签发/吊销立即生效。反过来说，谁能读到这个文件谁就等于管理员，
+> 所以它是 0600、放在 `$DSH_HOME` 下，别挪进共享盘。
+
+
 ```bash
 # 签发（明文只返回一次）
 curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
@@ -322,12 +358,23 @@ entitlement 有效（plan=pro && status=active && expiresAt>now）
 # 1) 代码与依赖
 git clone <repo> /opt/memory-eternal && cd /opt/memory-eternal && pnpm i --prod
 
-# 2) 环境
+# 2) 环境（**v0.48.0 起下面两个变量在反代 / 容器部署里是必填的**）
 cat > /etc/memory-eternal.env <<'EOF'
 DSH_HOME=/var/lib/memory-eternal
 MEMORY_CLOUD=1
 MEMORY_VAULT_DIR=/var/lib/memory-eternal/cloud-vaults
+# 管理面（/cloud/keys、/cloud/config）签名钥：不配的话只有 127.0.0.1/::1 能访问
+MEMORY_CLOUD_ADMIN_TOKEN=换成足够长的随机串
+# 对外域名：写请求会校验 Host 白名单（挡 DNS rebinding），反代后必须填
+MEMORY_PUBLIC_HOST=memory.example.com
+# 走 HTTPS 时用它拼跳转回跳地址（redirect_uri）
+MEMORY_CLOUD_PUBLIC_URL=https://memory.example.com
 EOF
+
+# 签密钥时带上管理令牌（别把令牌写进 shell 历史，可用 HTTPS + 面板登录代替）
+# curl -X POST https://memory.example.com/memory-eternal/api/cloud/keys \
+#   -H "Authorization: Bearer $MEMORY_CLOUD_ADMIN_TOKEN" \
+#   -H 'Content-Type: application/json' -d '{"owner":"alice"}'
 
 # 3) systemd
 cat > /etc/systemd/system/memory-eternal.service <<'EOF'
@@ -366,3 +413,28 @@ systemctl enable --now memory-eternal
 | 内存 | 每个活跃租户一个 api 实例（轻量）；几十个租户没问题，几百个建议加 LRU 淘汰 |
 | 检索 | 关键词 FTS / 向量召回都**按租户库存**，不会跨用户串数据 |
 | 令牌泄露 | 立刻 `DELETE /cloud/keys/:id`；MengBot 会话有过期时间，重启服务不清（在台账里） |
+
+## 9. 租户内多库与热切（v0.48.0 起）
+
+一个租户可以有多本库：默认库是 `cloud-vaults/<owner>/`，`POST /vaults/create {"name":"work"}`
+再开子库 `cloud-vaults/<owner>/vaults/work/`（受 `maxVaults` 配额限制）。**切换是热的**：
+
+```bash
+# 切到子库（下一次请求就读新库，不重启进程）
+curl -X POST https://mem.example.com/memory-eternal/api/vaults/switch \
+  -H "Authorization: Bearer me_xxx" -H 'Content-Type: application/json' \
+  -d '{"path":"<该租户根>/vaults/work"}'
+# → {"ok":true,"hot":true,"root":"…/vaults/work","prev":"…/<owner>","isCurrent":false}
+```
+
+| 规则 | 说明 |
+|---|---|
+| **隔离边界不跟着变** | 判定边界恒为 `tenantVault(owner)`（`cloud-vaults/<owner>`）；切到子库**不会**把边界收窄，也不会放宽到别人租户 |
+| 只切「已存在的记忆库」 | 目标必须在租户根内、目录已存在、含 `memory-eternal.db`；**不建目录、不建库**（审计 H6 的口径） |
+| 重启保持 | 当前库记在 `cloud-vaults/<owner>/.active`（0600，一行相对路径，`.` = 默认库）；标记越界/指向非库时**自动回落默认库**，不会把租户卡死 |
+| 回显跟着走 | `/cloud/whoami`、`/cloud/connect`、`/overview`、配额计数里的 `vault` 一律是**当前** activeRoot |
+| `/vaults` 列全 | 云端枚举以**租户根**为基准列出全部库并标 `isCurrent`，所以切到子库后仍能点回默认库 |
+
+> 实测（本地起的云端实例，见仓库 `runs/cloud-e2e-0.48.0-hot/REPORT.md`）：切子库与切回默认库都是
+> `hot:true`，切完立刻读到子库独有的卡、切回立刻回到默认库；另起进程（同 `DSH_HOME`）默认就在子库。
+

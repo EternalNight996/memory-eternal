@@ -633,6 +633,13 @@ MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显�
       else { console.error(`✗ ${agent} 连接失败：` + JSON.stringify(out)); process.exitCode = 1 }
       return
     }
+    case 'cloud': {
+      // 云端访问密钥管理：默认直接操作本机台账（能跑这条命令 = 管理员），
+      // 不在同一台机时用 --url + --admin-token 走管理面 HTTP。
+      const { runCloudCli } = await import('../lib/cloud-cli.js')
+      process.exitCode = await runCloudCli(argv.slice(1))
+      return
+    }
     case 'sweep': {
       const dir = argv[1]
       if (!dir || dir.startsWith('--')) {

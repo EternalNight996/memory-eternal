@@ -55,11 +55,14 @@ test('⑤ 引导：不可写 / 损坏时给出可执行步骤，且绝不自动�
 
 test('④ /overview 库不可用时降级（200 + dbError + 身份字段），不再 500', () => {
   const api = read('lib/api.js')
-  assert.match(api, /const degraded = \(error\) => \{/, '要有降级分支')
-  assert.match(api, /degraded: true, vaultDir: vaultRoot, version: servingVersion/, '降级也要保住身份字段 —— 探针/面板靠它认「这是我们」')
+  // 签名可以是同步或 async（0.46.0 起 capture 自检要 await 日志，降级分支改成 async）
+  assert.match(api, /const degraded = (?:async )?\(error\) => \{/, '要有降级分支')
+  // 身份字段（vaultDir / version）必须留在降级响应里；中间允许插入其它字段（dbPath / capture…）
+  assert.match(api, /degraded: true, vaultDir: vaultRoot[^\n]*version: servingVersion/, '降级也要保住身份字段 —— 探针/面板靠它认「这是我们」')
   assert.match(api, /dbError: status\.error/, '要把真实原因带出去')
-  assert.match(api, /try \{ await ensureVault\(vaultRoot\) \} catch \(e\) \{ return degraded/, 'ensureVault 失败走降级')
-  assert.match(api, /try \{ data = await overview\(vaultRoot\) \} catch \(e\) \{ return degraded/, 'overview 失败走降级')
+  // 降级分支现在是 async（capture 自检要 await 日志），调用点写成 return await degraded(...)
+  assert.match(api, /try \{ await ensureVault\(vaultRoot\) \} catch \(e\) \{ return (?:await )?degraded/, 'ensureVault 失败走降级')
+  assert.match(api, /try \{ data = await overview\(vaultRoot\) \} catch \(e\) \{ return (?:await )?degraded/, 'overview 失败走降级')
   const seg = api.slice(api.indexOf("case '/overview'"), api.indexOf("case '/cards'"))
   assert.doesNotMatch(seg, /json\(res, 500/, '/overview 分支里不许再出现 500')
   assert.match(api, /db: dbStatus\(vaultRoot\)/, '正常路径也要带上库健康结论')

@@ -17,10 +17,20 @@ function withServer(fn) {
   fs.writeFileSync(path.join(home, 'cloud-keys.json'), JSON.stringify({ version: 1, keys: [], mengbot: {} }), { mode: 0o600 })
   const handler = createCloudServer({ env: { ...process.env, DSH_HOME: home, MEMORY_CLOUD_PUBLIC_URL: 'https://mem.mengbot.com.cn' } })
   const srv = http.createServer(async (req, res) => { await handler(req, res) })
-  return new Promise((resolve) => {
+  // 注意：断言失败必须**抛回 test runner**。
+  // 旧写法是 `try { await fn() } finally { srv.close(); resolve() }` —— finally 里 resolve 把
+  // 异常吞掉，于是测试"全绿"，而断言根本没被执行过（2026-11-15 实测：两个用例的断言从未跑过，
+  // 只在进程退出时以 unhandledRejection 冒出来，把 npm test 的退出码拖成 1）。
+  return new Promise((resolve, reject) => {
     srv.listen(0, '127.0.0.1', async () => {
-      try { await fn(`http://127.0.0.1:${srv.address().port}`, home) }
-      finally { srv.close(); resolve() }
+      try {
+        await fn(`http://127.0.0.1:${srv.address().port}`, home)
+        srv.close()
+        resolve()
+      } catch (err) {
+        try { srv.close() } catch { /* 已关 */ }
+        reject(err)
+      }
     })
   })
 }
@@ -92,15 +102,16 @@ test('billing / connect 等也是同一套令牌来源', () => withServer(async 
   assert.equal(c.status, 200, 'connect 应认 cookie')
 }))
 
-test('mbo_ 前缀（MengBot OAuth 令牌）给出正确指引，而不是笼统的「无法识别」', () => withServer({}, async (base) => {
+test('mbo_ 前缀（MengBot OAuth 令牌）给出正确指引，而不是笼统的「无法识别」', () => withServer(async (base) => {
   const r = await fetch(base + '/memory-eternal/api/cloud/whoami', { headers: { Authorization: 'Bearer mbo_QGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' } })
   assert.equal(r.status, 401)
   const b = await r.json()
-  assert.match(String(b.error), /MengBot 的 OAuth 令牌/, '要说清 mbo_ 是什么')
+  // 文案口径：它是「OIDC 客户端密钥（只给服务端换令牌用）」，不是 OAuth access token
+  assert.match(String(b.error), /MengBot 的 OIDC 客户端密钥/, '要说清 mbo_ 是什么')
   assert.match(String(b.error), /用 MengBot 账号登录/, '要给出正确做法')
 }))
 
-test('mba_（管理员令牌）拒绝 —— 对方 C3 明确「不要发给第三方」', () => withServer({}, async (base) => {
+test('mba_（管理员令牌）拒绝 —— 对方 C3 明确「不要发给第三方」', () => withServer(async (base) => {
   const r = await fetch(base + '/memory-eternal/api/cloud/whoami', { headers: { Authorization: 'Bearer mba_abcdefghij' } })
   assert.equal(r.status, 401)
   const b = await r.json()

@@ -6,6 +6,10 @@
 
 `golden-recall.json` 由 `scripts/make-golden.mjs` 生成（快照 2026-11-11，语料 2544 张卡，99 题）：
 
+> LongMemEval-S 原始数据集（`longmemeval_s_cleaned.json`，277MB）**不进仓库**（`.gitignore` 已忽略），
+> 按需现下：`node scripts/fetch-longmemeval.mjs`（默认走 hf-mirror；`--head` 只探不下载，`--sha256 <hex>` 可钉校验），
+> 下完会自动做结构体检并打印下一步命令。
+
 | 类型 | 数量 | 构造方式 | 测什么 |
 |---|---|---|---|
 | `title` | 30 | 卡片标题直接当查询 | 标题加权那一路 |

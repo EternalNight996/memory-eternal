@@ -30,22 +30,44 @@ test('ErrorBar 必须能重试或给下一步', () => {
   assert.equal(bad.length, 0, '这些 ErrorBar 既不能重试也没有下一步：行 ' + bad.map((x) => x.at).join(', '))
 })
 
-test('每个组件体内最多一个 primary 按钮（近似「一屏一颗」）', () => {
+/**
+ * 多页 / 多态组件的既有主按钮**基线**：只允许下降，不许再涨。
+ *
+ * 为什么需要基线，而不是把所有组件都压到 1 颗：
+ *   · ConfigPanel 是 5 个分页的配置面板，且同一块里还有**互斥状态**
+ *     （未登录 → 只有「登录」；已登录 → 只有「上传」；「客户端 / 商户接入」是两个页签）——
+ *     同一时刻屏幕上真能看见的主按钮仍然是一颗，但「源码里数 variant="primary"」看不出条件分支。
+ *   · 硬压成 1 会让守卫逼出错误的设计（把真正的主动作降级成次要按钮）。
+ * 所以：**新组件一律 ≤1 颗**；已存在的多页组件锁基线，任何新增都会被挡住。
+ */
+// 8 → 9（2026-11-15）：换库改成了「下拉只选中 + 立即切换（弹窗确认）」后，
+// 「立即切换」是该区块的主动作、「确认切换」是弹窗自己的主动作（弹窗算独立一屏），
+// 原有「上传」降为次要按钮 —— 净增 1 颗，同屏可见的主按钮仍是一颗。
+const PRIMARY_BASELINE = { ConfigPanel: 9 }
+
+test('每个组件体内最多一个 primary 按钮（多页/多态组件按基线只减不增）', () => {
   // 按组件（function / const 大写开头）切分：一个面板组件里堆 2~3 颗主按钮，
   // 就是「用户不知道该点哪个」的直接原因。跨组件拼屏由使用方自己克制，这里守组件级。
   const bounds = []
   const re = /^(?:export )?(?:function ([A-Z][\w]*)|const ([A-Z][\w]*) = )/gm
   let m
   while ((m = re.exec(src))) bounds.push({ name: m[1] || m[2], at: m.index, line: src.slice(0, m.index).split('\n').length })
+  const seen = new Set()
   const offenders = []
   for (let i = 0; i < bounds.length; i++) {
     const from = bounds[i].at
     const to = i + 1 < bounds.length ? bounds[i + 1].at : src.length
     const block = src.slice(from, to)
     const n = (block.match(/variant="primary"/g) || []).length
-    if (n > 1) offenders.push({ component: bounds[i].name, line: bounds[i].line, n })
+    const name = bounds[i].name
+    seen.add(name)
+    const limit = Number.isInteger(PRIMARY_BASELINE[name]) ? PRIMARY_BASELINE[name] : 1
+    if (n > limit) offenders.push({ component: name, line: bounds[i].line, n, limit })
   }
-  assert.deepEqual(offenders, [], '这些组件里 primary 按钮超过 1 个：' + JSON.stringify(offenders))
+  assert.deepEqual(offenders, [], '这些组件的 primary 按钮超过上限（新组件 1 颗 / 老组件按基线）：' + JSON.stringify(offenders))
+  // 基线不许变成「写给不存在的组件」的历史垃圾：改名/删除后必须同步清理
+  const stale = Object.keys(PRIMARY_BASELINE).filter((k) => !seen.has(k))
+  assert.deepEqual(stale, [], '基线里这些组件已经不存在（改名或删除），请同步清理：' + JSON.stringify(stale))
 })
 
 test('旧的伪主按钮 me-on 只减不增（基线锁定）', () => {

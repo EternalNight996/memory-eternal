@@ -28,7 +28,13 @@ test('crossOriginError：同源放行、跨站拒绝、非浏览器（无 Origin
   assert.equal(crossOriginError(post('http://192.168.1.5:19387', '192.168.1.5:19387')), '')
   // 跨站：拒绝
   assert.match(crossOriginError(post('https://evil.com', '127.0.0.1:19387')), /跨站写入被拒/)
-  assert.match(crossOriginError(post('http://localhost:9999', '127.0.0.1:19387')), /跨站写入被拒/)
+  // **loopback 放行**（2026-11-15 起）：本机客户端页（http://127.0.0.1:7999）要把数据推到云端实例，
+  // Origin 与 Host 必然不同源；一律拒掉会让「上传」恒 403。安全性由 Bearer 令牌兜底：
+  // 别的站的页面跨源读不到 localStorage 里的 token，拿不到就写不进。见 lib/api.js 的 loopback 注释。
+  assert.equal(crossOriginError(post('http://localhost:9999', '127.0.0.1:19387')), '')
+  assert.equal(crossOriginError(post('http://127.0.0.1:7999', 'mem.mengbot.com.cn')), '', '本机客户端 → 云端上传必须放行')
+  // 非 loopback 的网页仍按跨站拒（局域网里的另一个站点也不例外）
+  assert.match(crossOriginError(post('http://192.168.1.9:8080', '127.0.0.1:19387')), /跨站写入被拒/)
   // 非浏览器 / 拿不到 Host：放行（宁可不误伤 curl / CLI / MCP）
   assert.equal(crossOriginError({ method: 'POST', headers: {} }), '')
   assert.equal(crossOriginError(post('https://evil.com', '')), '')

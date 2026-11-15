@@ -76,12 +76,31 @@ test('X-Admin-Token 头也行', () => withHome(async (home) => {
   assert.equal(r.status, 200)
 }))
 
-test('本机回环（未配 token）→ 放行', () => withHome(async (home) => {
+test('本机回环（未配 token）→ 放行；私网网段**不再**算本机（审计 S2）', () => withHome(async (home) => {
   const h = createCloudServer({ env: { ...process.env, DSH_HOME: home } })
-  for (const ip of ['127.0.0.1', '::1', '172.17.0.1', '10.0.0.5']) {
+  for (const ip of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) {
     const r = await invoke(h, { method: 'POST', path: '/cloud/keys', body: '{"owner":"local"}', headers: { 'content-type': 'application/json' }, remoteAddress: ip })
     assert.equal(r.status, 200, ip + ' 应放行')
   }
+  // 旧实现把整个 RFC1918 当"本机回环"：Docker 网桥 / K8s Pod / 同机房 VPC / 办公室局域网
+  // 里的任何人都能 POST /cloud/keys {"owner":"受害者"} 自签密钥 → 直接拿下对方全部记忆。
+  // 收紧后这些地址必须 403，并指向 MEMORY_CLOUD_ADMIN_TOKEN。
+  for (const ip of ['172.17.0.1', '172.20.0.5', '10.0.0.5', '192.168.1.5']) {
+    const r = await invoke(h, { method: 'POST', path: '/cloud/keys', body: '{"owner":"attacker"}', headers: { 'content-type': 'application/json' }, remoteAddress: ip })
+    assert.equal(r.status, 403, ip + ' 是私网但**不是本机回环**，必须拒绝')
+    assert.equal(r.body.code, 'admin_required')
+    assert.match(r.body.hint, /MEMORY_CLOUD_ADMIN_TOKEN/, '要告诉用户去配 token')
+  }
+}))
+
+test('本机回环但带反代头（x-forwarded-for）→ 不算本机直连（未配 token 时拒绝）', () => withHome(async (home) => {
+  const h = createCloudServer({ env: { ...process.env, DSH_HOME: home } })
+  const r = await invoke(h, {
+    method: 'POST', path: '/cloud/keys', body: '{"owner":"x"}',
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9' },
+    remoteAddress: '127.0.0.1',
+  })
+  assert.equal(r.status, 403, '带反代头说明前面有代理，真实来源无法确认')
 }))
 
 test('/cloud/config 同样受管（公网裸访问被拦）', () => withHome(async (home) => {
