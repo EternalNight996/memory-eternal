@@ -125,7 +125,10 @@ const onlyStampDrift = (() => {
   const lines = String(dirtyRaw || '').split('\n').map((s) => s.trim()).filter(Boolean)
   if (!lines.length) return false
   const allowed = new Set(['lib/client.js', 'web/app.js'])
-  if (!lines.every((l) => allowed.has(l.slice(3).trim()))) return false
+  // 注意：`git status --porcelain` 每行是「XY 路径」，但被 trim 过之后前导空格没了，
+  // 不能按固定列宽切 —— 用「第一段空白之后就是路径」来取。
+  const pathOf = (l) => { const m = /^\S+\s+(.+)$/.exec(l); return m ? m[1].trim() : '' }
+  if (!lines.every((l) => allowed.has(pathOf(l)))) return false
   const d = run('git', ['diff', '-U0', '--', 'lib/client.js', 'web/app.js']).out
   const changed = d.split('\n').filter((l) => (l.startsWith('+') || l.startsWith('-')) && !l.startsWith('+++') && !l.startsWith('---'))
   return changed.length > 0 && changed.every((l) => /__ME_BUILD_AT__|\bBUILD_AT\b/.test(l))
