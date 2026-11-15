@@ -1144,6 +1144,10 @@ export const ZH = {
   aboutDesc: '本地记忆核心：把你的知识沉淀成可召回的知识卡，数据留在本机，可选同步到自己的云端。',
   aboutGithub: 'GitHub 仓库',
   cardUnsynced: '未同步',
+  cloudWriteModeLabel: '自动沉淀写哪里',
+  cloudWriteModeHint: '云端模式下新沉淀的卡写去哪儿。只写云端 = 本机库不再增长（推荐）；双写 = 本机也留一份（离线可读，但本机库会继续变大）',
+  cloudWriteModeCloud: '只写云端（推荐）',
+  cloudWriteModeBoth: '双写：云端 + 本机各一份',
   cardUnsyncedHint: '这张卡还没推到云端（本地已保存）。切到云端模式后会自动推送，或用「补推」手动同步',
   activateVaultBtn: '切到此库',
   activateNeedRestart: '已记录。重启服务后生效（web 端与 DSH 会一起切换）',
@@ -2547,6 +2551,10 @@ export const EN = {
   aboutDesc: 'A local memory core: turn your knowledge into recallable cards. Data stays on your machine, optionally synced to your own cloud.',
   aboutGithub: 'GitHub',
   cardUnsynced: 'Not synced',
+  cloudWriteModeLabel: 'Where auto-capture writes',
+  cloudWriteModeHint: 'Where new cards go while in cloud mode. Cloud only = the local vault stops growing (recommended); Both = keep a local copy too (readable offline, but the local vault keeps growing)',
+  cloudWriteModeCloud: 'Cloud only (recommended)',
+  cloudWriteModeBoth: 'Both: cloud + local copy',
   cardUnsyncedHint: 'This card has not been pushed to cloud yet (saved locally). It syncs automatically in cloud mode, or use the flush action.',
   activateVaultBtn: 'Switch to this',
   activateNeedRestart: 'Recorded. Takes effect after restart (both web and DSH follow it)',
@@ -11136,6 +11144,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
               {/* 局部兜底：云端面板依赖的东西最多（localStorage / fetch / 本地库路径），
                   它自己崩了不该让整页设置打不开。这里再包一层，崩了只影响这一块。 */}
               <PanelErrorBoundary>
+              {/* 自动沉淀写哪里（v0.48.3）：云端模式下默认只写云端，避免本机库继续长碎片卡 */}
+              <label className="mc-field" style={{ marginTop: 10 }}>
+                <span className="mc-field-label">{t('cloudWriteModeLabel')}</span>
+                <select value={(form && form.cloudWriteMode) === 'both' ? 'both' : 'cloud'} onChange={(e) => set('cloudWriteMode', e.target.value)}>
+                  <option value="cloud">{t('cloudWriteModeCloud')}</option>
+                  <option value="both">{t('cloudWriteModeBoth')}</option>
+                </select>
+                <span className="mc-field-hint">{t('cloudWriteModeHint')}</span>
+              </label>
               {/* 运行模式下拉已删：登录了就是云端、没登录就是本地（用户口径）。
                   云↔本地的切换只走下面「⇄ 切换库」——它列的是**库**，不是"模式"，
                   所以切到本机库不会把云端账号注销掉。 */}
