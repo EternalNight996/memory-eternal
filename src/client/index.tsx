@@ -50,6 +50,8 @@ const API = '/memory-eternal/api'
 let LOCAL_PREFIX = API
 let cloudToken = ''
 const CLOUD_CFG_KEY = 'me-cloud-conn'
+/** 断点续传：上传被打断（关页面/断网/崩溃）后，下次点上传从上次的 offset 接着传 */
+const XFER_RESUME_KEY = 'me-xfer-resume'
 
 /**
  * 只打**本机**服务的 fetch（绕过云端重写）。
@@ -1103,6 +1105,11 @@ export const ZH = {
   btnUploadHint: '把当前本机库整份复制到云端（本地保留，重复自动跳过）',
   btnDownloadHint: '把云端当前库整份复制到本机库（重复自动跳过）',
   xferProgress: '已传输 {d} / {t} 张',
+  xferAuthExpired: '登录已失效：重新扫码登录后，再点一次上传会从上次中断处继续',
+  xferCancelled: '已取消（进度已保留，再点上传会接着传）',
+  xferPartial: '部分分片失败：成功的已写入，再点一次上传会重试剩余部分',
+  xferReadLocalFail: '读取本地库失败（HTTP {s}）',
+  xferResume: '上次传到 {d} / {t} 张，点上传接着传',
   xferDone: '完成 · 新增 {in} · 重复 {dup} · 失败 {fail}',
   xferIdle: '就绪：点「上传」把本机库推到云端，「下载」把云端拉回本机',
   xferNeedLogin: '未登录云端：先在上方扫码登录才能上传/下载',
@@ -2392,6 +2399,11 @@ export const EN = {
   btnUploadHint: 'Copy the current local vault to cloud (local kept, duplicates skipped)',
   btnDownloadHint: 'Copy the current cloud vault into the local vault',
   xferProgress: '{d} / {t} transferred',
+  xferAuthExpired: 'Session expired — sign in again, then Upload resumes where it stopped',
+  xferCancelled: 'Cancelled (progress kept; Upload continues next time)',
+  xferPartial: 'Some chunks failed — successes are saved; click Upload again to retry the rest',
+  xferReadLocalFail: 'Failed to read the local vault (HTTP {s})',
+  xferResume: 'Last run reached {d} / {t} — Upload continues from there',
   xferDone: 'Done · {in} added · {dup} duplicates · {fail} failed',
   xferIdle: 'Ready: Upload pushes the local vault up, Download pulls the cloud vault down',
   xferNeedLogin: 'Not signed in — scan the code above first',
@@ -8860,35 +8872,71 @@ function ConfigPanel({ t, onReload, version, compact }) {
     if (!src) { setImportJob({ importing: false, dir: 'up', err: t('cfPickLocalVault') }); return }
     if (importJob && importJob.importing) return
     importCancelRef.current = false
-    setImportJob({ importing: true, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, err: '' })
+    setImportJob({ importing: true, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, failed: 0, err: '' })
     try {
       const exp = await fetchLocal('/vaults/export?path=' + encodeURIComponent(src))
-      if (!exp.ok) throw new Error('读取本地库失败 HTTP ' + exp.status)
+      if (!exp.ok) throw new Error(t('xferReadLocalFail').replace('{s}', String(exp.status)))
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
-      if (!cards.length) { setImportJob({ importing: false, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, err: t('importEmpty') }); return }
-      setImportJob({ importing: true, dir: 'up', done: 0, total: cards.length, imported: 0, duplicate: 0, err: '' })
+      if (!cards.length) { setImportJob({ importing: false, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, failed: 0, err: t('importEmpty') }); return }
+
       const CHUNK = 200
-      let imported = 0, duplicate = 0
-      for (let off = 0; off < cards.length; off += CHUNK) {
-        if (importCancelRef.current) { setImportJob((j) => ({ ...(j || {}), importing: false })); return }
+      // 断点续传：上次传到第几张就接上去（对齐到分片边界，避免重复消耗）
+      let startOff = 0
+      try {
+        const rs = JSON.parse(localStorage.getItem(XFER_RESUME_KEY) || 'null')
+        if (rs && rs.src === src && rs.total === cards.length && rs.done > 0 && rs.done < cards.length) {
+          startOff = Math.floor(rs.done / CHUNK) * CHUNK
+        }
+      } catch { /* 忽略 */ }
+
+      let imported = 0, duplicate = 0, failed = 0
+      setImportJob({ importing: true, dir: 'up', done: startOff, total: cards.length, imported: 0, duplicate: 0, failed: 0, err: '' })
+
+      for (let off = startOff; off < cards.length; off += CHUNK) {
+        if (importCancelRef.current) {
+          // 手动取消：保留断点，下次能接着传
+          setImportJob((j) => ({ ...(j || {}), importing: false, err: t('xferCancelled') }))
+          return
+        }
         const slice = cards.slice(off, off + CHUNK)
-        const r = await fetch(cloudApi('/import/chunk'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) },
-          body: JSON.stringify({ cards: slice, offset: off, total: cards.length }),
-        })
-        const d = await r.json().catch(() => ({}))
-        if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
-        imported += Number(d.imported) || 0
-        duplicate += Number(d.duplicate) || 0
-        setImportJob({ importing: true, dir: 'up', done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, err: '' })
+        let ok = false
+        let lastErr = ''
+        for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+          try {
+            const r = await fetch(cloudApi('/import/chunk'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) },
+              body: JSON.stringify({ cards: slice, offset: off, total: cards.length }),
+            })
+            const d = await r.json().catch(() => ({}))
+            // 401/403 = 登录态失效。进度保留在断点里，重新登录后点上传即可接着传。
+            if (r.status === 401 || r.status === 403) throw new Error('__AUTH__')
+            if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
+            imported += Number(d.imported) || 0
+            duplicate += Number(d.duplicate) || 0
+            ok = true
+          } catch (e) {
+            lastErr = String((e && e.message) || e)
+            if (lastErr === '__AUTH__') throw new Error(t('xferAuthExpired'))
+            // 断网/超时/5xx：退避重试（1s、2s），仍失败就记进 failed 继续下一片
+            if (attempt < 3) await new Promise((res) => setTimeout(res, 1000 * attempt))
+          }
+        }
+        if (!ok) failed += slice.length
+        try { localStorage.setItem(XFER_RESUME_KEY, JSON.stringify({ src, total: cards.length, done: Math.min(off + slice.length, cards.length), at: Date.now() })) } catch { /* 忽略 */ }
+        setImportJob({ importing: true, dir: 'up', done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, failed, err: failed ? lastErr : '' })
       }
-      setImportJob({ importing: false, dir: 'up', done: cards.length, total: cards.length, imported, duplicate, err: '' })
+
+      const done = failed === 0
+      if (done) { try { localStorage.removeItem(XFER_RESUME_KEY) } catch { /* 忽略 */ } }
+      setImportJob({ importing: false, dir: 'up', done: cards.length, total: cards.length, imported, duplicate, failed, err: done ? '' : t('xferPartial') })
       try { loadVaults() } catch { /* 忽略 */ }
       try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
     } catch (e) {
-      setImportJob((j) => ({ ...(j || {}), importing: false, err: String((e && e.message) || e) }))
+      // 失败也保留断点（本地库里那份 data 下次还能对得上 src+total 就续传）
+      const msg = String((e && e.message) || e)
+      setImportJob((j) => ({ ...(j || {}), importing: false, err: msg }))
     }
   }
 
@@ -10485,7 +10533,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                           <Btn
                             variant="primary"
                             size="sm"
-                            disabled={!vaultSel || !!(importJob && importJob.importing) || !cloudForm.token}
+                            disabled={!!(importJob && importJob.importing) || !cloudForm.token}
                             onClick={() => uploadVaultToCloud((vaultList && (vaultList.find((v) => v.isCurrent) || {}).path) || vaultSel)}
                             title={t('btnUploadHint')}
                           >
