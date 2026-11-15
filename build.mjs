@@ -5,13 +5,25 @@
 // 依赖：devDependencies 里的 esbuild（pnpm i 后可用）。
 
 import { build } from 'esbuild'
+import { execFileSync } from 'node:child_process'
 import { readFile, writeFile, rm, stat } from 'node:fs/promises'
 
 const PACKAGE_ID = 'memory-eternal'
 // 把插件版本注入客户端：面板据此显示「页面脚本版本」，并在页面脚本落后于磁盘时直接提示刷新
 // （否则用户更新后看到的仍是旧页面 JS，会误以为「改了没生效」，例如配置保存无反馈）。
 const pkg = JSON.parse(await readFile('package.json', 'utf8'))
-const BUILD_AT = new Date().toISOString()
+// 构建时间戳必须**可复现**：原来用 `new Date()`，于是每次 build 两个 bundle 都会变，
+// 而 `scripts/release.mjs` 的「构建产物与提交一致」闸门会在 `npm test`（内部跑 build）
+// 之后必然判脏 —— 发版被自己拦住。改成按 **HEAD 的提交时间**取值：同一个提交永远同一个值，
+// 而它想表达的信息（"这份页面脚本是什么时候的"）反而更准确。CI 可用 ME_BUILD_AT 覆盖。
+const BUILD_AT = (() => {
+  const fromEnv = String(process.env.ME_BUILD_AT || '').trim()
+  if (fromEnv) return fromEnv
+  try {
+    const t = execFileSync('git', ['log', '-1', '--format=%cI'], { encoding: 'utf8' }).trim()
+    return t || 'unknown'
+  } catch { return 'unknown' }
+})()
 // 唯一的压缩开关：两份 bundle 共用。
 // 现在为 false —— 压缩会把线上堆栈变成单字母名（`Cannot access 'fe'` 无从定位），
 // 体积收益（约 300KB）抵不上排查成本。想改回来只改这一处，别在下面两处各写一遍。
