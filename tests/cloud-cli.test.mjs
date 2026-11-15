@@ -201,3 +201,25 @@ test('cloud --help：列出全部子命令与两种模式', () => {
     assert.ok(r.out.includes(s), 'help 里缺少：' + s)
   }
 })
+
+test('开源包里没有 cloud-auth.js 时：本地命令优雅降级到远程模式提示（退出码 3，不抛栈）', async () => {
+  // 模拟「npm 包装出来但没有私有组件」：只拷 cloud-cli.js 到临时目录，import 它
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'me-ccli-oss-'))
+  homes.push(dir)
+  fs.copyFileSync(path.join(ROOT, 'lib', 'cloud-cli.js'), path.join(dir, 'cloud-cli.js'))
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }))
+  const errs = []
+  const origErr = console.error
+  console.error = (...a) => errs.push(a.join(' '))
+  let code = null
+  try {
+    const mod = await import('file:///' + path.join(dir, 'cloud-cli.js').replace(/\\/g, '/'))
+    code = await mod.runCloudCli(['info', '--home', dir])
+  } finally { console.error = origErr }
+  assert.equal(code, 3, '缺私有组件时应返回 3，而不是崩')
+  const text = errs.join('\n')
+  assert.match(text, /没有云端私有组件/)
+  assert.match(text, /--url/)
+  assert.match(text, /--admin-token/)
+})
+

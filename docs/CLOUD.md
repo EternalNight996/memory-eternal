@@ -66,6 +66,9 @@ dsh-memory cloud keys ls --url https://mem.example.com --admin-token <tok>
 > 为什么 CLI 不用令牌：台账 `$DSH_HOME/cloud-keys.json` 与服务端是同一个文件，而且 `resolveTenant`
 > **每个请求都重新读盘** —— 所以签发/吊销立即生效。反过来说，谁能读到这个文件谁就等于管理员，
 > 所以它是 0600、放在 `$DSH_HOME` 下，别挪进共享盘。
+>
+> **开源包里的 `dsh-memory cloud`**：`cloud-auth.js` 属私有组件不随包发布，所以本地台账模式在开源包内
+> 会直接提示「到云端实例主机执行，或用远程模式」（退出码 3）；远程模式（`--url` + `--admin-token`）不受影响。
 
 
 ```bash

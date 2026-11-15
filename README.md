@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.48.0-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.48.1-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 [English](README.en.md) · **简体中文（默认）**
 
-## ☁️ 云端记忆（v0.48.0 主打）
+## ☁️ 云端记忆（v0.48.1 主打）
 
 **记忆库跟着人走，不跟着机器走。** 本机库照旧离线可用；登录云端后，同一套知识卡在你的每台设备、每个
 Agent 上都能读到 —— 换电脑不用搬家，换客户端不用重新喂上下文。
