@@ -32,7 +32,9 @@ import { migrateFromMarkdown, setAuditConfig, backupDb, lastBackupAt } from './l
 import { evaluateStall, MAX_STAMPS } from './lib/stall.js'
 import { resolveVaultDir, currentWorkspace } from './lib/vault-resolve.js'
 import { readActiveVault, writeActiveVault } from './lib/vault-pref.js'
-import { shouldPushToCloud, pushCardToCloud, enqueueFailedPush, flushQueue } from './lib/cloud-push.js'
+import { shouldPushToCloud, pushCardToCloud, enqueueFailedPush, flushQueue, readCloudConn } from './lib/cloud-push.js'
+// 自动沉淀写哪里：云端模式下默认**只写云端**（不再往本地库插，见 lib/capture-target.js）
+import { resolveCaptureTarget, CLOUD_WRITE_MODES } from './lib/capture-target.js'
 import { createHub } from './lib/sse.js'
 import { summarizeTurn, summarizeTurnDetailed, routeCandidates, sessionRouteFrom, extractLastTurn, sliceNewEvents, sessionEvents, sessionEventApi, createCaptureHealth, resolveRoute, captureCard, captureUpdate, pickNeighbors, hasUsableContent, deriveTitle, looksTruncated, maxTokenLadder, guessRawKind, preferenceLines, DEFAULT_CAPTURE_MAX_TOKENS, MAX_CAPTURE_MAX_TOKENS } from './lib/capture.js'
 import { markCloudSynced } from './lib/vault.js'
@@ -83,6 +85,8 @@ export const Config = z.object({
   uiScale: z.union([z.const('compact'), z.const('normal'), z.const('large')]).default('normal'),
   // 主题皮肤：一键切换整个记忆界面（含设置页）。新增皮肤时在这里登记 id，并在 src/client 的 CSS 里加 [data-skin="id"] 块。
   theme: z.union([z.const('default'), z.const('pop'), z.const('light'), z.const('resident'), z.const('spider')]).default('default'),
+  // 自动沉淀的写入目标（仅云端模式生效）：cloud = 只写云端（默认，本地库不再增长）；both = 本地也留一份（老行为）
+  cloudWriteMode: z.union(CLOUD_WRITE_MODES.map((m) => z.const(m))).default('cloud'),
   vaultDir: z.string().default(''),
   dedupThreshold: z.number().min(0).max(1).default(0.62),
   captureMinChars: z.number().default(120),
@@ -841,6 +845,22 @@ export function apply(ctx, config) {
    * 云端 /import/chunk 按 contentHash 去重，同一张卡再推只会 skipped。
    */
   const captureCardThenPush = async (root, card, opts) => {
+    // 云端模式（默认）：**不再写本地库**，直接推云端；失败进补推队列（队列存整卡，恢复后补推，不丢数据）。
+    // 为什么改：原来"本地永远写 + 云端是副本"会让本地库在云端模式下持续长出碎片卡
+    // （真实现场：云端 9656 张、本地 46 张），用户看到就是"切了云端它还在往本地插"。
+    // 想保留本地账本就配 cloudWriteMode='both'（老行为）。
+    const _target = resolveCaptureTarget({ conn: readCloudConn(), cfg: settings.get() || {} })
+    if (_target === 'cloud') {
+      const _t = shortTitle(card.title)
+      const r = await pushCardToCloud(card).catch((e) => ({ ok: false, error: String((e && e.message) || e) }))
+      if (r && r.ok) {
+        logCapture('system', 'created', '已写入云端' + (r.skipped ? '（云端已有同内容，跳过）' : '') + '「' + _t + '」', { title: _t })
+        return { ok: true, cloud: true, skipped: !!r.skipped }
+      }
+      const q = enqueueFailedPush(card, (r && r.error) || 'unknown')
+      logCapture('system', 'warn', '云端写入失败（未写本地' + (q && q.ok ? '，已进补推队列' : '，队列也没写进去') + '）：' + ((r && r.error) || 'unknown'), { title: _t })
+      return { ok: false, cloud: true, error: (r && r.error) || 'unknown' }
+    }
     const written = await captureCard(root, card, opts)
     // 日志要能说清「操作了哪张卡」：把草稿标题挂到写卡结果上，
     // 调用方（写卡 / 去重 / 失败兜底）不必各自再记一遍标题。
@@ -1777,7 +1797,9 @@ export function apply(ctx, config) {
               // 只暴露可安全展示/回填的字段
               const safe = {
                 autoCapture: cfg.autoCapture !== false, autoRecall: cfg.autoRecall !== false, coreMemoryEnabled: cfg.coreMemoryEnabled, workingMemoryEnabled: cfg.workingMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, theme: cfg.theme, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
-                captureMinChars: cfg.captureMinChars ?? 120, captureCooldownMs: cfg.captureCooldownMs ?? 60000, dedupThreshold: cfg.dedupThreshold ?? 0.62, maxCardsPerDay: cfg.maxCardsPerDay ?? 1000,
+                captureMinChars: cfg.captureMinChars ?? 120, captureCooldownMs: cfg.captureCooldownMs ?? 60000,
+                // 自动沉淀写哪里（仅云端模式生效）：cloud = 只写云端（默认）；both = 本地也留一份
+                cloudWriteMode: cfg.cloudWriteMode === 'both' ? 'both' : 'cloud', dedupThreshold: cfg.dedupThreshold ?? 0.62, maxCardsPerDay: cfg.maxCardsPerDay ?? 1000,
                 distillEnabled: cfg.distillEnabled !== false, dedupByLLM: cfg.dedupByLLM !== false, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
                 autoWeb: cfg.autoWeb !== false, autoWebMode: cfg.autoWebMode, webPort: cfg.webPort, webCheckIntervalMs: cfg.webCheckIntervalMs, webMaxRestart: cfg.webMaxRestart, watchdogAutoSpawn: cfg.watchdogAutoSpawn, autoRestartOnDrift: cfg.autoRestartOnDrift, autoMcpSetup: cfg.autoMcpSetup,
                 auditMode: cfg.auditMode ?? 'all', auditExemptAgents: cfg.auditExemptAgents || [], auditExemptKinds: cfg.auditExemptKinds || [], recycleRetentionDays: cfg.recycleRetentionDays ?? 30,
