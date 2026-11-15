@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.48.1-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.48.2-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 **English** · [简体中文（默认）](README.md)
 
-## ☁️ Cloud memory (the v0.48.1 headline)
+## ☁️ Cloud memory (the v0.48.2 headline)
 
 **Your vault follows you, not the machine.** The local vault still works offline; sign in to your cloud instance
 and the same cards are readable from every device and every agent — no migration on a new laptop, no re-feeding
@@ -93,41 +93,6 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 > closed source (the open graph engine is graphiti). `letta-ai/letta` is archived with active source in `letta-code`.
 > Neither star count should be read as "the open-source build".
 
-**Table 3 · Knowledge base / RAG platforms (different category — scale and ecosystem only)**
-
-| Project | Stars | What it is | Relation to us |
-|---|---|---|---|
-| Dify | 161,183 | Agent workflow + RAG application platform | Orchestration; memory needs a plugin |
-| RAGFlow | 94,169 | Deep document-understanding RAG engine | Document retrieval, not session memory |
-| AnythingLLM | 68,293 | Local-first private knowledge assistant | Workspaces, but no review-before-commit gate |
-| LlamaIndex | 52,907 | Document indexing and retrieval framework | A library, not a ready memory app |
-| Khoj | 38,128 | Self-hosted AI second brain | Closest, but personal semantic search |
-| Qdrant / Milvus / Chroma / Weaviate | 35,563 / 46,666 / 29,688 / 16,948 | Vector databases | We default to SQLite + FTS5; plug vectors in when needed |
-
-**We are not the biggest here.** Dify has 161k stars, Mem0 has 69k and a funded team. What we do differently is the
-**write path**: a human gate, physically separated stores, an audit trail you can point at, plus a ledger so you can
-check whether recall is actually worth its cost — that is the "governance" column in Table 1, not a tagline.
-
-Reproduce the numbers on **your own vault**:
-
-```bash
-node scripts/bench-search.mjs --rebuild   # rebuild time + p50/p95/max latency
-node scripts/bench-recall.mjs             # golden-set R@5 / Top1
-dsh-memory ledger --days 30 --json        # recall injection / capture calls / usefulness
-```
-
-| Our measured baseline (2026-11-12, 2,943 cards) | Value |
-|---|---|
-| Golden 109 R@5 (built-in / bge-m3) | 96.3% / **99.1%** |
-| Golden 109 Top1 (built-in / bge-m3) | 86.2% / **89.9%** |
-| Paraphrase 10 R@5 (built-in / bge-m3) | 40% / **70%** |
-| LongMemEval-S 500 R@5 (built-in / bge-m3) | 95.4% / **97.2%** |
-| Recall latency (lexical / semantic) | ~7 ms / 81 ms |
-| Recall model calls (built-in) | 0 |
-
-> Retrieval ≠ QA. Our two rows in Table 2 are **retrieval R@5**; Mem0's 94.4 is a self-reported **LongMemEval QA**
-> number on their managed platform. The columns are not comparable.
-
 ## ⚡ Quick start
 
 ```bash
@@ -194,16 +159,50 @@ Not everything should be injected into every session. Core memory is the small, 
 - in the knowledge graph, core nodes are orange diamonds with a ★;
 - never store secrets or API keys in a core card; keep only a pointer to the credential directory.
 
-## 🧩 One vault, every agent
 
-| Entry | What you get |
+## 🧩 Supported hosts (one vault, every host)
+
+One SQLite vault that all of the following can read from and write to. Every write lands in the **review queue**; approving happens in the DSH / Web panel, regardless of which host wrote the card.
+
+- **DeepSeek Harness (desktop / `dsh web`)** — plugin: `dsh plugin --profile desktop add memory-eternal`; full embedded panel (review · graph · ledger · cloud switcher · key management).
+- **Claude Code** — MCP: `dsh-memory connect claude`; auto-capture on session end (user-level hook).
+- **Codex / Codex Desktop** — MCP: `dsh-memory connect codex`; same, no plugin required.
+- **Cursor** — MCP: `dsh-memory connect cursor`; plus the [Cursor / VS Code extension](cursor-extension/README.md).
+- **MengBot** — MCP (per bot): add one stdio server to the bot's MCP config, `npx -y -p memory-eternal dsh-memory mcp`; one vault per bot or a shared one — see [INTEGRATIONS](docs/INTEGRATIONS.md).
+- **OpenClaw** — MCP: add one stdio server under `mcp.servers`, verify with `openclaw mcp doctor memory-eternal --probe`.
+- **Hermes Agent (NousResearch)** — MCP: add one entry under `mcp_servers` in `~/.hermes/config.yaml`; tools are discovered on start.
+- **WorkBuddy and any other MCP client** — MCP: standard stdio, `command: npx` / `args: ["-y","-p","memory-eternal","dsh-memory","mcp"]`.
+- **Terminal (TUI)** — `npx -y -p memory-eternal dsh-memory tui`: live queue, select-all, batch approve/reject, long-form reader.
+- **Web** — `dsh-memory open` → http://127.0.0.1:7999: standalone; review, search and backup without any host.
+- **Orca launcher** — see [orca-plugin](orca-plugin/README.md): launches with the vault already attached.
+- **Cloud instance** — same API over HTTPS after sign-in (see "Cloud memory" above); the local vault is your offline copy.
+
+> MCP is just a standard stdio server with 5 tools: `memory_recall` / `memory_capture` / `memory_stats` / `memory_audit_list` / `memory_revise`. Anything not listed works with the same stdio snippet.
+
+
+**We are not the biggest here.** Mem0 has 69k stars and a funded team. What we do differently is the
+**write path**: a human gate, physically separated stores, an audit trail you can point at, plus a ledger so you can
+check whether recall is actually worth its cost — that is the "governance" column in Table 1, not a tagline.
+
+Reproduce the numbers on **your own vault**:
+
+```bash
+node scripts/bench-search.mjs --rebuild   # rebuild time + p50/p95/max latency
+node scripts/bench-recall.mjs             # golden-set R@5 / Top1
+dsh-memory ledger --days 30 --json        # recall injection / capture calls / usefulness
+```
+
+| Our measured baseline (2026-11-12, 2,943 cards) | Value |
 |---|---|
-| **DSH desktop / web** | embedded memory UI: review, graph, config, cloud switcher, ledger |
-| **Claude Code / Codex / Cursor** | MCP server, same vault, `dsh-memory connect` |
-| **Any MCP client** | `npx -y -p memory-eternal dsh-memory mcp` |
-| **Terminal** | `dsh-memory tui` — live queue, select-all, batch approve/reject, long-form reader |
-| **Browser** | `dsh-memory open` → http://127.0.0.1:7999 |
-| **Cloud** | same API over HTTPS after sign-in; the local vault is your offline copy |
+| Golden 109 R@5 (built-in / bge-m3) | 96.3% / **99.1%** |
+| Golden 109 Top1 (built-in / bge-m3) | 86.2% / **89.9%** |
+| Paraphrase 10 R@5 (built-in / bge-m3) | 40% / **70%** |
+| LongMemEval-S 500 R@5 (built-in / bge-m3) | 95.4% / **97.2%** |
+| Recall latency (lexical / semantic) | ~7 ms / 81 ms |
+| Recall model calls (built-in) | 0 |
+
+> Retrieval ≠ QA. Our two rows in Table 2 are **retrieval R@5**; Mem0's 94.4 is a self-reported **LongMemEval QA**
+> number on their managed platform. The columns are not comparable.
 
 ## 🔍 Semantic recall (built-in by default, no model required)
 
