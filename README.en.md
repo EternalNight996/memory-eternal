@@ -93,6 +93,25 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 > closed source (the open graph engine is graphiti). `letta-ai/letta` is archived with active source in `letta-code`.
 > Neither star count should be read as "the open-source build".
 
+## 🏷 Command names and aliases
+
+The package name has always been the neutral **memory-eternal**; only the CLI was called `dsh-memory` early on
+(back when it served DSH only). All three spellings are the same entry point today:
+
+| Command | Where to use it |
+|---|---|
+| `memory` | Primary name. Any host, plain CLI, scripts |
+| `mem` | Short alias, less typing |
+| `dsh-memory` | Compatibility entry. Old docs, old scripts and the DSH plugin still use it; it will not be removed |
+
+```bash
+memory status --port 7999      # same as dsh-memory status --port 7999
+mem peer code                  # same as dsh-memory peer code
+```
+
+The data location is equally flexible: `MEMORY_VAULT_DIR` (vault directory), `MEMORY_DB_FILE` (database filename)
+and `MEMORY_WEB_PORT` (port) are all configurable, so the vault does not have to live under `~/.dsh`.
+
 ## ⚡ Quick start
 
 ```bash
