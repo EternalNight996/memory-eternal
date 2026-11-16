@@ -455,7 +455,7 @@ export function apply(ctx, config) {
       const { ensureDefaultMount } = await import('./lib/mcp-mount.js')
       const r = ensureDefaultMount({ packageRoot: PACKAGE_ROOT, vault: vaultDir() })
       if (r && r.ok && !r.skipped) {
-        try { logCapture('system', 'created', '已把 Agent MCP 默认挂到 DSH（' + (r.target && r.target.vault ? r.target.vault : '默认库') + '）') } catch { /* 日志旁路 */ }
+        try { logCapture('system', 'created', '已把 Agent MCP 默认挂到 DSH（' + (r.target && r.target.vault ? r.target.vault : '默认库') + '）', { title: 'MCP 默认挂载（DSH）' }) } catch { /* 日志旁路 */ }
       }
     } catch (e) {
       try { console.error('[memory-eternal] 默认挂载 MCP 失败（不影响记忆功能）：' + String((e && e.message) || e)) } catch { /* 忽略 */ }
