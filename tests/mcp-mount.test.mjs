@@ -149,13 +149,13 @@ test('列表式点击挂载：库列表 + 宿主列表，点行即挂/摘', () =
   // ① 列表渲染：目标库（本机 + 已配对节点）与宿主，各自可点
   assert.match(block, /mcpPickTarget/, '要有「选择要挂的库」列表标题')
   assert.match(block, /mcpPickHost/, '要有「选择宿主」列表标题')
-  assert.match(block, /onClick=\{\(\) => setTarget\('local'\)\}/, '本机库那行要能点选')
-  assert.match(block, /onClick=\{\(\) => setTarget\(pr\.id\)\}/, '每个已配对节点一行，点选')
+  assert.match(block, /onClick=\{\(\) => setTarget\(item\.id\)\}/, '库列表每行（含本机默认库）都能点选')
+  assert.match(block, /peers\.map\(\(pr\) => \(\{ id: pr\.id/, '已配对节点要并进同一个列表')
   assert.match(block, /onClick=\{\(\) => toggleHost\(h\)\}/, '每个宿主一行，点行挂/摘')
 
   // ② 点行行为：已挂 → unmount(hosts:id)；未挂 → mount(hosts:id, 目标)
-  assert.match(block, /call\('\/mcp\/unmount', \{ hosts: host\.id \}\)/, '点击已挂宿主应卸载该宿主')
-  assert.match(block, /call\('\/mcp\/mount', \{ \.\.\.targetPayload\(\), hosts: host\.id \}\)/, '点击未挂宿主应挂上当前目标')
+  assert.match(block, /j\('\/mcp\/unmount', \{ hosts: host\.id \}\)/, '点击已挂宿主应卸载该宿主')
+  assert.match(block, /j\('\/mcp\/mount', \{ \.\.\.targetPayload\(\), hosts: host\.id \}\)/, '点击未挂宿主应挂上当前目标')
   assert.match(block, /未安装|!h\.installed/, '未安装宿主不该能点')
   assert.match(block, /mcpUnmountAll/, '保留全部卸载')
 })
@@ -198,4 +198,35 @@ test('Windows 兼容：node 解析不走 Electron 的 execPath（源码守卫）
   const httpSrc = readFileSync(path.join(root, 'lib/mcp-mount-http.js'), 'utf8')
   assert.match(httpSrc, /runSelfTest/, '要有自检端点')
   assert.ok(httpSrc.includes("'/mcp/selftest'"), '要有自检端点路由')
+})
+
+test('宿主列表超过 3 个折叠：默认只渲染 3 行 + 「展开其余 N 个」', () => {
+  const ui = readFileSync(path.join(root, 'src/client/index.tsx'), 'utf8')
+  const start = ui.indexOf('function AgentMcpMountCard(')
+  const next = ui.indexOf('\nfunction ', start + 10)
+  const block = ui.slice(start, next > 0 ? next : ui.length)
+  assert.match(block, /hosts\.slice\(0, 3\)/, '默认只显示前 3 个宿主')
+  assert.match(block, /const visible = more \? hosts :/, '展开后显示全部')
+  assert.match(block, /mcpShowMore/, '要有「展开其余 N 个」入口')
+  assert.match(block, /mcpShowLess/, '展开后要能收起')
+  assert.match(block, /hidden = Math\.max\(0, hosts\.length - 3\)/, '隐藏数量按总数-3 算')
+})
+
+test('自动挂载用自制 switch（不是原生大勾选框），文案中英不串位', () => {
+  const ui = readFileSync(path.join(root, 'src/client/index.tsx'), 'utf8')
+  const start = ui.indexOf('function AgentMcpMountCard(')
+  const next = ui.indexOf('\nfunction ', start + 10)
+  const block = ui.slice(start, next > 0 ? next : ui.length)
+  assert.match(block, /role="switch"/, '要做成开关而不是 checkbox')
+  assert.ok(!/type="checkbox"/.test(block), '不该再用原生 checkbox')
+
+  // 中文字典里这几条不该是英文长句（之前 zh/en 被写串过）
+  const zhKeys = ['mcpSectionSub', 'mcpMountHint', 'mcpAutoMountLabel', 'mcpHostAbsent', 'mcpMountAll']
+  for (const k of zhKeys) {
+    const m = new RegExp('^\\s*' + k + ":\\s*'([^']*)'", 'm').exec(ui)
+    assert.ok(m, k + ' 缺失')
+    const val = m[1]
+    const asciiWords = (val.match(/[A-Za-z]{4,}/g) || []).filter((w) => !/^(DSH|Claude|Code|Codex|Cursor|Windsurf|Agent|MCP)$/.test(w))
+    assert.equal(asciiWords.length, 0, k + ' 的中文值里不该夹英文长句：' + val.slice(0, 60))
+  }
 })

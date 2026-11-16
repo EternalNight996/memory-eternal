@@ -7850,13 +7850,13 @@
         const pos = exports.getRowColCoords(version2);
         const posLength = pos.length;
         for (let i = 0; i < posLength; i++) {
-          for (let j2 = 0; j2 < posLength; j2++) {
-            if (i === 0 && j2 === 0 || // top-left
-            i === 0 && j2 === posLength - 1 || // bottom-left
-            i === posLength - 1 && j2 === 0) {
+          for (let j = 0; j < posLength; j++) {
+            if (i === 0 && j === 0 || // top-left
+            i === 0 && j === posLength - 1 || // bottom-left
+            i === posLength - 1 && j === 0) {
               continue;
             }
-            coords.push([pos[i], pos[j2]]);
+            coords.push([pos[i], pos[j]]);
           }
         }
         return coords;
@@ -7975,24 +7975,24 @@
         const k = Math.abs(Math.ceil(darkCount * 100 / modulesCount / 5) - 10);
         return k * PenaltyScores.N4;
       }, "getPenaltyN4");
-      function getMaskAt(maskPattern, i, j2) {
+      function getMaskAt(maskPattern, i, j) {
         switch (maskPattern) {
           case exports.Patterns.PATTERN000:
-            return (i + j2) % 2 === 0;
+            return (i + j) % 2 === 0;
           case exports.Patterns.PATTERN001:
             return i % 2 === 0;
           case exports.Patterns.PATTERN010:
-            return j2 % 3 === 0;
+            return j % 3 === 0;
           case exports.Patterns.PATTERN011:
-            return (i + j2) % 3 === 0;
+            return (i + j) % 3 === 0;
           case exports.Patterns.PATTERN100:
-            return (Math.floor(i / 2) + Math.floor(j2 / 3)) % 2 === 0;
+            return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0;
           case exports.Patterns.PATTERN101:
-            return i * j2 % 2 + i * j2 % 3 === 0;
+            return i * j % 2 + i * j % 3 === 0;
           case exports.Patterns.PATTERN110:
-            return (i * j2 % 2 + i * j2 % 3) % 2 === 0;
+            return (i * j % 2 + i * j % 3) % 2 === 0;
           case exports.Patterns.PATTERN111:
-            return (i * j2 % 3 + (i + j2) % 2) % 2 === 0;
+            return (i * j % 3 + (i + j) % 2) % 2 === 0;
           default:
             throw new Error("bad maskPattern:" + maskPattern);
         }
@@ -8427,8 +8427,8 @@
       exports.mul = /* @__PURE__ */ __name(function mul(p1, p2) {
         const coeff = new Uint8Array(p1.length + p2.length - 1);
         for (let i = 0; i < p1.length; i++) {
-          for (let j2 = 0; j2 < p2.length; j2++) {
-            coeff[i + j2] ^= GF.mul(p1[i], p2[j2]);
+          for (let j = 0; j < p2.length; j++) {
+            coeff[i + j] ^= GF.mul(p1[i], p2[j]);
           }
         }
         return coeff;
@@ -9131,9 +9131,9 @@
         for (let i = 0; i < nodes.length; i++) {
           const nodeGroup = nodes[i];
           const currentNodeIds = [];
-          for (let j2 = 0; j2 < nodeGroup.length; j2++) {
-            const node = nodeGroup[j2];
-            const key = "" + i + j2;
+          for (let j = 0; j < nodeGroup.length; j++) {
+            const node = nodeGroup[j];
+            const key = "" + i + j;
             currentNodeIds.push(key);
             table[key] = { node, lastCount: 0 };
             graph[key] = {};
@@ -10644,10 +10644,10 @@
     if (!planets.length) return;
     const dirs = planets.map((_, i) => i % 2 === 0 ? 1 : -1);
     for (let i = dirs.length - 1; i > 0; i--) {
-      const j2 = Math.floor(rand() * (i + 1));
+      const j = Math.floor(rand() * (i + 1));
       const t = dirs[i];
-      dirs[i] = dirs[j2];
-      dirs[j2] = t;
+      dirs[i] = dirs[j];
+      dirs[j] = t;
     }
     planets.forEach((p, i) => {
       p.orbitDir = dirs[i];
@@ -10987,10 +10987,10 @@
   }
   __name(applyCloudConn, "applyCloudConn");
   var API_TARGET_URL = "";
-  async function probeCloud(form) {
-    const url = String(form && form.url || "").replace(/\/+$/, "");
+  async function probeCloud(form2) {
+    const url = String(form2 && form2.url || "").replace(/\/+$/, "");
     if (!/^https?:\/\//i.test(url)) return { ok: false, error: "url-invalid" };
-    const token = String(form && form.token || "").trim();
+    const token = String(form2 && form2.token || "").trim();
     if (token.startsWith("mbo_")) {
       return { ok: false, error: "mbo_ \u662F MengBot \u7684 OIDC \u5BA2\u6237\u7AEF\u5BC6\u94A5\uFF08\u53EA\u7ED9\u670D\u52A1\u7AEF\u6362\u4EE4\u724C\u7528\uFF09\uFF0C\u4E0D\u80FD\u5F53\u8BBF\u95EE\u5BC6\u94A5\u586B \u2014\u2014 \u8BF7\u6E05\u7A7A\u8FD9\u4E00\u680F\uFF0C\u70B9\u300C\u7528 MengBot \u8D26\u53F7\u767B\u5F55\u300D" };
     }
@@ -11050,11 +11050,11 @@
     }
   }
   __name(probeCloud, "probeCloud");
-  function persistCloud(form) {
+  function persistCloud(form2) {
     const prev = readCloudConn();
-    const wantCloud = form && form.mode === "cloud";
-    const url = String(form && form.url || "").trim().replace(/\/+$/, "");
-    let token = String(form && form.token || "").trim();
+    const wantCloud = form2 && form2.mode === "cloud";
+    const url = String(form2 && form2.url || "").trim().replace(/\/+$/, "");
+    let token = String(form2 && form2.token || "").trim();
     let ignoredOauth = false;
     if (token.startsWith("mbo_") || token.startsWith("mba_")) {
       token = "";
@@ -11862,49 +11862,51 @@
     peerUploadHint: "\u628A\u672C\u5E93\u5DF2\u5BA1\u5361\u63A8\u5230\u5BF9\u65B9\uFF08\u5BF9\u65B9\u8FDB\u5F85\u5BA1\uFF09",
     peerDownloadHint: "\u628A\u5BF9\u65B9\u7684\u5361\u62C9\u5230\u672C\u5E93\uFF08\u8FDB\u5F85\u5BA1\uFF09",
     mcpMountTitle: "Agent MCP \u6302\u8F7D",
-    mcpMountHint: "DSH is mounted by default. Change the target or mount other hosts here; only one vault is mounted at a time, which is what keeps captures from mixing.",
+    mcpMountHint: "\u540C\u4E00\u65F6\u523B\u53EA\u6302\u4E00\u4E2A\u5E93\uFF1B\u5207\u6362\u5E93\u65F6\u8BF7\u5BF9\u76EE\u6807\u5BBF\u4E3B\u91CD\u65B0\u70B9\u4E00\u6B21\u3002",
     mcpMounted: "\u5DF2\u6302\u8F7D",
-    mcpNotMounted: "\u672A\u6302\u8F7D\uFF08Agent \u76EE\u524D\u4E0D\u5E26\u8BB0\u5FC6\uFF09",
+    mcpNotMounted: "\u672A\u6302\u8F7D",
     mcpMountTarget: "\u6302\u5230\u54EA\u4E2A\u5E93",
     mcpTargetLocal: "\u672C\u673A\u9ED8\u8BA4\u5E93",
     mcpMountBtn: "\u6302\u8F7D",
     mcpUnmountBtn: "\u5378\u8F7D",
-    mcpPickTarget: "\u2460 \u9009\u62E9\u8981\u6302\u7684\u5E93\uFF08\u70B9\u4E00\u884C\u9009\u4E2D\uFF09",
-    mcpPickHost: "\u2461 \u9009\u62E9\u5BBF\u4E3B\uFF08\u70B9\u54EA\u884C\u5C31\u6302/\u6458\u54EA\u884C\uFF09",
+    mcpPickTarget: "\u6302\u54EA\u4E2A\u5E93",
+    mcpPickHost: "\u6302\u5230\u54EA\u4E9B\u5BBF\u4E3B",
     mcpPicked: "\u5DF2\u9009\u4E2D",
-    mcpClickMount: "\u70B9\u51FB\u6302\u8F7D",
-    mcpClickUnmount: "\u70B9\u51FB\u5378\u8F7D",
-    mcpHostsMounted: "\u5DF2\u6302\u5BBF\u4E3B",
+    mcpShowLess: "\u6536\u8D77",
+    mcpShowMore: "\u5C55\u5F00\u5176\u4F59 {n} \u4E2A\u5BBF\u4E3B",
+    mcpClickMount: "\u6302\u8F7D",
+    mcpClickUnmount: "\u5378\u8F7D",
+    mcpHostsMounted: "\u5DF2\u6302\u8F7D",
     mcpUnmountAll: "\u5168\u90E8\u5378\u8F7D",
-    mcpSection: "Agent MCP \u6302\u8F7D\u72B6\u6001",
-    mcpSectionSub: "\u{1F50C} Mounted to DSH by default when installed as a DSH plugin; Claude Code / Codex / Cursor / Windsurf still require an explicit mount so one repo never ends up with agents reading different vaults",
+    mcpSection: "Agent MCP \u6302\u8F7D",
+    mcpSectionSub: "\u88C5\u6210 DSH \u63D2\u4EF6\u65F6\u9ED8\u8BA4\u6302\u5230 DSH\uFF1BClaude Code\u3001Codex\u3001Cursor\u3001Windsurf \u9700\u8981\u4F60\u624B\u52A8\u6302 \u2014\u2014 \u4E00\u4E2A\u4ED3\u5E93\u91CC\u4E0D\u8BE5\u8BA9\u591A\u4E2A Agent \u8BFB\u5230\u4E0D\u540C\u7684\u5E93",
     mcpRefresh: "\u5237\u65B0",
     mcpSelfTest: "\u81EA\u68C0",
-    mcpSelfTestHint: "\u771F\u7684\u62C9\u8D77\u4E00\u6B21 MCP \u8FDB\u7A0B\u505A\u63E1\u624B\uFF0CWindows \u4E0A\u8DEF\u5F84\u4E0D\u5BF9\u4F1A\u7ACB\u523B\u66B4\u9732",
-    mcpSelfTestOk: "MCP \u63E1\u624B\u6210\u529F\uFF08\u5BBF\u4E3B\u80FD\u8BC6\u522B\uFF09",
-    mcpSelfTestFail: "MCP \u63E1\u624B\u5931\u8D25\uFF08\u5BBF\u4E3B\u8BC6\u522B\u4E0D\u4E86\uFF09",
+    mcpSelfTestHint: "\u771F\u6B63\u62C9\u8D77\u4E00\u6B21 MCP \u8FDB\u7A0B\u505A\u63E1\u624B\uFF0C\u8DEF\u5F84\u4E0D\u5BF9\u4F1A\u7ACB\u523B\u66B4\u9732",
+    mcpSelfTestOk: "\u63E1\u624B\u6210\u529F\uFF0C\u5BBF\u4E3B\u53EF\u8BC6\u522B",
+    mcpSelfTestFail: "\u63E1\u624B\u5931\u8D25\uFF0C\u5BBF\u4E3B\u8BC6\u522B\u4E0D\u4E86",
     mcpMountDone: "\u5DF2\u6302\u8F7D",
     mcpMountFail: "\u6302\u8F7D\u5931\u8D25",
     mcpUnmountDone: "\u5DF2\u5378\u8F7D\uFF1AAgent \u4E0D\u518D\u5E26\u8FD9\u5757\u8BB0\u5FC6",
-    mcpNoPeers: "\u8FD8\u6CA1\u6709\u5DF2\u914D\u5BF9\u8282\u70B9\uFF08\u5148\u5728\u300C\u{1F517} \u4E92\u76F8\u914D\u5BF9\u300D\u91CC\u914D\u5BF9\uFF0C\u624D\u80FD\u6302\u5230\u5BF9\u65B9\u7684\u5E93\uFF09",
-    mcpFile: "MCP \u914D\u7F6E\u6587\u4EF6",
-    mcpOtherServers: "\u5BBF\u4E3B\u91CC\u5176\u5B83 MCP",
+    mcpNoPeers: "\u8FD8\u6CA1\u6709\u5DF2\u914D\u5BF9\u8282\u70B9\uFF0C\u5148\u5728\u300C\u4E92\u76F8\u914D\u5BF9\u300D\u91CC\u8FDE\u4E00\u4E2A\u3002",
+    mcpFile: "\u914D\u7F6E\u6587\u4EF6",
+    mcpOtherServers: "\u5176\u5B83 MCP",
     mcpEntry: "\u542F\u52A8\u547D\u4EE4",
-    mcpRestartHint: "\u6302\u8F7D/\u5378\u8F7D\u540E\u9700\u91CD\u542F\u4E00\u6B21\u5BBF\u4E3B\uFF08DSH / Claude Code / Codex\uFF09\uFF0CAgent \u624D\u4F1A\u7528\u65B0\u7684\u8BB0\u5FC6\u6E90\u3002",
-    mcpMountAll: "Mount to all installed",
+    mcpRestartHint: "\u6302\u8F7D\u6216\u5378\u8F7D\u540E\uFF0C\u91CD\u542F\u4E00\u6B21\u5BBF\u4E3B\u624D\u4F1A\u751F\u6548\u3002",
+    mcpMountAll: "\u5168\u90E8\u6302\u8F7D",
     mcpMountAllHint: "Write into every installed host: DSH / Claude Code / Codex / Cursor / Windsurf",
     mcpHostMatrix: "Mount status per host",
-    mcpAutoMountLabel: "Auto-mount to DSH when installed as a DSH plugin",
-    mcpAutoMountHint: "On by default so it works right after install. Turn it off to mount manually here only; other hosts (Claude Code / Codex / Cursor / Windsurf) are always manual.",
-    mcpAutoMountLabel: "\u4F5C\u4E3A DSH \u63D2\u4EF6\u65F6\u81EA\u52A8\u6302\u8F7D\u5230 DSH",
-    mcpAutoMountHint: "\u88C5\u597D\u5373\u7528\uFF08\u9ED8\u8BA4\u5F00\uFF09\u3002\u5173\u6389\u540E\u53EA\u80FD\u5728\u8FD9\u91CC\u624B\u52A8\u6302\uFF1B\u5176\u5B83\u5BBF\u4E3B\uFF08Claude Code / Codex / Cursor / Windsurf\uFF09\u59CB\u7EC8\u624B\u52A8\u3002",
-    mcpHostAbsent: "not installed",
-    mcpDrift: "Host entry points to an old path \u2014 re-mount to fix",
-    mcpMountAll: "\u6302\u5230\u6240\u6709\u5DF2\u88C5\u5BBF\u4E3B",
+    mcpAutoMountLabel: "\u88C5\u6210 DSH \u63D2\u4EF6\u65F6\u81EA\u52A8\u6302\u8F7D",
+    mcpAutoMountHint: "\u9ED8\u8BA4\u5F00\u542F\uFF0C\u88C5\u597D\u5373\u7528\u3002\u5173\u6389\u540E\u53EA\u80FD\u5728\u672C\u9875\u624B\u52A8\u6302\u8F7D\u3002",
+    mcpAutoMountLabel: "Auto-mount when installed as a DSH plugin",
+    mcpAutoMountHint: "On by default, works right after install. Turn it off to mount manually on this page only.",
+    mcpHostAbsent: "\u672A\u5B89\u88C5",
+    mcpDrift: "\u914D\u7F6E\u5DF2\u8FC7\u671F",
+    mcpMountAll: "Mount all",
     mcpMountAllHint: "\u4E00\u6B21\u5199\u5165 DSH / Claude Code / Codex / Cursor / Windsurf \u91CC\u5DF2\u5B89\u88C5\u7684\u90A3\u4E9B",
     mcpHostMatrix: "\u5404\u5BBF\u4E3B\u6302\u8F7D\u72B6\u6001",
-    mcpHostAbsent: "\u672A\u5B89\u88C5",
-    mcpDrift: "\u5BBF\u4E3B\u91CC\u90A3\u6761\u6307\u5411\u65E7\u8DEF\u5F84\uFF0C\u91CD\u65B0\u6302\u8F7D\u5373\u53EF\u4FEE\u6B63",
+    mcpHostAbsent: "Not installed",
+    mcpDrift: "Config is stale",
     cardUnsyncedHint: "\u8FD9\u5F20\u5361\u8FD8\u6CA1\u63A8\u5230\u4E91\u7AEF\uFF08\u672C\u5730\u5DF2\u4FDD\u5B58\uFF09\u3002\u5207\u5230\u4E91\u7AEF\u6A21\u5F0F\u540E\u4F1A\u81EA\u52A8\u63A8\u9001\uFF0C\u6216\u7528\u300C\u8865\u63A8\u300D\u624B\u52A8\u540C\u6B65",
     activateVaultBtn: "\u5207\u5230\u6B64\u5E93",
     activateNeedRestart: "\u5DF2\u8BB0\u5F55\u3002\u91CD\u542F\u670D\u52A1\u540E\u751F\u6548\uFF08web \u7AEF\u4E0E DSH \u4F1A\u4E00\u8D77\u5207\u6362\uFF09",
@@ -12601,7 +12603,7 @@
     unitTimes: "\u6B21",
     unitDays: "\u5929",
     mcpAutoHint: "\u81EA\u52A8\u8BC6\u522B\u5DF2\u5B89\u88C5\u7684 Agent \u4E0E\u5176 MCP \u914D\u7F6E\uFF08\u53EA\u8BFB\u63A2\u6D4B\uFF0C\u4E0D\u6539\u4EFB\u4F55\u6587\u4EF6\uFF09",
-    mcpRefresh: "\u91CD\u65B0\u68C0\u6D4B",
+    mcpRefresh: "Refresh",
     mcpSummary: "\u8BC6\u522B\u5230 {agents} \u4E2A Agent \xB7 {servers} \u4E2A MCP \xB7 {mounted} \u4E2A\u5DF2\u6302\u8F7D\u672C\u63D2\u4EF6",
     mcpNoServers: "\u672A\u914D\u7F6E MCP",
     mcpDetectedOnly: "\u4EC5\u8BC6\u522B",
@@ -13359,35 +13361,37 @@
     peerUploadHint: "Push approved cards of this vault to the peer (peer reviews them)",
     peerDownloadHint: "Pull the peer cards into this vault (reviewed here)",
     mcpMountTitle: "Agent MCP mount",
-    mcpMountHint: "Off by default: keeps multiple local vaults (7999 ops / 7989 mem-purge / cloud) from mixing inside one agent",
+    mcpMountHint: "Only one vault is mounted at a time; re-mount the target host after switching.",
     mcpMounted: "Mounted",
-    mcpNotMounted: "Not mounted (agents do not see memory)",
+    mcpNotMounted: "Not mounted",
     mcpMountTarget: "Mount to",
     mcpTargetLocal: "Local default vault",
     mcpMountBtn: "Mount",
     mcpUnmountBtn: "Unmount",
-    mcpPickTarget: "\u2460 Pick the vault to mount (click a row)",
-    mcpPickHost: "\u2461 Pick hosts (click a row to mount / unmount it)",
+    mcpPickTarget: "Vault to mount",
+    mcpPickHost: "Hosts to mount",
     mcpPicked: "selected",
-    mcpClickMount: "click to mount",
-    mcpClickUnmount: "click to unmount",
-    mcpHostsMounted: "hosts mounted",
+    mcpShowMore: "Show {n} more hosts",
+    mcpShowLess: "Show less",
+    mcpClickMount: "Mount",
+    mcpClickUnmount: "Unmount",
+    mcpHostsMounted: "mounted",
     mcpUnmountAll: "Unmount all",
     mcpSection: "Agent MCP mount",
-    mcpSectionSub: "\u{1F50C} Off by default: pick one vault and mount it explicitly, so multiple memory-eternal instances (7999 ops / 7989 mem-purge / cloud) never get mixed up by an agent",
+    mcpSectionSub: "Mounted to DSH by default when installed as a DSH plugin; Claude Code, Codex, Cursor and Windsurf need an explicit mount \u2014 one repo should never have agents reading different vaults",
     mcpRefresh: "Refresh",
     mcpSelfTest: "Self-test",
-    mcpSelfTestHint: "Actually spawns the MCP entry and performs a handshake \u2014 path problems on Windows show up immediately",
-    mcpSelfTestOk: "MCP handshake OK (host can use it)",
-    mcpSelfTestFail: "MCP handshake failed (host cannot use it)",
+    mcpSelfTestHint: "Actually spawns the MCP entry and performs a handshake \u2014 path problems show up immediately",
+    mcpSelfTestOk: "Handshake OK \u2014 host can use it",
+    mcpSelfTestFail: "Handshake failed \u2014 host cannot use it",
     mcpMountDone: "Mounted",
     mcpMountFail: "Mount failed",
     mcpUnmountDone: "Unmounted: agents no longer carry this memory",
-    mcpNoPeers: 'No paired peers yet (pair one in "\u{1F517} Pairing" first, then you can mount its vault)',
-    mcpFile: "MCP config file",
-    mcpOtherServers: "Other MCP servers",
-    mcpEntry: "Launch command",
-    mcpRestartHint: "Restart the host once (DSH / Claude Code / Codex) after mounting or unmounting so agents pick up the new memory source.",
+    mcpNoPeers: "No paired peer yet \u2014 connect one in Pairing first.",
+    mcpFile: "Config file",
+    mcpOtherServers: "Other MCP",
+    mcpEntry: "Command",
+    mcpRestartHint: "Restart the host once for mounting or unmounting to take effect.",
     cardUnsyncedHint: "This card has not been pushed to cloud yet (saved locally). It syncs automatically in cloud mode, or use the flush action.",
     activateVaultBtn: "Switch to this",
     activateNeedRestart: "Recorded. Takes effect after restart (both web and DSH follow it)",
@@ -14069,7 +14073,7 @@
     unitTimes: "times",
     unitDays: "days",
     mcpAutoHint: "Auto-detects installed agents and their MCP configs (read-only probe)",
-    mcpRefresh: "Re-scan",
+    mcpRefresh: "Refresh",
     mcpSummary: "{agents} agents \xB7 {servers} MCP servers \xB7 {mounted} mounting this plugin",
     mcpNoServers: "No MCP configured",
     mcpDetectedOnly: "detected only",
@@ -16825,7 +16829,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.3" : "";
+  var CLIENT_VERSION = true ? "0.49.4" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17046,10 +17050,10 @@ ${COMPONENTS_CSS}
     const load = (0, import_react2.useCallback)(async () => {
       try {
         const r = await fetch(`${API}/working`);
-        const j2 = await r.json().catch(() => null);
-        if (j2 && j2.ok) {
-          setMeta(j2);
-          setText(j2.text || "");
+        const j = await r.json().catch(() => null);
+        if (j && j.ok) {
+          setMeta(j);
+          setText(j.text || "");
         }
       } catch {
       }
@@ -17067,23 +17071,23 @@ ${COMPONENTS_CSS}
     }, "post");
     const save = /* @__PURE__ */ __name(async () => {
       setBusy("save");
-      const j2 = await post("/working", { text, mode: "replace" });
+      const j = await post("/working", { text, mode: "replace" });
       setBusy("");
-      if (j2 && j2.ok) {
+      if (j && j.ok) {
         notify2(true, t("workSaved"));
         await load();
-      } else notify2(false, j2 && j2.error || "save failed");
+      } else notify2(false, j && j.error || "save failed");
     }, "save");
     const clear = /* @__PURE__ */ __name(async () => {
       if (!window.confirm(t("workClearConfirm"))) return;
       setBusy("clear");
-      const j2 = await post("/working/clear", {});
+      const j = await post("/working/clear", {});
       setBusy("");
-      if (j2 && j2.ok) {
+      if (j && j.ok) {
         setText("");
         notify2(true, t("workCleared"));
         await load();
-      } else notify2(false, j2 && j2.error || "clear failed");
+      } else notify2(false, j && j.error || "clear failed");
     }, "clear");
     const promote = /* @__PURE__ */ __name(async () => {
       const ta = taRef.current;
@@ -17093,12 +17097,12 @@ ${COMPONENTS_CSS}
         return;
       }
       setBusy("promote");
-      const j2 = await post("/working/promote", { text: picked });
+      const j = await post("/working/promote", { text: picked });
       setBusy("");
-      if (j2 && j2.ok) {
+      if (j && j.ok) {
         notify2(true, t("workPromoted"));
         if (onPromoted) onPromoted();
-      } else notify2(false, j2 && j2.error || "promote failed");
+      } else notify2(false, j && j.error || "promote failed");
     }, "promote");
     const lines = text ? text.split("\n").length : 0;
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-card", style: { margin: "0 0 10px", padding: "10px 12px" }, children: [
@@ -17144,7 +17148,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-16T17:05:20+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-16T17:08:00+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17581,9 +17585,9 @@ ${COMPONENTS_CSS}
     }, []);
     (0, import_react2.useEffect)(() => {
       let alive = true;
-      fetch(`${API}/star/status`).then((r) => r.json()).then((j2) => {
-        if (!alive || !j2 || !j2.shouldAsk) return;
-        setStarAsk(j2);
+      fetch(`${API}/star/status`).then((r) => r.json()).then((j) => {
+        if (!alive || !j || !j.shouldAsk) return;
+        setStarAsk(j);
         fetch(`${API}/star/action`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -18046,9 +18050,9 @@ ${COMPONENTS_CSS}
     const connMap = (0, import_react2.useMemo)(() => {
       const m = {};
       for (const c of cards) {
-        const set = new Set(c.tags || []);
+        const set2 = new Set(c.tags || []);
         let n = 0;
-        for (const o of cards) if (o.path !== c.path && (o.tags || []).some((x) => set.has(x))) n++;
+        for (const o of cards) if (o.path !== c.path && (o.tags || []).some((x) => set2.has(x))) n++;
         m[c.path] = n;
       }
       return m;
@@ -18840,7 +18844,7 @@ ${t("quoteHint")}`,
   }, "set") });
   var BOOL_DEFAULT_ON = /* @__PURE__ */ new Set(["enabled", "autoCapture", "autoRecall", "distillEnabled", "dedupByLLM", "autoWeb", "autoRestartOnDrift", "coreMemoryEnabled", "skillCardsAutoSync", "workingMemoryEnabled"]);
   function F({ k, label, hint, type = "text", step, min, max, wide }) {
-    const { form, set } = (0, import_react2.useContext)(CfgFormContext);
+    const { form: form2, set: set2 } = (0, import_react2.useContext)(CfgFormContext);
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field" + (wide ? " mc-field-wide" : ""), children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: label || k }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -18850,10 +18854,10 @@ ${t("quoteHint")}`,
           step,
           min,
           max,
-          value: form ? form[k] ?? "" : "",
+          value: form2 ? form2[k] ?? "" : "",
           onChange: (e) => {
             const raw = e.target.value;
-            set(k, type === "number" ? raw === "" ? "" : Number(raw) : raw);
+            set2(k, type === "number" ? raw === "" ? "" : Number(raw) : raw);
           }
         }
       ),
@@ -18862,11 +18866,11 @@ ${t("quoteHint")}`,
   }
   __name(F, "F");
   function Bool({ k, label }) {
-    const { form, set } = (0, import_react2.useContext)(CfgFormContext);
-    const raw = form ? form[k] : void 0;
+    const { form: form2, set: set2 } = (0, import_react2.useContext)(CfgFormContext);
+    const raw = form2 ? form2[k] : void 0;
     const on = raw === void 0 ? BOOL_DEFAULT_ON.has(k) : !!raw;
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-switch", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: on, onChange: (e) => set(k, e.target.checked) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: on, onChange: (e) => set2(k, e.target.checked) }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: label || k })
     ] });
   }
@@ -18879,14 +18883,14 @@ ${t("quoteHint")}`,
     ["spider", "themeSpider", "themeSpiderDesc", ["#f2efe6", "#e62429", "#1b3b8b"]]
   ];
   function ThemePicker({ t }) {
-    const { form, set, applyTheme } = (0, import_react2.useContext)(CfgFormContext);
-    const cur = form && form.theme || "default";
+    const { form: form2, set: set2, applyTheme } = (0, import_react2.useContext)(CfgFormContext);
+    const cur = form2 && form2.theme || "default";
     const pick = /* @__PURE__ */ __name((id) => {
       if (applyTheme) {
         applyTheme(id);
         return;
       }
-      set("theme", id);
+      set2("theme", id);
       try {
         window.dispatchEvent(new CustomEvent("me-skin", { detail: id }));
       } catch {
@@ -18919,10 +18923,16 @@ ${t("quoteHint")}`,
     const [busy, setBusy] = (0, import_react2.useState)("");
     const [msg, setMsg] = (0, import_react2.useState)(null);
     const [test, setTest] = (0, import_react2.useState)(null);
+    const [more, setMore] = (0, import_react2.useState)(false);
+    const [showTech, setShowTech] = (0, import_react2.useState)(false);
+    const j = /* @__PURE__ */ __name(async (path, init) => {
+      const r = await fetch(API + path, { ...init, headers: { "content-type": "application/json", ...init && init.headers } });
+      return await r.json().catch(() => null);
+    }, "j");
     const load = (0, import_react2.useCallback)(async () => {
       const [m, pst] = await Promise.all([
-        fetch(API + "/mcp/status").then((r) => r.json()).catch(() => null),
-        fetch(API + "/peer/status").then((r) => r.json()).catch(() => null)
+        j("/mcp/status").catch(() => null),
+        j("/peer/status").catch(() => null)
       ]);
       if (m && m.ok) setSt(m);
       if (pst && pst.ok) setPeers(pst.peers || []);
@@ -18930,188 +18940,263 @@ ${t("quoteHint")}`,
     (0, import_react2.useEffect)(() => {
       load();
     }, [load]);
-    const call = /* @__PURE__ */ __name(async (path, body) => fetch(API + path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body || {})
-    }).then((r) => r.json()).catch(() => null), "call");
     const targetPayload = /* @__PURE__ */ __name(() => {
       const peer = target === "local" ? null : peers.find((x) => x.id === target);
       return peer ? { kind: "peer", url: peer.url, name: peer.name } : { kind: "local" };
     }, "targetPayload");
-    const targetLabel = /* @__PURE__ */ __name(() => {
+    const targetName = /* @__PURE__ */ __name(() => {
       const peer = target === "local" ? null : peers.find((x) => x.id === target);
-      return peer ? peer.name + " \xB7 " + peer.url : t("mcpTargetLocal");
-    }, "targetLabel");
+      return peer ? peer.name : t("mcpTargetLocal");
+    }, "targetName");
     const toggleHost = /* @__PURE__ */ __name(async (host) => {
       if (!host.installed) return;
       setBusy("host:" + host.id);
-      const d = host.mounted ? await call("/mcp/unmount", { hosts: host.id }) : await call("/mcp/mount", { ...targetPayload(), hosts: host.id });
+      const d = host.mounted ? await j("/mcp/unmount", { hosts: host.id }).catch(() => null) : await j("/mcp/mount", { ...targetPayload(), hosts: host.id }).catch(() => null);
       setBusy("");
-      setMsg(d && d.ok ? { kind: "ok", text: (host.mounted ? t("mcpUnmountDone") : t("mcpMountDone")) + "\uFF1A" + host.label + (host.mounted ? "" : " \u2190 " + targetLabel()) } : { kind: "bad", text: d && d.error || t("mcpMountFail") });
+      setMsg(d && d.ok ? { kind: "ok", text: (host.mounted ? t("mcpUnmountAll") : t("mcpClickMount")) + " \xB7 " + host.label + (host.mounted ? "" : " \u2190 " + targetName()) } : { kind: "bad", text: d && d.error || t("mcpSelfTestFail") });
       load();
     }, "toggleHost");
+    const mountAll = /* @__PURE__ */ __name(async () => {
+      setBusy("all");
+      const d = await j("/mcp/mount", { ...targetPayload(), hosts: "all" }).catch(() => null);
+      setBusy("");
+      setMsg(d && d.ok ? { kind: "ok", text: t("mcpMountAll") + " \xB7 " + targetName() } : { kind: "bad", text: d && d.error || t("mcpSelfTestFail") });
+      load();
+    }, "mountAll");
+    const unmountAll = /* @__PURE__ */ __name(async () => {
+      setBusy("all");
+      const d = await j("/mcp/unmount", { hosts: "" }).catch(() => null);
+      setBusy("");
+      setMsg(d && d.ok ? { kind: "ok", text: t("mcpUnmountAll") } : { kind: "bad", text: d && d.error || t("mcpSelfTestFail") });
+      load();
+    }, "unmountAll");
     const runTest = /* @__PURE__ */ __name(async () => {
       setBusy("test");
       setTest(null);
       const d = await j("/mcp/selftest", { method: "POST" }).catch(() => null);
       setBusy("");
-      setTest(d || { ok: false, error: "\u81EA\u68C0\u8BF7\u6C42\u5931\u8D25" });
+      setTest(d || { ok: false, error: "selftest failed" });
     }, "runTest");
-    const mountAll = /* @__PURE__ */ __name(async () => {
-      setBusy("all");
-      const d = await call("/mcp/mount", { ...targetPayload(), hosts: "all" });
-      setBusy("");
-      setMsg(d && d.ok ? { kind: "ok", text: t("mcpMountDone") + "\uFF1A" + targetLabel() + " \u2192 " + ((d.hosts || []).filter((h) => h.ok).map((h) => h.id).join(", ") || "\u2014") } : { kind: "bad", text: d && d.error || t("mcpMountFail") });
-      load();
-    }, "mountAll");
-    const unmountAll = /* @__PURE__ */ __name(async () => {
-      setBusy("all");
-      const d = await call("/mcp/unmount", { hosts: "" });
-      setBusy("");
-      setMsg(d && d.ok ? { kind: "ok", text: t("mcpUnmountDone") } : { kind: "bad", text: d && d.error || t("mcpMountFail") });
-      load();
-    }, "unmountAll");
     const hosts = st && st.hosts || [];
     const mountedCount = hosts.filter((h) => h.mounted).length;
-    const rowStyle = /* @__PURE__ */ __name((active, dim) => ({
+    const visible = more ? hosts : hosts.slice(0, 3);
+    const hidden = Math.max(0, hosts.length - 3);
+    const brand = "var(--dsw-alias-brand-primary, #ff7a45)";
+    const card = {
+      border: "1px solid var(--me-c-border)",
+      borderRadius: 12,
+      background: "var(--me-c-surface, rgba(127,127,127,.04))"
+    };
+    const pill = /* @__PURE__ */ __name((on, dim) => ({
+      fontSize: 11,
+      lineHeight: "18px",
+      padding: "0 8px",
+      borderRadius: 999,
+      whiteSpace: "nowrap",
+      border: "1px solid " + (on ? "color-mix(in srgb, " + brand + " 45%, transparent)" : "var(--me-c-border)"),
+      color: on ? brand : "inherit",
+      opacity: dim ? 0.45 : on ? 1 : 0.62,
+      background: on ? "color-mix(in srgb, " + brand + " 10%, transparent)" : "transparent"
+    }), "pill");
+    const dot = /* @__PURE__ */ __name((on, installed) => ({
+      width: 8,
+      height: 8,
+      borderRadius: 999,
+      flex: "none",
+      background: installed ? on ? "#2ea043" : "transparent" : "transparent",
+      border: installed ? on ? "none" : "1.5px solid rgba(127,127,127,.55)" : "1.5px dashed rgba(127,127,127,.4)"
+    }), "dot");
+    const rowBase = /* @__PURE__ */ __name((clickable, dim) => ({
       display: "flex",
       alignItems: "center",
       gap: 10,
-      padding: "7px 10px",
-      borderRadius: 8,
-      cursor: dim ? "default" : "pointer",
-      border: "1px solid " + (active ? "var(--dsw-alias-brand-primary, #ff7a45)" : "var(--me-c-border)"),
-      background: active ? "rgba(255,122,69,.08)" : "transparent",
-      opacity: dim ? 0.45 : 1,
-      marginBottom: 6
-    }), "rowStyle");
-    const dot = /* @__PURE__ */ __name((on, installed) => ({ width: 8, height: 8, borderRadius: 999, flex: "none", background: installed ? on ? "#2ea043" : "#8b93a1" : "transparent", border: installed ? "none" : "1px solid #8b93a1" }), "dot");
+      padding: "9px 12px",
+      borderTop: "1px solid var(--me-c-border)",
+      cursor: clickable ? "pointer" : "default",
+      opacity: dim ? 0.5 : 1
+    }), "rowBase");
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 14 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, opacity: 0.65, marginBottom: 6 }, children: t("mcpPickTarget") }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-          "div",
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 8, height: 8, borderRadius: 999, background: mountedCount ? "#2ea043" : "rgba(127,127,127,.5)" } }),
+          mountedCount ? `${mountedCount} / ${hosts.length} ${t("mcpHostsMounted")}` : t("mcpNotMounted")
+        ] }),
+        mountedCount > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 12, opacity: 0.62 }, children: [
+          "\u2192 ",
+          targetName()
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "2px 10px", opacity: 0.85 }, onClick: load, children: t("mcpRefresh") }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "2px 10px" }, disabled: busy === "test", onClick: runTest, children: busy === "test" ? "\u2026" : t("mcpSelfTest") })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "span",
           {
-            style: rowStyle(target === "local", false),
-            onClick: () => setTarget("local"),
-            role: "button",
+            role: "switch",
+            "aria-checked": (form && form.mcpAutoMount) !== false,
             tabIndex: 0,
-            onKeyDown: (e) => {
-              if (e.key === "Enter") setTarget("local");
+            onClick: (e) => {
+              e.preventDefault();
+              set("mcpAutoMount", !((form && form.mcpAutoMount) !== false));
             },
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: dot(target === "local", true) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 }, children: t("mcpTargetLocal") }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { style: { fontSize: 11, opacity: 0.5 }, children: st && st.target && target === "local" && st.target.vault ? st.target.vault : "" }),
-              target === "local" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11, opacity: 0.8 }, children: t("mcpPicked") })
-            ]
+            onKeyDown: (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                set("mcpAutoMount", !((form && form.mcpAutoMount) !== false));
+              }
+            },
+            style: {
+              width: 34,
+              height: 20,
+              borderRadius: 999,
+              flex: "none",
+              position: "relative",
+              transition: "background .16s",
+              background: (form && form.mcpAutoMount) !== false ? brand : "rgba(127,127,127,.35)"
+            },
+            children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: {
+              position: "absolute",
+              top: 2,
+              left: (form && form.mcpAutoMount) !== false ? 16 : 2,
+              width: 16,
+              height: 16,
+              borderRadius: 999,
+              background: "#fff",
+              transition: "left .16s",
+              boxShadow: "0 1px 2px rgba(0,0,0,.25)"
+            } })
           }
         ),
-        peers.map((pr) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-          "div",
-          {
-            style: rowStyle(target === pr.id, false),
-            onClick: () => setTarget(pr.id),
-            role: "button",
-            tabIndex: 0,
-            onKeyDown: (e) => {
-              if (e.key === "Enter") setTarget(pr.id);
-            },
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: dot(target === pr.id, true) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { flex: 1 }, children: [
-                pr.name,
-                " ",
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { style: { fontSize: 11, opacity: 0.55 }, children: pr.pairCode || "" })
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { style: { fontSize: 11, opacity: 0.5 }, children: pr.url }),
-              target === pr.id && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11, opacity: 0.8 }, children: t("mcpPicked") })
-            ]
-          },
-          pr.id
-        )),
-        peers.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.5 }, children: t("mcpNoPeers") })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12.5 }, children: t("mcpAutoMountLabel") }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, opacity: 0.5 }, children: t("mcpAutoMountHint") })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, opacity: 0.65 }, children: t("mcpPickHost") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 11.5, opacity: 0.5 }, children: [
-            t("mcpHostsMounted"),
-            "\uFF1A",
-            mountedCount,
-            "/",
-            hosts.length
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px" }, disabled: busy === "all", onClick: mountAll, children: t("mcpMountAll") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px" }, disabled: busy === "all" || mountedCount === 0, onClick: unmountAll, children: t("mcpUnmountAll") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px", opacity: 0.7 }, onClick: load, children: t("mcpRefresh") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px" }, disabled: busy === "test", onClick: runTest, title: t("mcpSelfTestHint"), children: busy === "test" ? "\u2026" : t("mcpSelfTest") })
-        ] }),
-        hosts.map((h) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-          "div",
-          {
-            style: rowStyle(false, !h.installed),
-            onClick: () => toggleHost(h),
-            role: "button",
-            tabIndex: 0,
-            onKeyDown: (e) => {
-              if (e.key === "Enter") toggleHost(h);
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.55, marginBottom: 6 }, children: t("mcpPickTarget") }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: card, children: [{ id: "local", name: t("mcpTargetLocal"), sub: st && st.target && st.target.kind === "local" && st.target.vault ? st.target.vault : "" }, ...peers.map((pr) => ({ id: pr.id, name: pr.name, sub: pr.url, code: pr.pairCode }))].map((item, i) => {
+          const on = target === item.id;
+          return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "div",
+            {
+              role: "button",
+              tabIndex: 0,
+              onClick: () => setTarget(item.id),
+              onKeyDown: (e) => {
+                if (e.key === "Enter") setTarget(item.id);
+              },
+              style: { ...rowBase(true, false), borderTop: i === 0 ? "none" : "1px solid var(--me-c-border)", background: on ? "color-mix(in srgb, " + brand + " 7%, transparent)" : "transparent" },
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: dot(on, true) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 13, fontWeight: on ? 600 : 400 }, children: item.name }),
+                item.code && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { style: { fontSize: 11, opacity: 0.45 }, children: item.code }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1, fontSize: 11, opacity: 0.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: item.sub }),
+                on && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: pill(true, false), children: t("mcpPicked") })
+              ]
             },
-            title: h.note || h.path,
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: dot(h.mounted, h.installed) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { minWidth: 150 }, children: h.label }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { minWidth: 64, fontSize: 11.5, opacity: 0.75 }, children: !h.installed ? t("mcpHostAbsent") : h.mounted ? t("mcpMounted") : t("mcpNotMounted") }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { style: { flex: 1, fontSize: 10.5, opacity: 0.45, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: h.path }),
-              h.installed && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11, opacity: 0.75 }, children: busy === "host:" + h.id ? "\u2026" : h.mounted ? t("mcpClickUnmount") : t("mcpClickMount") })
-            ]
-          },
-          h.id
-        )),
-        st && st.drift && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { color: "#e5484d", fontSize: 11.5 }, children: [
+            item.id
+          );
+        }) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, opacity: 0.55 }, children: t("mcpPickHost") }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "0 8px", fontSize: 11.5, opacity: 0.85 }, disabled: busy === "all", onClick: mountAll, children: t("mcpMountAll") }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "0 8px", fontSize: 11.5, opacity: 0.7 }, disabled: busy === "all" || mountedCount === 0, onClick: unmountAll, children: t("mcpUnmountAll") })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: card, children: [
+          visible.map((h, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "div",
+            {
+              role: "button",
+              tabIndex: 0,
+              onClick: () => toggleHost(h),
+              onKeyDown: (e) => {
+                if (e.key === "Enter") toggleHost(h);
+              },
+              title: h.path,
+              style: { ...rowBase(h.installed, !h.installed), borderTop: i === 0 ? "none" : "1px solid var(--me-c-border)" },
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: dot(h.mounted, h.installed) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 13, minWidth: 132, opacity: h.installed ? 1 : 0.6 }, children: h.label }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: pill(h.mounted, !h.installed), children: h.installed ? h.mounted ? t("mcpMounted") : t("mcpNotMounted") : t("mcpHostAbsent") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1, fontSize: 10.5, opacity: 0.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "ui-monospace, monospace" }, children: h.path }),
+                h.installed && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, opacity: busy === "host:" + h.id ? 0.4 : 0.75, whiteSpace: "nowrap" }, children: busy === "host:" + h.id ? "\u2026" : h.mounted ? t("mcpClickUnmount") : t("mcpClickMount") })
+              ]
+            },
+            h.id
+          )),
+          hidden > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "div",
+            {
+              role: "button",
+              tabIndex: 0,
+              onClick: () => setMore((v) => !v),
+              onKeyDown: (e) => {
+                if (e.key === "Enter") setMore((v) => !v);
+              },
+              style: { ...rowBase(true, false), borderTop: "1px solid var(--me-c-border)", justifyContent: "center", fontSize: 12, opacity: 0.8 },
+              children: more ? t("mcpShowLess") : t("mcpShowMore").replace("{n}", String(hidden))
+            }
+          )
+        ] }),
+        st && st.drift && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { color: "#e5484d", fontSize: 11.5, marginTop: 6 }, children: [
           "\u26A0 ",
           t("mcpDrift"),
           "\uFF1A",
           st.drift.hint || "",
           " ",
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: st.drift.host }),
-          " \u2192 ",
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: st.drift.now })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: st.drift.host })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, opacity: 0.55, lineHeight: 1.8 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t("mcpMountHint") }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-          t("mcpFile"),
-          "\uFF1A",
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: st ? st.mcpFile : "\u2014" }),
-          st && st.otherServers && st.otherServers.length ? " \xB7 " + t("mcpOtherServers") + "\uFF1A" + st.otherServers.join(", ") : ""
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-          "\u26A0 ",
-          t("mcpRestartHint")
-        ] })
-      ] }),
-      test && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, lineHeight: 1.8, padding: "8px 10px", borderRadius: 8, border: "1px solid " + (test.ok ? "rgba(46,160,67,.45)" : "rgba(229,72,77,.45)"), background: test.ok ? "rgba(46,160,67,.07)" : "rgba(229,72,77,.07)" }, children: [
+      test && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, lineHeight: 1.8, padding: "9px 11px", borderRadius: 10, border: "1px solid " + (test.ok ? "rgba(46,160,67,.4)" : "rgba(229,72,77,.4)"), background: test.ok ? "rgba(46,160,67,.06)" : "rgba(229,72,77,.06)" }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontWeight: 600, color: test.ok ? "#2ea043" : "#e5484d" }, children: [
           test.ok ? t("mcpSelfTestOk") : t("mcpSelfTestFail"),
           " \xB7 ",
           test.ms,
           "ms"
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { opacity: 0.75 }, children: [
+        test.command && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { opacity: 0.7 }, children: [
           t("mcpEntry"),
           "\uFF1A",
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: test.command || "\u2014" })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: test.command })
         ] }),
         test.error && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "#e5484d" }, children: test.error }),
-        test.stderr && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { opacity: 0.6, wordBreak: "break-all" }, children: [
-          "stderr: ",
-          test.stderr
-        ] })
+        test.stderr && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.55, wordBreak: "break-all" }, children: test.stderr })
       ] }),
-      msg && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: msg.kind === "bad" ? "#e5484d" : "inherit", opacity: msg.kind === "bad" ? 1 : 0.8 }, children: msg.text })
+      msg && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: msg.kind === "bad" ? "#e5484d" : "inherit", opacity: msg.kind === "bad" ? 1 : 0.7 }, children: msg.text }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", onClick: () => setShowTech((v) => !v), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 11.5, opacity: 0.5 }, children: [
+          t("mcpFile"),
+          " \xB7 ",
+          t("mcpMountHint"),
+          " ",
+          showTech ? "\u25BE" : "\u25B8"
+        ] }),
+        showTech && st && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, opacity: 0.5, lineHeight: 1.9, marginTop: 6 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            t("mcpFile"),
+            "\uFF1A",
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: st.mcpFile })
+          ] }),
+          st.entry && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            t("mcpEntry"),
+            "\uFF1A",
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: st.entry.command }),
+            " ",
+            (st.entry.args || []).slice(1).join(" ")
+          ] }),
+          st.otherServers && st.otherServers.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            t("mcpOtherServers"),
+            "\uFF1A",
+            st.otherServers.join(", ")
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            "\u26A0 ",
+            t("mcpRestartHint")
+          ] })
+        ] })
+      ] })
     ] });
   }
   __name(AgentMcpMountCard, "AgentMcpMountCard");
@@ -19125,16 +19210,16 @@ ${t("quoteHint")}`,
     const [ask, setAsk] = (0, import_react2.useState)(null);
     const [codeOpen, setCodeOpen] = (0, import_react2.useState)(false);
     const [peerStats, setPeerStats] = (0, import_react2.useState)({});
-    const j2 = /* @__PURE__ */ __name(async (path, init) => {
+    const j = /* @__PURE__ */ __name(async (path, init) => {
       const r = await fetch(API + path, { ...init, headers: { "content-type": "application/json", ...init && init.headers } });
       return await r.json().catch(() => null);
     }, "j");
     const load = (0, import_react2.useCallback)(async () => {
-      const d = await j2("/peer/status").catch(() => null);
+      const d = await j("/peer/status").catch(() => null);
       if (d && d.ok) {
         setSt(d);
         for (const pr of d.peers || []) {
-          j2("/peer/stats", { method: "POST", body: JSON.stringify({ peerId: pr.id }) }).then((x) => {
+          j("/peer/stats", { method: "POST", body: JSON.stringify({ peerId: pr.id }) }).then((x) => {
             if (x && x.ok) setPeerStats((prev) => ({ ...prev, [pr.id]: { total: x.total, byKind: x.byKind || {} } }));
           }).catch(() => {
           });
@@ -19177,7 +19262,7 @@ ${t("quoteHint")}`,
       const port = raw && raw.includes(":") ? Number(raw.split(":")[1]) : 0;
       if (!code && !raw) return setMsg({ kind: "bad", text: t("peerNeedTarget") });
       setBusy("connect");
-      const d = code ? await j2("/peer/pair/connect", { method: "POST", body: JSON.stringify({ code, host, port }) }).catch(() => null) : await j2("/peer/pair/start", { method: "POST", body: JSON.stringify({ host, port }) }).catch(() => null);
+      const d = code ? await j("/peer/pair/connect", { method: "POST", body: JSON.stringify({ code, host, port }) }).catch(() => null) : await j("/peer/pair/start", { method: "POST", body: JSON.stringify({ host, port }) }).catch(() => null);
       setBusy("");
       if (!d || !d.ok) return setMsg({ kind: "bad", text: d && d.error || t("peerConnectFail") });
       setMsg({ kind: "ok", text: d.auto ? t("peerConnectedAuto") + "\uFF1A" + d.peer.name : t("peerKnocked") + "\uFF08" + (d.code || "") + "\uFF09" });
@@ -19188,7 +19273,7 @@ ${t("quoteHint")}`,
     const scan = /* @__PURE__ */ __name(async () => {
       setBusy("scan");
       setFound(null);
-      const d = await j2("/peer/discover", { method: "POST", body: JSON.stringify({ timeoutMs: 1500 }) }).catch(() => null);
+      const d = await j("/peer/discover", { method: "POST", body: JSON.stringify({ timeoutMs: 1500 }) }).catch(() => null);
       setBusy("");
       if (!d || !d.ok) return setMsg({ kind: "bad", text: d && d.error || t("peerScanFail") });
       setFound(d.found || []);
@@ -19196,19 +19281,19 @@ ${t("quoteHint")}`,
     }, "scan");
     const accept = /* @__PURE__ */ __name(async (item) => {
       setBusy("accept");
-      const d = await j2("/peer/pair/accept", { method: "POST", body: JSON.stringify({ id: item.id }) }).catch(() => null);
+      const d = await j("/peer/pair/accept", { method: "POST", body: JSON.stringify({ id: item.id }) }).catch(() => null);
       setBusy("");
       setAsk(null);
       setMsg(d && d.ok ? { kind: "ok", text: t("peerAccepted") + "\uFF1A" + (d.peer && d.peer.name ? d.peer.name : "") } : { kind: "bad", text: d && d.error || t("peerAcceptFail") });
       load();
     }, "accept");
     const reject = /* @__PURE__ */ __name(async (item) => {
-      await j2("/peer/pair/reject", { method: "POST", body: JSON.stringify({ id: item.id }) }).catch(() => null);
+      await j("/peer/pair/reject", { method: "POST", body: JSON.stringify({ id: item.id }) }).catch(() => null);
       setAsk(null);
       load();
     }, "reject");
     const revoke = /* @__PURE__ */ __name(async (pr) => {
-      await j2("/peer/revoke", { method: "POST", body: JSON.stringify({ id: pr.id }) }).catch(() => null);
+      await j("/peer/revoke", { method: "POST", body: JSON.stringify({ id: pr.id }) }).catch(() => null);
       setMsg({ kind: "ok", text: t("peerRevoked") + "\uFF1A" + pr.name });
       setPeerStats((prev) => {
         const n = { ...prev };
@@ -19219,7 +19304,7 @@ ${t("quoteHint")}`,
     }, "revoke");
     const transfer = /* @__PURE__ */ __name(async (pr, dir) => {
       setBusy(dir + ":" + pr.id);
-      const bid = dir === "upload" ? await j2("/peer/upload", { method: "POST", body: JSON.stringify({ peerId: pr.id, limit: 200 }) }).catch(() => null) : await j2("/peer/download", { method: "POST", body: JSON.stringify({ peerId: pr.id }) }).catch(() => null);
+      const bid = dir === "upload" ? await j("/peer/upload", { method: "POST", body: JSON.stringify({ peerId: pr.id, limit: 200 }) }).catch(() => null) : await j("/peer/download", { method: "POST", body: JSON.stringify({ peerId: pr.id }) }).catch(() => null);
       setBusy("");
       if (!bid || !bid.ok) return setMsg({ kind: "bad", text: bid && bid.error || t("peerTransferFail") });
       setMsg({
@@ -20695,7 +20780,7 @@ ${t("quoteHint")}`,
     const [cfg, setCfg] = (0, import_react2.useState)(null);
     const [revision, setRevision] = (0, import_react2.useState)(0);
     const [schema, setSchema] = (0, import_react2.useState)(null);
-    const [form, setForm] = (0, import_react2.useState)(null);
+    const [form2, setForm] = (0, import_react2.useState)(null);
     const [readonly, setReadonly] = (0, import_react2.useState)(false);
     const [viaPending, setViaPending] = (0, import_react2.useState)(false);
     const dirtyRef = (0, import_react2.useRef)(false);
@@ -20806,7 +20891,7 @@ ${t("quoteHint")}`,
         setImportJob({ importing: true, dir: "up", done: startOff, total: cards.length, imported: 0, duplicate: 0, failed: 0, err: "" });
         for (let off = startOff; off < cards.length; off += CHUNK) {
           if (importCancelRef.current) {
-            setImportJob((j2) => ({ ...j2 || {}, importing: false, err: t("xferCancelled") }));
+            setImportJob((j) => ({ ...j || {}, importing: false, err: t("xferCancelled") }));
             refreshResume();
             return;
           }
@@ -20850,7 +20935,7 @@ ${t("quoteHint")}`,
         }
       } catch (e) {
         const msg = String(e && e.message || e);
-        setImportJob((j2) => ({ ...j2 || {}, importing: false, err: msg }));
+        setImportJob((j) => ({ ...j || {}, importing: false, err: msg }));
         refreshResume();
       }
     }, "uploadVaultToCloud");
@@ -20891,7 +20976,7 @@ ${t("quoteHint")}`,
         } catch {
         }
       } catch (e) {
-        setImportJob((j2) => ({ ...j2 || {}, importing: false, err: String(e && e.message || e) }));
+        setImportJob((j) => ({ ...j || {}, importing: false, err: String(e && e.message || e) }));
       }
     }, "downloadCloudToVault");
     const openFactoryReset = /* @__PURE__ */ __name(async () => {
@@ -21298,7 +21383,7 @@ ${t("quoteHint")}`,
         let duplicate = 0;
         for (let offset = 0; offset < cards.length; offset += CHUNK) {
           if (importCancelRef.current) {
-            setImportJob((j2) => ({ ...j2, importing: false, cancelled: true }));
+            setImportJob((j) => ({ ...j, importing: false, cancelled: true }));
             return;
           }
           const slice = cards.slice(offset, offset + CHUNK);
@@ -21322,7 +21407,7 @@ ${t("quoteHint")}`,
         } catch {
         }
       } catch (e) {
-        setImportJob((j2) => ({ ...j2 || {}, importing: false, err: String(e && e.message || e) }));
+        setImportJob((j) => ({ ...j || {}, importing: false, err: String(e && e.message || e) }));
       }
     }, "importLocalToCloud");
     const cancelImport = /* @__PURE__ */ __name(() => {
@@ -21525,7 +21610,7 @@ ${t("quoteHint")}`,
     (0, import_react2.useEffect)(() => {
       load();
     }, [version2, load]);
-    const set = /* @__PURE__ */ __name((k, v) => {
+    const set2 = /* @__PURE__ */ __name((k, v) => {
       dirtyRef.current = true;
       setDirty(true);
       setAppliedPlan("");
@@ -21559,7 +21644,7 @@ ${t("quoteHint")}`,
     const NUM_KEYS_LIKE = /* @__PURE__ */ new Set(["dedupThreshold", "captureMinChars", "captureCooldownMs", "maxCardsPerDay", "captureMaxTokens", "recallMinScore", "recallLimit", "recallSummaryLen", "recycleRetentionDays", "webPort", "webCheckIntervalMs", "webMaxRestart", "sessionBudgetChars", "coreMemoryLimit", "coreMemoryMaxChars"]);
     const autoWebModeLabel = /* @__PURE__ */ __name((m) => ({ init: t("modeInit"), interval: t("modeInterval"), manual: t("modeManual") })[m] || m, "autoWebModeLabel");
     const save = /* @__PURE__ */ __name(async () => {
-      if (!form) return;
+      if (!form2) return;
       if (readonly) {
         notify2(t("editInSetting"), false);
         return;
@@ -21583,8 +21668,8 @@ ${t("quoteHint")}`,
       };
       const badFields = [];
       for (const [k, [lo, hi]] of Object.entries(NUM_RANGE)) {
-        if (!(k in form)) continue;
-        const raw = form[k];
+        if (!(k in form2)) continue;
+        const raw = form2[k];
         const n = typeof raw === "number" ? raw : Number(raw);
         if (raw === "" || raw === null || raw === void 0 || !Number.isFinite(n) || n < lo || n > hi) {
           badFields.push(t("invalidField", { field: k, min: lo, max: hi, value: String(raw === "" ? "\u7A7A" : raw) }));
@@ -21598,8 +21683,8 @@ ${t("quoteHint")}`,
       }
       setBusy("save");
       try {
-        const payload = { ...form };
-        for (const k of Object.keys(form)) if (k in payload && typeof payload[k] === "string" && payload[k].trim() !== "" && NUM_KEYS_LIKE.has(k)) payload[k] = Number(payload[k]);
+        const payload = { ...form2 };
+        for (const k of Object.keys(form2)) if (k in payload && typeof payload[k] === "string" && payload[k].trim() !== "" && NUM_KEYS_LIKE.has(k)) payload[k] = Number(payload[k]);
         if (Array.isArray(payload.vaultProfiles)) {
           payload.vaultProfiles = payload.vaultProfiles.filter((p) => p && (String(p.name || "").trim() || String(p.path || "").trim()));
         }
@@ -21659,14 +21744,14 @@ ${t("quoteHint")}`,
     }, "resetForm");
     const applyTheme = /* @__PURE__ */ __name((id) => {
       if (!["default", "pop", "light", "resident", "spider"].includes(id)) return;
-      set("theme", id);
+      set2("theme", id);
       try {
         window.dispatchEvent(new CustomEvent("me-skin", { detail: id }));
       } catch {
       }
       try {
         const base = cfg && cfg.config || {};
-        const restClean = Object.keys(form || {}).every((k) => k === "theme" || JSON.stringify(form[k]) === JSON.stringify(base[k]));
+        const restClean = Object.keys(form2 || {}).every((k) => k === "theme" || JSON.stringify(form2[k]) === JSON.stringify(base[k]));
         if (restClean) setDirty(false);
       } catch {
       }
@@ -21754,7 +21839,7 @@ ${t("quoteHint")}`,
     const mcpServersAll = [...new Set(mcpInstalled.flatMap((a) => Array.isArray(a.servers) ? a.servers : []))];
     const mcpMounted = mcpList.filter((a) => a.mcpConfigured && !a.isDsh).length;
     const mcpHasServerData = mcpList.some((a) => Array.isArray(a.servers));
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgFormContext.Provider, { value: { form, set, applyTheme }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-admin", "data-skin": form && form.theme || "default", style: { display: "flex", flexDirection: "column", overflow: "hidden", flex: compact ? "0 0 auto" : 1, minHeight: 0, maxHeight: compact ? "52vh" : void 0 }, children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgFormContext.Provider, { value: { form: form2, set: set2, applyTheme }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-admin", "data-skin": form2 && form2.theme || "default", style: { display: "flex", flexDirection: "column", overflow: "hidden", flex: compact ? "0 0 auto" : 1, minHeight: 0, maxHeight: compact ? "52vh" : void 0 }, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("style", { children: CSS }),
       toast && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, position: "fixed", left: "50%", transform: "translateX(-50%)", top: 22, zIndex: 70, background: "rgba(20,22,26,0.97)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", color: "#f5f5f5", borderRadius: 12, padding: "10px 20px", fontSize: 13.5, fontWeight: 600, boxShadow: "0 14px 44px rgba(0,0,0,.5)", pointerEvents: "none", animation: "me-pop .22s ease", borderLeft: "4px solid " + (toast.ok ? "#22c55e" : "#ef4444"), maxWidth: "90vw" }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: toast.ok ? "#34d399" : "#f87171", fontWeight: 800, fontSize: 15 }, children: toast.ok ? "\u2713" : "\u2715" }),
@@ -21934,7 +22019,7 @@ ${t("quoteHint")}`,
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.55 }, children: t("mcpSetupHint") })
             ] })
           ] }),
-          form ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cfg", children: [
+          form2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cfg", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cfg-sections", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CfgSection, { ...secProps("sec-preset"), id: "sec-preset", icon: "\u{1F3AF}", title: t("presetConfig"), sub: t("presetHint"), children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-plan-grid", children: ["A", "B", "C"].map((k) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
@@ -21972,7 +22057,7 @@ ${t("quoteHint")}`,
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(F, { k: "captureMinChars", label: t("captureMinChars"), hint: t("unitChars"), type: "number" }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("captureLanguage") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form.captureLanguage || "auto", onChange: (e) => set("captureLanguage", e.target.value), disabled: readonly, style: { padding: "7px 9px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2, #d1d5db)", background: "var(--dsw-alias-bg-layer-1, #fff)", color: "inherit" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form2.captureLanguage || "auto", onChange: (e) => set2("captureLanguage", e.target.value), disabled: readonly, style: { padding: "7px 9px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2, #d1d5db)", background: "var(--dsw-alias-bg-layer-1, #fff)", color: "inherit" }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "auto", children: t("langAuto") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "zh", children: t("langZh") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "en", children: t("langEn") })
@@ -22000,7 +22085,7 @@ ${t("quoteHint")}`,
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-cfg-switches is-single", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Bool, { k: "skillCardsAutoSync", label: t("skillAutoSync") }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-cfg-grid", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("skillCardLanguage") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form.skillCardLanguage || "auto", onChange: (e) => set("skillCardLanguage", e.target.value), disabled: readonly, style: { padding: "7px 9px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2, #d1d5db)", background: "var(--dsw-alias-bg-layer-1, #fff)", color: "inherit" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form2.skillCardLanguage || "auto", onChange: (e) => set2("skillCardLanguage", e.target.value), disabled: readonly, style: { padding: "7px 9px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2, #d1d5db)", background: "var(--dsw-alias-bg-layer-1, #fff)", color: "inherit" }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "auto", children: t("langAuto") }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "zh", children: t("langZh") }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "en", children: t("langEn") })
@@ -22263,9 +22348,9 @@ ${t("quoteHint")}`,
                 "button",
                 {
                   type: "button",
-                  className: (form && form.uiScale || "normal") === v ? "on" : "",
+                  className: (form2 && form2.uiScale || "normal") === v ? "on" : "",
                   onClick: () => {
-                    set("uiScale", v);
+                    set2("uiScale", v);
                     try {
                       window.dispatchEvent(new CustomEvent("me-ui-scale", { detail: v }));
                     } catch {
@@ -22292,13 +22377,13 @@ ${t("quoteHint")}`,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: dsh.workspace })
                   ] }) : null
                 ] }),
-                profilesOf(form).length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-vault-head", children: [
+                profilesOf(form2).length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-vault-head", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("vaultNamePh") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("vaultPathPh") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("vaultMatchPh") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {})
                 ] }) : null,
-                profilesOf(form).map((p, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-vault-row", children: [
+                profilesOf(form2).map((p, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-vault-row", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: p.name || "", placeholder: t("vaultNamePh"), onChange: (e) => updateProfile(i, "name", e.target.value), style: vaultInput, disabled: readonly }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: p.path || "", placeholder: t("vaultPathPh"), onChange: (e) => updateProfile(i, "path", e.target.value), style: vaultInput, disabled: readonly }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: p.match && p.match.workspace || "", placeholder: t("vaultMatchPh"), onChange: (e) => updateProfile(i, "match", e.target.value), style: vaultInput, disabled: readonly }),
@@ -22308,9 +22393,9 @@ ${t("quoteHint")}`,
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", onClick: addProfile, disabled: readonly, children: t("vaultAdd") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12 }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.6 }, children: t("vaultActive") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form.activeVault || "", onChange: (e) => set("activeVault", e.target.value), disabled: readonly, style: vaultInput, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form2.activeVault || "", onChange: (e) => set2("activeVault", e.target.value), disabled: readonly, style: vaultInput, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("vaultActiveNone") }),
-                      profilesOf(form).filter((p) => p && p.name).map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: p.name, children: p.name }, p.name))
+                      profilesOf(form2).filter((p) => p && p.name).map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: p.name, children: p.name }, p.name))
                     ] })
                   ] })
                 ] })
@@ -22334,9 +22419,9 @@ ${t("quoteHint")}`,
                   routes && routes.providers && routes.providers.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("captureProvider") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form.captureProvider || "", onChange: (e) => {
-                        set("captureProvider", e.target.value);
-                        set("captureModel", "");
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form2.captureProvider || "", onChange: (e) => {
+                        set2("captureProvider", e.target.value);
+                        set2("captureModel", "");
                       }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("routeAuto") }),
                         routes.providers.map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: p.id, children: p.label }, p.id))
@@ -22344,9 +22429,9 @@ ${t("quoteHint")}`,
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("captureModel") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form.captureModel || "", onChange: (e) => set("captureModel", e.target.value), children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form2.captureModel || "", onChange: (e) => set2("captureModel", e.target.value), children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("routeAuto") }),
-                        ((routes.providers.find((p) => p.id === form.captureProvider) || {}).models || []).map((m) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: m.id, children: m.label || m.id }, m.id))
+                        ((routes.providers.find((p) => p.id === form2.captureProvider) || {}).models || []).map((m) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: m.id, children: m.label || m.id }, m.id))
                       ] })
                     ] })
                   ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
@@ -22358,7 +22443,7 @@ ${t("quoteHint")}`,
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-cfg-tools", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", disabled: !!busy, onClick: async () => {
                   setBusy("llmtest");
                   try {
-                    const r = await fetch(API + "/llm-test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: form.captureProvider || "", model: form.captureModel || "", firstOnly: form.captureFirstOnly === true }) }).then((x) => x.json());
+                    const r = await fetch(API + "/llm-test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: form2.captureProvider || "", model: form2.captureModel || "", firstOnly: form2.captureFirstOnly === true }) }).then((x) => x.json());
                     if (r && r.ok) notify2(t("llmTestOk") + "\uFF1A" + r.route.provider + (r.route.model ? "/" + r.route.model : "") + " \xB7 " + r.ms + "ms \xB7 " + t("llmCandidates") + " " + r.candidates);
                     else notify2(t("llmTestFail") + "\uFF1A" + (r && (r.failure ? r.failure.code + " " + r.failure.message : r.error) || "?"), false);
                   } catch (e) {
@@ -22371,7 +22456,7 @@ ${t("quoteHint")}`,
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-audit"), id: "sec-audit", icon: "\u{1F6E1}\uFE0F", title: t("auditConfig"), sub: t("auditHint"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cfg-grid", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("auditMode") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form.auditMode ?? "all", onChange: (e) => set("auditMode", e.target.value), children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form2.auditMode ?? "all", onChange: (e) => set2("auditMode", e.target.value), children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "all", children: t("auditAll") }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "none", children: t("auditNone") })
                   ] })
@@ -22380,18 +22465,18 @@ ${t("quoteHint")}`,
                   MultiDD,
                   {
                     label: t("auditExemptAgents"),
-                    value: form.auditExemptAgents || [],
+                    value: form2.auditExemptAgents || [],
                     options: [{ value: "__all__", label: t("allExempt") }, ...(setupStatus?.agents || []).filter((a) => !a.isDsh).map((a) => ({ value: a.name, label: a.name }))],
-                    onChange: (v) => set("auditExemptAgents", v)
+                    onChange: (v) => set2("auditExemptAgents", v)
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                   MultiDD,
                   {
                     label: t("auditExemptKinds"),
-                    value: form.auditExemptKinds || [],
+                    value: form2.auditExemptKinds || [],
                     options: [{ value: "__all__", label: t("allExempt") }, ...KIND_IDS.filter((k) => k !== "all" && k !== "core" && k !== "skill").map((k) => ({ value: k, label: t(KIND_LABELS[k]) }))],
-                    onChange: (v) => set("auditExemptKinds", v)
+                    onChange: (v) => set2("auditExemptKinds", v)
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(F, { k: "recycleRetentionDays", label: t("recycleDays"), hint: t("unitDays"), type: "number" })
@@ -22406,7 +22491,7 @@ ${t("quoteHint")}`,
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cfg-grid", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("autoWebMode") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form.autoWebMode ?? "init", onChange: (e) => set("autoWebMode", e.target.value), children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: form2.autoWebMode ?? "init", onChange: (e) => set2("autoWebMode", e.target.value), children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "init", children: t("modeInit") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "interval", children: t("modeInterval") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "manual", children: t("modeManual") })
@@ -22424,8 +22509,8 @@ ${t("quoteHint")}`,
                     "input",
                     {
                       type: "checkbox",
-                      checked: (form && form.mcpAutoMount) !== false,
-                      onChange: (e) => set("mcpAutoMount", e.target.checked)
+                      checked: (form2 && form2.mcpAutoMount) !== false,
+                      onChange: (e) => set2("mcpAutoMount", e.target.checked)
                     }
                   ),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("mcpAutoMountHint") })
@@ -22435,7 +22520,7 @@ ${t("quoteHint")}`,
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-cloud"), id: "sec-cloud", icon: "\u{1F9EA}", title: t("cloudSection"), sub: t("cloudSectionSub"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(PanelErrorBoundary, { children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { marginTop: 10 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudWriteModeLabel") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: (form && form.cloudWriteMode) === "both" ? "both" : "cloud", onChange: (e) => set("cloudWriteMode", e.target.value), children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: (form2 && form2.cloudWriteMode) === "both" ? "both" : "cloud", onChange: (e) => set2("cloudWriteMode", e.target.value), children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "cloud", children: t("cloudWriteModeCloud") }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "both", children: t("cloudWriteModeBoth") })
                   ] }),
@@ -23937,10 +24022,10 @@ ${t("quoteHint")}`,
     }, "previewFollow");
     const toggleDraftDomain = /* @__PURE__ */ __name((id, on) => setFollowDraft((d) => {
       if (!d) return d;
-      const set = new Set(d.domains);
-      if (on) set.add(id);
-      else set.delete(id);
-      return { ...d, domains: [...set] };
+      const set2 = new Set(d.domains);
+      if (on) set2.add(id);
+      else set2.delete(id);
+      return { ...d, domains: [...set2] };
     }), "toggleDraftDomain");
     const confirmFollow = /* @__PURE__ */ __name(async () => {
       if (!followDraft) return;
@@ -25718,7 +25803,7 @@ ${t("quoteHint")}`,
                   t("goalCards")
                 ] })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { style: { margin: "0 0 5px", padding: "0 0 0 16px", fontSize: 12, opacity: 0.85 }, children: c.members.map((m, j2) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: m.title }, j2)) }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { style: { margin: "0 0 5px", padding: "0 0 0 16px", fontSize: 12, opacity: 0.85 }, children: c.members.map((m, j) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: m.title }, j)) }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "2px 8px" }, disabled: !!busy, onClick: () => keepCluster(c), children: t("goalKeep") }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "2px 8px" }, disabled: !!busy, onClick: () => mergeCluster(c), children: t("goalMerge") })
@@ -26192,8 +26277,8 @@ ${t("quoteHint")}`,
       }
     }, [cleanBody]);
     const related = (0, import_react2.useMemo)(() => {
-      const set = new Set(tags);
-      return (allCards || []).filter((c) => c.path !== card.path && (c.tags || []).some((x) => set.has(x))).slice(0, 3);
+      const set2 = new Set(tags);
+      return (allCards || []).filter((c) => c.path !== card.path && (c.tags || []).some((x) => set2.has(x))).slice(0, 3);
     }, [allCards, card.path, tags.join("|")]);
     const startEdit = /* @__PURE__ */ __name(() => {
       setETitle(String(card.title || ""));
