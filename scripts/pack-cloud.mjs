@@ -19,8 +19,19 @@ const dry = process.argv.includes('--dry-run')
 
 // 私有源码常驻 lib/（插件要按相对路径加载），打包时按包内清单收集
 const SOURCES = [
+  // cloud-server.js 的真实依赖（0.48.6 起必须全带上）：
+  // 它 import 了 billing / entitlement / license / oidc / quota / webhook，
+  // 而 npm 包把这些都排除了 —— 只打 cloud-server + cloud-auth 会让授权客户的
+  // 全新安装直接 ERR_MODULE_NOT_FOUND（本次云端升级就踩到了：entitlement 的
+  // epoch 毫秒修复根本没被覆盖上去，配额还在按 enterprise 兜底跑）。
   ['lib/cloud-auth.js', 'lib/cloud-auth.js'],
   ['lib/cloud-server.js', 'lib/cloud-server.js'],
+  ['lib/billing.js', 'lib/billing.js'],
+  ['lib/entitlement.js', 'lib/entitlement.js'],
+  ['lib/license.js', 'lib/license.js'],
+  ['lib/oidc.js', 'lib/oidc.js'],
+  ['lib/quota.js', 'lib/quota.js'],
+  ['lib/webhook.js', 'lib/webhook.js'],
   ['docs/CLOUD.md', 'docs/CLOUD.md'],
   ['docs/PRIVATE.md', 'docs/PRIVATE.md'],
   ['private/memory-eternal-cloud/README.md', 'README.md'],
