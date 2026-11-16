@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.49.2-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.3-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 [English](README.en.md) · **简体中文（默认）**
 
-## ☁️ 云端记忆（v0.49.2 主打）
+## ☁️ 云端记忆（v0.49.3 主打）
 
 **记忆库跟着人走，不跟着机器走。** 本机库照旧离线可用；登录云端后，同一套知识卡在你的每台设备、每个
 Agent 上都能读到 —— 换电脑不用搬家，换客户端不用重新喂上下文。
@@ -300,7 +300,7 @@ flowchart TB
 
 > 云端只加了一条边：`API → resolveTenant() → 该 owner 自己的库`。租户之间没有共享表，串不了数据。
 
-## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.2）
+## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.3）
 
 本机常常同时跑着多个 memory-eternal：运营库（7999）、隔离运营的 mem-purge（7989）、云端实例。
 它们各有独立 SQLite，**不能共享一个库**；但你需要让它们互相喂料（运营口径 → purge，purge 的清理结论 → 运营库）。
