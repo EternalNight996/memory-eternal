@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.49.6-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.7-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 [English](README.en.md) · **简体中文（默认）**
 
-## ☁️ 云端记忆（v0.49.6 主打）
+## ☁️ 云端记忆（v0.49.7 主打）
 
 **记忆库跟着人走，不跟着机器走。** 本机库照旧离线可用；登录云端后，同一套知识卡在你的每台设备、每个
 Agent 上都能读到 —— 换电脑不用搬家，换客户端不用重新喂上下文。
@@ -300,7 +300,7 @@ flowchart TB
 
 > 云端只加了一条边：`API → resolveTenant() → 该 owner 自己的库`。租户之间没有共享表，串不了数据。
 
-## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.6）
+## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.7）
 
 本机常常同时跑着多个 memory-eternal：运营库（7999）、隔离运营的 mem-purge（7989）、云端实例。
 它们各有独立 SQLite，**不能共享一个库**；但你需要让它们互相喂料（运营口径 → purge，purge 的清理结论 → 运营库）。
@@ -342,7 +342,7 @@ dsh-memory mcp mount --vault <库> --host all            # 所有已安装宿主
 dsh-memory mcp unmount                                  # 从所有已挂载宿主摘掉（幂等）
 ```
 
-面板：**设置 → 🧪 实验性 → 🔌 Agent MCP 挂载**（v0.49.6 起是**列表点击式**）
+面板：**设置 → 🧪 实验性 → 🔌 Agent MCP 挂载**（v0.49.7 起是**列表点击式**）
 
 ```text
 ● 2 / 6 已挂载 → 本机默认库                       [刷新] [自检]
