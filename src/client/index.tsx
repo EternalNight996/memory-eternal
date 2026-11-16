@@ -8036,7 +8036,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     <span className="mc-v5-feature-open">{t('openArrow')}</span>
                   </div>
                 </div>
-              )}<div className="mc-grid">{sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} pinned={pinned.has(card.path)} onPin={togglePin} onCore={changeCardKind} showSync={cloudForm.mode === 'cloud' || cards.some((c) => c.cloudSyncedAt)} links={connMap[card.path] || 0} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
+              )}<div className="mc-grid">{sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => <CardRow key={card.path} card={card} t={t} query={query.trim()} onOpen={openCard} onDelete={deleteMemory} onTagClick={onTagPick} pinned={pinned.has(card.path)} onPin={togglePin} onCore={changeCardKind} showSync={cloudForm.mode !== 'cloud' && cards.some((c) => c.cloudSyncedAt)} links={connMap[card.path] || 0} />)}</div>{cards.length < cardTotal && <div ref={sentinelRef} style={{ height: 1 }} />}{loadingMore && <div className="mc-empty" style={{ padding: '10px 0' }}>{t('loading')}（{cards.length} / {cardTotal}）</div>}</>
           }
           {/* 首屏骨架：把最终布局先铺出来（进度条告诉用户「在等什么」，骨架告诉用户「会变成什么样」） */}
           {loading && <CardsSkeleton n={5} />}
@@ -13252,8 +13252,10 @@ const CardRow = ({ card, t, onOpen, query, onDelete, onTagClick, pinned, onPin, 
   const matchLabel = MATCH_WHERE_KEY[matchWhere] || ''
   const score = Number(card && card.score)
   const showScore = !!query && Number.isFinite(score) && score > 0
-  // 库里出现过同步记录（或正处于云端模式）时，才逐张区分「已同步 / 未同步」。
-  // 否则本地模式下整屏都会发灰 —— 那时候还没连过云端，灰了没有信息量。
+  // 只有**本地库**且这个库出现过同步记录时，才逐张区分「已同步 / 未同步」。
+  // · 云端模式下**整列都不判**：云端库里的卡本来就在云端，cloud_synced_at 是本地推送记账列，
+  //   在云端永远为空 —— 判了会把每一张都标成「未同步」并压暗（用户实测反馈：切云端后卡全变灰）。
+  // · 纯本地（从没连过云端）也不判：整屏发灰没有信息量。
   const unsynced = !!showSync && !card.cloudSyncedAt
   return (
     <article className={`mc-cardrow mc-card mc-v5-card${pinned ? ' pinned' : ''}${card.kind === 'core' ? ' core' : ''}${unsynced ? ' unsynced' : ''}`} style={{ '--card-accent': color, ...(unsynced ? { opacity: 0.55 } : {}) }} onClick={() => onOpen(card)}>

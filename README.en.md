@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.48.3-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.48.4-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 **English** · [简体中文（默认）](README.md)
 
-## ☁️ Cloud memory (the v0.48.3 headline)
+## ☁️ Cloud memory (the v0.48.4 headline)
 
 **Your vault follows you, not the machine.** The local vault still works offline; sign in to your cloud instance
 and the same cards are readable from every device and every agent — no migration on a new laptop, no re-feeding
