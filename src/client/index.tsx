@@ -1193,6 +1193,10 @@ export const ZH = {
   mcpMountAll: 'Mount to all installed',
   mcpMountAllHint: 'Write into every installed host: DSH / Claude Code / Codex / Cursor / Windsurf',
   mcpHostMatrix: 'Mount status per host',
+  mcpAutoMountLabel: 'Auto-mount to DSH when installed as a DSH plugin',
+  mcpAutoMountHint: 'On by default so it works right after install. Turn it off to mount manually here only; other hosts (Claude Code / Codex / Cursor / Windsurf) are always manual.',
+  mcpAutoMountLabel: '作为 DSH 插件时自动挂载到 DSH',
+  mcpAutoMountHint: '装好即用（默认开）。关掉后只能在这里手动挂；其它宿主（Claude Code / Codex / Cursor / Windsurf）始终手动。',
   mcpHostAbsent: 'not installed',
   mcpDrift: 'Host entry points to an old path — re-mount to fix',
   mcpMountAll: '挂到所有已装宿主',
@@ -11553,6 +11557,16 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 （mengbot 授权控制面未上线、配额与授权校验未完成），放实验区既能让想用的人用上，
                 又不会让普通用户误以为是稳定功能、更不会影响本地使用。 */}
               <CfgSection {...secProps('sec-mcp')} id="sec-mcp" icon="🔌" title={t('mcpSection')} sub={t('mcpSectionSub')}>
+                {/* 自动挂载开关：作为 DSH 插件时默认挂到 DSH；关掉后只能手动挂 */}
+                <label className="mc-field" style={{ marginBottom: 12 }}>
+                  <span className="mc-field-label">{t('mcpAutoMountLabel')}</span>
+                  <input
+                    type="checkbox"
+                    checked={(form && form.mcpAutoMount) !== false}
+                    onChange={(e) => set('mcpAutoMount', e.target.checked)}
+                  />
+                  <span className="mc-field-hint">{t('mcpAutoMountHint')}</span>
+                </label>
                 <PanelErrorBoundary>
                   <AgentMcpMountCard t={t} />
                 </PanelErrorBoundary>
