@@ -1229,19 +1229,19 @@ export const ZH = {
   mcpEntry: '启动命令',
   mcpRestartHint: '挂载或卸载后，重启一次宿主才会生效。',
   mcpMountAll: '全部挂载',
-  mcpMountAllHint: 'Write into every installed host: DSH / Claude Code / Codex / Cursor / Windsurf',
-  mcpHostMatrix: 'Mount status per host',
+  mcpMountAllHint: '一次写入所有已安装的宿主',
+  mcpHostMatrix: '各宿主挂载状态',
   mcpAutoMountLabel: '装成 DSH 插件时自动挂载',
   mcpAutoMountHint: '默认开启，装好即用。关掉后只能在本页手动挂载。',
-  mcpAutoMountLabel: 'Auto-mount when installed as a DSH plugin',
-  mcpAutoMountHint: 'On by default, works right after install. Turn it off to mount manually on this page only.',
+  mcpAutoMountLabel: '装成 DSH 插件时自动挂载',
+  mcpAutoMountHint: '默认开启，装好即用。关掉后只能在本页手动挂载。',
   mcpHostAbsent: '未安装',
   mcpDrift: '配置已过期',
-  mcpMountAll: 'Mount all',
-  mcpMountAllHint: '一次写入 DSH / Claude Code / Codex / Cursor / Windsurf 里已安装的那些',
+  mcpMountAll: '全部挂载',
+  mcpMountAllHint: '一次写入所有已安装的宿主',
   mcpHostMatrix: '各宿主挂载状态',
-  mcpHostAbsent: 'Not installed',
-  mcpDrift: 'Config is stale',
+  mcpHostAbsent: '未安装',
+  mcpDrift: '配置已过期',
   cardUnsyncedHint: '这张卡还没推到云端（本地已保存）。切到云端模式后会自动推送，或用「补推」手动同步',
   activateVaultBtn: '切到此库',
   activateNeedRestart: '已记录。重启服务后生效（web 端与 DSH 会一起切换）',
@@ -1940,7 +1940,7 @@ export const ZH = {
   unitTimes: '次',
   unitDays: '天',
   mcpAutoHint: '自动识别已安装的 Agent 与其 MCP 配置（只读探测，不改任何文件）',
-  mcpRefresh: 'Refresh',
+  mcpRefresh: '刷新',
   mcpSummary: '识别到 {agents} 个 Agent · {servers} 个 MCP · {mounted} 个已挂载本插件',
   mcpNoServers: '未配置 MCP',
   mcpDetectedOnly: '仅识别',
@@ -8386,7 +8386,7 @@ function ThemePicker({ t }) {
  * 一旦自动挂载，沉淀与召回就会串到别的库里去 —— 所以这里**默认不挂**，
  * 必须由人明确选择"挂到哪个库"，而且同一时刻只允许挂一个。
  */
-function AgentMcpMountCard({ t }) {
+function AgentMcpMountCard({ t, form, set }) {
   const [st, setSt] = useState(null)
   const [peers, setPeers] = useState([])
   const [target, setTarget] = useState('local')
@@ -11816,7 +11816,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                   <span className="mc-field-hint">{t('mcpAutoMountHint')}</span>
                 </label>
                 <PanelErrorBoundary>
-                  <AgentMcpMountCard t={t} />
+                  <AgentMcpMountCard t={t} form={form} set={set} />
                 </PanelErrorBoundary>
               </CfgSection>
             <CfgSection {...secProps('sec-cloud')} id="sec-cloud" icon="🧪" title={t('cloudSection')} sub={t('cloudSectionSub')}>

@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.49.4-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.6-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 [English](README.en.md) · **简体中文（默认）**
 
-## ☁️ 云端记忆（v0.49.4 主打）
+## ☁️ 云端记忆（v0.49.6 主打）
 
 **记忆库跟着人走，不跟着机器走。** 本机库照旧离线可用；登录云端后，同一套知识卡在你的每台设备、每个
 Agent 上都能读到 —— 换电脑不用搬家，换客户端不用重新喂上下文。
@@ -300,7 +300,7 @@ flowchart TB
 
 > 云端只加了一条边：`API → resolveTenant() → 该 owner 自己的库`。租户之间没有共享表，串不了数据。
 
-## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.4）
+## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.6）
 
 本机常常同时跑着多个 memory-eternal：运营库（7999）、隔离运营的 mem-purge（7989）、云端实例。
 它们各有独立 SQLite，**不能共享一个库**；但你需要让它们互相喂料（运营口径 → purge，purge 的清理结论 → 运营库）。
@@ -342,8 +342,27 @@ dsh-memory mcp mount --vault <库> --host all            # 所有已安装宿主
 dsh-memory mcp unmount                                  # 从所有已挂载宿主摘掉（幂等）
 ```
 
-面板：**设置 → 🧪 实验性 → 🔌 Agent MCP 挂载状态**（逐宿主一行矩阵 + 目标下拉 + 挂载/卸载 + 漂移告警）。
-想彻底关掉自动挂载：配置 `mcpAutoMount: false`，或环境变量 `MEMORY_MCP_AUTOMOUNT=0`。
+面板：**设置 → 🧪 实验性 → 🔌 Agent MCP 挂载**（v0.49.6 起是**列表点击式**）
+
+```text
+● 2 / 6 已挂载 → 本机默认库                       [刷新] [自检]
+  ⬤ 装成 DSH 插件时自动挂载   默认开启，装好即用…
+
+挂哪个库（点一行选中）
+  ● 本机默认库   已选中        ○ mem-purge  9DUW-QPVM       ○ 云端  5EZK-RWM5
+
+挂到哪些宿主（点哪行就挂/摘哪行）          [全部挂载] [全部卸载]
+  ● DeepSeek Harness (DSH)  已挂载   …\.dsh\mcp-servers.json        卸载
+  ○ Claude Code             未挂载   …\.claude.json                 挂载
+  ○ Claude 项目级 .mcp.json  未挂载   …\.mcp.json                   挂载
+                展开其余 3 个宿主
+```
+
+- **默认只显示 3 个宿主**，多出来的收进「展开其余 N 个宿主」；
+- 每行状态一眼可辨：实心绿=已挂载 / 空心=未挂载 / 虚线圈=未安装（未安装置灰不可点）；
+- **「自检」按钮**会**真的拉起一次 MCP 进程做 initialize 握手**，把 `ok / 耗时 / 启动命令 / stderr` 直接显示出来 —— Windows 上"路径不对、宿主识别不了"当场就能看到原因；
+- **Windows / Electron 兼容**：条目里的 node 不再取 `process.execPath`（在 DSH 这类 Electron 宿主里那是宿主自己的 exe），而是走 PATH 解析 + 校验存在性；写盘前统一反斜杠绝对路径，**脚本不存在直接拒绝写入**（不留死条目）；
+- 想彻底关掉自动挂载：配置 `mcpAutoMount: false`，或环境变量 `MEMORY_MCP_AUTOMOUNT=0`。
 
 ## 📚 文档与链接
 
