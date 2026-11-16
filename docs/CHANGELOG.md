@@ -9,6 +9,9 @@
 > **版本撤回说明**：**v0.9.16 – v0.9.22 已全部撤回**（问题期间版本：git tag 已删除、npm 已标记 deprecated，请使用 **v0.9.23**）。**v0.9.14 已 deprecated**（客户端渲染改动降低手感，已回退；其服务器侧算法优化并入 **v0.9.15**，渲染与 v0.9.13 完全一致）。**v0.9.0 – v0.9.5 均已在 npm 标记 deprecated；v0.9.1 / v0.9.2 / v0.9.3 / v0.9.4 的 release tag 已从 git 移除**（v0.9.5 只是被取代、tag 保留）—— v0.9.1/v0.9.2 带记忆页白屏缺陷，v0.9.0 沉淀告警误报刷屏，v0.9.3 不支持 DSH v0.1.7-rc.2（升级后插件整体挂不上：设置服务换血 + 客户端 `settingsScope` 消失），v0.9.4 在官方桌面版（schemastery 3.18.4 的 volatile 活引用）下抛 `cfg.vaultDir.trim is not a function`、插件整体挂不上，**v0.9.5 的全屏浮层会盖住桌面版的窗口控制面板（右上角「×」压在窗口「关闭」上，点一下会退出整个桌面壳）**。请一律使用 **v0.9.6+**（`npm i memory-eternal@latest`）。
 > **DSH 兼容性**：`>=0.1.5-alpha.2 <0.3.0-0`（**v0.10.1 起放宽**：旧的上界 `<0.2.0` 在 semver 上会把 DSH `0.2.0-rc.x` 排除在外 —— DSH 的插件守卫用 `includePrerelease:true` 判定，实际仍能装上，但声明与事实不一致；现在明确覆盖整个 0.1/0.2 线，且 `<0.3.0-0` 仍然挡住 0.3.0 及其预发布。**已在官方桌面版 DSH 0.2.0-rc.2 上实测运行**：插件挂载、记忆页、自动沉淀、审核中心、导入导出均正常）。**v0.9.4 起适配 DSH v0.1.7-rc.2**（该版本把设置服务换成纯表单 API，并移除了 `@deepseek-ai/dsh-client-runtime` 与 `settingsScope`）；**v0.9.5 起兼容 schemastery ≥3.18.4 的 volatile 活引用**（官方桌面版 profile 即此形态，web profile 仍是 3.18.1，两者都支持）；**v0.9.6 起全屏浮层自动让开桌面壳的窗口标题栏**（不再压住最小化/最大化/关闭）。0.1.5 系列仍走旧的 `settings.register` 路径，两条路径都保留。
 
+> **0.48.x 系列也已标记 deprecated（2026-11-16）**：`0.48.0 ~ 0.48.6` 全部被 0.49.10 取代，装这些版本会提示升级。
+> 它们的 GitHub / Gitee Release 与 git tag **保留**（历史发布记录，便于回看当时改了什么），只撤 npm 侧的安装引导。
+>
 > **版本撤回（2026-11-16）**：**v0.49.0 / v0.49.1 / v0.49.6 / v0.49.7 已撤回** —— npm 上已全部标记 deprecated
 > （registry 策略不允许 unpublish），GitHub / Gitee 的 Release 与对应 git tag 均已删除。
 > 它们的内容都已并入 **v0.49.10**，请直接用 `npm i -g memory-eternal@latest`。
