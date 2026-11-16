@@ -87,6 +87,9 @@ export const Config = z.object({
   theme: z.union([z.const('default'), z.const('pop'), z.const('light'), z.const('resident'), z.const('spider')]).default('default'),
   // 自动沉淀的写入目标（仅云端模式生效）：cloud = 只写云端（默认，本地库不再增长）；both = 本地也留一份（老行为）
   cloudWriteMode: z.union(CLOUD_WRITE_MODES.map((m) => z.const(m))).default('cloud'),
+  // 作为 DSH 插件时默认把 MCP 挂到 DSH 自己（其它宿主仍需手动）。
+  // 关掉：mcpAutoMount=false 或环境变量 MEMORY_MCP_AUTOMOUNT=0。
+  mcpAutoMount: z.boolean().default(true),
   vaultDir: z.string().default(''),
   dedupThreshold: z.number().min(0).max(1).default(0.62),
   captureMinChars: z.number().default(120),
@@ -442,6 +445,23 @@ export function apply(ctx, config) {
   // SSE：配置变更即时推送到所有已打开的页面（DSH 内嵌页 + 独立 Web 页），不必手动刷新
   const hub = createHub()
   ctx.effect(() => () => hub.close(), 'memory-eternal: sse hub')
+
+  // Agent MCP：作为 **DSH 插件**时默认挂到 DSH 自己（幂等；关掉见 mcpAutoMount / MEMORY_MCP_AUTOMOUNT）。
+  // 其它宿主（Claude Code / Codex / Cursor / Windsurf）不自动写 —— 那是用户自己另开的宿主，
+  // 一个仓库里被多个 agent 读到不同库，才是真正会串味的场景（手动入口：设置 → 🧪 实验性 → 🔌）。
+  void (async () => {
+    try {
+      if ((settings.get() ?? {}).mcpAutoMount === false) return
+      const { ensureDefaultMount } = await import('./lib/mcp-mount.js')
+      const r = ensureDefaultMount({ packageRoot: PACKAGE_ROOT, vault: vaultDir() })
+      if (r && r.ok && !r.skipped) {
+        try { logCapture('system', 'created', '已把 Agent MCP 默认挂到 DSH（' + (r.target && r.target.vault ? r.target.vault : '默认库') + '）') } catch { /* 日志旁路 */ }
+      }
+    } catch (e) {
+      try { console.error('[memory-eternal] 默认挂载 MCP 失败（不影响记忆功能）：' + String((e && e.message) || e)) } catch { /* 忽略 */ }
+    }
+  })()
+
 
   // 首次激活：自动从 .md 文件迁移到 SQLite（幂等，已有数据则跳过）
   // vault 解析与所有独立进程共用同一套优先级（见 lib/vault-resolve.js）：
@@ -1797,7 +1817,7 @@ export function apply(ctx, config) {
               // 只暴露可安全展示/回填的字段
               const safe = {
                 autoCapture: cfg.autoCapture !== false, autoRecall: cfg.autoRecall !== false, coreMemoryEnabled: cfg.coreMemoryEnabled, workingMemoryEnabled: cfg.workingMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, theme: cfg.theme, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
-                captureMinChars: cfg.captureMinChars ?? 120, captureCooldownMs: cfg.captureCooldownMs ?? 60000,
+                captureMinChars: cfg.captureMinChars ?? 120, captureCooldownMs: cfg.captureCooldownMs ?? 60000, mcpAutoMount: cfg.mcpAutoMount !== false,
                 // 自动沉淀写哪里（仅云端模式生效）：cloud = 只写云端（默认）；both = 本地也留一份
                 cloudWriteMode: cfg.cloudWriteMode === 'both' ? 'both' : 'cloud', dedupThreshold: cfg.dedupThreshold ?? 0.62, maxCardsPerDay: cfg.maxCardsPerDay ?? 1000,
                 distillEnabled: cfg.distillEnabled !== false, dedupByLLM: cfg.dedupByLLM !== false, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,

@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.48.6-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.0-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 **English** · [简体中文（默认）](README.md)
 
-## ☁️ Cloud memory (the v0.48.6 headline)
+## ☁️ Cloud memory (the v0.49.0 headline)
 
 **Your vault follows you, not the machine.** The local vault still works offline; sign in to your cloud instance
 and the same cards are readable from every device and every agent — no migration on a new laptop, no re-feeding
@@ -305,6 +305,54 @@ The diagram is only true because three invariants are enforced in code, not by c
 | Recall costs **zero model calls** | FTS5 + BM25; the LLM runs only while distilling |
 
 > The cloud adds exactly one edge: `API → resolveTenant() → that owner's own vault`. No shared tables between tenants, so data cannot leak across.
+
+## 🔗 MEM Pair: pair two vaults, exchange cards (v0.49.0)
+
+You often run several memory-eternal instances side by side: the ops vault (7999), an isolated mem-purge (7989),
+and a cloud instance. Each has its own SQLite, so they **must not share one vault** — yet you do want them to feed
+each other (ops conventions → purge, purge findings → ops).
+
+MEM Pair is that channel: explicit, auditable, and quiet by default.
+
+| Step | How | Signal |
+|---|---|---|
+| Discover | LAN UDP broadcast (7990 by default), or type `host:port` | Panel lists the peer name, **pair code** and fingerprint |
+| First pairing | One side starts it → the other side gets a **dialog** (6-digit handshake code, compared by eye) | Both sides list the peer |
+| Reconnect | **The pair code alone is enough**: if the peer knows the code and the fingerprint is unchanged, it connects silently | Panel shows "paired → peer" |
+| Fingerprint changed | Peer reinstalled, or possibly impersonated → back to manual confirmation, dialog flagged red | You confirm again |
+| Move data | "Upload" (this vault → peer) / "Download" (peer → this vault); everything lands in the **peer's review queue** | Counts: sent / written / failed |
+
+```bash
+dsh-memory peer code                                  # my pair code
+dsh-memory peer pair 192.168.1.20:7989                # first pairing (peer confirms)
+dsh-memory peer connect 7K2M-Q9FA --host 192.168.1.20 --port 7989   # afterwards, code only
+dsh-memory peer upload   --to 7K2M-Q9FA               # push cards (peer reviews them)
+dsh-memory peer download --from 7K2M-Q9FA             # pull cards (this vault reviews them)
+```
+
+Security: the shared secret is derived independently on both ends from one-time ephemerals (long-term keys never travel);
+every call is HMAC-signed with a ±5 min window and nonce de-dup; anything a peer sends lands in **review only**.
+
+## 🔌 Agent MCP mounting (one standard, six hosts)
+
+**Installed as a DSH plugin, the MCP server is mounted to DSH itself by default** (`~/.dsh/mcp-servers.json`) — usable
+right away. Claude Code / Codex / Cursor / Windsurf are hosts *you* open separately, so they **must be mounted by hand** —
+otherwise several agents in one repo read different vaults and their captures get mixed up.
+
+All hosts share one standard (declare once, render everywhere): the server name is always `memory-eternal`, stdio only,
+absolute paths, parameters via `env`, idempotent writes that **only touch our own entry**, read-back verification, and
+drift detection when the entry still points at an old package path.
+
+```bash
+dsh-memory mcp status                                   # status + per-host matrix
+dsh-memory mcp mount --vault ~/.dsh/memory-vault        # local vault (writes DSH by default)
+dsh-memory mcp mount --url http://127.0.0.1:7989 --host dsh,claude   # project into several hosts
+dsh-memory mcp mount --vault <vault> --host all         # every installed host
+dsh-memory mcp unmount                                  # remove from all mounted hosts (idempotent)
+```
+
+Panel: **Settings → 🧪 Experimental → 🔌 Agent MCP mount** (one row per host + target picker + mount/unmount + drift warning).
+To turn auto-mounting off entirely: config `mcpAutoMount: false`, or env `MEMORY_MCP_AUTOMOUNT=0`.
 
 ## 📚 Documentation & links
 

@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.48.6-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.0-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 [English](README.en.md) · **简体中文（默认）**
 
-## ☁️ 云端记忆（v0.48.6 主打）
+## ☁️ 云端记忆（v0.49.0 主打）
 
 **记忆库跟着人走，不跟着机器走。** 本机库照旧离线可用；登录云端后，同一套知识卡在你的每台设备、每个
 Agent 上都能读到 —— 换电脑不用搬家，换客户端不用重新喂上下文。
@@ -299,6 +299,51 @@ flowchart TB
 | 召回**零模型调用** | FTS5 + BM25；LLM 只在沉淀时运行 |
 
 > 云端只加了一条边：`API → resolveTenant() → 该 owner 自己的库`。租户之间没有共享表，串不了数据。
+
+## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.0）
+
+本机常常同时跑着多个 memory-eternal：运营库（7999）、隔离运营的 mem-purge（7989）、云端实例。
+它们各有独立 SQLite，**不能共享一个库**；但你需要让它们互相喂料（运营口径 → purge，purge 的清理结论 → 运营库）。
+
+MEM Pair 就是这套「显式、可审计、默认不打扰」的通道：
+
+| 阶段 | 怎么做 | 判定信号 |
+|---|---|---|
+| 发现 | 局域网 UDP 广播（默认 7990），或直接填 `host:port` | 面板列出对方名字 + **匹配码** + 指纹 |
+| 首次配对 | 一端发起 → 另一端**面板弹窗**确认（显示 6 位握手码，两边肉眼核对） | 双方配对表里都出现对方 |
+| 之后再连 | **只需要匹配码**：对方认得这个码且指纹没变 → 直接建立，不再弹窗 | 面板显示「已配对 → 对方」 |
+| 指纹变了 | 对方重装 / 可能被冒充 → 回到人工确认，弹窗标红 | 必须重新点确认 |
+| 传数据 | 「上传」（本库 → 对方）/「下载」（对方 → 本库），一律进**对方待审队列** | 计数：sent / written / failed |
+
+```bash
+dsh-memory peer code                                  # 我的匹配码
+dsh-memory peer pair 192.168.1.20:7989                # 首次配对（对方要确认）
+dsh-memory peer connect 7K2M-Q9FA --host 192.168.1.20 --port 7989   # 之后只凭码重连
+dsh-memory peer upload   --to 7K2M-Q9FA               # 推卡过去（进对方待审）
+dsh-memory peer download --from 7K2M-Q9FA             # 拉卡回来（进本库待审）
+```
+
+安全口径：共享密钥由两端各自算出（一次性 ephemeral 派生，长期密钥永不上网）；每个请求带 HMAC 签名 + ±5 分钟时间窗 + nonce 去重；对方推来的卡**只能进待审**，不会直接污染已审库。
+
+## 🔌 Agent MCP 挂载（一份标准，六种宿主）
+
+**作为 DSH 插件安装时，默认就把 MCP 挂到 DSH 自己**（`~/.dsh/mcp-servers.json`），装好即用；
+Claude Code / Codex / Cursor / Windsurf 这些「你另开的宿主」**必须手动挂** —— 否则同一个仓库里
+被多个 agent 读到不同库，沉淀与召回就会串味。
+
+所有宿主共用同一个标准（一处声明 → 各自渲染）：server 名固定 `memory-eternal`、只用 stdio、
+命令写绝对路径、参数走 `env`、幂等写入且**只增删自己那一条**、写后回读校验、能检测「指向旧包路径」的漂移。
+
+```bash
+dsh-memory mcp status                                   # 状态 + 各宿主矩阵
+dsh-memory mcp mount --vault ~/.dsh/memory-vault        # 挂本机库（默认只写 DSH）
+dsh-memory mcp mount --url http://127.0.0.1:7989 --host dsh,claude   # 一次投影多个宿主
+dsh-memory mcp mount --vault <库> --host all            # 所有已安装宿主
+dsh-memory mcp unmount                                  # 从所有已挂载宿主摘掉（幂等）
+```
+
+面板：**设置 → 🧪 实验性 → 🔌 Agent MCP 挂载状态**（逐宿主一行矩阵 + 目标下拉 + 挂载/卸载 + 漂移告警）。
+想彻底关掉自动挂载：配置 `mcpAutoMount: false`，或环境变量 `MEMORY_MCP_AUTOMOUNT=0`。
 
 ## 📚 文档与链接
 
