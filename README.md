@@ -89,6 +89,25 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 > ※ **必须标注的状态**：`getzep/zep` 仓库是 Zep Cloud 的示例 / 集成目录，产品本体闭源（开源图引擎是 graphiti）；
 > `letta-ai/letta` 主仓已归档，活跃源码迁到 `letta-code`。这两家不能当"开源版 star"读。
 
+## 🏷 命令名与别名
+
+包名从一开始就是中性的 **memory-eternal**；只有命令行工具早期叫 `dsh-memory`（那时它只服务 DSH）。
+现在三种写法是同一个入口：
+
+| 命令 | 用在哪 |
+|---|---|
+| `memory` | 主名。任何宿主、纯 CLI、脚本里都推荐用它 |
+| `mem` | 简短别名，终端里敲得少 |
+| `dsh-memory` | 兼容入口。老文档、老脚本、DSH 插件内部仍用它，不会被移除 |
+
+```bash
+memory status --port 7999      # 等价于 dsh-memory status --port 7999
+mem peer code                  # 等价于 dsh-memory peer code
+```
+
+数据目录同理不受限：`MEMORY_VAULT_DIR`（库目录）、`MEMORY_DB_FILE`（库文件名）、`MEMORY_WEB_PORT`（端口）
+都可以改，所以库不一定要待在 `~/.dsh` 下面。
+
 ## ⚡ 快速开始
 
 ```bash

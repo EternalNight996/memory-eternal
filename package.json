@@ -16,6 +16,8 @@
   "type": "module",
   "main": "index.js",
   "bin": {
+    "memory": "bin/dsh-memory.mjs",
+    "mem": "bin/dsh-memory.mjs",
     "dsh-memory": "bin/dsh-memory.mjs"
   },
   "exports": {
