@@ -351,6 +351,13 @@ entitlement 有效（plan=pro && status=active && expiresAt>now）
 }
 ```
 
+### 5.1.1 MCP 直连（云端 bot 不用装进程）
+
+- 服务端暴露 **`POST /memory-eternal/api/mcp`**（MCP Streamable HTTP，单次 JSON 响应；`Bearer me_…` 鉴权与业务接口同一套）。
+- 本机也可以让 stdio 适配层指向远端实例：`dsh-memory mcp --cloud https://mem.mengbot.com.cn --token me_xxx`
+  （令牌自动变成 `Authorization`，解决了旧版远端模式 401 的问题）。
+- 客户端的 `streamable-http` / `url` 形态直接填上面的端点即可；本端点不提供 SSE 服务端流。
+
 **为什么不在服务端托管客户端包**：服务端一换版本，老客户端连不上就是事故；静态分发的带宽、
 灰度、回滚交给 Release / 私有 npm / 对象存储更省事。需要洞天内景试用时用
 `MEMORY_CLIENT_PKG` 临时自托管，或 `MEMORY_CLIENT_URL` 指向外部地址。

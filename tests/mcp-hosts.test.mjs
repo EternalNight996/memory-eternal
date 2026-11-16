@@ -151,3 +151,86 @@ test('project 宿主：cwd 不像项目目录时标未安装（不再给出假�
   const notExists = hostMatrix({ ...env, MEMORY_HOST_PROJECT_PATH: path.join(dir, 'nope', '.mcp.json') }).find((h) => h.id === 'project')
   assert.equal(notExists.installed, false, '路径不存在时不该冒充已安装')
 })
+
+test('OpenClaw：mcp.servers 写入/回读/幂等/只删自己；含注释的 JSON5 拒绝改写', () => {
+  const dir = tmp()
+  const file = path.join(dir, 'openclaw.json')
+  writeFileSync(file, JSON.stringify({ mcp: { servers: { other: { command: 'uvx', args: ['x'] } } }, theme: 'dark' }, null, 2))
+  const env = { MEMORY_HOST_OPENCLAW_PATH: file }
+  const w = writeHosts(canonical, ['openclaw'], env)
+  assert.equal(w[0].ok, true, JSON.stringify(w[0]))
+  const j = JSON.parse(readFileSync(file, 'utf8'))
+  assert.equal(j.mcp.servers['memory-eternal'].command, REAL_NODE)
+  assert.deepEqual(j.mcp.servers['memory-eternal'].args, canonical.args)
+  assert.ok(j.mcp.servers.other, '把别人的 server 踩掉了')
+  assert.equal(j.theme, 'dark', '把其它顶层键踩掉了')
+
+  writeHosts(canonical, ['openclaw'], env)
+  const again = JSON.parse(readFileSync(file, 'utf8'))
+  assert.equal(Object.keys(again.mcp.servers).length, 2, '重复写入不该产生第二条')
+
+  const r = removeHosts(['openclaw'], env)
+  assert.equal(r[0].removed, true)
+  const after = JSON.parse(readFileSync(file, 'utf8'))
+  assert.equal(after.mcp.servers['memory-eternal'], undefined)
+  assert.ok(after.mcp.servers.other)
+
+  const json5 = path.join(dir, 'openclaw5.json')
+  const orig = '{\n  // 注释\n  mcp: { servers: {} },\n}\n'
+  writeFileSync(json5, orig)
+  const bad = writeHosts(canonical, ['openclaw'], { MEMORY_HOST_OPENCLAW_PATH: json5 })
+  assert.equal(bad[0].ok, false)
+  assert.match(bad[0].error, /JSON5/)
+  assert.equal(readFileSync(json5, 'utf8'), orig, '拒绝时不能动文件')
+})
+
+test('Hermes：YAML mcp_servers 块级插入/替换/删除，其它键与注释保留', () => {
+  const dir = tmp()
+  const file = path.join(dir, '.hermes', 'config.yaml')
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, '# 顶部注释\nmodel: hermes-4\ntools:\n  include: ["*"]\n')
+  const env = { MEMORY_HOST_HERMES_PATH: file }
+
+  const w = writeHosts(canonical, ['hermes'], env)
+  assert.equal(w[0].ok, true, JSON.stringify(w[0]))
+  let t = readFileSync(file, 'utf8')
+  assert.match(t, /mcp_servers:/)
+  assert.match(t, /^ {2}memory-eternal:/m)
+  assert.ok(t.includes("command: '" + REAL_NODE + "'"), 'command 要用引号包住真实 node')
+  assert.match(t, /# 顶部注释/, '注释要保留')
+  assert.match(t, /model: hermes-4/, '其它顶层键要保留')
+  assert.match(t, /tools:/)
+
+  writeHosts(canonical, ['hermes'], env)
+  t = readFileSync(file, 'utf8')
+  assert.equal((t.match(/memory-eternal:/g) || []).length, 1, '重复写入不该出现两份')
+
+  writeFileSync(file, 'mcp_servers:\n  other_fs:\n    command: npx\n')
+  writeHosts(canonical, ['hermes'], env)
+  t = readFileSync(file, 'utf8')
+  assert.match(t, /other_fs:/, '不能踩掉别人已配的 server')
+  assert.equal((t.match(/memory-eternal:/g) || []).length, 1)
+
+  const r = removeHosts(['hermes'], env)
+  assert.equal(r[0].removed, true)
+  t = readFileSync(file, 'utf8')
+  assert.equal(t.includes('memory-eternal'), false)
+  assert.match(t, /other_fs:/)
+})
+
+test('MengBot：项目 .mcp.json（需告知项目根，否则不算已安装）', () => {
+  const dir = tmp()
+  const proj = path.join(dir, 'bot-project')
+  mkdirSync(proj, { recursive: true })
+  const env = { MEMORY_HOST_MENGBOT_PROJECT: proj }
+  const before = hostMatrix({ MEMORY_HOST_MENGBOT_PROJECT: undefined }).find((h) => h.id === 'mengbot')
+  assert.equal(before.installed, false, '没给项目根时不该冒充已安装')
+
+  const w = writeHosts(canonical, ['mengbot'], env)
+  assert.equal(w[0].ok, true, JSON.stringify(w[0]))
+  const j = JSON.parse(readFileSync(path.join(proj, '.mcp.json'), 'utf8'))
+  assert.equal(j.mcpServers['memory-eternal'].command, REAL_NODE)
+  assert.equal(hostMatrix(env).find((h) => h.id === 'mengbot').mounted, true)
+  const r = removeHosts(['mengbot'], env)
+  assert.equal(r[0].removed, true)
+})
