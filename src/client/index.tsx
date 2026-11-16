@@ -1214,6 +1214,10 @@ export const ZH = {
   mcpSection: 'Agent MCP 挂载状态',
   mcpSectionSub: '🔌 Mounted to DSH by default when installed as a DSH plugin; Claude Code / Codex / Cursor / Windsurf still require an explicit mount so one repo never ends up with agents reading different vaults',
   mcpRefresh: '刷新',
+  mcpSelfTest: '自检',
+  mcpSelfTestHint: '真的拉起一次 MCP 进程做握手，Windows 上路径不对会立刻暴露',
+  mcpSelfTestOk: 'MCP 握手成功（宿主能识别）',
+  mcpSelfTestFail: 'MCP 握手失败（宿主识别不了）',
   mcpMountDone: '已挂载',
   mcpMountFail: '挂载失败',
   mcpUnmountDone: '已卸载：Agent 不再带这块记忆',
@@ -2709,6 +2713,10 @@ export const EN = {
   mcpSection: 'Agent MCP mount',
   mcpSectionSub: '🔌 Off by default: pick one vault and mount it explicitly, so multiple memory-eternal instances (7999 ops / 7989 mem-purge / cloud) never get mixed up by an agent',
   mcpRefresh: 'Refresh',
+  mcpSelfTest: 'Self-test',
+  mcpSelfTestHint: 'Actually spawns the MCP entry and performs a handshake — path problems on Windows show up immediately',
+  mcpSelfTestOk: 'MCP handshake OK (host can use it)',
+  mcpSelfTestFail: 'MCP handshake failed (host cannot use it)',
   mcpMountDone: 'Mounted',
   mcpMountFail: 'Mount failed',
   mcpUnmountDone: 'Unmounted: agents no longer carry this memory',
@@ -8383,6 +8391,7 @@ function AgentMcpMountCard({ t }) {
   const [target, setTarget] = useState('local')   // 'local' 或 peer.id
   const [busy, setBusy] = useState('')             // 'host:<id>' / 'all'
   const [msg, setMsg] = useState(null)
+  const [test, setTest] = useState(null)   // MCP 自检结果（真拉起一次进程握手）
 
   const load = useCallback(async () => {
     const [m, pst] = await Promise.all([
@@ -8422,6 +8431,14 @@ function AgentMcpMountCard({ t }) {
       ? { kind: 'ok', text: (host.mounted ? t('mcpUnmountDone') : t('mcpMountDone')) + '：' + host.label + (host.mounted ? '' : ' ← ' + targetLabel()) }
       : { kind: 'bad', text: (d && d.error) || t('mcpMountFail') })
     load()
+  }
+
+  /** 自检：真的 spawn 一次已挂载条目，把 Windows 上"识别不了"的原因摆出来 */
+  const runTest = async () => {
+    setBusy('test'); setTest(null)
+    const d = await j('/mcp/selftest', { method: 'POST' }).catch(() => null)
+    setBusy('')
+    setTest(d || { ok: false, error: '自检请求失败' })
   }
 
   const mountAll = async () => {
@@ -8495,6 +8512,7 @@ function AgentMcpMountCard({ t }) {
           <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={busy === 'all'} onClick={mountAll}>{t('mcpMountAll')}</button>
           <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={busy === 'all' || mountedCount === 0} onClick={unmountAll}>{t('mcpUnmountAll')}</button>
           <button type="button" className="mc-btn" style={{ padding: '1px 8px', opacity: 0.7 }} onClick={load}>{t('mcpRefresh')}</button>
+          <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={busy === 'test'} onClick={runTest} title={t('mcpSelfTestHint')}>{busy === 'test' ? '…' : t('mcpSelfTest')}</button>
         </div>
         {hosts.map((h) => (
           <div
@@ -8519,7 +8537,11 @@ function AgentMcpMountCard({ t }) {
             )}
           </div>
         ))}
-        {st && st.drift && <div style={{ color: '#e5484d', fontSize: 11.5 }}>⚠ {t('mcpDrift')}：{st.drift.host} → {st.drift.now}</div>}
+        {st && st.drift && (
+          <div style={{ color: '#e5484d', fontSize: 11.5 }}>
+            ⚠ {t('mcpDrift')}：{st.drift.hint || ''} <code>{st.drift.host}</code> → <code>{st.drift.now}</code>
+          </div>
+        )}
       </div>
 
       <div style={{ fontSize: 11.5, opacity: 0.55, lineHeight: 1.8 }}>
@@ -8527,6 +8549,17 @@ function AgentMcpMountCard({ t }) {
         <div>{t('mcpFile')}：<code>{st ? st.mcpFile : '—'}</code>{st && st.otherServers && st.otherServers.length ? ' · ' + t('mcpOtherServers') + '：' + st.otherServers.join(', ') : ''}</div>
         <div>⚠ {t('mcpRestartHint')}</div>
       </div>
+
+      {test && (
+        <div style={{ fontSize: 11.5, lineHeight: 1.8, padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (test.ok ? 'rgba(46,160,67,.45)' : 'rgba(229,72,77,.45)'), background: test.ok ? 'rgba(46,160,67,.07)' : 'rgba(229,72,77,.07)' }}>
+          <div style={{ fontWeight: 600, color: test.ok ? '#2ea043' : '#e5484d' }}>
+            {test.ok ? t('mcpSelfTestOk') : t('mcpSelfTestFail')} · {test.ms}ms
+          </div>
+          <div style={{ opacity: 0.75 }}>{t('mcpEntry')}：<code>{test.command || '—'}</code></div>
+          {test.error && <div style={{ color: '#e5484d' }}>{test.error}</div>}
+          {test.stderr && <div style={{ opacity: 0.6, wordBreak: 'break-all' }}>stderr: {test.stderr}</div>}
+        </div>
+      )}
 
       {msg && <div style={{ fontSize: 12, color: msg.kind === 'bad' ? '#e5484d' : 'inherit', opacity: msg.kind === 'bad' ? 1 : 0.8 }}>{msg.text}</div>}
     </div>

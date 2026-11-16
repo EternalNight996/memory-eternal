@@ -13,7 +13,10 @@ const dirs = []
 const tmp = () => { const d = mkdtempSync(path.join(os.tmpdir(), 'me-hosts-')); dirs.push(d); return d }
 test.after(() => { for (const d of dirs) { try { rmSync(d, { recursive: true, force: true }) } catch { /* 忽略 */ } } })
 
-const canonical = { serverName: 'memory-eternal', transport: 'stdio', command: '/usr/bin/node', args: ['/opt/me/bin/dsh-memory.mjs', 'mcp'], env: { MEMORY_VAULT_DIR: '/data/vault' } }
+// 用**真实存在**的 node 与脚本（writeHosts 会校验，防止写出死条目）
+const REAL_NODE = process.execPath
+const REAL_SCRIPT = path.resolve('bin/dsh-memory.mjs')
+const canonical = { serverName: 'memory-eternal', transport: 'stdio', command: REAL_NODE, args: [REAL_SCRIPT, 'mcp'], env: { MEMORY_VAULT_DIR: '/data/vault' } }
 
 test('parseHosts：默认只 dsh，all 展开全部，别名可用，未知宿主报错', () => {
   assert.deepEqual(parseHosts(''), ['dsh'])
@@ -32,7 +35,7 @@ test('JSON 宿主（claude / cursor / windsurf / project）：写入 → 回读 
     const w = writeHosts(canonical, [id], env)
     assert.equal(w[0].ok, true, id + ' 写入失败：' + JSON.stringify(w[0]))
     const j = JSON.parse(readFileSync(file, 'utf8'))
-    assert.equal(j.mcpServers['memory-eternal'].command, '/usr/bin/node')
+    assert.equal(j.mcpServers['memory-eternal'].command, REAL_NODE)
     assert.deepEqual(j.mcpServers['memory-eternal'].args, canonical.args)
     assert.ok(j.mcpServers.other, id + ' 把别人的条目踩掉了')
 
@@ -55,7 +58,7 @@ test('Codex TOML：新建文件 / 追加 / 替换 / 删除 都不破坏其它段
   assert.equal(w[0].ok, true, JSON.stringify(w[0]))
   let t = readFileSync(file, 'utf8')
   assert.match(t, /\[mcp_servers\.memory-eternal\]/)
-  assert.match(t, /command = "\/usr\/bin\/node"/)
+  assert.ok(t.includes('command = ' + JSON.stringify(REAL_NODE)), 'TOML 里的 command 要与真实 node 一致（转义后）')
   assert.match(t, /MEMORY_VAULT_DIR = "\/data\/vault"/)
   assert.match(t, /\[profiles\.fast\]/, 'TOML 里别的段要保留')
 
