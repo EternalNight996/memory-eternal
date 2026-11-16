@@ -138,3 +138,23 @@ test('MCP 挂载是实验性页的独立区块（不再塞在配对卡里）', (
     assert.ok(hits >= 2, k + ' 需要中英两份（实际 ' + hits + '）')
   }
 })
+
+test('列表式点击挂载：库列表 + 宿主列表，点行即挂/摘', () => {
+  const ui = readFileSync(path.join(root, 'src/client/index.tsx'), 'utf8')
+  const start = ui.indexOf('function AgentMcpMountCard(')
+  const next = ui.indexOf('\nfunction ', start + 10)
+  const block = ui.slice(start, next > 0 ? next : ui.length)
+
+  // ① 列表渲染：目标库（本机 + 已配对节点）与宿主，各自可点
+  assert.match(block, /mcpPickTarget/, '要有「选择要挂的库」列表标题')
+  assert.match(block, /mcpPickHost/, '要有「选择宿主」列表标题')
+  assert.match(block, /onClick=\{\(\) => setTarget\('local'\)\}/, '本机库那行要能点选')
+  assert.match(block, /onClick=\{\(\) => setTarget\(pr\.id\)\}/, '每个已配对节点一行，点选')
+  assert.match(block, /onClick=\{\(\) => toggleHost\(h\)\}/, '每个宿主一行，点行挂/摘')
+
+  // ② 点行行为：已挂 → unmount(hosts:id)；未挂 → mount(hosts:id, 目标)
+  assert.match(block, /call\('\/mcp\/unmount', \{ hosts: host\.id \}\)/, '点击已挂宿主应卸载该宿主')
+  assert.match(block, /call\('\/mcp\/mount', \{ \.\.\.targetPayload\(\), hosts: host\.id \}\)/, '点击未挂宿主应挂上当前目标')
+  assert.match(block, /未安装|!h\.installed/, '未安装宿主不该能点')
+  assert.match(block, /mcpUnmountAll/, '保留全部卸载')
+})

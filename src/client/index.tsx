@@ -1171,6 +1171,31 @@ export const ZH = {
   peerAskTitle: '有实例请求与你配对',
   peerAskCode: '握手码（请与对方核对）',
   peerAskFpChanged: '⚠ 匹配码是老的，但对方指纹变了（重装或被冒充）—— 确认前请先问清对方。',
+  peerRefresh: '刷新',
+  peerHideCode: '点击收起',
+  peerShowCode: '点击展开完整匹配码',
+  peerNeedTarget: '先填对方地址或匹配码',
+  peerConnectFail: '连接失败',
+  peerConnectedAuto: '已凭匹配码直接连上',
+  peerKnocked: '已向对方发起配对，等它确认（握手码）',
+  peerScanFail: '扫描失败',
+  peerScanEmpty: '没发现同类实例（检查对方是否在跑、UDP 7990 是否被挡）',
+  peerAccepted: '已确认配对',
+  peerAcceptFail: '确认失败',
+  peerRevoked: '已吊销',
+  peerTransferFail: '传输失败',
+  peerUploaded: '已上传',
+  peerDownloaded: '已下载',
+  peerIntoPeerReview: '进对方待审队列',
+  peerIntoLocalReview: '进本库待审队列',
+  peerPending: '待确认',
+  peerWaitingOther: '等对方确认',
+  peerPairedPeers: '已配对节点（连上后可上传/下载对方的库）',
+  peerNoPeers: '还没有已配对节点',
+  peerPeerVault: '对方库',
+  peerCards: '张',
+  peerUploadHint: '把本库已审卡推到对方（对方进待审）',
+  peerDownloadHint: '把对方的卡拉到本库（进待审）',
   mcpMountTitle: 'Agent MCP 挂载',
   mcpMountHint: 'DSH is mounted by default. Change the target or mount other hosts here; only one vault is mounted at a time, which is what keeps captures from mixing.',
   mcpMounted: '已挂载',
@@ -1179,6 +1204,13 @@ export const ZH = {
   mcpTargetLocal: '本机默认库',
   mcpMountBtn: '挂载',
   mcpUnmountBtn: '卸载',
+  mcpPickTarget: '① 选择要挂的库（点一行选中）',
+  mcpPickHost: '② 选择宿主（点哪行就挂/摘哪行）',
+  mcpPicked: '已选中',
+  mcpClickMount: '点击挂载',
+  mcpClickUnmount: '点击卸载',
+  mcpHostsMounted: '已挂宿主',
+  mcpUnmountAll: '全部卸载',
   mcpSection: 'Agent MCP 挂载状态',
   mcpSectionSub: '🔌 Mounted to DSH by default when installed as a DSH plugin; Claude Code / Codex / Cursor / Windsurf still require an explicit mount so one repo never ends up with agents reading different vaults',
   mcpRefresh: '刷新',
@@ -2634,6 +2666,31 @@ export const EN = {
   peerAskTitle: 'An instance asks to pair with you',
   peerAskCode: 'Handshake code (compare with the other side)',
   peerAskFpChanged: '⚠ The pair code is known but the fingerprint changed (reinstall or impersonation) — verify with the other side before accepting.',
+  peerRefresh: 'Refresh',
+  peerHideCode: 'Click to hide',
+  peerShowCode: 'Click to reveal the full pair code',
+  peerNeedTarget: 'Enter the peer address or pair code first',
+  peerConnectFail: 'Connect failed',
+  peerConnectedAuto: 'Connected with the pair code',
+  peerKnocked: 'Pairing request sent, waiting for confirmation (handshake code)',
+  peerScanFail: 'Scan failed',
+  peerScanEmpty: 'No instance found (is the peer running? is UDP 7990 blocked?)',
+  peerAccepted: 'Paired',
+  peerAcceptFail: 'Confirmation failed',
+  peerRevoked: 'Revoked',
+  peerTransferFail: 'Transfer failed',
+  peerUploaded: 'Uploaded',
+  peerDownloaded: 'Downloaded',
+  peerIntoPeerReview: 'into the peer review queue',
+  peerIntoLocalReview: 'into this vault review queue',
+  peerPending: 'pending',
+  peerWaitingOther: 'waiting for the peer',
+  peerPairedPeers: 'Paired peers (upload/download their vault once connected)',
+  peerNoPeers: 'No paired peer yet',
+  peerPeerVault: 'Peer vault',
+  peerCards: 'cards',
+  peerUploadHint: 'Push approved cards of this vault to the peer (peer reviews them)',
+  peerDownloadHint: 'Pull the peer cards into this vault (reviewed here)',
   mcpMountTitle: 'Agent MCP mount',
   mcpMountHint: 'Off by default: keeps multiple local vaults (7999 ops / 7989 mem-purge / cloud) from mixing inside one agent',
   mcpMounted: 'Mounted',
@@ -2642,6 +2699,13 @@ export const EN = {
   mcpTargetLocal: 'Local default vault',
   mcpMountBtn: 'Mount',
   mcpUnmountBtn: 'Unmount',
+  mcpPickTarget: '① Pick the vault to mount (click a row)',
+  mcpPickHost: '② Pick hosts (click a row to mount / unmount it)',
+  mcpPicked: 'selected',
+  mcpClickMount: 'click to mount',
+  mcpClickUnmount: 'click to unmount',
+  mcpHostsMounted: 'hosts mounted',
+  mcpUnmountAll: 'Unmount all',
   mcpSection: 'Agent MCP mount',
   mcpSectionSub: '🔌 Off by default: pick one vault and mount it explicitly, so multiple memory-eternal instances (7999 ops / 7989 mem-purge / cloud) never get mixed up by an agent',
   mcpRefresh: 'Refresh',
@@ -8316,8 +8380,8 @@ function ThemePicker({ t }) {
 function AgentMcpMountCard({ t }) {
   const [st, setSt] = useState(null)
   const [peers, setPeers] = useState([])
-  const [target, setTarget] = useState('local')
-  const [busy, setBusy] = useState('')
+  const [target, setTarget] = useState('local')   // 'local' 或 peer.id
+  const [busy, setBusy] = useState('')             // 'host:<id>' / 'all'
   const [msg, setMsg] = useState(null)
 
   const load = useCallback(async () => {
@@ -8330,130 +8394,175 @@ function AgentMcpMountCard({ t }) {
   }, [])
   useEffect(() => { load() }, [load])
 
-  const doMount = async () => {
-    setBusy('mount')
+  const call = async (path, body) => fetch(API + path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  }).then((r) => r.json()).catch(() => null)
+
+  /** 当前选中的目标（库）→ canonical target 载荷 */
+  const targetPayload = () => {
     const peer = target === 'local' ? null : peers.find((x) => x.id === target)
-    const body = peer ? { kind: 'peer', url: peer.url, name: peer.name } : { kind: 'local' }
-    const d = await fetch(API + '/mcp/mount', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json()).catch(() => null)
+    return peer ? { kind: 'peer', url: peer.url, name: peer.name } : { kind: 'local' }
+  }
+  const targetLabel = () => {
+    const peer = target === 'local' ? null : peers.find((x) => x.id === target)
+    return peer ? (peer.name + ' · ' + peer.url) : t('mcpTargetLocal')
+  }
+
+  /** 点宿主那一行：已挂 → 卸载这个宿主；未挂 → 把当前目标挂到这个宿主 */
+  const toggleHost = async (host) => {
+    if (!host.installed) return
+    setBusy('host:' + host.id)
+    const d = host.mounted
+      ? await call('/mcp/unmount', { hosts: host.id })
+      : await call('/mcp/mount', { ...targetPayload(), hosts: host.id })
     setBusy('')
     setMsg(d && d.ok
-      ? { kind: 'ok', text: t('mcpMountDone') + '：' + (peer ? peer.name : t('mcpTargetLocal')) }
+      ? { kind: 'ok', text: (host.mounted ? t('mcpUnmountDone') : t('mcpMountDone')) + '：' + host.label + (host.mounted ? '' : ' ← ' + targetLabel()) }
       : { kind: 'bad', text: (d && d.error) || t('mcpMountFail') })
     load()
   }
-  const doMountAll = async () => {
-    setBusy('mount')
-    const peer = target === 'local' ? null : peers.find((x) => x.id === target)
-    const body = peer ? { kind: 'peer', url: peer.url, name: peer.name, hosts: 'all' } : { kind: 'local', hosts: 'all' }
-    const d = await fetch(API + '/mcp/mount', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json()).catch(() => null)
+
+  const mountAll = async () => {
+    setBusy('all')
+    const d = await call('/mcp/mount', { ...targetPayload(), hosts: 'all' })
     setBusy('')
     setMsg(d && d.ok
-      ? { kind: 'ok', text: t('mcpMountDone') + '：' + (peer ? peer.name : t('mcpTargetLocal')) + ' → ' + ((d.hosts || []).filter((h) => h.ok).map((h) => h.id).join(', ') || '—') }
+      ? { kind: 'ok', text: t('mcpMountDone') + '：' + targetLabel() + ' → ' + ((d.hosts || []).filter((h) => h.ok).map((h) => h.id).join(', ') || '—') }
       : { kind: 'bad', text: (d && d.error) || t('mcpMountFail') })
     load()
   }
-  const doUnmount = async () => {
-    setBusy('mount')
-    const d = await fetch(API + '/mcp/unmount', { method: 'POST' }).then((r) => r.json()).catch(() => null)
+  const unmountAll = async () => {
+    setBusy('all')
+    const d = await call('/mcp/unmount', { hosts: '' })
     setBusy('')
     setMsg(d && d.ok ? { kind: 'ok', text: t('mcpUnmountDone') } : { kind: 'bad', text: (d && d.error) || t('mcpMountFail') })
     load()
   }
 
-  const mounted = !!(st && st.mounted)
-  const tgt = st && st.target
-  const targetLabel = !mounted ? '—'
-    : (tgt && tgt.kind === 'peer') ? ((tgt.name || '') + ' · ' + (tgt.url || ''))
-      : (tgt && tgt.vault ? tgt.vault : t('mcpTargetLocal'))
+  const hosts = (st && st.hosts) || []
+  const mountedCount = hosts.filter((h) => h.mounted).length
+  const rowStyle = (active, dim) => ({
+    display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, cursor: dim ? 'default' : 'pointer',
+    border: '1px solid ' + (active ? 'var(--dsw-alias-brand-primary, #ff7a45)' : 'var(--me-c-border)'),
+    background: active ? 'rgba(255,122,69,.08)' : 'transparent',
+    opacity: dim ? 0.45 : 1,
+    marginBottom: 6,
+  })
+  const dot = (on, installed) => ({ width: 8, height: 8, borderRadius: 999, flex: 'none', background: installed ? (on ? '#2ea043' : '#8b93a1') : 'transparent', border: installed ? 'none' : '1px solid #8b93a1' })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 13 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--me-c-border)', background: mounted ? 'rgba(46,160,67,.12)' : 'rgba(127,127,127,.10)' }}>
-          <span style={{ width: 7, height: 7, borderRadius: 999, background: mounted ? '#2ea043' : '#8b93a1' }} />
-          {mounted ? t('mcpMounted') : t('mcpNotMounted')}
-        </span>
-        {mounted && <code style={{ fontSize: 12, opacity: 0.85 }}>{targetLabel}</code>}
-        <button type="button" className="mc-btn" style={{ padding: '1px 8px', opacity: 0.7 }} onClick={load}>{t('mcpRefresh')}</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* ── ① 选库：点一行即选中（同一时刻只能挂一个库） ───────────────── */}
+      <div>
+        <div style={{ fontSize: 12, opacity: 0.65, marginBottom: 6 }}>{t('mcpPickTarget')}</div>
+        <div
+          style={rowStyle(target === 'local', false)}
+          onClick={() => setTarget('local')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') setTarget('local') }}
+        >
+          <span style={dot(target === 'local', true)} />
+          <span style={{ flex: 1 }}>{t('mcpTargetLocal')}</span>
+          <code style={{ fontSize: 11, opacity: 0.5 }}>{st && st.target && target === 'local' && st.target.vault ? st.target.vault : ''}</code>
+          {target === 'local' && <span style={{ fontSize: 11, opacity: 0.8 }}>{t('mcpPicked')}</span>}
+        </div>
+        {peers.map((pr) => (
+          <div
+            key={pr.id}
+            style={rowStyle(target === pr.id, false)}
+            onClick={() => setTarget(pr.id)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') setTarget(pr.id) }}
+          >
+            <span style={dot(target === pr.id, true)} />
+            <span style={{ flex: 1 }}>{pr.name} <code style={{ fontSize: 11, opacity: 0.55 }}>{pr.pairCode || ''}</code></span>
+            <code style={{ fontSize: 11, opacity: 0.5 }}>{pr.url}</code>
+            {target === pr.id && <span style={{ fontSize: 11, opacity: 0.8 }}>{t('mcpPicked')}</span>}
+          </div>
+        ))}
+        {peers.length === 0 && <div style={{ fontSize: 11.5, opacity: 0.5 }}>{t('mcpNoPeers')}</div>}
       </div>
 
-      <div style={{ fontSize: 12, lineHeight: 1.7, opacity: 0.75 }}>{t('mcpMountHint')}</div>
-
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-        <label className="mc-field" style={{ margin: 0 }}>
-          <span className="mc-field-label">{t('mcpMountTarget')}</span>
-          <select value={target} onChange={(e) => setTarget(e.target.value)} style={{ minWidth: 260 }}>
-            <option value="local">{t('mcpTargetLocal')}</option>
-            {peers.map((pr) => <option key={pr.id} value={pr.id}>{pr.name} · {pr.url}</option>)}
-          </select>
-        </label>
-        <button type="button" className="mc-btn" disabled={busy === 'mount'} onClick={doMount}>{t('mcpMountBtn')}</button>
-        <button type="button" className="mc-btn" disabled={busy === 'mount'} onClick={doMountAll} title={t('mcpMountAllHint')}>{t('mcpMountAll')}</button>
-        <button type="button" className="mc-btn" disabled={busy === 'mount' || !mounted} onClick={doUnmount}>{t('mcpUnmountBtn')}</button>
+      {/* ── ② 选宿主：点哪行挂哪行（再点一次卸载） ─────────────────────── */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, opacity: 0.65 }}>{t('mcpPickHost')}</span>
+          <span style={{ fontSize: 11.5, opacity: 0.5 }}>{t('mcpHostsMounted')}：{mountedCount}/{hosts.length}</span>
+          <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={busy === 'all'} onClick={mountAll}>{t('mcpMountAll')}</button>
+          <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={busy === 'all' || mountedCount === 0} onClick={unmountAll}>{t('mcpUnmountAll')}</button>
+          <button type="button" className="mc-btn" style={{ padding: '1px 8px', opacity: 0.7 }} onClick={load}>{t('mcpRefresh')}</button>
+        </div>
+        {hosts.map((h) => (
+          <div
+            key={h.id}
+            style={rowStyle(false, !h.installed)}
+            onClick={() => toggleHost(h)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') toggleHost(h) }}
+            title={h.note || h.path}
+          >
+            <span style={dot(h.mounted, h.installed)} />
+            <span style={{ minWidth: 150 }}>{h.label}</span>
+            <span style={{ minWidth: 64, fontSize: 11.5, opacity: 0.75 }}>
+              {!h.installed ? t('mcpHostAbsent') : h.mounted ? t('mcpMounted') : t('mcpNotMounted')}
+            </span>
+            <code style={{ flex: 1, fontSize: 10.5, opacity: 0.45, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.path}</code>
+            {h.installed && (
+              <span style={{ fontSize: 11, opacity: 0.75 }}>
+                {busy === 'host:' + h.id ? '…' : h.mounted ? t('mcpClickUnmount') : t('mcpClickMount')}
+              </span>
+            )}
+          </div>
+        ))}
+        {st && st.drift && <div style={{ color: '#e5484d', fontSize: 11.5 }}>⚠ {t('mcpDrift')}：{st.drift.host} → {st.drift.now}</div>}
       </div>
 
-      {peers.length === 0 && <div style={{ fontSize: 11.5, opacity: 0.55 }}>{t('mcpNoPeers')}</div>}
-
-      {st && Array.isArray(st.hosts) && (
-        <div style={{ fontSize: 12, lineHeight: 1.9 }}>
-          <div style={{ opacity: 0.6, marginBottom: 2 }}>{t('mcpHostMatrix')}</div>
-          {st.hosts.map((h) => (
-            <div key={h.id} style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: h.installed ? 1 : 0.45 }}>
-              <span style={{ width: 7, height: 7, borderRadius: 999, background: h.mounted ? '#2ea043' : (h.installed ? '#8b93a1' : 'transparent'), border: h.installed ? 'none' : '1px solid #8b93a1' }} />
-              <span style={{ minWidth: 120 }}>{h.label}</span>
-              <span style={{ opacity: 0.7, minWidth: 54 }}>{h.installed ? (h.mounted ? t('mcpMounted') : t('mcpNotMounted')) : t('mcpHostAbsent')}</span>
-              <code style={{ fontSize: 11, opacity: 0.45 }}>{h.path}</code>
-            </div>
-          ))}
-          {st.drift && <div style={{ color: '#e5484d', fontSize: 11.5 }}>⚠ {t('mcpDrift')}：{st.drift.host} → {st.drift.now}</div>}
-        </div>
-      )}
-
-      {st && (
-        <div style={{ fontSize: 11.5, opacity: 0.5, lineHeight: 1.8 }}>
-          <div>{t('mcpFile')}：<code>{st.mcpFile}</code></div>
-          {st.otherServers && st.otherServers.length > 0 && <div>{t('mcpOtherServers')}：{st.otherServers.join(', ')}</div>}
-          {mounted && st.entry && <div>{t('mcpEntry')}：<code>{st.entry.command}</code> {Array.isArray(st.entry.args) ? st.entry.args.slice(1).join(' ') : ''}</div>}
-        </div>
-      )}
+      <div style={{ fontSize: 11.5, opacity: 0.55, lineHeight: 1.8 }}>
+        <div>{t('mcpMountHint')}</div>
+        <div>{t('mcpFile')}：<code>{st ? st.mcpFile : '—'}</code>{st && st.otherServers && st.otherServers.length ? ' · ' + t('mcpOtherServers') + '：' + st.otherServers.join(', ') : ''}</div>
+        <div>⚠ {t('mcpRestartHint')}</div>
+      </div>
 
       {msg && <div style={{ fontSize: 12, color: msg.kind === 'bad' ? '#e5484d' : 'inherit', opacity: msg.kind === 'bad' ? 1 : 0.8 }}>{msg.text}</div>}
-
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11.5, opacity: 0.6 }}>
-        <span>⚠</span><span>{t('mcpRestartHint')}</span>
-      </div>
     </div>
   )
 }
 
-/**
- * MEM Pair 面板卡：本机匹配码 / 扫描发现 / 手填地址配对 / 待确认（弹窗）/ 已配对（上传·下载·吊销）。
- *
- * 设计口径（与后端 lib/peer.js 一致）：
- *   · 首次配对要对方**人工确认**（这里弹窗 + 显示握手码，两边肉眼核对）；
- *   · 之后**只凭匹配码**就能重连（对方认得这个码且指纹没变 → 直接建立，不再弹窗）；
- *   · 指纹变了（对方重装/被冒充）会回到确认流程，并在弹窗里标红提示。
- */
 function PeerPairCard({ t }) {
   const [st, setSt] = useState(null)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState(null)
-  const [host, setHost] = useState('')
-  const [code, setCode] = useState('')
-  const [found, setFound] = useState(null)
-  const [ask, setAsk] = useState(null)   // 待确认弹窗对象
+  const [addr, setAddr] = useState('')          // 对方地址 host:port
+  const [codeInput, setCodeInput] = useState('')// 对方匹配码
+  const [found, setFound] = useState(null)      // 广播发现结果
+  const [ask, setAsk] = useState(null)          // 待确认弹窗
+  const [codeOpen, setCodeOpen] = useState(false) // 我的匹配码是否展开
+  const [peerStats, setPeerStats] = useState({})  // { peerId: {total, byKind} }
 
-  const j = async (p, init) => {
-    const r = await fetch(API + p, { ...init, headers: { 'content-type': 'application/json', ...(init && init.headers) } })
+  const j = async (path, init) => {
+    const r = await fetch(API + path, { ...init, headers: { 'content-type': 'application/json', ...(init && init.headers) } })
     return await r.json().catch(() => null)
   }
   const load = useCallback(async () => {
     const d = await j('/peer/status').catch(() => null)
-    if (d && d.ok) setSt(d)
+    if (d && d.ok) {
+      setSt(d)
+      // 已配对节点：顺手拉一次对方库摘要（失败就当没有，不打扰）
+      for (const pr of d.peers || []) {
+        j('/peer/stats', { method: 'POST', body: JSON.stringify({ peerId: pr.id }) })
+          .then((x) => { if (x && x.ok) setPeerStats((prev) => ({ ...prev, [pr.id]: { total: x.total, byKind: x.byKind || {} } })) })
+          .catch(() => {})
+      }
+    }
   }, [])
   useEffect(() => { load() }, [load])
 
-  // 对方敲门时后端会广播 'peer' 事件 —— 这里弹窗（"对方弹窗确认"的落点）
+  // 对方敲门 → 弹窗；配对完成 → 刷新
   useEffect(() => {
     let es = null
     try {
@@ -8464,142 +8573,185 @@ function PeerPairCard({ t }) {
         if (d && d.event === 'pair-request' && d.item) setAsk(d.item)
         if (d && d.event === 'paired') load()
       })
-    } catch { /* 浏览器不支持或连接失败：靠手动刷新 */ }
+    } catch { /* 忽略 */ }
     return () => { try { es && es.close() } catch { /* 忽略 */ } }
   }, [load])
 
-  const doScan = async () => {
+  const self = st && st.self
+  const peers = (st && st.peers) || []
+  const pendingOut = ((st && st.pending) || []).filter((x) => x.direction !== 'incoming')
+
+  /** 一行式连接：有匹配码 → 用码（地址兜底）；没码但有地址 → 走一次普通配对 */
+  const connect = async () => {
+    const code = codeInput.trim().toUpperCase()
+    const raw = addr.trim()
+    const host = raw ? raw.split(':')[0] : ''
+    const port = raw && raw.includes(':') ? Number(raw.split(':')[1]) : 0
+    if (!code && !raw) return setMsg({ kind: 'bad', text: t('peerNeedTarget') })
+    setBusy('connect')
+    const d = code
+      ? await j('/peer/pair/connect', { method: 'POST', body: JSON.stringify({ code, host, port }) }).catch(() => null)
+      : await j('/peer/pair/start', { method: 'POST', body: JSON.stringify({ host, port }) }).catch(() => null)
+    setBusy('')
+    if (!d || !d.ok) return setMsg({ kind: 'bad', text: (d && d.error) || t('peerConnectFail') })
+    setMsg({ kind: 'ok', text: d.auto ? t('peerConnectedAuto') + '：' + d.peer.name : t('peerKnocked') + '（' + (d.code || '') + '）' })
+    setAddr(''); setCodeInput('')
+    load()
+  }
+  const scan = async () => {
     setBusy('scan'); setFound(null)
     const d = await j('/peer/discover', { method: 'POST', body: JSON.stringify({ timeoutMs: 1500 }) }).catch(() => null)
-    setBusy(''); setFound(d && d.ok ? d.found : [])
-    if (!d || !d.ok) setMsg({ kind: 'bad', text: (d && d.error) || '扫描失败' })
-  }
-  const doPair = async (h, port) => {
-    setBusy('pair')
-    const d = await j('/peer/pair/start', { method: 'POST', body: JSON.stringify({ host: h, port: Number(port) }) }).catch(() => null)
     setBusy('')
-    if (!d || !d.ok) return setMsg({ kind: 'bad', text: (d && d.error) || '发起配对失败' })
-    if (d.auto) setMsg({ kind: 'ok', text: '对方认得你的匹配码，已直接配对：' + d.peer.name })
-    else setMsg({ kind: 'ok', text: '已向 ' + d.peer.name + ' 发起配对，等它在面板确认（握手码 ' + (d.code || '') + '）' })
-    load()
-  }
-  const doConnect = async () => {
-    const c = code.trim().toUpperCase()
-    if (!c) return
-    setBusy('connect')
-    const d = await j('/peer/pair/connect', { method: 'POST', body: JSON.stringify({ code: c, host: host.trim().split(':')[0] || '', port: Number((host.trim().split(':')[1] || 0)) || 0 }) }).catch(() => null)
-    setBusy('')
-    if (!d || !d.ok) return setMsg({ kind: 'bad', text: (d && d.error) || '重连失败' })
-    setMsg({ kind: 'ok', text: d.auto ? '凭匹配码直接重连成功（无需再确认）：' + d.peer.name : '已敲门，等对方确认（握手码 ' + (d.code || '') + '）' })
-    load()
+    if (!d || !d.ok) return setMsg({ kind: 'bad', text: (d && d.error) || t('peerScanFail') })
+    setFound(d.found || [])
+    if (!d.found || !d.found.length) setMsg({ kind: 'bad', text: t('peerScanEmpty') })
   }
   const accept = async (item) => {
     setBusy('accept')
     const d = await j('/peer/pair/accept', { method: 'POST', body: JSON.stringify({ id: item.id }) }).catch(() => null)
     setBusy(''); setAsk(null)
-    setMsg(d && d.ok ? { kind: 'ok', text: '已确认配对：' + (d.peer && d.peer.name) + (d.peer && d.peer.notified ? '（已回推对方）' : '') } : { kind: 'bad', text: (d && d.error) || '确认失败' })
+    setMsg(d && d.ok ? { kind: 'ok', text: t('peerAccepted') + '：' + (d.peer && d.peer.name ? d.peer.name : '') } : { kind: 'bad', text: (d && d.error) || t('peerAcceptFail') })
     load()
   }
   const reject = async (item) => {
     await j('/peer/pair/reject', { method: 'POST', body: JSON.stringify({ id: item.id }) }).catch(() => null)
     setAsk(null); load()
   }
-  const transfer = async (peer, dir) => {
-    setBusy(dir + ':' + peer.id)
-    const body = JSON.stringify(dir === 'upload' ? { peerId: peer.id, limit: 200 } : { peerId: peer.id })
-    const d = await j(dir === 'upload' ? '/peer/upload' : '/peer/download', { method: 'POST', body }).catch(() => null)
-    setBusy('')
-    if (!d || !d.ok) return setMsg({ kind: 'bad', text: (d && d.error) || '传输失败' })
-    setMsg({ kind: 'ok', text: dir === 'upload'
-      ? '已上传 ' + d.sent + ' 张 → 对方写入 ' + d.written + '（进对方待审队列）'
-      : '已下载 ' + d.fetched + ' 张 → 本库写入 ' + d.written + '（进待审队列）' })
+  const revoke = async (pr) => {
+    await j('/peer/revoke', { method: 'POST', body: JSON.stringify({ id: pr.id }) }).catch(() => null)
+    setMsg({ kind: 'ok', text: t('peerRevoked') + '：' + pr.name })
+    setPeerStats((prev) => { const n = { ...prev }; delete n[pr.id]; return n })
     load()
   }
-  const revoke = async (peer) => {
-    await j('/peer/revoke', { method: 'POST', body: JSON.stringify({ id: peer.id }) }).catch(() => null)
-    setMsg({ kind: 'ok', text: '已吊销：' + peer.name })
+  const transfer = async (pr, dir) => {
+    setBusy(dir + ':' + pr.id)
+    const bid = dir === 'upload'
+      ? await j('/peer/upload', { method: 'POST', body: JSON.stringify({ peerId: pr.id, limit: 200 }) }).catch(() => null)
+      : await j('/peer/download', { method: 'POST', body: JSON.stringify({ peerId: pr.id }) }).catch(() => null)
+    setBusy('')
+    if (!bid || !bid.ok) return setMsg({ kind: 'bad', text: (bid && bid.error) || t('peerTransferFail') })
+    setMsg({
+      kind: 'ok',
+      text: dir === 'upload'
+        ? t('peerUploaded') + ' ' + bid.sent + ' → ' + bid.written + '（' + t('peerIntoPeerReview') + '）'
+        : t('peerDownloaded') + ' ' + bid.fetched + ' → ' + bid.written + '（' + t('peerIntoLocalReview') + '）',
+    })
     load()
   }
 
-  const self = st && st.self
-  const peers = (st && st.peers) || []
-  const pending = (st && st.pending) || []
-  const incoming = pending.filter((x) => x.direction === 'incoming')
+  const muted = { fontSize: 11.5, opacity: 0.55 }
+  const row = { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--me-c-border)', borderRadius: 10, marginBottom: 8 }
+  const mask = (v) => (v ? v.slice(0, 4) + '••••' : '—')
 
   return (
-    <div className="mc-card" style={{ marginTop: 14, padding: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <strong style={{ fontSize: 15 }}>🔗 {t('peerTitle')}</strong>
-        <span style={{ opacity: 0.65, fontSize: 12 }}>{t('peerSub')}</span>
-      </div>
-
-      <div style={{ display: 'flex', gap: 18, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* ── 顶部：我的名片（匹配码默认掩码，点击展开；刷新） ─────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '10px 12px', border: '1px solid var(--me-c-border)', borderRadius: 10, background: 'rgba(127,127,127,.06)' }}>
         <div>
-          <div style={{ fontSize: 12, opacity: 0.6 }}>{t('peerMyCode')}</div>
+          <div style={muted}>{t('peerMyCode')}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <code style={{ fontSize: 20, letterSpacing: 2, fontWeight: 700 }}>{self ? self.pairCode : '—'}</code>
-            {self && <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} onClick={() => { try { navigator.clipboard.writeText(self.pairCode) ; setMsg({ kind: 'ok', text: t('peerCopied') }) } catch { /* 忽略 */ } }}>{t('peerCopy')}</button>}
+            <button
+              type="button"
+              className="mc-btn"
+              style={{ padding: '0 6px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 18, letterSpacing: 1.5, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              title={codeOpen ? t('peerHideCode') : t('peerShowCode')}
+              onClick={() => setCodeOpen((v) => !v)}
+            >
+              {self ? (codeOpen ? self.pairCode : mask(self.pairCode)) : '—'}
+            </button>
+            <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={!self} onClick={() => { try { navigator.clipboard.writeText(self.pairCode); setMsg({ kind: 'ok', text: t('peerCopied') }) } catch { /* 忽略 */ } }}>{t('peerCopy')}</button>
+            <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} onClick={load}>{t('peerRefresh')}</button>
           </div>
-          <div style={{ fontSize: 11, opacity: 0.5 }}>{t('peerFp')}: {self ? self.fp : '—'}</div>
+          <div style={muted}>{t('peerFp')}: <code>{self ? self.fp : '—'}</code></div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <label className="mc-field" style={{ margin: 0 }}>
-            <span className="mc-field-label">{t('peerAddress')}</span>
-            <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.20:7989" style={{ minWidth: 180 }} />
-          </label>
-          <button type="button" className="mc-btn" disabled={busy === 'scan'} onClick={doScan}>{busy === 'scan' ? t('peerScanning') : t('peerScan')}</button>
-          <button type="button" className="mc-btn" disabled={!host.trim() || busy === 'pair'} onClick={() => { const [h, pt] = host.trim().split(':'); doPair(h, pt || 7999) }}>{t('peerPair')}</button>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-          <label className="mc-field" style={{ margin: 0 }}>
-            <span className="mc-field-label">{t('peerByCode')}</span>
-            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="XXXX-XXXX" style={{ width: 130 }} />
-          </label>
-          <button type="button" className="mc-btn" disabled={!code.trim() || busy === 'connect'} onClick={doConnect}>{t('peerConnect')}</button>
+        <div style={{ flex: 1 }} />
+        <div style={muted}>
+          {t('peerPaired')}：{peers.length} · {t('peerPending')}：{((st && st.pending) || []).length}
         </div>
       </div>
 
-      {msg && <div style={{ marginTop: 8, fontSize: 12, color: msg.kind === 'bad' ? '#e5484d' : 'inherit', opacity: msg.kind === 'bad' ? 1 : 0.75 }}>{msg.text}</div>}
-      {found && (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 12, opacity: 0.6 }}>{t('peerFound')}：{found.length}</div>
+      {/* ── 一行式连接：地址 + 匹配码 + 直接连 ─────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+        <label className="mc-field" style={{ margin: 0, flex: '0 1 220px' }}>
+          <span className="mc-field-label">{t('peerAddress')}</span>
+          <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="192.168.1.20:7989" />
+        </label>
+        <label className="mc-field" style={{ margin: 0, flex: '0 1 170px' }}>
+          <span className="mc-field-label">{t('peerByCode')}</span>
+          <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder="XXXX-XXXX" style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: 1 }} />
+        </label>
+        <button type="button" className="mc-btn" style={{ padding: '6px 16px' }} disabled={busy === 'connect'} onClick={connect}>{busy === 'connect' ? '…' : t('peerConnect')}</button>
+        <button type="button" className="mc-btn" style={{ padding: '6px 12px', opacity: 0.85 }} disabled={busy === 'scan'} onClick={scan}>{busy === 'scan' ? t('peerScanning') : t('peerScan')}</button>
+        <span style={muted}>{t('peerConnectHint')}</span>
+      </div>
+
+      {msg && <div style={{ fontSize: 12, color: msg.kind === 'bad' ? '#e5484d' : 'inherit', opacity: msg.kind === 'bad' ? 1 : 0.8 }}>{msg.text}</div>}
+
+      {/* 广播发现结果 */}
+      {found && found.length > 0 && (
+        <div>
+          <div style={muted}>{t('peerFound')}：{found.length}</div>
           {found.map((f) => (
-            <div key={f.id} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, padding: '3px 0' }}>
-              <span>· {f.name}</span><code style={{ opacity: 0.7 }}>{f.pairCode}</code>
-              <span style={{ opacity: 0.5 }}>{f.host}:{f.port}</span>
-              <button type="button" className="mc-btn" style={{ padding: '0 8px' }} onClick={() => doPair(f.host, f.port)}>{t('peerPair')}</button>
+            <div key={f.id} style={row}>
+              <span style={{ minWidth: 140 }}>{f.name}</span>
+              <code style={{ fontSize: 12 }}>{f.pairCode}</code>
+              <span style={muted}>{f.host}:{f.port}</span>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="mc-btn" style={{ padding: '1px 10px' }} onClick={() => { setAddr(f.host + ':' + f.port); setCodeInput(f.pairCode || ''); connect() }}>{t('peerConnect')}</button>
             </div>
           ))}
         </div>
       )}
 
-      {incoming.length > 0 && (
-        <div style={{ marginTop: 10, padding: 8, border: '1px dashed rgba(255,122,69,.5)', borderRadius: 8 }}>
-          <div style={{ fontSize: 12, marginBottom: 4 }}>{t('peerIncoming')}（{incoming.length}）</div>
-          {incoming.map((it) => (
-            <div key={it.id} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13 }}>
-              <span>{it.name}</span><code>{it.code}</code><span style={{ opacity: 0.5 }}>{it.url}</span>
-              <button type="button" className="mc-btn" onClick={() => accept(it)}>{t('peerAccept')}</button>
-              <button type="button" className="mc-btn" onClick={() => reject(it)}>{t('peerReject')}</button>
+      {/* 待我确认 */}
+      {((st && st.pending) || []).filter((x) => x.direction === 'incoming').length > 0 && (
+        <div style={{ padding: 10, border: '1px dashed rgba(255,122,69,.55)', borderRadius: 10 }}>
+          <div style={{ ...muted, marginBottom: 6 }}>{t('peerIncoming')}</div>
+          {((st && st.pending) || []).filter((x) => x.direction === 'incoming').map((it) => (
+            <div key={it.id} style={{ ...row, marginBottom: 4 }}>
+              <span style={{ minWidth: 130 }}>{it.name}</span>
+              <code>{it.code}</code>
+              <span style={muted}>{it.url}</span>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="mc-btn" style={{ padding: '1px 10px' }} disabled={busy === 'accept'} onClick={() => accept(it)}>{t('peerAccept')}</button>
+              <button type="button" className="mc-btn" style={{ padding: '1px 10px', opacity: 0.7 }} onClick={() => reject(it)}>{t('peerReject')}</button>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ marginTop: 12 }}>
-        <div style={{ fontSize: 12, opacity: 0.6 }}>{t('peerPaired')}：{peers.length}</div>
-        {peers.map((pr) => (
-          <div key={pr.id} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '4px 0', flexWrap: 'wrap' }}>
-            <span>{pr.name}</span>
-            <code style={{ opacity: 0.7 }}>{pr.pairCode || '—'}</code>
-            <span style={{ opacity: 0.45, fontSize: 11 }}>{pr.url}</span>
-            <button type="button" className="mc-btn" style={{ padding: '0 8px' }} disabled={busy === 'upload:' + pr.id} onClick={() => transfer(pr, 'upload')}>{t('peerUpload')}</button>
-            <button type="button" className="mc-btn" style={{ padding: '0 8px' }} disabled={busy === 'download:' + pr.id} onClick={() => transfer(pr, 'download')}>{t('peerDownload')}</button>
-            <button type="button" className="mc-btn" style={{ padding: '0 8px', opacity: 0.7 }} onClick={() => revoke(pr)}>{t('peerRevoke')}</button>
-          </div>
-        ))}
+      {/* 等对方确认 */}
+      {pendingOut.length > 0 && (
+        <div style={muted}>{t('peerWaitingOther')}：{pendingOut.map((x) => x.name + '（' + (x.code || '') + '）').join(' · ')}</div>
+      )}
+
+      {/* ── 已配对：对方库 + 上传/下载/吊销 ────────────────────────────── */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <span style={{ fontSize: 12, opacity: 0.7 }}>{t('peerPairedPeers')}</span>
+          <button type="button" className="mc-btn" style={{ padding: '0 8px', opacity: 0.7 }} onClick={load}>{t('peerRefresh')}</button>
+        </div>
+        {peers.length === 0 && <div style={muted}>{t('peerNoPeers')}</div>}
+        {peers.map((pr) => {
+          const sum = peerStats[pr.id]
+          return (
+            <div key={pr.id} style={{ ...row, flexWrap: 'wrap' }}>
+              <span style={{ minWidth: 150 }}>{pr.name}</span>
+              <code style={{ fontSize: 12 }}>{pr.pairCode || '—'}</code>
+              <span style={{ ...muted, minWidth: 150 }}>{pr.url}</span>
+              <span style={{ fontSize: 12, opacity: 0.8 }}>
+                {t('peerPeerVault')}：{sum ? sum.total + ' ' + t('peerCards') : '—'}
+              </span>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="mc-btn" style={{ padding: '1px 10px' }} disabled={busy === 'upload:' + pr.id} onClick={() => transfer(pr, 'upload')} title={t('peerUploadHint')}>{t('peerUpload')}</button>
+              <button type="button" className="mc-btn" style={{ padding: '1px 10px' }} disabled={busy === 'download:' + pr.id} onClick={() => transfer(pr, 'download')} title={t('peerDownloadHint')}>{t('peerDownload')}</button>
+              <button type="button" className="mc-btn" style={{ padding: '1px 10px', opacity: 0.6 }} onClick={() => revoke(pr)}>{t('peerRevoke')}</button>
+            </div>
+          )
+        })}
       </div>
 
+      {/* 弹窗确认 */}
       {ask && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 90 }}>
           <div className="mc-card" style={{ padding: 18, width: 420, maxWidth: '92vw' }}>
