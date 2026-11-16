@@ -16658,7 +16658,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.48.3" : "";
+  var CLIENT_VERSION = true ? "0.48.4" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -16977,7 +16977,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-16T01:49:07+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-16T05:29:23+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18551,7 +18551,7 @@ ${COMPONENTS_CSS}
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-feature-open", children: t("openArrow") })
                     ] })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-grid", children: sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardRow, { card, t, query: query.trim(), onOpen: openCard, onDelete: deleteMemory, onTagClick: onTagPick, pinned: pinned.has(card.path), onPin: togglePin, onCore: changeCardKind, showSync: cloudForm.mode === "cloud" || cards.some((c) => c.cloudSyncedAt), links: connMap[card.path] || 0 }, card.path)) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-grid", children: sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardRow, { card, t, query: query.trim(), onOpen: openCard, onDelete: deleteMemory, onTagClick: onTagPick, pinned: pinned.has(card.path), onPin: togglePin, onCore: changeCardKind, showSync: cloudForm.mode !== "cloud" && cards.some((c) => c.cloudSyncedAt), links: connMap[card.path] || 0 }, card.path)) }),
                   cards.length < cardTotal && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { ref: sentinelRef, style: { height: 1 } }),
                   loadingMore && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-empty", style: { padding: "10px 0" }, children: [
                     t("loading"),
