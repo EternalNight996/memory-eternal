@@ -9,6 +9,7 @@ import path from 'node:path'
 import { HOSTS, hostMatrix, parseHosts, writeHosts, removeHosts } from '../lib/mcp-hosts.js'
 import { mount, unmount, getMount } from '../lib/mcp-mount.js'
 
+const root = path.resolve(process.cwd())
 const dirs = []
 const tmp = () => { const d = mkdtempSync(path.join(os.tmpdir(), 'me-hosts-')); dirs.push(d); return d }
 test.after(() => { for (const d of dirs) { try { rmSync(d, { recursive: true, force: true }) } catch { /* 忽略 */ } } })
@@ -122,4 +123,31 @@ test('getMount 报漂移：宿主里那条指向旧包路径', () => {
   assert.equal(st.mounted, true)
   assert.ok(st.drift, '应检测出走的是旧路径')
   assert.match(st.drift.now, /repo-a/)
+})
+
+test('note 里不许出现 ~/ 这类 Linux 风格路径（Windows 上会被当成"地址不对"）', () => {
+  const src = readFileSync(path.join(root, 'lib/mcp-hosts.js'), 'utf8')
+  const notes = [...src.matchAll(/note:\s*'([^']*)'/g)].map((m) => m[1])
+  assert.ok(notes.length >= 4, '应当有多个宿主 note')
+  for (const n of notes) {
+    assert.equal(/~\//.test(n), false, 'note 不该写死 Linux 风格路径：' + n)
+  }
+})
+
+test('project 宿主：cwd 不像项目目录时标未安装（不再给出假的 .mcp.json 路径）', () => {
+  const dir = tmp()
+  const env = { MEMORY_HOST_PROJECT_PATH: '' }
+  // 直接把 process.cwd 之外的目录当"项目目录"来验证判定逻辑：通过显式路径控制
+  const fakeProject = path.join(dir, 'repo')
+  mkdirSync(fakeProject, { recursive: true })
+  writeFileSync(path.join(fakeProject, 'package.json'), '{"name":"x"}')
+  const p1 = path.join(fakeProject, '.mcp.json')
+  // 显式路径存在 → installed
+  writeFileSync(p1, '{"mcpServers":{}}')
+  const withFile = hostMatrix({ ...env, MEMORY_HOST_PROJECT_PATH: p1 }).find((h) => h.id === 'project')
+  assert.equal(withFile.installed, true, '显式路径存在时应视为已安装')
+
+  // 显式路径不存在 → 未安装
+  const notExists = hostMatrix({ ...env, MEMORY_HOST_PROJECT_PATH: path.join(dir, 'nope', '.mcp.json') }).find((h) => h.id === 'project')
+  assert.equal(notExists.installed, false, '路径不存在时不该冒充已安装')
 })
