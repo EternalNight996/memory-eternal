@@ -7850,13 +7850,13 @@
         const pos = exports.getRowColCoords(version2);
         const posLength = pos.length;
         for (let i = 0; i < posLength; i++) {
-          for (let j = 0; j < posLength; j++) {
-            if (i === 0 && j === 0 || // top-left
-            i === 0 && j === posLength - 1 || // bottom-left
-            i === posLength - 1 && j === 0) {
+          for (let j2 = 0; j2 < posLength; j2++) {
+            if (i === 0 && j2 === 0 || // top-left
+            i === 0 && j2 === posLength - 1 || // bottom-left
+            i === posLength - 1 && j2 === 0) {
               continue;
             }
-            coords.push([pos[i], pos[j]]);
+            coords.push([pos[i], pos[j2]]);
           }
         }
         return coords;
@@ -7975,24 +7975,24 @@
         const k = Math.abs(Math.ceil(darkCount * 100 / modulesCount / 5) - 10);
         return k * PenaltyScores.N4;
       }, "getPenaltyN4");
-      function getMaskAt(maskPattern, i, j) {
+      function getMaskAt(maskPattern, i, j2) {
         switch (maskPattern) {
           case exports.Patterns.PATTERN000:
-            return (i + j) % 2 === 0;
+            return (i + j2) % 2 === 0;
           case exports.Patterns.PATTERN001:
             return i % 2 === 0;
           case exports.Patterns.PATTERN010:
-            return j % 3 === 0;
+            return j2 % 3 === 0;
           case exports.Patterns.PATTERN011:
-            return (i + j) % 3 === 0;
+            return (i + j2) % 3 === 0;
           case exports.Patterns.PATTERN100:
-            return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0;
+            return (Math.floor(i / 2) + Math.floor(j2 / 3)) % 2 === 0;
           case exports.Patterns.PATTERN101:
-            return i * j % 2 + i * j % 3 === 0;
+            return i * j2 % 2 + i * j2 % 3 === 0;
           case exports.Patterns.PATTERN110:
-            return (i * j % 2 + i * j % 3) % 2 === 0;
+            return (i * j2 % 2 + i * j2 % 3) % 2 === 0;
           case exports.Patterns.PATTERN111:
-            return (i * j % 3 + (i + j) % 2) % 2 === 0;
+            return (i * j2 % 3 + (i + j2) % 2) % 2 === 0;
           default:
             throw new Error("bad maskPattern:" + maskPattern);
         }
@@ -8427,8 +8427,8 @@
       exports.mul = /* @__PURE__ */ __name(function mul(p1, p2) {
         const coeff = new Uint8Array(p1.length + p2.length - 1);
         for (let i = 0; i < p1.length; i++) {
-          for (let j = 0; j < p2.length; j++) {
-            coeff[i + j] ^= GF.mul(p1[i], p2[j]);
+          for (let j2 = 0; j2 < p2.length; j2++) {
+            coeff[i + j2] ^= GF.mul(p1[i], p2[j2]);
           }
         }
         return coeff;
@@ -9131,9 +9131,9 @@
         for (let i = 0; i < nodes.length; i++) {
           const nodeGroup = nodes[i];
           const currentNodeIds = [];
-          for (let j = 0; j < nodeGroup.length; j++) {
-            const node = nodeGroup[j];
-            const key = "" + i + j;
+          for (let j2 = 0; j2 < nodeGroup.length; j2++) {
+            const node = nodeGroup[j2];
+            const key = "" + i + j2;
             currentNodeIds.push(key);
             table[key] = { node, lastCount: 0 };
             graph[key] = {};
@@ -10644,10 +10644,10 @@
     if (!planets.length) return;
     const dirs = planets.map((_, i) => i % 2 === 0 ? 1 : -1);
     for (let i = dirs.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
+      const j2 = Math.floor(rand() * (i + 1));
       const t = dirs[i];
-      dirs[i] = dirs[j];
-      dirs[j] = t;
+      dirs[i] = dirs[j2];
+      dirs[j2] = t;
     }
     planets.forEach((p, i) => {
       p.orbitDir = dirs[i];
@@ -11879,6 +11879,10 @@
     mcpSection: "Agent MCP \u6302\u8F7D\u72B6\u6001",
     mcpSectionSub: "\u{1F50C} Mounted to DSH by default when installed as a DSH plugin; Claude Code / Codex / Cursor / Windsurf still require an explicit mount so one repo never ends up with agents reading different vaults",
     mcpRefresh: "\u5237\u65B0",
+    mcpSelfTest: "\u81EA\u68C0",
+    mcpSelfTestHint: "\u771F\u7684\u62C9\u8D77\u4E00\u6B21 MCP \u8FDB\u7A0B\u505A\u63E1\u624B\uFF0CWindows \u4E0A\u8DEF\u5F84\u4E0D\u5BF9\u4F1A\u7ACB\u523B\u66B4\u9732",
+    mcpSelfTestOk: "MCP \u63E1\u624B\u6210\u529F\uFF08\u5BBF\u4E3B\u80FD\u8BC6\u522B\uFF09",
+    mcpSelfTestFail: "MCP \u63E1\u624B\u5931\u8D25\uFF08\u5BBF\u4E3B\u8BC6\u522B\u4E0D\u4E86\uFF09",
     mcpMountDone: "\u5DF2\u6302\u8F7D",
     mcpMountFail: "\u6302\u8F7D\u5931\u8D25",
     mcpUnmountDone: "\u5DF2\u5378\u8F7D\uFF1AAgent \u4E0D\u518D\u5E26\u8FD9\u5757\u8BB0\u5FC6",
@@ -13372,6 +13376,10 @@
     mcpSection: "Agent MCP mount",
     mcpSectionSub: "\u{1F50C} Off by default: pick one vault and mount it explicitly, so multiple memory-eternal instances (7999 ops / 7989 mem-purge / cloud) never get mixed up by an agent",
     mcpRefresh: "Refresh",
+    mcpSelfTest: "Self-test",
+    mcpSelfTestHint: "Actually spawns the MCP entry and performs a handshake \u2014 path problems on Windows show up immediately",
+    mcpSelfTestOk: "MCP handshake OK (host can use it)",
+    mcpSelfTestFail: "MCP handshake failed (host cannot use it)",
     mcpMountDone: "Mounted",
     mcpMountFail: "Mount failed",
     mcpUnmountDone: "Unmounted: agents no longer carry this memory",
@@ -16820,7 +16828,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.1" : "";
+  var CLIENT_VERSION = true ? "0.49.2" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17041,10 +17049,10 @@ ${COMPONENTS_CSS}
     const load = (0, import_react2.useCallback)(async () => {
       try {
         const r = await fetch(`${API}/working`);
-        const j = await r.json().catch(() => null);
-        if (j && j.ok) {
-          setMeta(j);
-          setText(j.text || "");
+        const j2 = await r.json().catch(() => null);
+        if (j2 && j2.ok) {
+          setMeta(j2);
+          setText(j2.text || "");
         }
       } catch {
       }
@@ -17062,23 +17070,23 @@ ${COMPONENTS_CSS}
     }, "post");
     const save = /* @__PURE__ */ __name(async () => {
       setBusy("save");
-      const j = await post("/working", { text, mode: "replace" });
+      const j2 = await post("/working", { text, mode: "replace" });
       setBusy("");
-      if (j && j.ok) {
+      if (j2 && j2.ok) {
         notify2(true, t("workSaved"));
         await load();
-      } else notify2(false, j && j.error || "save failed");
+      } else notify2(false, j2 && j2.error || "save failed");
     }, "save");
     const clear = /* @__PURE__ */ __name(async () => {
       if (!window.confirm(t("workClearConfirm"))) return;
       setBusy("clear");
-      const j = await post("/working/clear", {});
+      const j2 = await post("/working/clear", {});
       setBusy("");
-      if (j && j.ok) {
+      if (j2 && j2.ok) {
         setText("");
         notify2(true, t("workCleared"));
         await load();
-      } else notify2(false, j && j.error || "clear failed");
+      } else notify2(false, j2 && j2.error || "clear failed");
     }, "clear");
     const promote = /* @__PURE__ */ __name(async () => {
       const ta = taRef.current;
@@ -17088,12 +17096,12 @@ ${COMPONENTS_CSS}
         return;
       }
       setBusy("promote");
-      const j = await post("/working/promote", { text: picked });
+      const j2 = await post("/working/promote", { text: picked });
       setBusy("");
-      if (j && j.ok) {
+      if (j2 && j2.ok) {
         notify2(true, t("workPromoted"));
         if (onPromoted) onPromoted();
-      } else notify2(false, j && j.error || "promote failed");
+      } else notify2(false, j2 && j2.error || "promote failed");
     }, "promote");
     const lines = text ? text.split("\n").length : 0;
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-card", style: { margin: "0 0 10px", padding: "10px 12px" }, children: [
@@ -17139,7 +17147,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-16T15:37:21+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-16T16:24:30+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17576,9 +17584,9 @@ ${COMPONENTS_CSS}
     }, []);
     (0, import_react2.useEffect)(() => {
       let alive = true;
-      fetch(`${API}/star/status`).then((r) => r.json()).then((j) => {
-        if (!alive || !j || !j.shouldAsk) return;
-        setStarAsk(j);
+      fetch(`${API}/star/status`).then((r) => r.json()).then((j2) => {
+        if (!alive || !j2 || !j2.shouldAsk) return;
+        setStarAsk(j2);
         fetch(`${API}/star/action`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -18913,6 +18921,7 @@ ${t("quoteHint")}`,
     const [target, setTarget] = (0, import_react2.useState)("local");
     const [busy, setBusy] = (0, import_react2.useState)("");
     const [msg, setMsg] = (0, import_react2.useState)(null);
+    const [test, setTest] = (0, import_react2.useState)(null);
     const load = (0, import_react2.useCallback)(async () => {
       const [m, pst] = await Promise.all([
         fetch(API + "/mcp/status").then((r) => r.json()).catch(() => null),
@@ -18945,6 +18954,13 @@ ${t("quoteHint")}`,
       setMsg(d && d.ok ? { kind: "ok", text: (host.mounted ? t("mcpUnmountDone") : t("mcpMountDone")) + "\uFF1A" + host.label + (host.mounted ? "" : " \u2190 " + targetLabel()) } : { kind: "bad", text: d && d.error || t("mcpMountFail") });
       load();
     }, "toggleHost");
+    const runTest = /* @__PURE__ */ __name(async () => {
+      setBusy("test");
+      setTest(null);
+      const d = await j("/mcp/selftest", { method: "POST" }).catch(() => null);
+      setBusy("");
+      setTest(d || { ok: false, error: "\u81EA\u68C0\u8BF7\u6C42\u5931\u8D25" });
+    }, "runTest");
     const mountAll = /* @__PURE__ */ __name(async () => {
       setBusy("all");
       const d = await call("/mcp/mount", { ...targetPayload(), hosts: "all" });
@@ -19032,7 +19048,8 @@ ${t("quoteHint")}`,
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px" }, disabled: busy === "all", onClick: mountAll, children: t("mcpMountAll") }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px" }, disabled: busy === "all" || mountedCount === 0, onClick: unmountAll, children: t("mcpUnmountAll") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px", opacity: 0.7 }, onClick: load, children: t("mcpRefresh") })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px", opacity: 0.7 }, onClick: load, children: t("mcpRefresh") }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "1px 8px" }, disabled: busy === "test", onClick: runTest, title: t("mcpSelfTestHint"), children: busy === "test" ? "\u2026" : t("mcpSelfTest") })
         ] }),
         hosts.map((h) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
           "div",
@@ -19059,9 +19076,11 @@ ${t("quoteHint")}`,
           "\u26A0 ",
           t("mcpDrift"),
           "\uFF1A",
-          st.drift.host,
+          st.drift.hint || "",
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: st.drift.host }),
           " \u2192 ",
-          st.drift.now
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: st.drift.now })
         ] })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, opacity: 0.55, lineHeight: 1.8 }, children: [
@@ -19075,6 +19094,24 @@ ${t("quoteHint")}`,
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
           "\u26A0 ",
           t("mcpRestartHint")
+        ] })
+      ] }),
+      test && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, lineHeight: 1.8, padding: "8px 10px", borderRadius: 8, border: "1px solid " + (test.ok ? "rgba(46,160,67,.45)" : "rgba(229,72,77,.45)"), background: test.ok ? "rgba(46,160,67,.07)" : "rgba(229,72,77,.07)" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontWeight: 600, color: test.ok ? "#2ea043" : "#e5484d" }, children: [
+          test.ok ? t("mcpSelfTestOk") : t("mcpSelfTestFail"),
+          " \xB7 ",
+          test.ms,
+          "ms"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { opacity: 0.75 }, children: [
+          t("mcpEntry"),
+          "\uFF1A",
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: test.command || "\u2014" })
+        ] }),
+        test.error && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "#e5484d" }, children: test.error }),
+        test.stderr && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { opacity: 0.6, wordBreak: "break-all" }, children: [
+          "stderr: ",
+          test.stderr
         ] })
       ] }),
       msg && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: msg.kind === "bad" ? "#e5484d" : "inherit", opacity: msg.kind === "bad" ? 1 : 0.8 }, children: msg.text })
@@ -19091,16 +19128,16 @@ ${t("quoteHint")}`,
     const [ask, setAsk] = (0, import_react2.useState)(null);
     const [codeOpen, setCodeOpen] = (0, import_react2.useState)(false);
     const [peerStats, setPeerStats] = (0, import_react2.useState)({});
-    const j = /* @__PURE__ */ __name(async (path, init) => {
+    const j2 = /* @__PURE__ */ __name(async (path, init) => {
       const r = await fetch(API + path, { ...init, headers: { "content-type": "application/json", ...init && init.headers } });
       return await r.json().catch(() => null);
     }, "j");
     const load = (0, import_react2.useCallback)(async () => {
-      const d = await j("/peer/status").catch(() => null);
+      const d = await j2("/peer/status").catch(() => null);
       if (d && d.ok) {
         setSt(d);
         for (const pr of d.peers || []) {
-          j("/peer/stats", { method: "POST", body: JSON.stringify({ peerId: pr.id }) }).then((x) => {
+          j2("/peer/stats", { method: "POST", body: JSON.stringify({ peerId: pr.id }) }).then((x) => {
             if (x && x.ok) setPeerStats((prev) => ({ ...prev, [pr.id]: { total: x.total, byKind: x.byKind || {} } }));
           }).catch(() => {
           });
@@ -19143,7 +19180,7 @@ ${t("quoteHint")}`,
       const port = raw && raw.includes(":") ? Number(raw.split(":")[1]) : 0;
       if (!code && !raw) return setMsg({ kind: "bad", text: t("peerNeedTarget") });
       setBusy("connect");
-      const d = code ? await j("/peer/pair/connect", { method: "POST", body: JSON.stringify({ code, host, port }) }).catch(() => null) : await j("/peer/pair/start", { method: "POST", body: JSON.stringify({ host, port }) }).catch(() => null);
+      const d = code ? await j2("/peer/pair/connect", { method: "POST", body: JSON.stringify({ code, host, port }) }).catch(() => null) : await j2("/peer/pair/start", { method: "POST", body: JSON.stringify({ host, port }) }).catch(() => null);
       setBusy("");
       if (!d || !d.ok) return setMsg({ kind: "bad", text: d && d.error || t("peerConnectFail") });
       setMsg({ kind: "ok", text: d.auto ? t("peerConnectedAuto") + "\uFF1A" + d.peer.name : t("peerKnocked") + "\uFF08" + (d.code || "") + "\uFF09" });
@@ -19154,7 +19191,7 @@ ${t("quoteHint")}`,
     const scan = /* @__PURE__ */ __name(async () => {
       setBusy("scan");
       setFound(null);
-      const d = await j("/peer/discover", { method: "POST", body: JSON.stringify({ timeoutMs: 1500 }) }).catch(() => null);
+      const d = await j2("/peer/discover", { method: "POST", body: JSON.stringify({ timeoutMs: 1500 }) }).catch(() => null);
       setBusy("");
       if (!d || !d.ok) return setMsg({ kind: "bad", text: d && d.error || t("peerScanFail") });
       setFound(d.found || []);
@@ -19162,19 +19199,19 @@ ${t("quoteHint")}`,
     }, "scan");
     const accept = /* @__PURE__ */ __name(async (item) => {
       setBusy("accept");
-      const d = await j("/peer/pair/accept", { method: "POST", body: JSON.stringify({ id: item.id }) }).catch(() => null);
+      const d = await j2("/peer/pair/accept", { method: "POST", body: JSON.stringify({ id: item.id }) }).catch(() => null);
       setBusy("");
       setAsk(null);
       setMsg(d && d.ok ? { kind: "ok", text: t("peerAccepted") + "\uFF1A" + (d.peer && d.peer.name ? d.peer.name : "") } : { kind: "bad", text: d && d.error || t("peerAcceptFail") });
       load();
     }, "accept");
     const reject = /* @__PURE__ */ __name(async (item) => {
-      await j("/peer/pair/reject", { method: "POST", body: JSON.stringify({ id: item.id }) }).catch(() => null);
+      await j2("/peer/pair/reject", { method: "POST", body: JSON.stringify({ id: item.id }) }).catch(() => null);
       setAsk(null);
       load();
     }, "reject");
     const revoke = /* @__PURE__ */ __name(async (pr) => {
-      await j("/peer/revoke", { method: "POST", body: JSON.stringify({ id: pr.id }) }).catch(() => null);
+      await j2("/peer/revoke", { method: "POST", body: JSON.stringify({ id: pr.id }) }).catch(() => null);
       setMsg({ kind: "ok", text: t("peerRevoked") + "\uFF1A" + pr.name });
       setPeerStats((prev) => {
         const n = { ...prev };
@@ -19185,7 +19222,7 @@ ${t("quoteHint")}`,
     }, "revoke");
     const transfer = /* @__PURE__ */ __name(async (pr, dir) => {
       setBusy(dir + ":" + pr.id);
-      const bid = dir === "upload" ? await j("/peer/upload", { method: "POST", body: JSON.stringify({ peerId: pr.id, limit: 200 }) }).catch(() => null) : await j("/peer/download", { method: "POST", body: JSON.stringify({ peerId: pr.id }) }).catch(() => null);
+      const bid = dir === "upload" ? await j2("/peer/upload", { method: "POST", body: JSON.stringify({ peerId: pr.id, limit: 200 }) }).catch(() => null) : await j2("/peer/download", { method: "POST", body: JSON.stringify({ peerId: pr.id }) }).catch(() => null);
       setBusy("");
       if (!bid || !bid.ok) return setMsg({ kind: "bad", text: bid && bid.error || t("peerTransferFail") });
       setMsg({
@@ -20772,7 +20809,7 @@ ${t("quoteHint")}`,
         setImportJob({ importing: true, dir: "up", done: startOff, total: cards.length, imported: 0, duplicate: 0, failed: 0, err: "" });
         for (let off = startOff; off < cards.length; off += CHUNK) {
           if (importCancelRef.current) {
-            setImportJob((j) => ({ ...j || {}, importing: false, err: t("xferCancelled") }));
+            setImportJob((j2) => ({ ...j2 || {}, importing: false, err: t("xferCancelled") }));
             refreshResume();
             return;
           }
@@ -20816,7 +20853,7 @@ ${t("quoteHint")}`,
         }
       } catch (e) {
         const msg = String(e && e.message || e);
-        setImportJob((j) => ({ ...j || {}, importing: false, err: msg }));
+        setImportJob((j2) => ({ ...j2 || {}, importing: false, err: msg }));
         refreshResume();
       }
     }, "uploadVaultToCloud");
@@ -20857,7 +20894,7 @@ ${t("quoteHint")}`,
         } catch {
         }
       } catch (e) {
-        setImportJob((j) => ({ ...j || {}, importing: false, err: String(e && e.message || e) }));
+        setImportJob((j2) => ({ ...j2 || {}, importing: false, err: String(e && e.message || e) }));
       }
     }, "downloadCloudToVault");
     const openFactoryReset = /* @__PURE__ */ __name(async () => {
@@ -21264,7 +21301,7 @@ ${t("quoteHint")}`,
         let duplicate = 0;
         for (let offset = 0; offset < cards.length; offset += CHUNK) {
           if (importCancelRef.current) {
-            setImportJob((j) => ({ ...j, importing: false, cancelled: true }));
+            setImportJob((j2) => ({ ...j2, importing: false, cancelled: true }));
             return;
           }
           const slice = cards.slice(offset, offset + CHUNK);
@@ -21288,7 +21325,7 @@ ${t("quoteHint")}`,
         } catch {
         }
       } catch (e) {
-        setImportJob((j) => ({ ...j || {}, importing: false, err: String(e && e.message || e) }));
+        setImportJob((j2) => ({ ...j2 || {}, importing: false, err: String(e && e.message || e) }));
       }
     }, "importLocalToCloud");
     const cancelImport = /* @__PURE__ */ __name(() => {
@@ -25689,7 +25726,7 @@ ${t("quoteHint")}`,
                   t("goalCards")
                 ] })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { style: { margin: "0 0 5px", padding: "0 0 0 16px", fontSize: 12, opacity: 0.85 }, children: c.members.map((m, j) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: m.title }, j)) }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { style: { margin: "0 0 5px", padding: "0 0 0 16px", fontSize: 12, opacity: 0.85 }, children: c.members.map((m, j2) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: m.title }, j2)) }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "2px 8px" }, disabled: !!busy, onClick: () => keepCluster(c), children: t("goalKeep") }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", style: { padding: "2px 8px" }, disabled: !!busy, onClick: () => mergeCluster(c), children: t("goalMerge") })

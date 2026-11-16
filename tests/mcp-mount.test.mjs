@@ -1,7 +1,7 @@
 // Agent MCP 挂载：**默认不挂载**，必须人工选目标（避免多个 memory-eternal 实例沉淀串库）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync, mkdirSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,6 +17,7 @@ const newEnv = () => {
 }
 test.after(() => { for (const h of homes) { try { rmSync(h, { recursive: true, force: true }) } catch { /* 忽略 */ } } })
 
+const mkDir = (d) => { try { mkdirSync(d, { recursive: true }) } catch { /* 已存在 */ } }
 const readServers = (env) => {
   const p = mcpFilePath(env)
   if (!existsSync(p)) return { mcpServers: {} }
@@ -157,4 +158,44 @@ test('列表式点击挂载：库列表 + 宿主列表，点行即挂/摘', () =
   assert.match(block, /call\('\/mcp\/mount', \{ \.\.\.targetPayload\(\), hosts: host\.id \}\)/, '点击未挂宿主应挂上当前目标')
   assert.match(block, /未安装|!h\.installed/, '未安装宿主不该能点')
   assert.match(block, /mcpUnmountAll/, '保留全部卸载')
+})
+
+test('Windows 兼容：脚本不存在时拒绝写入（不留死条目）', () => {
+  const env = newEnv()
+  const r = mount({
+    target: { kind: 'local' },
+    packageRoot: path.join(root, '__not_installed__'),   // 这个目录下没有 bin/dsh-memory.mjs
+    env,
+    hosts: 'dsh',
+  })
+  assert.equal(r.ok, false, '脚本不存在必须报错')
+  assert.match(String(r.error || ''), /插件脚本不存在/)
+  assert.equal(getMount({ env, packageRoot: root }).mounted, false, '不该留下半截条目')
+})
+
+test('Windows 兼容：命令不存在时报漂移（提示重新挂载）', () => {
+  const env = newEnv()
+  const dshHome = env.DSH_HOME
+  mkDir(dshHome)
+  writeFileSync(path.join(dshHome, 'mcp-servers.json'), JSON.stringify({
+    mcpServers: {
+      'memory-eternal': { command: 'C:\\NoSuchDir\\node.exe', args: [path.join(root, 'bin/dsh-memory.mjs'), 'mcp'], env: {} },
+    },
+  }, null, 2))
+  const st = getMount({ env, packageRoot: root })
+  assert.equal(st.mounted, true)
+  assert.ok(st.drift, '命令不存在必须报漂移')
+  assert.equal(st.drift.field, 'command')
+})
+
+test('Windows 兼容：node 解析不走 Electron 的 execPath（源码守卫）', () => {
+  const mountSrc = readFileSync(path.join(root, 'lib/mcp-mount.js'), 'utf8')
+  assert.match(mountSrc, /nodeBinary\(\)/, '必须用 lib/node-bin.js 的 nodeBinary() 解析 node')
+  assert.ok(!/command: process\.execPath/.test(mountSrc), '不能直接拿 process.execPath 当 node（Electron 宿主里它是宿主程序）')
+  const hostsSrc = readFileSync(path.join(root, 'lib/mcp-hosts.js'), 'utf8')
+  assert.match(hostsSrc, /function normPath/, 'Windows 路径要归一为反斜杠')
+  assert.match(hostsSrc, /插件脚本不存在/, '写盘前要校验脚本存在')
+  const httpSrc = readFileSync(path.join(root, 'lib/mcp-mount-http.js'), 'utf8')
+  assert.match(httpSrc, /runSelfTest/, '要有自检端点')
+  assert.ok(httpSrc.includes("'/mcp/selftest'"), '要有自检端点路由')
 })
