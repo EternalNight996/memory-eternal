@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.49.7-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.8-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 [English](README.en.md) · **简体中文（默认）**
 
-## ☁️ 云端记忆（v0.49.7 主打）
+## ☁️ 云端记忆（v0.49.8 主打）
 
 **记忆库跟着人走，不跟着机器走。** 本机库照旧离线可用；登录云端后，同一套知识卡在你的每台设备、每个
 Agent 上都能读到 —— 换电脑不用搬家，换客户端不用重新喂上下文。
@@ -300,7 +300,7 @@ flowchart TB
 
 > 云端只加了一条边：`API → resolveTenant() → 该 owner 自己的库`。租户之间没有共享表，串不了数据。
 
-## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.7）
+## 🔗 MEM Pair：两个记忆库互配对、互传卡（v0.49.8）
 
 本机常常同时跑着多个 memory-eternal：运营库（7999）、隔离运营的 mem-purge（7989）、云端实例。
 它们各有独立 SQLite，**不能共享一个库**；但你需要让它们互相喂料（运营口径 → purge，purge 的清理结论 → 运营库）。
@@ -342,7 +342,7 @@ dsh-memory mcp mount --vault <库> --host all            # 所有已安装宿主
 dsh-memory mcp unmount                                  # 从所有已挂载宿主摘掉（幂等）
 ```
 
-面板：**设置 → 🧪 实验性 → 🔌 Agent MCP 挂载**（v0.49.7 起是**列表点击式**）
+面板：**设置 → 🧪 实验性 → 🔌 Agent MCP 挂载**（v0.49.8 起是**列表点击式**）
 
 ```text
 ● 2 / 6 已挂载 → 本机默认库                       [刷新] [自检]
@@ -363,6 +363,29 @@ dsh-memory mcp unmount                                  # 从所有已挂载宿�
 - **「自检」按钮**会**真的拉起一次 MCP 进程做 initialize 握手**，把 `ok / 耗时 / 启动命令 / stderr` 直接显示出来 —— Windows 上"路径不对、宿主识别不了"当场就能看到原因；
 - **Windows / Electron 兼容**：条目里的 node 不再取 `process.execPath`（在 DSH 这类 Electron 宿主里那是宿主自己的 exe），而是走 PATH 解析 + 校验存在性；写盘前统一反斜杠绝对路径，**脚本不存在直接拒绝写入**（不留死条目）；
 - 想彻底关掉自动挂载：配置 `mcpAutoMount: false`，或环境变量 `MEMORY_MCP_AUTOMOUNT=0`。
+
+## 🧷 多实例并行：端口、库文件名、vault 目录
+
+同一台机跑多个 memory-eternal（比如运营库 + 某个项目的隔离库）时，三个维度都能分开：
+
+| 维度 | 怎么设 | 默认 |
+|---|---|---|
+| **端口** | `dsh-memory open --port 7989` / `serve --port 7989` / 环境变量 `MEMORY_WEB_PORT=7989` / 配置项 `webPort` | 7999 |
+| **库文件名** | 环境变量 `MEMORY_DB_FILE=mem-purge.db` | `memory-eternal.db` |
+| **vault 目录** | `--vault <dir>` / 配置项 `vaultDir` / `vaultProfiles` 多库切换 | `~/.dsh/memory-vault` |
+
+```bash
+# 第二个实例：端口 7989、库文件 mem-purge.db、独立 vault
+DSH_HOME=~/.dsh/memory-vault-mem-purge \
+MEMORY_WEB_PORT=7989 \
+MEMORY_DB_FILE=mem-purge.db \
+node $(dirname $(which dsh-memory))/../lib/web.js --port 7989 --vault ~/.dsh/memory-vault-mem-purge
+```
+
+两个安全口径：
+
+- 库文件名只接受**纯文件名**（字母数字 `.` `_` `-`，必须以 `.db` 结尾），带路径分隔符一律退回默认名 —— 不会因为一个环境变量把库写到别处；
+- 设了自定义名、但该目录里已经是 `memory-eternal.db` 的库 → **继续用标准名**，避免"改了个环境变量结果打开空库、以为数据丢了"。
 
 ## 📚 文档与链接
 
