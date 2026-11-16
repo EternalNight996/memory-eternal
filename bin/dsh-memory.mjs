@@ -188,6 +188,19 @@ async function main() {
         return
       }
 
+      // 远端模式：dsh-memory mcp --cloud https://mem.mengbot.com.cn --token me_xxx
+      // 把地址与令牌塞进 env，让 lib/mcp.js 的远端适配层带上 Authorization —— 云端实例所有业务接口都要它。
+      const cloudArg = String(argOf('--cloud') || argOf('--api') || '').trim()
+      const tokenArg = String(argOf('--token') || '').trim()
+      if (cloudArg) {
+        process.env.MEMORY_API = cloudArg.replace(/\/+$/, '').replace(/\/memory-eternal\/api$/, '')
+      }
+      if (tokenArg) process.env.MEMORY_API_TOKEN = tokenArg
+      if (cloudArg || tokenArg) {
+        // stdout 是协议通道，提示一律走 stderr
+        console.error('[memory-eternal] MCP 远端模式：' + (process.env.MEMORY_API || '(本机)') +
+          (process.env.MEMORY_API_TOKEN ? '（已带令牌）' : '（未带令牌，云端实例会 401）'))
+      }
       const { startMcpServer } = await import('../lib/mcp.js')
       startMcpServer()
       return

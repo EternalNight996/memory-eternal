@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.49.10-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.11-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
@@ -120,6 +120,11 @@ npm i -g memory-eternal && dsh-memory connect claude
 # 任意 MCP 客户端（MengBot / OpenClaw / Hermes 见 docs/INTEGRATIONS.md）
 npx -y -p memory-eternal dsh-memory mcp
 
+# 云端 bot / 远程 agent：直接走 HTTP，不用装进程
+curl -s http://127.0.0.1:7999/memory-eternal/api/mcp \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+
 # 浏览器 / 终端
 dsh-memory open                             # http://127.0.0.1:7999
 npx -y -p memory-eternal dsh-memory tui     # 终端里的实时待审队列
@@ -178,13 +183,25 @@ npx -y -p memory-eternal dsh-memory tui     # 终端里的实时待审队列
 
 同一份 SQLite 库，下面这些宿主都能读写；写入一律进**待审队列**，审核在 DSH / Web 面板里做（与宿主是谁无关）。
 
+**v0.49.11 起新增三个宿主 + 一条 HTTP 通道**，都**不强制**：默认只自动挂 DSH，其余要你在面板里点一下或显式执行命令。
+
+| 平台 | 接入 | 配哪个文件 | 自动挂载 | 验证 |
+|---|---|---|---|---|
+| **MengBot** | MCP stdio | 应用内「设置 → MCP 服务器」／机器人项目 `.mcp.json` | ⚠️ 只有给了项目根（`MEMORY_HOST_MENGBOT_PROJECT`）才写项目 `.mcp.json`，不动应用配置 | 会话里看工具是否出现 |
+| **OpenClaw** | MCP stdio（客户端也支持 HTTP） | `~/.openclaw/openclaw.json` 的 `mcp.servers`（JSON5） | ✅ 一键；含注释时**拒绝改写**并提示手填 | `openclaw mcp probe memory-eternal` |
+| **Hermes Agent** | MCP stdio（客户端也支持 HTTP） | `~/.hermes/config.yaml` 的 `mcp_servers` | ✅ 一键；只换自己那块，注释与其它键原样保留 | `hermes mcp test memory-eternal` |
+| **云端 bot / 远程 agent** | MCP over HTTP | `POST /memory-eternal/api/mcp`（Streamable HTTP，云端带 `Bearer me_…`） | —（不用装进程） | 打一次 `tools/list` 即知 |
+
+细节、真实示例与坑见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。
+
 - **DeepSeek Harness（桌面版 / `dsh web`）** —— 插件：`dsh plugin --profile desktop add memory-eternal`；内嵌完整面板（审核 · 星图 · 账本 · 云端切换 · 密钥管理）。
 - **Claude Code** —— MCP：`dsh-memory connect claude`；会话结束自动沉淀（写用户级 hook）。
 - **Codex / Codex Desktop** —— MCP：`dsh-memory connect codex`；同上，不依赖插件。
 - **Cursor** —— MCP：`dsh-memory connect cursor`；另有 [Cursor / VS Code 扩展](cursor-extension/README.md)。
-- **MengBot** —— MCP（按 bot 配）：bot 的 MCP server 里加一条 stdio，`npx -y -p memory-eternal dsh-memory mcp`；每个 bot 一个库或共用一份，见 [INTEGRATIONS](docs/INTEGRATIONS.md)。
-- **OpenClaw** —— MCP：`mcp.servers` 加一条 stdio，用 `openclaw mcp doctor memory-eternal --probe` 验连通。
-- **Hermes Agent（NousResearch）** —— MCP：`~/.hermes/config.yaml` 的 `mcp_servers` 加一条，启动自动发现工具。
+- **MengBot** —— MCP：应用内「设置 → MCP 服务器」挂一条 stdio，或写进机器人项目的 `.mcp.json`；每个 bot 一个库或共用一份，见 [INTEGRATIONS](docs/INTEGRATIONS.md)。
+- **OpenClaw** —— MCP：`~/.openclaw/openclaw.json`（JSON5）的 `mcp.servers` 加一条 stdio，用 `openclaw mcp probe memory-eternal` 验连通。
+- **Hermes Agent（NousResearch）** —— MCP：`~/.hermes/config.yaml` 的 `mcp_servers` 加一条，用 `hermes mcp test memory-eternal` 验证。
+- **云端 bot / 远程 agent** —— HTTP：`POST /memory-eternal/api/mcp`（MCP Streamable HTTP，云端带 `Bearer me_…`）；本机也可 `dsh-memory mcp --cloud … --token me_…` 把 stdio 转接到远端实例。
 - **WorkBuddy 等其它 MCP 客户端** —— MCP：标准 stdio，`command: npx` / `args: ["-y","-p","memory-eternal","dsh-memory","mcp"]`。
 - **终端（TUI）** —— `npx -y -p memory-eternal dsh-memory tui`：实时队列、全选、批量批/驳、长文读卡。
 - **Web 端** —— `dsh-memory open` → http://127.0.0.1:7999：独立部署，不需要宿主也能审核/检索/备份。

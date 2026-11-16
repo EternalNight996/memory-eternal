@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.49.10-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.11-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
@@ -124,6 +124,11 @@ npm i -g memory-eternal && dsh-memory connect claude
 # Any MCP client (MengBot / OpenClaw / Hermes: docs/INTEGRATIONS.md)
 npx -y -p memory-eternal dsh-memory mcp
 
+# Cloud bots / remote agents: plain HTTP, no local process needed
+curl -s http://127.0.0.1:7999/memory-eternal/api/mcp \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+
 # Browser / terminal
 dsh-memory open                             # http://127.0.0.1:7999
 npx -y -p memory-eternal dsh-memory tui     # live review queue in the terminal
@@ -183,13 +188,25 @@ Not everything should be injected into every session. Core memory is the small, 
 
 One SQLite vault that all of the following can read from and write to. Every write lands in the **review queue**; approving happens in the DSH / Web panel, regardless of which host wrote the card.
 
+**New in v0.49.11: three more hosts plus an HTTP channel** — none of them is mandatory. Only DSH auto-mounts itself; the rest need one click in the panel or an explicit command.
+
+| Platform | Transport | Config file | Auto-mount | Verify |
+|---|---|---|---|---|
+| **MengBot** | MCP stdio | In-app “Settings → MCP servers” / bot project `.mcp.json` | ⚠️ only writes the project `.mcp.json` when `MEMORY_HOST_MENGBOT_PROJECT` is set; never touches app config | tools showing up in the session |
+| **OpenClaw** | MCP stdio (client also speaks HTTP) | `mcp.servers` in `~/.openclaw/openclaw.json` (JSON5) | ✅ one click; **refuses to rewrite** a file with comments and tells you to paste the entry | `openclaw mcp probe memory-eternal` |
+| **Hermes Agent** | MCP stdio (client also speaks HTTP) | `mcp_servers` in `~/.hermes/config.yaml` | ✅ one click; replaces only its own block, keeps comments and other keys | `hermes mcp test memory-eternal` |
+| **Cloud bots / remote agents** | MCP over HTTP | `POST /memory-eternal/api/mcp` (Streamable HTTP; `Bearer me_…` on cloud) | — (no process needed) | one `tools/list` call tells you |
+
+Details, real-world snippets and pitfalls: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
 - **DeepSeek Harness (desktop / `dsh web`)** — plugin: `dsh plugin --profile desktop add memory-eternal`; full embedded panel (review · graph · ledger · cloud switcher · key management).
 - **Claude Code** — MCP: `dsh-memory connect claude`; auto-capture on session end (user-level hook).
 - **Codex / Codex Desktop** — MCP: `dsh-memory connect codex`; same, no plugin required.
 - **Cursor** — MCP: `dsh-memory connect cursor`; plus the [Cursor / VS Code extension](cursor-extension/README.md).
-- **MengBot** — MCP (per bot): add one stdio server to the bot's MCP config, `npx -y -p memory-eternal dsh-memory mcp`; one vault per bot or a shared one — see [INTEGRATIONS](docs/INTEGRATIONS.md).
-- **OpenClaw** — MCP: add one stdio server under `mcp.servers`, verify with `openclaw mcp doctor memory-eternal --probe`.
-- **Hermes Agent (NousResearch)** — MCP: add one entry under `mcp_servers` in `~/.hermes/config.yaml`; tools are discovered on start.
+- **MengBot** — MCP: mount one stdio server in the app's “Settings → MCP servers”, or add it to the bot project's `.mcp.json`; one vault per bot or a shared one — see [INTEGRATIONS](docs/INTEGRATIONS.md).
+- **OpenClaw** — MCP: add one stdio server under `mcp.servers` in `~/.openclaw/openclaw.json` (JSON5); verify with `openclaw mcp probe memory-eternal`.
+- **Hermes Agent (NousResearch)** — MCP: add one entry under `mcp_servers` in `~/.hermes/config.yaml`; verify with `hermes mcp test memory-eternal`.
+- **Cloud bots / remote agents** — HTTP: `POST /memory-eternal/api/mcp` (MCP Streamable HTTP; `Bearer me_…` on cloud instances). Locally, `dsh-memory mcp --cloud … --token me_…` points the stdio adapter at a remote instance.
 - **WorkBuddy and any other MCP client** — MCP: standard stdio, `command: npx` / `args: ["-y","-p","memory-eternal","dsh-memory","mcp"]`.
 - **Terminal (TUI)** — `npx -y -p memory-eternal dsh-memory tui`: live queue, select-all, batch approve/reject, long-form reader.
 - **Web** — `dsh-memory open` → http://127.0.0.1:7999: standalone; review, search and backup without any host.
