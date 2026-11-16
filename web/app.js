@@ -14684,9 +14684,6 @@ ${COMPONENTS_CSS}
 .me-v5 .mc-cardrow p.mc-snippet, .mc-v5-card p.mc-snippet { opacity: 1; font-size: 11.5px; line-height: 1.6; color: #c6ccd6; -webkit-line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .mc-tag-click { cursor: pointer; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 0 4px; border-radius: 6px; }
 .mc-tag-click:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); opacity: 1; }
-/* \u672A\u540C\u6B65\u5230\u4E91\u7AEF\uFF1A\u6574\u4F53\u538B\u6697 + \u5DE6\u4FA7\u865A\u7EBF\uFF0C\u548C\u300C\u5BA1\u6838\u6001\u300D\u533A\u5206\u5F00\uFF08\u5BA1\u6838\u662F\u72B6\u6001\uFF0C\u8FD9\u662F\u540C\u6B65\u5065\u5EB7\u5EA6\uFF09 */
-.mc-cardrow.unsynced { border-style: dashed; }
-.mc-v5-card-status.unsynced { background: rgba(127,127,127,.16); color: var(--me-c-text-dim, #8b93a1); border-color: transparent; }
 .mc-cardrow:hover { border-color: var(--dsw-alias-brand-primary, #6366f1); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
 .mc-cardrow h4 { margin: 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
 .mc-cardrow p { margin: 0; font-size: 12px; opacity: 0.7; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -16828,7 +16825,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.2" : "";
+  var CLIENT_VERSION = true ? "0.49.3" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17147,7 +17144,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-16T16:24:30+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-16T17:05:20+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18721,7 +18718,7 @@ ${COMPONENTS_CSS}
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-feature-open", children: t("openArrow") })
                     ] })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-grid", children: sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardRow, { card, t, query: query.trim(), onOpen: openCard, onDelete: deleteMemory, onTagClick: onTagPick, pinned: pinned.has(card.path), onPin: togglePin, onCore: changeCardKind, showSync: cloudForm.mode !== "cloud" && cards.some((c) => c.cloudSyncedAt), links: connMap[card.path] || 0 }, card.path)) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-grid", children: sortedCards.filter((card) => !showFeature || card.path !== featuredCard.path).map((card) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardRow, { card, t, query: query.trim(), onOpen: openCard, onDelete: deleteMemory, onTagClick: onTagPick, pinned: pinned.has(card.path), onPin: togglePin, onCore: changeCardKind, links: connMap[card.path] || 0 }, card.path)) }),
                   cards.length < cardTotal && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { ref: sentinelRef, style: { height: 1 } }),
                   loadingMore && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-empty", style: { padding: "10px 0" }, children: [
                     t("loading"),
@@ -24688,8 +24685,7 @@ ${t("quoteHint")}`,
     const matchLabel = MATCH_WHERE_KEY[matchWhere] || "";
     const score = Number(card && card.score);
     const showScore = !!query && Number.isFinite(score) && score > 0;
-    const unsynced = !!showSync && !card.cloudSyncedAt;
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", { className: `mc-cardrow mc-card mc-v5-card${pinned ? " pinned" : ""}${card.kind === "core" ? " core" : ""}${unsynced ? " unsynced" : ""}`, style: { "--card-accent": color, ...unsynced ? { opacity: 0.55 } : {} }, onClick: () => onOpen(card), children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", { className: `mc-cardrow mc-card mc-v5-card${pinned ? " pinned" : ""}${card.kind === "core" ? " core" : ""}`, style: { "--card-accent": color }, onClick: () => onOpen(card), children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-card-top", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-card-tile", style: { color, background: color + "18", borderColor: color + "38" }, children: KIND_EMOJI[card.kind] || "\u{1F4CE}" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-card-kind-name", children: card.kind === "core" ? "\u2B50 " + t("kindCore") : t(KIND_LABELS[card.kind] || "kindKnowledge") }),
@@ -24705,10 +24701,6 @@ ${t("quoteHint")}`,
         card.kind === "core" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-v5-core-badge", children: [
           "\u2B50 ",
           t("kindCore")
-        ] }),
-        unsynced && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-v5-card-status unsynced", title: t("cardUnsyncedHint"), children: [
-          "\u23F3 ",
-          t("cardUnsynced")
         ] }),
         card.status === "pending" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mc-v5-card-status pending", children: [
           "\u23F3 ",

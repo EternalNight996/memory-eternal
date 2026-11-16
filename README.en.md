@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.49.2-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.3-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
 **English** · [简体中文（默认）](README.md)
 
-## ☁️ Cloud memory (the v0.49.2 headline)
+## ☁️ Cloud memory (the v0.49.3 headline)
 
 **Your vault follows you, not the machine.** The local vault still works offline; sign in to your cloud instance
 and the same cards are readable from every device and every agent — no migration on a new laptop, no re-feeding
@@ -306,7 +306,7 @@ The diagram is only true because three invariants are enforced in code, not by c
 
 > The cloud adds exactly one edge: `API → resolveTenant() → that owner's own vault`. No shared tables between tenants, so data cannot leak across.
 
-## 🔗 MEM Pair: pair two vaults, exchange cards (v0.49.2)
+## 🔗 MEM Pair: pair two vaults, exchange cards (v0.49.3)
 
 You often run several memory-eternal instances side by side: the ops vault (7999), an isolated mem-purge (7989),
 and a cloud instance. Each has its own SQLite, so they **must not share one vault** — yet you do want them to feed
