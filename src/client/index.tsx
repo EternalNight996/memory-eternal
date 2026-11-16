@@ -1197,49 +1197,51 @@ export const ZH = {
   peerUploadHint: '把本库已审卡推到对方（对方进待审）',
   peerDownloadHint: '把对方的卡拉到本库（进待审）',
   mcpMountTitle: 'Agent MCP 挂载',
-  mcpMountHint: 'DSH is mounted by default. Change the target or mount other hosts here; only one vault is mounted at a time, which is what keeps captures from mixing.',
+  mcpMountHint: '同一时刻只挂一个库；切换库时请对目标宿主重新点一次。',
   mcpMounted: '已挂载',
-  mcpNotMounted: '未挂载（Agent 目前不带记忆）',
+  mcpNotMounted: '未挂载',
   mcpMountTarget: '挂到哪个库',
   mcpTargetLocal: '本机默认库',
   mcpMountBtn: '挂载',
   mcpUnmountBtn: '卸载',
-  mcpPickTarget: '① 选择要挂的库（点一行选中）',
-  mcpPickHost: '② 选择宿主（点哪行就挂/摘哪行）',
+  mcpPickTarget: '挂哪个库',
+  mcpPickHost: '挂到哪些宿主',
   mcpPicked: '已选中',
-  mcpClickMount: '点击挂载',
-  mcpClickUnmount: '点击卸载',
-  mcpHostsMounted: '已挂宿主',
+  mcpShowLess: '收起',
+  mcpShowMore: '展开其余 {n} 个宿主',
+  mcpClickMount: '挂载',
+  mcpClickUnmount: '卸载',
+  mcpHostsMounted: '已挂载',
   mcpUnmountAll: '全部卸载',
-  mcpSection: 'Agent MCP 挂载状态',
-  mcpSectionSub: '🔌 Mounted to DSH by default when installed as a DSH plugin; Claude Code / Codex / Cursor / Windsurf still require an explicit mount so one repo never ends up with agents reading different vaults',
+  mcpSection: 'Agent MCP 挂载',
+  mcpSectionSub: '装成 DSH 插件时默认挂到 DSH；Claude Code、Codex、Cursor、Windsurf 需要你手动挂 —— 一个仓库里不该让多个 Agent 读到不同的库',
   mcpRefresh: '刷新',
   mcpSelfTest: '自检',
-  mcpSelfTestHint: '真的拉起一次 MCP 进程做握手，Windows 上路径不对会立刻暴露',
-  mcpSelfTestOk: 'MCP 握手成功（宿主能识别）',
-  mcpSelfTestFail: 'MCP 握手失败（宿主识别不了）',
+  mcpSelfTestHint: '真正拉起一次 MCP 进程做握手，路径不对会立刻暴露',
+  mcpSelfTestOk: '握手成功，宿主可识别',
+  mcpSelfTestFail: '握手失败，宿主识别不了',
   mcpMountDone: '已挂载',
   mcpMountFail: '挂载失败',
   mcpUnmountDone: '已卸载：Agent 不再带这块记忆',
-  mcpNoPeers: '还没有已配对节点（先在「🔗 互相配对」里配对，才能挂到对方的库）',
-  mcpFile: 'MCP 配置文件',
-  mcpOtherServers: '宿主里其它 MCP',
+  mcpNoPeers: '还没有已配对节点，先在「互相配对」里连一个。',
+  mcpFile: '配置文件',
+  mcpOtherServers: '其它 MCP',
   mcpEntry: '启动命令',
-  mcpRestartHint: '挂载/卸载后需重启一次宿主（DSH / Claude Code / Codex），Agent 才会用新的记忆源。',
-  mcpMountAll: 'Mount to all installed',
+  mcpRestartHint: '挂载或卸载后，重启一次宿主才会生效。',
+  mcpMountAll: '全部挂载',
   mcpMountAllHint: 'Write into every installed host: DSH / Claude Code / Codex / Cursor / Windsurf',
   mcpHostMatrix: 'Mount status per host',
-  mcpAutoMountLabel: 'Auto-mount to DSH when installed as a DSH plugin',
-  mcpAutoMountHint: 'On by default so it works right after install. Turn it off to mount manually here only; other hosts (Claude Code / Codex / Cursor / Windsurf) are always manual.',
-  mcpAutoMountLabel: '作为 DSH 插件时自动挂载到 DSH',
-  mcpAutoMountHint: '装好即用（默认开）。关掉后只能在这里手动挂；其它宿主（Claude Code / Codex / Cursor / Windsurf）始终手动。',
-  mcpHostAbsent: 'not installed',
-  mcpDrift: 'Host entry points to an old path — re-mount to fix',
-  mcpMountAll: '挂到所有已装宿主',
+  mcpAutoMountLabel: '装成 DSH 插件时自动挂载',
+  mcpAutoMountHint: '默认开启，装好即用。关掉后只能在本页手动挂载。',
+  mcpAutoMountLabel: 'Auto-mount when installed as a DSH plugin',
+  mcpAutoMountHint: 'On by default, works right after install. Turn it off to mount manually on this page only.',
+  mcpHostAbsent: '未安装',
+  mcpDrift: '配置已过期',
+  mcpMountAll: 'Mount all',
   mcpMountAllHint: '一次写入 DSH / Claude Code / Codex / Cursor / Windsurf 里已安装的那些',
   mcpHostMatrix: '各宿主挂载状态',
-  mcpHostAbsent: '未安装',
-  mcpDrift: '宿主里那条指向旧路径，重新挂载即可修正',
+  mcpHostAbsent: 'Not installed',
+  mcpDrift: 'Config is stale',
   cardUnsyncedHint: '这张卡还没推到云端（本地已保存）。切到云端模式后会自动推送，或用「补推」手动同步',
   activateVaultBtn: '切到此库',
   activateNeedRestart: '已记录。重启服务后生效（web 端与 DSH 会一起切换）',
@@ -1938,7 +1940,7 @@ export const ZH = {
   unitTimes: '次',
   unitDays: '天',
   mcpAutoHint: '自动识别已安装的 Agent 与其 MCP 配置（只读探测，不改任何文件）',
-  mcpRefresh: '重新检测',
+  mcpRefresh: 'Refresh',
   mcpSummary: '识别到 {agents} 个 Agent · {servers} 个 MCP · {mounted} 个已挂载本插件',
   mcpNoServers: '未配置 MCP',
   mcpDetectedOnly: '仅识别',
@@ -2696,35 +2698,37 @@ export const EN = {
   peerUploadHint: 'Push approved cards of this vault to the peer (peer reviews them)',
   peerDownloadHint: 'Pull the peer cards into this vault (reviewed here)',
   mcpMountTitle: 'Agent MCP mount',
-  mcpMountHint: 'Off by default: keeps multiple local vaults (7999 ops / 7989 mem-purge / cloud) from mixing inside one agent',
+  mcpMountHint: 'Only one vault is mounted at a time; re-mount the target host after switching.',
   mcpMounted: 'Mounted',
-  mcpNotMounted: 'Not mounted (agents do not see memory)',
+  mcpNotMounted: 'Not mounted',
   mcpMountTarget: 'Mount to',
   mcpTargetLocal: 'Local default vault',
   mcpMountBtn: 'Mount',
   mcpUnmountBtn: 'Unmount',
-  mcpPickTarget: '① Pick the vault to mount (click a row)',
-  mcpPickHost: '② Pick hosts (click a row to mount / unmount it)',
+  mcpPickTarget: 'Vault to mount',
+  mcpPickHost: 'Hosts to mount',
   mcpPicked: 'selected',
-  mcpClickMount: 'click to mount',
-  mcpClickUnmount: 'click to unmount',
-  mcpHostsMounted: 'hosts mounted',
+  mcpShowMore: 'Show {n} more hosts',
+  mcpShowLess: 'Show less',
+  mcpClickMount: 'Mount',
+  mcpClickUnmount: 'Unmount',
+  mcpHostsMounted: 'mounted',
   mcpUnmountAll: 'Unmount all',
   mcpSection: 'Agent MCP mount',
-  mcpSectionSub: '🔌 Off by default: pick one vault and mount it explicitly, so multiple memory-eternal instances (7999 ops / 7989 mem-purge / cloud) never get mixed up by an agent',
+  mcpSectionSub: 'Mounted to DSH by default when installed as a DSH plugin; Claude Code, Codex, Cursor and Windsurf need an explicit mount — one repo should never have agents reading different vaults',
   mcpRefresh: 'Refresh',
   mcpSelfTest: 'Self-test',
-  mcpSelfTestHint: 'Actually spawns the MCP entry and performs a handshake — path problems on Windows show up immediately',
-  mcpSelfTestOk: 'MCP handshake OK (host can use it)',
-  mcpSelfTestFail: 'MCP handshake failed (host cannot use it)',
+  mcpSelfTestHint: 'Actually spawns the MCP entry and performs a handshake — path problems show up immediately',
+  mcpSelfTestOk: 'Handshake OK — host can use it',
+  mcpSelfTestFail: 'Handshake failed — host cannot use it',
   mcpMountDone: 'Mounted',
   mcpMountFail: 'Mount failed',
   mcpUnmountDone: 'Unmounted: agents no longer carry this memory',
-  mcpNoPeers: 'No paired peers yet (pair one in "🔗 Pairing" first, then you can mount its vault)',
-  mcpFile: 'MCP config file',
-  mcpOtherServers: 'Other MCP servers',
-  mcpEntry: 'Launch command',
-  mcpRestartHint: 'Restart the host once (DSH / Claude Code / Codex) after mounting or unmounting so agents pick up the new memory source.',
+  mcpNoPeers: 'No paired peer yet — connect one in Pairing first.',
+  mcpFile: 'Config file',
+  mcpOtherServers: 'Other MCP',
+  mcpEntry: 'Command',
+  mcpRestartHint: 'Restart the host once for mounting or unmounting to take effect.',
   cardUnsyncedHint: 'This card has not been pushed to cloud yet (saved locally). It syncs automatically in cloud mode, or use the flush action.',
   activateVaultBtn: 'Switch to this',
   activateNeedRestart: 'Recorded. Takes effect after restart (both web and DSH follow it)',
@@ -3408,7 +3412,7 @@ export const EN = {
   unitTimes: 'times',
   unitDays: 'days',
   mcpAutoHint: 'Auto-detects installed agents and their MCP configs (read-only probe)',
-  mcpRefresh: 'Re-scan',
+  mcpRefresh: 'Refresh',
   mcpSummary: '{agents} agents · {servers} MCP servers · {mounted} mounting this plugin',
   mcpNoServers: 'No MCP configured',
   mcpDetectedOnly: 'detected only',
@@ -8385,180 +8389,242 @@ function ThemePicker({ t }) {
 function AgentMcpMountCard({ t }) {
   const [st, setSt] = useState(null)
   const [peers, setPeers] = useState([])
-  const [target, setTarget] = useState('local')   // 'local' 或 peer.id
-  const [busy, setBusy] = useState('')             // 'host:<id>' / 'all'
+  const [target, setTarget] = useState('local')
+  const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState(null)
-  const [test, setTest] = useState(null)   // MCP 自检结果（真拉起一次进程握手）
+  const [test, setTest] = useState(null)
+  const [more, setMore] = useState(false)      // 宿主超过 3 个时是否展开
+  const [showTech, setShowTech] = useState(false)
 
+  const j = async (path, init) => {
+    const r = await fetch(API + path, { ...init, headers: { 'content-type': 'application/json', ...(init && init.headers) } })
+    return await r.json().catch(() => null)
+  }
   const load = useCallback(async () => {
     const [m, pst] = await Promise.all([
-      fetch(API + '/mcp/status').then((r) => r.json()).catch(() => null),
-      fetch(API + '/peer/status').then((r) => r.json()).catch(() => null),
+      j('/mcp/status').catch(() => null),
+      j('/peer/status').catch(() => null),
     ])
     if (m && m.ok) setSt(m)
     if (pst && pst.ok) setPeers(pst.peers || [])
   }, [])
   useEffect(() => { load() }, [load])
 
-  const call = async (path, body) => fetch(API + path, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body || {}),
-  }).then((r) => r.json()).catch(() => null)
-
-  /** 当前选中的目标（库）→ canonical target 载荷 */
   const targetPayload = () => {
     const peer = target === 'local' ? null : peers.find((x) => x.id === target)
     return peer ? { kind: 'peer', url: peer.url, name: peer.name } : { kind: 'local' }
   }
-  const targetLabel = () => {
+  const targetName = () => {
     const peer = target === 'local' ? null : peers.find((x) => x.id === target)
-    return peer ? (peer.name + ' · ' + peer.url) : t('mcpTargetLocal')
+    return peer ? peer.name : t('mcpTargetLocal')
   }
 
-  /** 点宿主那一行：已挂 → 卸载这个宿主；未挂 → 把当前目标挂到这个宿主 */
   const toggleHost = async (host) => {
     if (!host.installed) return
     setBusy('host:' + host.id)
     const d = host.mounted
-      ? await call('/mcp/unmount', { hosts: host.id })
-      : await call('/mcp/mount', { ...targetPayload(), hosts: host.id })
+      ? await j('/mcp/unmount', { hosts: host.id }).catch(() => null)
+      : await j('/mcp/mount', { ...targetPayload(), hosts: host.id }).catch(() => null)
     setBusy('')
     setMsg(d && d.ok
-      ? { kind: 'ok', text: (host.mounted ? t('mcpUnmountDone') : t('mcpMountDone')) + '：' + host.label + (host.mounted ? '' : ' ← ' + targetLabel()) }
-      : { kind: 'bad', text: (d && d.error) || t('mcpMountFail') })
+      ? { kind: 'ok', text: (host.mounted ? t('mcpUnmountAll') : t('mcpClickMount')) + ' · ' + host.label + (host.mounted ? '' : ' ← ' + targetName()) }
+      : { kind: 'bad', text: (d && d.error) || t('mcpSelfTestFail') })
     load()
   }
-
-  /** 自检：真的 spawn 一次已挂载条目，把 Windows 上"识别不了"的原因摆出来 */
-  const runTest = async () => {
-    setBusy('test'); setTest(null)
-    const d = await j('/mcp/selftest', { method: 'POST' }).catch(() => null)
-    setBusy('')
-    setTest(d || { ok: false, error: '自检请求失败' })
-  }
-
   const mountAll = async () => {
     setBusy('all')
-    const d = await call('/mcp/mount', { ...targetPayload(), hosts: 'all' })
+    const d = await j('/mcp/mount', { ...targetPayload(), hosts: 'all' }).catch(() => null)
     setBusy('')
-    setMsg(d && d.ok
-      ? { kind: 'ok', text: t('mcpMountDone') + '：' + targetLabel() + ' → ' + ((d.hosts || []).filter((h) => h.ok).map((h) => h.id).join(', ') || '—') }
-      : { kind: 'bad', text: (d && d.error) || t('mcpMountFail') })
+    setMsg(d && d.ok ? { kind: 'ok', text: t('mcpMountAll') + ' · ' + targetName() } : { kind: 'bad', text: (d && d.error) || t('mcpSelfTestFail') })
     load()
   }
   const unmountAll = async () => {
     setBusy('all')
-    const d = await call('/mcp/unmount', { hosts: '' })
+    const d = await j('/mcp/unmount', { hosts: '' }).catch(() => null)
     setBusy('')
-    setMsg(d && d.ok ? { kind: 'ok', text: t('mcpUnmountDone') } : { kind: 'bad', text: (d && d.error) || t('mcpMountFail') })
+    setMsg(d && d.ok ? { kind: 'ok', text: t('mcpUnmountAll') } : { kind: 'bad', text: (d && d.error) || t('mcpSelfTestFail') })
     load()
+  }
+  const runTest = async () => {
+    setBusy('test'); setTest(null)
+    const d = await j('/mcp/selftest', { method: 'POST' }).catch(() => null)
+    setBusy('')
+    setTest(d || { ok: false, error: 'selftest failed' })
   }
 
   const hosts = (st && st.hosts) || []
   const mountedCount = hosts.filter((h) => h.mounted).length
-  const rowStyle = (active, dim) => ({
-    display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, cursor: dim ? 'default' : 'pointer',
-    border: '1px solid ' + (active ? 'var(--dsw-alias-brand-primary, #ff7a45)' : 'var(--me-c-border)'),
-    background: active ? 'rgba(255,122,69,.08)' : 'transparent',
-    opacity: dim ? 0.45 : 1,
-    marginBottom: 6,
+  const visible = more ? hosts : hosts.slice(0, 3)
+  const hidden = Math.max(0, hosts.length - 3)
+
+  // 视觉 token：保持克制，只有"已挂载"用品牌色，"选中"用描边
+  const brand = 'var(--dsw-alias-brand-primary, #ff7a45)'
+  const card = {
+    border: '1px solid var(--me-c-border)',
+    borderRadius: 12,
+    background: 'var(--me-c-surface, rgba(127,127,127,.04))',
+  }
+  const pill = (on, dim) => ({
+    fontSize: 11, lineHeight: '18px', padding: '0 8px', borderRadius: 999, whiteSpace: 'nowrap',
+    border: '1px solid ' + (on ? 'color-mix(in srgb, ' + brand + ' 45%, transparent)' : 'var(--me-c-border)'),
+    color: on ? brand : 'inherit', opacity: dim ? 0.45 : on ? 1 : 0.62,
+    background: on ? 'color-mix(in srgb, ' + brand + ' 10%, transparent)' : 'transparent',
   })
-  const dot = (on, installed) => ({ width: 8, height: 8, borderRadius: 999, flex: 'none', background: installed ? (on ? '#2ea043' : '#8b93a1') : 'transparent', border: installed ? 'none' : '1px solid #8b93a1' })
+  const dot = (on, installed) => ({
+    width: 8, height: 8, borderRadius: 999, flex: 'none',
+    background: installed ? (on ? '#2ea043' : 'transparent') : 'transparent',
+    border: installed ? (on ? 'none' : '1.5px solid rgba(127,127,127,.55)') : '1.5px dashed rgba(127,127,127,.4)',
+  })
+  const rowBase = (clickable, dim) => ({
+    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+    borderTop: '1px solid var(--me-c-border)',
+    cursor: clickable ? 'pointer' : 'default',
+    opacity: dim ? 0.5 : 1,
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* ── ① 选库：点一行即选中（同一时刻只能挂一个库） ───────────────── */}
-      <div>
-        <div style={{ fontSize: 12, opacity: 0.65, marginBottom: 6 }}>{t('mcpPickTarget')}</div>
-        <div
-          style={rowStyle(target === 'local', false)}
-          onClick={() => setTarget('local')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter') setTarget('local') }}
-        >
-          <span style={dot(target === 'local', true)} />
-          <span style={{ flex: 1 }}>{t('mcpTargetLocal')}</span>
-          <code style={{ fontSize: 11, opacity: 0.5 }}>{st && st.target && target === 'local' && st.target.vault ? st.target.vault : ''}</code>
-          {target === 'local' && <span style={{ fontSize: 11, opacity: 0.8 }}>{t('mcpPicked')}</span>}
-        </div>
-        {peers.map((pr) => (
-          <div
-            key={pr.id}
-            style={rowStyle(target === pr.id, false)}
-            onClick={() => setTarget(pr.id)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter') setTarget(pr.id) }}
-          >
-            <span style={dot(target === pr.id, true)} />
-            <span style={{ flex: 1 }}>{pr.name} <code style={{ fontSize: 11, opacity: 0.55 }}>{pr.pairCode || ''}</code></span>
-            <code style={{ fontSize: 11, opacity: 0.5 }}>{pr.url}</code>
-            {target === pr.id && <span style={{ fontSize: 11, opacity: 0.8 }}>{t('mcpPicked')}</span>}
-          </div>
-        ))}
-        {peers.length === 0 && <div style={{ fontSize: 11.5, opacity: 0.5 }}>{t('mcpNoPeers')}</div>}
+      {/* 概览条：一眼看清"挂没挂、挂在哪" */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 999, background: mountedCount ? '#2ea043' : 'rgba(127,127,127,.5)' }} />
+          {mountedCount ? `${mountedCount} / ${hosts.length} ${t('mcpHostsMounted')}` : t('mcpNotMounted')}
+        </span>
+        {mountedCount > 0 && (
+          <span style={{ fontSize: 12, opacity: 0.62 }}>
+            → {targetName()}
+          </span>
+        )}
+        <span style={{ flex: 1 }} />
+        <button type="button" className="mc-btn" style={{ padding: '2px 10px', opacity: 0.85 }} onClick={load}>{t('mcpRefresh')}</button>
+        <button type="button" className="mc-btn" style={{ padding: '2px 10px' }} disabled={busy === 'test'} onClick={runTest}>{busy === 'test' ? '…' : t('mcpSelfTest')}</button>
       </div>
 
-      {/* ── ② 选宿主：点哪行挂哪行（再点一次卸载） ─────────────────────── */}
+      {/* 自动挂载开关（自制 switch，替代原生大勾选框） */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+        <span
+          role="switch"
+          aria-checked={(form && form.mcpAutoMount) !== false}
+          tabIndex={0}
+          onClick={(e) => { e.preventDefault(); set('mcpAutoMount', !((form && form.mcpAutoMount) !== false)) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); set('mcpAutoMount', !((form && form.mcpAutoMount) !== false)) } }}
+          style={{
+            width: 34, height: 20, borderRadius: 999, flex: 'none', position: 'relative', transition: 'background .16s',
+            background: (form && form.mcpAutoMount) !== false ? brand : 'rgba(127,127,127,.35)',
+          }}
+        >
+          <span style={{
+            position: 'absolute', top: 2, left: (form && form.mcpAutoMount) !== false ? 16 : 2,
+            width: 16, height: 16, borderRadius: 999, background: '#fff', transition: 'left .16s',
+            boxShadow: '0 1px 2px rgba(0,0,0,.25)',
+          }} />
+        </span>
+        <span style={{ fontSize: 12.5 }}>{t('mcpAutoMountLabel')}</span>
+        <span style={{ fontSize: 11.5, opacity: 0.5 }}>{t('mcpAutoMountHint')}</span>
+      </label>
+
+      {/* ① 库 */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, opacity: 0.65 }}>{t('mcpPickHost')}</span>
-          <span style={{ fontSize: 11.5, opacity: 0.5 }}>{t('mcpHostsMounted')}：{mountedCount}/{hosts.length}</span>
-          <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={busy === 'all'} onClick={mountAll}>{t('mcpMountAll')}</button>
-          <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={busy === 'all' || mountedCount === 0} onClick={unmountAll}>{t('mcpUnmountAll')}</button>
-          <button type="button" className="mc-btn" style={{ padding: '1px 8px', opacity: 0.7 }} onClick={load}>{t('mcpRefresh')}</button>
-          <button type="button" className="mc-btn" style={{ padding: '1px 8px' }} disabled={busy === 'test'} onClick={runTest} title={t('mcpSelfTestHint')}>{busy === 'test' ? '…' : t('mcpSelfTest')}</button>
+        <div style={{ fontSize: 11.5, opacity: 0.55, marginBottom: 6 }}>{t('mcpPickTarget')}</div>
+        <div style={card}>
+          {[{ id: 'local', name: t('mcpTargetLocal'), sub: st && st.target && st.target.kind === 'local' && st.target.vault ? st.target.vault : '' }, ...peers.map((pr) => ({ id: pr.id, name: pr.name, sub: pr.url, code: pr.pairCode }))].map((item, i) => {
+            const on = target === item.id
+            return (
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setTarget(item.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter') setTarget(item.id) }}
+                style={{ ...rowBase(true, false), borderTop: i === 0 ? 'none' : '1px solid var(--me-c-border)', background: on ? 'color-mix(in srgb, ' + brand + ' 7%, transparent)' : 'transparent' }}
+              >
+                <span style={dot(on, true)} />
+                <span style={{ fontSize: 13, fontWeight: on ? 600 : 400 }}>{item.name}</span>
+                {item.code && <code style={{ fontSize: 11, opacity: 0.45 }}>{item.code}</code>}
+                <span style={{ flex: 1, fontSize: 11, opacity: 0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sub}</span>
+                {on && <span style={pill(true, false)}>{t('mcpPicked')}</span>}
+              </div>
+            )
+          })}
         </div>
-        {hosts.map((h) => (
-          <div
-            key={h.id}
-            style={rowStyle(false, !h.installed)}
-            onClick={() => toggleHost(h)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter') toggleHost(h) }}
-            title={h.note || h.path}
-          >
-            <span style={dot(h.mounted, h.installed)} />
-            <span style={{ minWidth: 150 }}>{h.label}</span>
-            <span style={{ minWidth: 64, fontSize: 11.5, opacity: 0.75 }}>
-              {!h.installed ? t('mcpHostAbsent') : h.mounted ? t('mcpMounted') : t('mcpNotMounted')}
-            </span>
-            <code style={{ flex: 1, fontSize: 10.5, opacity: 0.45, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.path}</code>
-            {h.installed && (
-              <span style={{ fontSize: 11, opacity: 0.75 }}>
-                {busy === 'host:' + h.id ? '…' : h.mounted ? t('mcpClickUnmount') : t('mcpClickMount')}
+      </div>
+
+      {/* ② 宿主（超过 3 个折叠） */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11.5, opacity: 0.55 }}>{t('mcpPickHost')}</span>
+          <span style={{ flex: 1 }} />
+          <button type="button" className="mc-btn" style={{ padding: '0 8px', fontSize: 11.5, opacity: 0.85 }} disabled={busy === 'all'} onClick={mountAll}>{t('mcpMountAll')}</button>
+          <button type="button" className="mc-btn" style={{ padding: '0 8px', fontSize: 11.5, opacity: 0.7 }} disabled={busy === 'all' || mountedCount === 0} onClick={unmountAll}>{t('mcpUnmountAll')}</button>
+        </div>
+        <div style={card}>
+          {visible.map((h, i) => (
+            <div
+              key={h.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => toggleHost(h)}
+              onKeyDown={(e) => { if (e.key === 'Enter') toggleHost(h) }}
+              title={h.path}
+              style={{ ...rowBase(h.installed, !h.installed), borderTop: i === 0 ? 'none' : '1px solid var(--me-c-border)' }}
+            >
+              <span style={dot(h.mounted, h.installed)} />
+              <span style={{ fontSize: 13, minWidth: 132, opacity: h.installed ? 1 : 0.6 }}>{h.label}</span>
+              <span style={pill(h.mounted, !h.installed)}>
+                {h.installed ? (h.mounted ? t('mcpMounted') : t('mcpNotMounted')) : t('mcpHostAbsent')}
               </span>
-            )}
-          </div>
-        ))}
+              <span style={{ flex: 1, fontSize: 10.5, opacity: 0.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace' }}>{h.path}</span>
+              {h.installed && (
+                <span style={{ fontSize: 11.5, opacity: busy === 'host:' + h.id ? 0.4 : 0.75, whiteSpace: 'nowrap' }}>
+                  {busy === 'host:' + h.id ? '…' : h.mounted ? t('mcpClickUnmount') : t('mcpClickMount')}
+                </span>
+              )}
+            </div>
+          ))}
+          {hidden > 0 && (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setMore((v) => !v)}
+              onKeyDown={(e) => { if (e.key === 'Enter') setMore((v) => !v) }}
+              style={{ ...rowBase(true, false), borderTop: '1px solid var(--me-c-border)', justifyContent: 'center', fontSize: 12, opacity: 0.8 }}
+            >
+              {more ? t('mcpShowLess') : t('mcpShowMore').replace('{n}', String(hidden))}
+            </div>
+          )}
+        </div>
         {st && st.drift && (
-          <div style={{ color: '#e5484d', fontSize: 11.5 }}>
-            ⚠ {t('mcpDrift')}：{st.drift.hint || ''} <code>{st.drift.host}</code> → <code>{st.drift.now}</code>
+          <div style={{ color: '#e5484d', fontSize: 11.5, marginTop: 6 }}>
+            ⚠ {t('mcpDrift')}：{st.drift.hint || ''} <code>{st.drift.host}</code>
           </div>
         )}
       </div>
 
-      <div style={{ fontSize: 11.5, opacity: 0.55, lineHeight: 1.8 }}>
-        <div>{t('mcpMountHint')}</div>
-        <div>{t('mcpFile')}：<code>{st ? st.mcpFile : '—'}</code>{st && st.otherServers && st.otherServers.length ? ' · ' + t('mcpOtherServers') + '：' + st.otherServers.join(', ') : ''}</div>
-        <div>⚠ {t('mcpRestartHint')}</div>
-      </div>
-
       {test && (
-        <div style={{ fontSize: 11.5, lineHeight: 1.8, padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (test.ok ? 'rgba(46,160,67,.45)' : 'rgba(229,72,77,.45)'), background: test.ok ? 'rgba(46,160,67,.07)' : 'rgba(229,72,77,.07)' }}>
-          <div style={{ fontWeight: 600, color: test.ok ? '#2ea043' : '#e5484d' }}>
-            {test.ok ? t('mcpSelfTestOk') : t('mcpSelfTestFail')} · {test.ms}ms
-          </div>
-          <div style={{ opacity: 0.75 }}>{t('mcpEntry')}：<code>{test.command || '—'}</code></div>
+        <div style={{ fontSize: 11.5, lineHeight: 1.8, padding: '9px 11px', borderRadius: 10, border: '1px solid ' + (test.ok ? 'rgba(46,160,67,.4)' : 'rgba(229,72,77,.4)'), background: test.ok ? 'rgba(46,160,67,.06)' : 'rgba(229,72,77,.06)' }}>
+          <div style={{ fontWeight: 600, color: test.ok ? '#2ea043' : '#e5484d' }}>{test.ok ? t('mcpSelfTestOk') : t('mcpSelfTestFail')} · {test.ms}ms</div>
+          {test.command && <div style={{ opacity: 0.7 }}>{t('mcpEntry')}：<code>{test.command}</code></div>}
           {test.error && <div style={{ color: '#e5484d' }}>{test.error}</div>}
-          {test.stderr && <div style={{ opacity: 0.6, wordBreak: 'break-all' }}>stderr: {test.stderr}</div>}
+          {test.stderr && <div style={{ opacity: 0.55, wordBreak: 'break-all' }}>{test.stderr}</div>}
         </div>
       )}
 
-      {msg && <div style={{ fontSize: 12, color: msg.kind === 'bad' ? '#e5484d' : 'inherit', opacity: msg.kind === 'bad' ? 1 : 0.8 }}>{msg.text}</div>}
+      {msg && <div style={{ fontSize: 12, color: msg.kind === 'bad' ? '#e5484d' : 'inherit', opacity: msg.kind === 'bad' ? 1 : 0.7 }}>{msg.text}</div>}
+
+      {/* 技术细节折叠 */}
+      <div>
+        <button type="button" onClick={() => setShowTech((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11.5, opacity: 0.5 }}>
+          {t('mcpFile')} · {t('mcpMountHint')} {showTech ? '▾' : '▸'}
+        </button>
+        {showTech && st && (
+          <div style={{ fontSize: 11, opacity: 0.5, lineHeight: 1.9, marginTop: 6 }}>
+            <div>{t('mcpFile')}：<code>{st.mcpFile}</code></div>
+            {st.entry && <div>{t('mcpEntry')}：<code>{st.entry.command}</code> {(st.entry.args || []).slice(1).join(' ')}</div>}
+            {st.otherServers && st.otherServers.length > 0 && <div>{t('mcpOtherServers')}：{st.otherServers.join(', ')}</div>}
+            <div>⚠ {t('mcpRestartHint')}</div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
