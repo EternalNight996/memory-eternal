@@ -9,21 +9,25 @@
 > **版本撤回说明**：**v0.9.16 – v0.9.22 已全部撤回**（问题期间版本：git tag 已删除、npm 已标记 deprecated，请使用 **v0.9.23**）。**v0.9.14 已 deprecated**（客户端渲染改动降低手感，已回退；其服务器侧算法优化并入 **v0.9.15**，渲染与 v0.9.13 完全一致）。**v0.9.0 – v0.9.5 均已在 npm 标记 deprecated；v0.9.1 / v0.9.2 / v0.9.3 / v0.9.4 的 release tag 已从 git 移除**（v0.9.5 只是被取代、tag 保留）—— v0.9.1/v0.9.2 带记忆页白屏缺陷，v0.9.0 沉淀告警误报刷屏，v0.9.3 不支持 DSH v0.1.7-rc.2（升级后插件整体挂不上：设置服务换血 + 客户端 `settingsScope` 消失），v0.9.4 在官方桌面版（schemastery 3.18.4 的 volatile 活引用）下抛 `cfg.vaultDir.trim is not a function`、插件整体挂不上，**v0.9.5 的全屏浮层会盖住桌面版的窗口控制面板（右上角「×」压在窗口「关闭」上，点一下会退出整个桌面壳）**。请一律使用 **v0.9.6+**（`npm i memory-eternal@latest`）。
 > **DSH 兼容性**：`>=0.1.5-alpha.2 <0.3.0-0`（**v0.10.1 起放宽**：旧的上界 `<0.2.0` 在 semver 上会把 DSH `0.2.0-rc.x` 排除在外 —— DSH 的插件守卫用 `includePrerelease:true` 判定，实际仍能装上，但声明与事实不一致；现在明确覆盖整个 0.1/0.2 线，且 `<0.3.0-0` 仍然挡住 0.3.0 及其预发布。**已在官方桌面版 DSH 0.2.0-rc.2 上实测运行**：插件挂载、记忆页、自动沉淀、审核中心、导入导出均正常）。**v0.9.4 起适配 DSH v0.1.7-rc.2**（该版本把设置服务换成纯表单 API，并移除了 `@deepseek-ai/dsh-client-runtime` 与 `settingsScope`）；**v0.9.5 起兼容 schemastery ≥3.18.4 的 volatile 活引用**（官方桌面版 profile 即此形态，web profile 仍是 3.18.1，两者都支持）；**v0.9.6 起全屏浮层自动让开桌面壳的窗口标题栏**（不再压住最小化/最大化/关闭）。0.1.5 系列仍走旧的 `settings.register` 路径，两条路径都保留。
 
-> **版本撤回（2026-11-16）**：**v0.49.0 / v0.49.1 / v0.49.6 已撤回** —— npm 上已标记 deprecated（registry 策略不允许 unpublish），
-> GitHub / Gitee 的 Release 与对应 git tag 均已删除。它们的全部内容都已并入 **v0.49.7**，请直接用 `npm i -g memory-eternal@latest`。
+> **版本撤回（2026-11-16）**：**v0.49.0 / v0.49.1 / v0.49.6 / v0.49.7 已撤回** —— npm 上已全部标记 deprecated
+> （registry 策略不允许 unpublish），GitHub / Gitee 的 Release 与对应 git tag 均已删除。
+> 它们的内容都已并入 **v0.49.10**，请直接用 `npm i -g memory-eternal@latest`。
 >
 > ```
-> v0.49.0  多实例协作首版（MEM Pair + Agent MCP 挂载标准）        → 并入 v0.49.7
-> v0.49.1  挂载改列表点击 + MEM Pair 卡重排                       → 并入 v0.49.7
-> v0.49.6  MCP 卡 AI 化排版 + 修 form 崩溃 / 中文重复 key          → 并入 v0.49.7
+> v0.49.0  多实例协作首版（MEM Pair + Agent MCP 挂载标准）        → 并入 v0.49.10
+> v0.49.1  挂载改列表点击 + MEM Pair 卡重排                       → 并入 v0.49.10
+> v0.49.6  MCP 卡 AI 化排版 + 修 form 崩溃 / 中文重复 key          → 并入 v0.49.10
+> v0.49.7  Windows 路径修复（node 解析 / 宿主 note / project 宿主） → 并入 v0.49.10
+> v0.49.8  MEMORY_DB_FILE（库文件名可配）                          → 并入 v0.49.10
+> v0.49.9  库名/端口动态修改（/db/rename、/web/port）              → 并入 v0.49.10
 > ```
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
-| **v0.49.10** | 2026-11-16 | **命令名去 DSH 化**（用户提的：已经不只服务 DSH 了）。包名 `memory-eternal` 本来就中性，真正绑 DSH 的只有 CLI 名 `dsh-memory` → 现在 `bin` 同时导出 **`memory`（主名）/ `mem`（短别名）/ `dsh-memory`（兼容，不移除）** 三个入口，任何宿主、纯 CLI、脚本都可用 `memory`；README 新增「命令名与别名」一节（中英）。数据位置本来就不绑死：`MEMORY_VAULT_DIR` / `MEMORY_DB_FILE` / `MEMORY_WEB_PORT` 都能改。 |
+| **v0.49.10** | 2026-11-16 | **（本版合并 v0.49.0 / 0.49.1 / 0.49.6 / 0.49.7 / 0.49.8 / 0.49.9 的全部内容，那些版本均已撤回）** **命令名去 DSH 化**（用户提的：已经不只服务 DSH 了）。包名 `memory-eternal` 本来就中性，真正绑 DSH 的只有 CLI 名 `dsh-memory` → 现在 `bin` 同时导出 **`memory`（主名）/ `mem`（短别名）/ `dsh-memory`（兼容，不移除）** 三个入口，任何宿主、纯 CLI、脚本都可用 `memory`；README 新增「命令名与别名」一节（中英）。数据位置本来就不绑死：`MEMORY_VAULT_DIR` / `MEMORY_DB_FILE` / `MEMORY_WEB_PORT` 都能改。 |
 | **v0.49.9** | 2026-11-16 | **库文件名 / 端口都支持运行中动态修改**（用户要"动态修改"）。① `POST /db/rename {name}` + `dsh-memory db rename <x.db>`：把当前 `.db`（含 `-wal`/`-shm`）**真改名**然后重开连接，数据保留；改名结果写进 vault 内的 `.memory-eternal-dbname`，重启也生效；非法名/目标已存在一律拒绝。② `POST /web/port {port}` + `dsh-memory port <n>`：**先回包再切换**（`scheduleRelisten` 延迟 250ms 关旧 listener、起新 listener），失败自动退回旧端口，并同步 watchdog 锁里的 port。③ 面板「设置 → 🧪 实验性 → 🔧 库文件与端口」：当前库名 / 端口 + 改名 / 切换按钮，即时生效（端口切换后本页失效，提示用新地址打开）。④ `dbFileIn` 升级：env `MEMORY_DB_FILE` → vault 内 `.dbname` 记录 → 目录里唯一的 `.db` → 默认名，四段回退；配置项 `dbFile` 一并暴露。测试 `tests/db-name.test.mjs` 扩到 8 例（真改名 + 数据保留 + `.dbname` 落盘、非法名/已存在拒绝、接口与面板守卫）。 |
 | **v0.49.8** | 2026-11-16 | **库文件名可配**（用户问"能不能改 db 名"）。新增 `MEMORY_DB_FILE`：`MEMORY_DB_FILE=mem-purge.db` 就能让这个实例用另一个库文件（默认仍 `memory-eternal.db`，不设则行为完全不变）。口径：① 只接受纯文件名（`[A-Za-z0-9._-]`、必须 `.db`、≤80 字符），带路径分隔符一律退回默认名，**绝不拿用户输入拼路径**；② **兼容保护**：设了自定义名但目录里已有 `memory-eternal.db` → 继续用标准名，避免"改个环境变量打开空库、以为数据丢了"；③ 所有 `path.join(dir, DB_FILE)` 统一走 `dbFileIn(dir)`（api / web / auto-restore / db 共 9 处）。端口本来就可配（`--port` / `MEMORY_WEB_PORT` / 配置 `webPort`），README 新增「多实例并行：端口 / 库文件名 / vault 目录」一节（中英）。测试 `tests/db-name.test.mjs` 5 例（默认不变、自定义生效、非法值拒绝、兼容保护、端口三条路守卫）。 |
-| **v0.49.7** | 2026-11-16 | **（本版合并 v0.49.0 / v0.49.1 / v0.49.6 的全部内容，那三个版本已撤回）** 修 MCP 面板**地址显示不像 Windows**：① 六个宿主的 `note` 里写死了 `~/.claude.json`、`~/.cursor/mcp.json`、`~/.codex/config.toml` 这类 Linux 风格路径（Windows 用户一看就以为"地址不对"），现在改成平台无关描述，真实路径统一由 `path` 字段给出（`C:\\Users\\…`）；② **project 宿主路径错**：独立 web 常驻进程的 cwd 是 `~/.dsh/profiles/web`，被当成了"仓库根"，于是在面板上显示一个根本不存在的 `.mcp.json`；现在只有目录里真有 `package.json` / `.git` / `.mcp.json`（或显式 `MEMORY_HOST_PROJECT_PATH`）时才认为该宿主可用，否则标"未安装"。新增 2 条守卫（note 不许含 `~/`、project 宿主不冒充已安装）。 |
+| **v0.49.7** | 2026-11-16 | **（已撤回，内容并入 v0.49.10）** **（本版合并 v0.49.0 / v0.49.1 / v0.49.6 的全部内容，那三个版本已撤回）** 修 MCP 面板**地址显示不像 Windows**：① 六个宿主的 `note` 里写死了 `~/.claude.json`、`~/.cursor/mcp.json`、`~/.codex/config.toml` 这类 Linux 风格路径（Windows 用户一看就以为"地址不对"），现在改成平台无关描述，真实路径统一由 `path` 字段给出（`C:\\Users\\…`）；② **project 宿主路径错**：独立 web 常驻进程的 cwd 是 `~/.dsh/profiles/web`，被当成了"仓库根"，于是在面板上显示一个根本不存在的 `.mcp.json`；现在只有目录里真有 `package.json` / `.git` / `.mcp.json`（或显式 `MEMORY_HOST_PROJECT_PATH`）时才认为该宿主可用，否则标"未安装"。新增 2 条守卫（note 不许含 `~/`、project 宿主不冒充已安装）。 |
 | **v0.49.6** | 2026-11-16 | **（已撤回，内容并入 v0.49.7）** 修 MCP 卡**中英文案混排**：`mcpRefresh / mcpMountAll / mcpHostAbsent / mcpDrift / mcpAutoMountLabel / mcpAutoMountHint / mcpHostMatrix / mcpMountAllHint` 这些 key 在 zh 字典里**重复定义了两次**（第二份是英文，对象字面量后者生效 → 界面显示 "Refresh / Mount all / Not installed"）。现在 zh 块内所有重复项统一为中文值，并校正 "全部挂载 / 未安装 / 配置已过期" 等措辞。 |
 | **v0.49.5** | 2026-11-16 | 修 v0.49.4 的**运行时崩溃**：MCP 卡的自制开关用了设置页的 `form` / `set`，但组件当时只收 `{ t }` → 进「实验性」页直接 `ReferenceError: form is not defined`（ErrorBoundary 兜住但仍白屏）。现在组件签名收 `{ t, form, set }`、渲染点 `t={t} form={form} set={set}` 显式注入，并加守卫测试防回归（mcp-mount 共 15 例）。另：同版本 `file:` 依赖被 pnpm 缓存复用，导致修好的 bundle 没被装上 —— 这版同时提版本号以便真正换包。 |
 | **v0.49.4** | 2026-11-16 | **Agent MCP 挂载卡重做（AI 化排版）+ 宿主超 3 个折叠 + 修中英串位**。① 概览条：绿点 + 「N / M 已挂载 → 目标库」，右侧「刷新 / 自检」；② 自动挂载改成**自制 switch**（替换原生大红勾选框）；③ 「挂哪个库」「挂到哪些宿主」两组**卡片式列表**：选中行品牌色底 + 描边 + 「已选中」pill，宿主行 = 状态点 + 名称 + 状态 pill + 等宽路径（截断，hover 看全）+ 右侧「挂载 / 卸载」，未安装整行置灰；④ **宿主超过 3 个默认只显示 3 行**，底部「展开其余 N 个宿主 / 收起」；⑤ 技术细节（配置文件、启动命令、其它 MCP、重启提示）收进可折叠区；⑥ 修 i18n 串位：`mcpSectionSub / mcpMountHint / mcpAutoMountLabel / mcpAutoMountHint / mcpHostAbsent / mcpMountAll` 等 key 的**中文位曾被写成英文**（截图里中英混排），现按 zh→en 顺序重写；⑦ 测试：新增「超 3 折叠」「自制 switch + 中文不夹英文长句」两条守卫（mcp-mount 共 14 例）。 |
