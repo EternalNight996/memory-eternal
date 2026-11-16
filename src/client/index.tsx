@@ -10682,11 +10682,21 @@ function ConfigPanel({ t, onReload, version, compact }) {
       saveCloudConn(next)
       applyCloudConn(next)
       setCloudConn(next)
-      // 本机服务端也要知道：自动沉淀 / 召回该写哪个库
+      // 本机服务端也要知道：自动沉淀 / 召回该写哪个库。
+      // **必须等它落盘并回读校验**：2026-11-17 现场 —— 前端显示已切「本地」，但这次的 POST 静默失败，
+      // 插件侧 conn 仍是 cloud，于是自动沉淀继续往云端写、云端证书又握手失败，用户只看到「写卡失败：未知原因」。
       fetchLocal('/cloud/conn', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conn: { mode: next.mode, url: next.url, token: next.token, active: next.active, owner: next.owner || '' } }),
-      }).catch(() => { /* 记录失败不影响本次切换 */ })
+      })
+        .then((r) => r.json().catch(() => null))
+        .then((j) => {
+          if (j && j.ok) return
+          try { notify(`${kind === 'cloud' ? t('switchToCloudDone') : t('switchToLocalDone')}（本机服务端未同步：${(j && j.error) || 'no-ok'}）`, false) } catch { /* 忽略 */ }
+        })
+        .catch((e) => {
+          try { notify(`${kind === 'cloud' ? t('switchToCloudDone') : t('switchToLocalDone')}（本机服务端未同步：${String((e && e.message) || e).slice(0, 80)}）`, false) } catch { /* 忽略 */ }
+        })
       notifyAcrossRemount(kind === 'cloud' ? t('switchToCloudDone') : t('switchToLocalDone'), true)
       window.dispatchEvent(new CustomEvent(VAULT_SWITCH_EVT, { detail: { kind } }))
     } catch (e) {
