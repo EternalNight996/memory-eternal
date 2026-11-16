@@ -1213,6 +1213,21 @@ export const ZH = {
   mcpClickUnmount: '卸载',
   mcpHostsMounted: '已挂载',
   mcpUnmountAll: '全部卸载',
+  dynSection: '库文件与端口',
+  dynSectionSub: '🔧 运行中直接改，不用重启进程',
+  dynDbLabel: '库文件名',
+  dynRename: '改名',
+  dynCurrent: '当前',
+  dynPortLabel: '端口',
+  dynSwitch: '切换',
+  dynNeedName: '先填库文件名',
+  dynBadPort: '端口必须是 1–65535 的整数',
+  dynRenamed: '已改名',
+  dynPortSwitched: '端口已切换',
+  dynReopen: '本页会失效，用新地址打开',
+  dynFail: '操作失败',
+  dynDbHint: '改名会把当前 .db（含 -wal / -shm）真改掉，数据保留；名字只允许字母数字 . _ -，必须以 .db 结尾。',
+  dynNoRestart: '两项都即时生效：库名会重开连接，端口会先回包再切换监听（约 0.3 秒）。',
   mcpSection: 'Agent MCP 挂载',
   mcpSectionSub: '装成 DSH 插件时默认挂到 DSH；Claude Code、Codex、Cursor、Windsurf 需要你手动挂 —— 一个仓库里不该让多个 Agent 读到不同的库',
   mcpRefresh: '刷新',
@@ -2714,6 +2729,21 @@ export const EN = {
   mcpClickUnmount: 'Unmount',
   mcpHostsMounted: 'mounted',
   mcpUnmountAll: 'Unmount all',
+  dynSection: 'DB file & port',
+  dynSectionSub: '🔧 Change them while running — no restart',
+  dynDbLabel: 'DB filename',
+  dynRename: 'Rename',
+  dynCurrent: 'Current',
+  dynPortLabel: 'Port',
+  dynSwitch: 'Switch',
+  dynNeedName: 'Enter a db filename first',
+  dynBadPort: 'Port must be an integer between 1 and 65535',
+  dynRenamed: 'Renamed',
+  dynPortSwitched: 'Port switched',
+  dynReopen: 'this page will stop working, open the new address',
+  dynFail: 'Operation failed',
+  dynDbHint: 'Renaming moves the current .db (with -wal / -shm) to the new name and keeps the data. Name allows letters, digits, . _ - and must end with .db.',
+  dynNoRestart: 'Both take effect immediately: the db reopens, the port replies first then switches listeners (~0.3s).',
   mcpSection: 'Agent MCP mount',
   mcpSectionSub: 'Mounted to DSH by default when installed as a DSH plugin; Claude Code, Codex, Cursor and Windsurf need an explicit mount — one repo should never have agents reading different vaults',
   mcpRefresh: 'Refresh',
@@ -8379,6 +8409,83 @@ function ThemePicker({ t }) {
 }
 
 /**
+ * 🔧 库文件与端口（动态改，不用重启）
+ *
+ * 库名：走 POST /db/rename —— 真把 .db（含 -wal/-shm）改名，然后重开连接，数据保留。
+ * 端口：走 POST /web/port —— 服务端先回包，再延迟 250ms 关旧 listener 起新的；
+ *       所以这页会失效，得用返回的新地址打开。
+ */
+function DynamicDbPortCard({ t, set }) {
+  const [ov, setOv] = useState(null)
+  const [dbName, setDbName] = useState('')
+  const [port, setPort] = useState('')
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState(null)
+
+  const load = useCallback(async () => {
+    const d = await fetch(API + '/overview').then((r) => r.json()).catch(() => null)
+    if (d && d.ok) {
+      setOv(d)
+      const base = String(d.dbPath || '').split(/[\\/]/).pop() || ''
+      setDbName((v) => v || base)
+      setPort((v) => v || String((location.port || '') || ''))
+    }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const doRename = async () => {
+    const name = dbName.trim()
+    if (!name) return setMsg({ kind: 'bad', text: t('dynNeedName') })
+    setBusy('db')
+    const d = await fetch(API + '/db/rename', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }) }).then((r) => r.json()).catch(() => null)
+    setBusy('')
+    setMsg(d && d.ok
+      ? { kind: 'ok', text: t('dynRenamed') + '：' + d.from + ' → ' + d.to + (d.moved ? '（' + Math.round((d.bytes || 0) / 1024) + ' KB）' : '') }
+      : { kind: 'bad', text: (d && d.error) || t('dynFail') })
+    if (d && d.ok && d.to) { try { set('dbFile', d.to) } catch { /* 配置写不进去不影响已生效 */ } }
+    load()
+  }
+  const doPort = async () => {
+    const n = Number(port)
+    if (!Number.isInteger(n) || n < 1 || n > 65535) return setMsg({ kind: 'bad', text: t('dynBadPort') })
+    setBusy('port')
+    const d = await fetch(API + '/web/port', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ port: n }) }).then((r) => r.json()).catch(() => null)
+    setBusy('')
+    if (!d || !d.ok) return setMsg({ kind: 'bad', text: (d && d.error) || t('dynFail') })
+    setMsg({ kind: 'ok', text: t('dynPortSwitched') + ' → ' + (d.url || ('http://127.0.0.1:' + d.port)) + '（' + t('dynReopen') + '）' })
+  }
+
+  const curDb = ov && ov.dbPath ? String(ov.dbPath).split(/[\\/]/).pop() : '—'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <label className="mc-field" style={{ margin: 0, flex: '0 1 240px' }}>
+          <span className="mc-field-label">{t('dynDbLabel')}</span>
+          <input value={dbName} onChange={(e) => setDbName(e.target.value)} placeholder="mem-purge.db" style={{ fontFamily: 'ui-monospace, monospace' }} />
+        </label>
+        <button type="button" className="mc-btn" disabled={busy === 'db'} onClick={doRename}>{busy === 'db' ? '…' : t('dynRename')}</button>
+        <span style={{ fontSize: 11.5, opacity: 0.5 }}>{t('dynCurrent')}：<code>{curDb}</code></span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <label className="mc-field" style={{ margin: 0, flex: '0 1 160px' }}>
+          <span className="mc-field-label">{t('dynPortLabel')}</span>
+          <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="7999" style={{ fontFamily: 'ui-monospace, monospace' }} />
+        </label>
+        <button type="button" className="mc-btn" disabled={busy === 'port'} onClick={doPort}>{busy === 'port' ? '…' : t('dynSwitch')}</button>
+        <span style={{ fontSize: 11.5, opacity: 0.5 }}>{t('dynPortHint')}</span>
+      </div>
+
+      {msg && <div style={{ fontSize: 12, color: msg.kind === 'bad' ? '#e5484d' : 'inherit', opacity: msg.kind === 'bad' ? 1 : 0.8 }}>{msg.text}</div>}
+      <div style={{ fontSize: 11, opacity: 0.45, lineHeight: 1.8 }}>
+        <div>{t('dynDbHint')}</div>
+        <div>{t('dynNoRestart')}</div>
+      </div>
+    </div>
+  )
+}
+
+/**
  * 🔌 Agent MCP 挂载状态（实验性）
  *
  * 为什么要单独一块：Agent 能不能"看见"记忆，取决于宿主 MCP 列表里有没有这个 server。
@@ -10059,6 +10166,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     'sec-cloud': 'experimental',
     // Agent MCP 挂载：默认不挂载，必须人工选目标（多个库并存时最容易串味的地方）
     'sec-mcp': 'experimental',
+    'sec-dyn': 'experimental',
     // 恢复出厂：与云端连接同属「实验性」页（危险操作，但确实属于实验区的范畴）
     'sec-reset': 'experimental',
   }
@@ -11804,6 +11912,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
                 单独一页，不混进「记忆 / 服务」这些主流程：云端能力还在验证期
                 （mengbot 授权控制面未上线、配额与授权校验未完成），放实验区既能让想用的人用上，
                 又不会让普通用户误以为是稳定功能、更不会影响本地使用。 */}
+              <CfgSection {...secProps('sec-dyn')} id="sec-dyn" icon="🔧" title={t('dynSection')} sub={t('dynSectionSub')}>
+                <PanelErrorBoundary>
+                  <DynamicDbPortCard t={t} set={set} />
+                </PanelErrorBoundary>
+              </CfgSection>
               <CfgSection {...secProps('sec-mcp')} id="sec-mcp" icon="🔌" title={t('mcpSection')} sub={t('mcpSectionSub')}>
                 {/* 自动挂载开关：作为 DSH 插件时默认挂到 DSH；关掉后只能手动挂 */}
                 <label className="mc-field" style={{ marginBottom: 12 }}>

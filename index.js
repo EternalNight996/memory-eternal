@@ -90,6 +90,8 @@ export const Config = z.object({
   // 作为 DSH 插件时默认把 MCP 挂到 DSH 自己（其它宿主仍需手动）。
   // 关掉：mcpAutoMount=false 或环境变量 MEMORY_MCP_AUTOMOUNT=0。
   mcpAutoMount: z.boolean().default(true),
+  // 库文件名（动态改过就会写在这里；空 = 用 memory-eternal.db 或 vault 内的 .dbname 记录）
+  dbFile: z.string().default(''),
   vaultDir: z.string().default(''),
   dedupThreshold: z.number().min(0).max(1).default(0.62),
   captureMinChars: z.number().default(120),
@@ -1817,7 +1819,7 @@ export function apply(ctx, config) {
               // 只暴露可安全展示/回填的字段
               const safe = {
                 autoCapture: cfg.autoCapture !== false, autoRecall: cfg.autoRecall !== false, coreMemoryEnabled: cfg.coreMemoryEnabled, workingMemoryEnabled: cfg.workingMemoryEnabled, coreMemoryLimit: cfg.coreMemoryLimit, coreMemoryMaxChars: cfg.coreMemoryMaxChars, uiScale: cfg.uiScale, theme: cfg.theme, recallLimit: cfg.recallLimit, recallSummaryLen: cfg.recallSummaryLen, recallIncludeBody: cfg.recallIncludeBody, secretHint: cfg.secretHint || '',
-                captureMinChars: cfg.captureMinChars ?? 120, captureCooldownMs: cfg.captureCooldownMs ?? 60000, mcpAutoMount: cfg.mcpAutoMount !== false,
+                captureMinChars: cfg.captureMinChars ?? 120, captureCooldownMs: cfg.captureCooldownMs ?? 60000, dbFile: cfg.dbFile || '', mcpAutoMount: cfg.mcpAutoMount !== false,
                 // 自动沉淀写哪里（仅云端模式生效）：cloud = 只写云端（默认）；both = 本地也留一份
                 cloudWriteMode: cfg.cloudWriteMode === 'both' ? 'both' : 'cloud', dedupThreshold: cfg.dedupThreshold ?? 0.62, maxCardsPerDay: cfg.maxCardsPerDay ?? 1000,
                 distillEnabled: cfg.distillEnabled !== false, dedupByLLM: cfg.dedupByLLM !== false, captureMaxTokens: cfg.captureMaxTokens, recallMinScore: cfg.recallMinScore,
