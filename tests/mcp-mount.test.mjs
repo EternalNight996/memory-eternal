@@ -230,3 +230,9 @@ test('自动挂载用自制 switch（不是原生大勾选框），文案中英�
     assert.equal(asciiWords.length, 0, k + ' 的中文值里不该夹英文长句：' + val.slice(0, 60))
   }
 })
+
+test('MCP 卡里的自动挂载开关：form/set 必须由父级注入（否则运行时报 ReferenceError）', () => {
+  const ui = readFileSync(path.join(root, 'src/client/index.tsx'), 'utf8')
+  assert.match(ui, /function AgentMcpMountCard\(\{ t, form, set \}\)/, '组件签名要收 form / set')
+  assert.match(ui, /<AgentMcpMountCard t=\{t\} form=\{form\} set=\{set\} \/>/, '渲染点要把 form / set 传进去')
+})
