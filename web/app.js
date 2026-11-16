@@ -11878,6 +11878,21 @@
     mcpClickUnmount: "\u5378\u8F7D",
     mcpHostsMounted: "\u5DF2\u6302\u8F7D",
     mcpUnmountAll: "\u5168\u90E8\u5378\u8F7D",
+    dynSection: "\u5E93\u6587\u4EF6\u4E0E\u7AEF\u53E3",
+    dynSectionSub: "\u{1F527} \u8FD0\u884C\u4E2D\u76F4\u63A5\u6539\uFF0C\u4E0D\u7528\u91CD\u542F\u8FDB\u7A0B",
+    dynDbLabel: "\u5E93\u6587\u4EF6\u540D",
+    dynRename: "\u6539\u540D",
+    dynCurrent: "\u5F53\u524D",
+    dynPortLabel: "\u7AEF\u53E3",
+    dynSwitch: "\u5207\u6362",
+    dynNeedName: "\u5148\u586B\u5E93\u6587\u4EF6\u540D",
+    dynBadPort: "\u7AEF\u53E3\u5FC5\u987B\u662F 1\u201365535 \u7684\u6574\u6570",
+    dynRenamed: "\u5DF2\u6539\u540D",
+    dynPortSwitched: "\u7AEF\u53E3\u5DF2\u5207\u6362",
+    dynReopen: "\u672C\u9875\u4F1A\u5931\u6548\uFF0C\u7528\u65B0\u5730\u5740\u6253\u5F00",
+    dynFail: "\u64CD\u4F5C\u5931\u8D25",
+    dynDbHint: "\u6539\u540D\u4F1A\u628A\u5F53\u524D .db\uFF08\u542B -wal / -shm\uFF09\u771F\u6539\u6389\uFF0C\u6570\u636E\u4FDD\u7559\uFF1B\u540D\u5B57\u53EA\u5141\u8BB8\u5B57\u6BCD\u6570\u5B57 . _ -\uFF0C\u5FC5\u987B\u4EE5 .db \u7ED3\u5C3E\u3002",
+    dynNoRestart: "\u4E24\u9879\u90FD\u5373\u65F6\u751F\u6548\uFF1A\u5E93\u540D\u4F1A\u91CD\u5F00\u8FDE\u63A5\uFF0C\u7AEF\u53E3\u4F1A\u5148\u56DE\u5305\u518D\u5207\u6362\u76D1\u542C\uFF08\u7EA6 0.3 \u79D2\uFF09\u3002",
     mcpSection: "Agent MCP \u6302\u8F7D",
     mcpSectionSub: "\u88C5\u6210 DSH \u63D2\u4EF6\u65F6\u9ED8\u8BA4\u6302\u5230 DSH\uFF1BClaude Code\u3001Codex\u3001Cursor\u3001Windsurf \u9700\u8981\u4F60\u624B\u52A8\u6302 \u2014\u2014 \u4E00\u4E2A\u4ED3\u5E93\u91CC\u4E0D\u8BE5\u8BA9\u591A\u4E2A Agent \u8BFB\u5230\u4E0D\u540C\u7684\u5E93",
     mcpRefresh: "\u5237\u65B0",
@@ -13377,6 +13392,21 @@
     mcpClickUnmount: "Unmount",
     mcpHostsMounted: "mounted",
     mcpUnmountAll: "Unmount all",
+    dynSection: "DB file & port",
+    dynSectionSub: "\u{1F527} Change them while running \u2014 no restart",
+    dynDbLabel: "DB filename",
+    dynRename: "Rename",
+    dynCurrent: "Current",
+    dynPortLabel: "Port",
+    dynSwitch: "Switch",
+    dynNeedName: "Enter a db filename first",
+    dynBadPort: "Port must be an integer between 1 and 65535",
+    dynRenamed: "Renamed",
+    dynPortSwitched: "Port switched",
+    dynReopen: "this page will stop working, open the new address",
+    dynFail: "Operation failed",
+    dynDbHint: "Renaming moves the current .db (with -wal / -shm) to the new name and keeps the data. Name allows letters, digits, . _ - and must end with .db.",
+    dynNoRestart: "Both take effect immediately: the db reopens, the port replies first then switches listeners (~0.3s).",
     mcpSection: "Agent MCP mount",
     mcpSectionSub: "Mounted to DSH by default when installed as a DSH plugin; Claude Code, Codex, Cursor and Windsurf need an explicit mount \u2014 one repo should never have agents reading different vaults",
     mcpRefresh: "Refresh",
@@ -16829,7 +16859,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.8" : "";
+  var CLIENT_VERSION = true ? "0.49.9" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17148,7 +17178,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-16T18:00:21+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-16T19:03:20+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18916,6 +18946,78 @@ ${t("quoteHint")}`,
     )) });
   }
   __name(ThemePicker, "ThemePicker");
+  function DynamicDbPortCard({ t, set }) {
+    const [ov, setOv] = (0, import_react2.useState)(null);
+    const [dbName, setDbName] = (0, import_react2.useState)("");
+    const [port, setPort] = (0, import_react2.useState)("");
+    const [busy, setBusy] = (0, import_react2.useState)("");
+    const [msg, setMsg] = (0, import_react2.useState)(null);
+    const load = (0, import_react2.useCallback)(async () => {
+      const d = await fetch(API + "/overview").then((r) => r.json()).catch(() => null);
+      if (d && d.ok) {
+        setOv(d);
+        const base = String(d.dbPath || "").split(/[\\/]/).pop() || "";
+        setDbName((v) => v || base);
+        setPort((v) => v || String(location.port || "" || ""));
+      }
+    }, []);
+    (0, import_react2.useEffect)(() => {
+      load();
+    }, [load]);
+    const doRename = /* @__PURE__ */ __name(async () => {
+      const name = dbName.trim();
+      if (!name) return setMsg({ kind: "bad", text: t("dynNeedName") });
+      setBusy("db");
+      const d = await fetch(API + "/db/rename", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) }).then((r) => r.json()).catch(() => null);
+      setBusy("");
+      setMsg(d && d.ok ? { kind: "ok", text: t("dynRenamed") + "\uFF1A" + d.from + " \u2192 " + d.to + (d.moved ? "\uFF08" + Math.round((d.bytes || 0) / 1024) + " KB\uFF09" : "") } : { kind: "bad", text: d && d.error || t("dynFail") });
+      if (d && d.ok && d.to) {
+        try {
+          set("dbFile", d.to);
+        } catch {
+        }
+      }
+      load();
+    }, "doRename");
+    const doPort = /* @__PURE__ */ __name(async () => {
+      const n = Number(port);
+      if (!Number.isInteger(n) || n < 1 || n > 65535) return setMsg({ kind: "bad", text: t("dynBadPort") });
+      setBusy("port");
+      const d = await fetch(API + "/web/port", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ port: n }) }).then((r) => r.json()).catch(() => null);
+      setBusy("");
+      if (!d || !d.ok) return setMsg({ kind: "bad", text: d && d.error || t("dynFail") });
+      setMsg({ kind: "ok", text: t("dynPortSwitched") + " \u2192 " + (d.url || "http://127.0.0.1:" + d.port) + "\uFF08" + t("dynReopen") + "\uFF09" });
+    }, "doPort");
+    const curDb = ov && ov.dbPath ? String(ov.dbPath).split(/[\\/]/).pop() : "\u2014";
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0, flex: "0 1 240px" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("dynDbLabel") }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: dbName, onChange: (e) => setDbName(e.target.value), placeholder: "mem-purge.db", style: { fontFamily: "ui-monospace, monospace" } })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", disabled: busy === "db", onClick: doRename, children: busy === "db" ? "\u2026" : t("dynRename") }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 11.5, opacity: 0.5 }, children: [
+          t("dynCurrent"),
+          "\uFF1A",
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: curDb })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0, flex: "0 1 160px" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("dynPortLabel") }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: port, onChange: (e) => setPort(e.target.value), placeholder: "7999", style: { fontFamily: "ui-monospace, monospace" } })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", disabled: busy === "port", onClick: doPort, children: busy === "port" ? "\u2026" : t("dynSwitch") }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, opacity: 0.5 }, children: t("dynPortHint") })
+      ] }),
+      msg && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: msg.kind === "bad" ? "#e5484d" : "inherit", opacity: msg.kind === "bad" ? 1 : 0.8 }, children: msg.text }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, opacity: 0.45, lineHeight: 1.8 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t("dynDbHint") }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t("dynNoRestart") })
+      ] })
+    ] });
+  }
+  __name(DynamicDbPortCard, "DynamicDbPortCard");
   function AgentMcpMountCard({ t, form, set }) {
     const [st, setSt] = (0, import_react2.useState)(null);
     const [peers, setPeers] = (0, import_react2.useState)([]);
@@ -20757,6 +20859,7 @@ ${t("quoteHint")}`,
       "sec-cloud": "experimental",
       // Agent MCP 挂载：默认不挂载，必须人工选目标（多个库并存时最容易串味的地方）
       "sec-mcp": "experimental",
+      "sec-dyn": "experimental",
       // 恢复出厂：与云端连接同属「实验性」页（危险操作，但确实属于实验区的范畴）
       "sec-reset": "experimental"
     };
@@ -22502,6 +22605,7 @@ ${t("quoteHint")}`,
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(F, { k: "webMaxRestart", label: t("webMaxRestart"), hint: t("unitTimes"), type: "number" })
                 ] })
               ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-dyn"), id: "sec-dyn", icon: "\u{1F527}", title: t("dynSection"), sub: t("dynSectionSub"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(DynamicDbPortCard, { t, set }) }) }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CfgSection, { ...secProps("sec-mcp"), id: "sec-mcp", icon: "\u{1F50C}", title: t("mcpSection"), sub: t("mcpSectionSub"), children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { marginBottom: 12 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("mcpAutoMountLabel") }),

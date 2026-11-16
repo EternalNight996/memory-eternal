@@ -653,6 +653,65 @@ MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显�
       process.exitCode = await runCloudCli(argv.slice(1))
       return
     }
+    case 'port': {
+      // 动态改端口：调用运行中实例的 /web/port，成功后当前地址失效
+      const want = Number(argv[1])
+      const apiBase = (() => {
+        const i = argv.indexOf('--api')
+        return (i >= 0 ? String(argv[i + 1] || '') : 'http://127.0.0.1:' + (Number(argOf('--from')) || 7999)).replace(/\/+$/, '')
+      })()
+      if (!Number.isInteger(want) || want < 1 || want > 65535) {
+        console.error('用法：dsh-memory port <1-65535> [--api http://127.0.0.1:7999]')
+        process.exitCode = 1
+        return
+      }
+      try {
+        const r = await fetch(apiBase + '/memory-eternal/api/web/port', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ port: want }),
+          signal: AbortSignal.timeout(8000),
+        })
+        const j = await r.json()
+        if (!j.ok) throw new Error(j.error || ('HTTP ' + r.status))
+        console.log('✓ 端口 ' + (j.prev || '?') + ' → ' + j.port + '（约 0.3 秒后生效）')
+        console.log('  新地址：' + (j.url || ('http://127.0.0.1:' + j.port)))
+        console.log('  注意：当前页面会失效，用新地址打开。')
+      } catch (e) {
+        console.error('✗ 改端口失败：' + String((e && e.message) || e))
+        process.exitCode = 1
+      }
+      return
+    }
+    case 'db': {
+      // dsh-memory db rename <name.db> [--api ...]
+      const sub = String(argv[1] || '')
+      const apiBase = (() => {
+        const i = argv.indexOf('--api')
+        return (i >= 0 ? String(argv[i + 1] || '') : 'http://127.0.0.1:' + (Number(argOf('--port')) || 7999)).replace(/\/+$/, '')
+      })()
+      if (sub !== 'rename') {
+        console.error('用法：dsh-memory db rename <mem-purge.db> [--api http://127.0.0.1:7999]')
+        process.exitCode = 1
+        return
+      }
+      const name = String(argv[2] || '')
+      try {
+        const r = await fetch(apiBase + '/memory-eternal/api/db/rename', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name }),
+          signal: AbortSignal.timeout(15000),
+        })
+        const j = await r.json()
+        if (!j.ok) throw new Error(j.error || ('HTTP ' + r.status))
+        console.log('✓ 库文件名 ' + j.from + ' → ' + j.to + (j.moved ? '（已改名，数据保留 ' + Math.round((j.bytes || 0) / 1024) + ' KB）' : '（未搬动文件）'))
+      } catch (e) {
+        console.error('✗ 改库名失败：' + String((e && e.message) || e))
+        process.exitCode = 1
+      }
+      return
+    }
     case 'peer': {
       // MEM Pair：与另一个 memory-eternal 实例（如隔离运营的 mem-purge@7989）
       // 配对、互传数据。默认打本机 7999，可用 --api 指定。

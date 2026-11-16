@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { DEFAULT_DB_FILE, dbFileName, dbFileIn } from '../lib/db.js'
+import { DEFAULT_DB_FILE, dbFileName, dbFileIn, renameDbFile, getDb, closeDb, readDbNameMark } from '../lib/db.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const dirs = []
@@ -58,3 +58,54 @@ test('端口可配：--port / MEMORY_WEB_PORT / 配置 webPort 三条路都在�
 })
 
 const readFileSyncSafe = (p) => readFileSync(p, 'utf8')
+
+test('动态改库名：真改名 + 数据保留 + 记录到 .dbname', () => {
+  const dir = tmp()
+  const env = { MEMORY_DB_FILE: '' }
+  const db = getDb(dir)
+  db.exec('CREATE TABLE IF NOT EXISTS t(x)')
+  db.exec('INSERT INTO t VALUES (1)')
+  const r = renameDbFile(dir, 'mem-purge.db', { move: true })
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.equal(r.from, DEFAULT_DB_FILE)
+  assert.equal(r.to, 'mem-purge.db')
+  assert.equal(r.moved, true)
+  assert.equal(readDbNameMark(dir), 'mem-purge.db', '要在 vault 里记下当前库名（重启也生效）')
+
+  closeDb(dir)
+  const db2 = getDb(dir)   // 不设 env 也应打开 mem-purge.db（走 .dbname 记录）
+  assert.equal(db2.prepare('SELECT COUNT(*) c FROM t').get().c, 1, '数据要还在')
+  closeDb(dir)
+})
+
+test('动态改库名：非法名 / 目标已存在 都拒绝', () => {
+  const dir = tmp()
+  getDb(dir); closeDb(dir)
+  assert.equal(renameDbFile(dir, '../evil.db').ok, false)
+  assert.equal(renameDbFile(dir, 'noext').ok, false)
+  writeFileSync(path.join(dir, 'other.db'), 'x')
+  const r = renameDbFile(dir, 'other.db')
+  assert.equal(r.ok, false)
+  assert.match(String(r.error), /已存在/)
+})
+
+test('动态改端口 / 改库名：接口与面板入口都在（源码守卫）', () => {
+  const api = readFileSync(path.join(root, 'lib/api.js'), 'utf8')
+  assert.match(api, /case '\/db\/rename'/, '要有 /db/rename')
+  assert.match(api, /case '\/web\/port'/, '要有 /web/port')
+  assert.match(api, /deps\.scheduleRelisten\(want\)/, '改端口必须先回包再切换（不能直接 close）')
+
+  const web = readFileSync(path.join(root, 'lib/web.js'), 'utf8')
+  assert.match(web, /scheduleRelisten = \(wantPort\) =>/, 'web.js 要有延迟调度器')
+  assert.match(web, /server\.close\(\(\) => res\(\)\)/, '要先关旧 listener')
+
+  const ui = readFileSync(path.join(root, 'src/client/index.tsx'), 'utf8')
+  assert.match(ui, /function DynamicDbPortCard/, '面板要有卡片')
+  assert.match(ui, /'\/db\/rename'/, '卡片要能改库名')
+  assert.match(ui, /'\/web\/port'/, '卡片要能改端口')
+  assert.match(ui, /id="sec-dyn"/, '要有独立区块')
+
+  const bin = readFileSync(path.join(root, 'bin/dsh-memory.mjs'), 'utf8')
+  assert.match(bin, /case 'port':/, 'CLI 要有 port 命令')
+  assert.match(bin, /case 'db':/, 'CLI 要有 db 命令')
+})
