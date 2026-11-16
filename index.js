@@ -874,14 +874,42 @@ export function apply(ctx, config) {
     const _target = resolveCaptureTarget({ conn: readCloudConn(), cfg: settings.get() || {} })
     if (_target === 'cloud') {
       const _t = shortTitle(card.title)
-      const r = await pushCardToCloud(card).catch((e) => ({ ok: false, error: String((e && e.message) || e) }))
+      // 错误尽量带上底层 code（undici 的 fetch failed 只给一句 "fetch failed"，
+      // 真正的 SELF_SIGNED_CERT_IN_CHAIN / ENOTFOUND 在 e.cause 里）——
+      // 否则日志里只有「写卡失败：未知原因」，排查全靠猜。
+      const _errText = (e) => {
+        if (!e) return 'unknown'
+        if (typeof e === 'string') return e
+        const code = (e.cause && (e.cause.code || e.cause.errno)) || e.code || ''
+        return String(code ? code + ' ' + (e.message || '') : (e.message || e)).slice(0, 160) || 'unknown'
+      }
+      const r = await pushCardToCloud(card).catch((e) => ({ ok: false, error: _errText(e) }))
       if (r && r.ok) {
         logCapture('system', 'created', '已写入云端' + (r.skipped ? '（云端已有同内容，跳过）' : '') + '「' + _t + '」', { title: _t })
         return { ok: true, cloud: true, skipped: !!r.skipped }
       }
-      const q = enqueueFailedPush(card, (r && r.error) || 'unknown')
-      logCapture('system', 'warn', '云端写入失败（未写本地' + (q && q.ok ? '，已进补推队列' : '，队列也没写进去') + '）：' + ((r && r.error) || 'unknown'), { title: _t })
-      return { ok: false, cloud: true, error: (r && r.error) || 'unknown' }
+      // 云端不通 → **回退写本地**。理由（2026-11-17 现场）：
+      //   · 用户已经切本地模式，但 Node 侧那份 conn 记录没落盘 → 仍按云端写 → 云端自签证书握手失败；
+      //   · 旧实现「不写本地 + 只入队」会让卡悬空、健康度翻红、每回合弹一条「自动沉淀异常」；
+      //   · 卡丢了比同步晚到严重得多，所以宁可本地先落一张（进审核队列），队列留着等云端恢复补推。
+      const _reason = _errText(r && r.error)
+      const q = enqueueFailedPush(card, _reason)
+      try {
+        const fb = await captureCard(root, card, opts)
+        const fbOut = fb && typeof fb === 'object' ? { ...fb, title: card.title } : fb
+        if (fbOut && (fbOut.ok || fbOut.duplicate)) {
+          logCapture('system', 'warn',
+            '云端写入失败（' + _reason + '）→ 已回退写本地' + (q && q.ok ? '，并留在补推队列' : '') + '「' + _t + '」',
+            { title: _t, path: fbOut.path || (fbOut.duplicate && fbOut.duplicate.path) || '' })
+          return fbOut
+        }
+        const localWhy = (fbOut && (fbOut.reason || fbOut.error)) || '未知原因'
+        logCapture('system', 'fail', '写卡失败：云端 ' + _reason + '；本地 ' + localWhy, { title: _t })
+        return { ok: false, cloud: true, error: _reason, reason: '云端 ' + _reason + '；本地 ' + localWhy }
+      } catch (e) {
+        logCapture('system', 'fail', '写卡失败：本地回退抛错 ' + _errText(e), { title: _t })
+        return { ok: false, cloud: true, error: _reason, reason: '本地回退抛错：' + _errText(e) }
+      }
     }
     const written = await captureCard(root, card, opts)
     // 日志要能说清「操作了哪张卡」：把草稿标题挂到写卡结果上，
@@ -983,7 +1011,7 @@ export function apply(ctx, config) {
           // 追加的目标是**已存在的那张卡**：标题按路径反查，读不到就退回草稿标题
           const dupT = (await titleAtPath(root, out.duplicate.path)) || rawT
           logCapture(sessionId, 'appended', `追加更新「${dupT}」（与已有卡重复）`, { path: out.duplicate.path, kind: rawKind, title: dupT, preview: preview(text) })
-        } else logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`, { title: rawT, preview: preview(text) })
+        } else logCapture(sessionId, 'fail', `写卡失败：${out.reason || out.error || '未知原因'}`, { title: rawT, preview: preview(text) })
         return
       }
       // 候选路由：显式配置优先，其余按注册顺序兜底（多 provider 下 providers[0] 可能是没配 key 的官方 provider → issue #3）。
@@ -1116,7 +1144,7 @@ export function apply(ctx, config) {
           countWrite()
           const dupT = (await titleAtPath(root, raw.duplicate.path)) || rawT
           logCapture(sessionId, 'appended', `追加更新「${dupT}」（蒸馏无输出 + 与已有卡重复）`, { path: raw.duplicate.path, model: route.model, title: dupT, preview: preview(text) })
-        } else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || '未知原因'}`, { model: route.model, preview: preview(text) })
+        } else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || raw.error || '未知原因'}`, { model: route.model, preview: preview(text) })
         return
       }
       if (result.save !== true) { logCapture(sessionId, 'skip', '模型判定不值得保存', { model: route.model, preview: preview(text) }); return }
@@ -1163,7 +1191,7 @@ export function apply(ctx, config) {
         logCapture(sessionId, 'appended', `追加更新「${lexT}」（词法去重命中）`, { path: out.duplicate.path, model: route.model, title: lexT, preview: preview(text) })
         return
       }
-      logCapture(sessionId, 'fail', `写卡失败：${out.reason || '未知原因'}`, { title: newT, preview: preview(text) })
+      logCapture(sessionId, 'fail', `写卡失败：${out.reason || out.error || '未知原因'}`, { title: newT, preview: preview(text) })
     } catch (error) {
       logCapture(sessionId, 'fail', `异常：${error?.message || error}`)
       console.error('[memory-eternal] capture failed:', error)
