@@ -175,6 +175,19 @@ async function main() {
       return
     }
     case 'mcp': {
+      // 子命令：status / mount / unmount —— 管理「Agent 要不要挂 MCP、挂到哪个库」
+      // 不带子命令（或 serve）= 起 stdio MCP server（宿主按需拉起时才走这条路）
+      const sub = String(argv[1] || '')
+      if (sub === 'status' || sub === 'mount' || sub === 'unmount' || sub === 'off') {
+        const { runMcpMountCli } = await import('../lib/mcp-mount-http.js')
+        const apiArg = (() => {
+          const i = argv.indexOf('--api')
+          return i >= 0 ? String(argv[i + 1] || '') : (process.env.MEMORY_API || 'http://127.0.0.1:7999')
+        })()
+        process.exitCode = await runMcpMountCli(argv.slice(1), apiArg)
+        return
+      }
+
       const { startMcpServer } = await import('../lib/mcp.js')
       startMcpServer()
       return
@@ -638,6 +651,13 @@ MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显�
       // 不在同一台机时用 --url + --admin-token 走管理面 HTTP。
       const { runCloudCli } = await import('../lib/cloud-cli.js')
       process.exitCode = await runCloudCli(argv.slice(1))
+      return
+    }
+    case 'peer': {
+      // MEM Pair：与另一个 memory-eternal 实例（如隔离运营的 mem-purge@7989）
+      // 配对、互传数据。默认打本机 7999，可用 --api 指定。
+      const { runPeerCli } = await import('../lib/peer-cli.js')
+      process.exitCode = await runPeerCli(argv.slice(1))
       return
     }
     case 'sweep': {
