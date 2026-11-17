@@ -49,7 +49,7 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 
 ## 📊 与同类产品的实测对比
 
-> 数据日期 **2026-11-15**：Stars 取自 GitHub API（整数实值）；公开成绩按各自 README / 论文**原文口径**转录，
+> 数据日期 **2026-11-18**：Stars 取自 GitHub API（整数实值）；公开成绩按各自 README / 论文**原文口径**转录，
 > 不同指标的分数绝不混排。可视化版见 [bench/comparison.html](bench/comparison.html)，口径与复跑脚本见 [bench/COMPARISON.md](bench/COMPARISON.md)。
 
 **表 1 · 记忆类：综合判断（10 维加权，我们自己的评分口径）**
@@ -58,14 +58,14 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 |---|---|---|---|---|---|---|---|
 | 🥇 1 | **memory-eternal（Ollama）** | 8.6 | 8.6 | 9.5 | 9.0 | 8.0 | **8.54** |
 | 🥈 2 | **memory-eternal（内置语义）** | 7.1 | 6.8 | 9.5 | 9.0 | 9.5 | **8.48** |
-| 🥉 3 | Mem0（69.0k★） | 9.3 | 9.0 | 6.0 | 6.0 | 6.5 | 7.49 |
+| 🥉 3 | Mem0（69.1k★） | 9.3 | 9.0 | 6.0 | 6.0 | 6.5 | 7.49 |
 | 4 | MemOS（12.4k★） | 8.5 | 8.5 | 7.0 | 6.0 | 7.0 | 7.38 |
-| 5 | graphiti（32.8k★） | 7.8 | 8.5 | 8.0 | 6.0 | 7.0 | 7.26 |
+| 5 | graphiti（32.9k★） | 7.8 | 8.5 | 8.0 | 6.0 | 7.0 | 7.26 |
 | 6 | basic-memory（4.6k★） | 6.5 | 6.5 | 9.0 | 6.0 | 9.0 | 7.26 |
-| 7 | Letta（25.4k★） | 8.0 | 8.5 | 8.0 | 6.0 | 6.5 | 7.22 |
+| 7 | Letta（25.5k★） | 8.0 | 8.5 | 8.0 | 6.0 | 6.5 | 7.22 |
 | 8 | mcp-memory-service（2.1k★） | 6.0 | 6.0 | 9.0 | 5.0 | 9.5 | 7.17 |
 | 9 | memobase（3.0k★） | 7.2 | 7.0 | 8.0 | 6.0 | 8.0 | 7.15 |
-| 10 | cognee（33.3k★） | 8.0 | 8.5 | 8.0 | 5.5 | 7.0 | 7.14 |
+| 10 | cognee（33.4k★） | 8.0 | 8.5 | 8.0 | 5.5 | 7.0 | 7.14 |
 | 11 | supermemory（31.6k★） | 8.0 | 8.0 | 6.5 | 5.5 | 6.5 | 7.14 |
 | 12 | Zep（5.0k★，产品闭源） | 7.0 | 7.5 | 6.5 | 6.5 | 6.0 | 6.88 |
 
@@ -73,18 +73,18 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 
 | 项目 | Stars | 公开成绩（原文口径） | 本地 / 零 API | 人工审核闸门 |
 |---|---|---|---|---|
-| **memory-eternal（bge-m3）** | 176 | 自建 500 题 **R@5 97.2%**（检索口径） | 需 Ollama | ✅ |
-| **memory-eternal（内置）** | 176 | 自建 500 题 **R@5 95.4%**（检索口径） | ✅ / ✅ | ✅ |
-| Mem0 | 68,996 | LongMemEval 94.4（**托管平台**口径，非开源版） | 部分 | 弱 |
-| cognee | 33,321 | BEAM 100K 0.79 / BEAM 10M 0.67（0–1） | 部分 | 中 |
-| graphiti | 32,814 | 仓库无 LongMemEval / LoCoMo 数字 | 部分 | 中 |
-| supermemory | 31,628 | LongMemEval **R@15 95%**（约 720 token） | 部分 | 弱 |
-| Letta ※ | 25,445 | 仓库无 LongMemEval / LoCoMo 数字 | 部分 | 中 |
-| MemOS | 12,403 | LongMemEval 89.20（OmniMemEval） | 部分 | 中 |
+| **memory-eternal（bge-m3）** | 196 | 自建 500 题 **R@5 97.2%**（检索口径） | 需 Ollama | ✅ |
+| **memory-eternal（内置）** | 196 | 自建 500 题 **R@5 95.4%**（检索口径） | ✅ / ✅ | ✅ |
+| Mem0 | 69,120 | LongMemEval 94.4（**托管平台**口径，非开源版） | 部分 | 弱 |
+| cognee | 33,371 | BEAM 100K 0.79 / BEAM 10M 0.67（0–1） | 部分 | 中 |
+| graphiti | 32,889 | 仓库无 LongMemEval / LoCoMo 数字 | 部分 | 中 |
+| supermemory | 31,644 | LongMemEval **R@15 95%**（约 720 token） | 部分 | 弱 |
+| Letta ※ | 25,471 | 仓库无 LongMemEval / LoCoMo 数字 | 部分 | 中 |
+| MemOS | 12,435 | LongMemEval 89.20（OmniMemEval） | 部分 | 中 |
 | Zep ※ | 5,007 | 论文：LongMemEval 准确率比 MemGPT **+18.5%**、延迟 −90% | ❌ | 中 |
-| basic-memory | 4,577 | 仓库无公开记忆基准数字 | ✅ / ✅ | 弱 |
-| memobase | 2,958 | LoCoMo 75.78（第三方复现，LLM-Judge Overall） | 部分 | 中 |
-| mcp-memory-service | 2,127 | LongMemEval-S **R@5 86.0%**（零 LLM 调用） | ✅ / ✅ | 弱 |
+| basic-memory | 4,612 | 仓库无公开记忆基准数字 | ✅ / ✅ | 弱 |
+| memobase | 2,960 | LoCoMo 75.78（第三方复现，LLM-Judge Overall） | 部分 | 中 |
+| mcp-memory-service | 2,135 | LongMemEval-S **R@5 86.0%**（零 LLM 调用） | ✅ / ✅ | 弱 |
 
 > ※ **必须标注的状态**：`getzep/zep` 仓库是 Zep Cloud 的示例 / 集成目录，产品本体闭源（开源图引擎是 graphiti）；
 > `letta-ai/letta` 主仓已归档，活跃源码迁到 `letta-code`。这两家不能当"开源版 star"读。
