@@ -84,11 +84,18 @@ const MAP = [
 const GUARDS = [/C\d\s*(?:-->|\{)/, /ExecutionPolicy\s+Bypass/, /payload\.cards/]
 
 const TARGETS = ['README.md', 'README.en.md']
-for (const d of ['docs']) {
-  const dir = path.join(REPO, d)
-  if (!fs.existsSync(dir)) continue
-  for (const f of fs.readdirSync(dir)) if (/\.md$/i.test(f)) TARGETS.push(path.posix.join(d, f))
+// **递归**扫描：文档按 docs/<子目录>/ 归档（release-notes / mengbot / notes），
+// 早先只 readdirSync 一层，于是 docs/notes/ 里的文件被漏掉、check-sensitive 却照样拦提交（2026-11-17 踩到）。
+const walkMd = (rel) => {
+  const abs = path.join(REPO, rel)
+  if (!fs.existsSync(abs)) return
+  for (const ent of fs.readdirSync(abs, { withFileTypes: true })) {
+    const childRel = path.posix.join(rel, ent.name)
+    if (ent.isDirectory()) walkMd(childRel)
+    else if (/\.md$/i.test(ent.name)) TARGETS.push(childRel)
+  }
 }
+for (const d of ['docs']) walkMd(d)
 
 /** 按「围栏代码 / 行内代码 / 普通文本」切三段，只改最后一段。 */
 function splitSegments(md) {

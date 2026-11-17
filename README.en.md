@@ -453,6 +453,7 @@ Two safety rules:
 - [Full manual (English)](docs/GUIDE.md) · [完整手册（中文）](docs/GUIDE.zh-CN.md)
 - [Cloud multi-tenancy & deployment](docs/CLOUD.md) · [Self-hosting (Docker / systemd)](docs/DEPLOY.md) · [Private component boundary](docs/PRIVATE.md)
 - [Changelog](docs/CHANGELOG.md) · [Architecture notes](docs/ARCHITECTURE.md) · [UI skins](docs/UI-SKINS.md)
+- [📚 Full docs index](docs/README.md) — integrations / ops / archived release notes, grouped
 - [Terminal plugin (dsh-tui)](dsh-tui-plugin/README.md) · [Orca launcher](orca-plugin/README.md) · [Cursor / VS Code extension](cursor-extension/README.md)
 - [Report a bug](https://github.com/EternalNight996/memory-eternal/issues)
 

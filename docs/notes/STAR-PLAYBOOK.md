@@ -1,4 +1,4 @@
-﻿# memory-eternal Star 增长作战手册
+# memory-eternal Star 增长作战手册
 
 > 基线：2026-10-21，GitHub **23 stars / 2 forks**，仓库 7 周，最新 v0.10.54
 > 目标：30 天 100 stars，90 天 300 到 500 stars（按实际流量调整）
@@ -147,7 +147,7 @@ Description 建议保留“本地、可审核、零依赖”三个关键词；�
 
 | 渠道 | 形式 | 标题 |
 | --- | --- | --- |
-| Hacker News | Show HN | “Show HN: Local-first AI memory that writes Markdown you can review” |
+| 技术资讯源 | Show HN | “Show HN: Local-first AI memory that writes Markdown you can review” |
 | Reddit r/LocalLLaMA | Post + GIF | “I built a local-first memory plugin that writes Markdown cards, not embeddings” |
 | Reddit r/ClaudeAI | Post | “One memory vault shared by Claude Code, Codex and Cursor” |
 | Reddit r/codex | Post | “Codex hooks + MCP memory that you can audit” |
