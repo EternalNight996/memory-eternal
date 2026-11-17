@@ -47,4 +47,4 @@ A fresh vault reports `total: 0`; that is a successful start.
 ## Other agents (MengBot / OpenClaw / Hermes / any MCP client)
 
 memory-eternal is a standard MCP stdio server: `npx -y -p memory-eternal dsh-memory mcp`.
-Client-specific config is documented in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md): Hermes `~/.hermes/config.yaml` → `mcp_servers`, OpenClaw `~/.openclaw/openclaw.json` → `mcp.servers` (JSON5), MengBot in-app “Settings → MCP servers” or the bot project's `.mcp.json`.
+Client-specific config is documented in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md): Gemini CLI `~/.gemini/settings.json` → `mcpServers`, Antigravity `~/.gemini/config/mcp_config.json` → `mcpServers`, Cline `cline_mcp_settings.json` → `mcpServers`, Qwen Code `~/.qwen/settings.json` → `mcpServers`, Kimi CLI `~/.kimi/mcp.json`, GrokBot `~/.grokbot/mcp.json`, Hermes `~/.hermes/config.yaml` → `mcp_servers`, OpenClaw `~/.openclaw/openclaw.json` → `mcp.servers` (JSON5), MengBot in-app “Settings → MCP servers” or the bot project's `.mcp.json`.
