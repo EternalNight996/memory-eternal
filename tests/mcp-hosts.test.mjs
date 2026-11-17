@@ -234,3 +234,111 @@ test('MengBot：项目 .mcp.json（需告知项目根，否则不算已安装）
   const r = removeHosts(['mengbot'], env)
   assert.equal(r[0].removed, true)
 })
+
+test('Gemini CLI：settings.json 的 mcpServers 写入/回读/只删自己，其它键原样保留', () => {
+  const dir = tmp()
+  const file = path.join(dir, '.gemini', 'settings.json')
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify({ theme: 'GitHub', mcp: { allowed: ['other'] }, mcpServers: { other: { command: 'uvx', args: ['x'] } } }, null, 2))
+  const env = { MEMORY_HOST_GEMINI_PATH: file }
+
+  const w = writeHosts(canonical, ['gemini'], env)
+  assert.equal(w[0].ok, true, JSON.stringify(w[0]))
+  const j = JSON.parse(readFileSync(file, 'utf8'))
+  assert.equal(j.mcpServers['memory-eternal'].command, REAL_NODE)
+  assert.deepEqual(j.mcpServers['memory-eternal'].args, canonical.args)
+  assert.ok(j.mcpServers.other, '把别的 MCP server 踩掉了')
+  assert.equal(j.theme, 'GitHub', '把其它顶层键踩掉了')
+  assert.deepEqual(j.mcp.allowed, ['other'], 'mcp 全局设置要保留')
+
+  writeHosts(canonical, ['gemini'], env)
+  assert.equal(Object.keys(JSON.parse(readFileSync(file, 'utf8')).mcpServers).length, 2, '重复写入不该出现两条')
+
+  const r = removeHosts(['gemini'], env)
+  assert.equal(r[0].removed, true)
+  const after = JSON.parse(readFileSync(file, 'utf8'))
+  assert.equal(after.mcpServers['memory-eternal'], undefined)
+  assert.ok(after.mcpServers.other)
+})
+
+test('Antigravity：默认写到 .gemini/config/mcp_config.json 的 mcpServers', () => {
+  const dir = tmp()
+  const file = path.join(dir, 'mcp_config.json')
+  writeFileSync(file, JSON.stringify({ mcpServers: { remote: { url: 'https://x/mcp' } } }, null, 2))
+  const env = { MEMORY_HOST_ANTIGRAVITY_PATH: file }
+  const w = writeHosts(canonical, ['antigravity'], env)
+  assert.equal(w[0].ok, true, JSON.stringify(w[0]))
+  const j = JSON.parse(readFileSync(file, 'utf8'))
+  assert.equal(j.mcpServers['memory-eternal'].command, REAL_NODE)
+  assert.ok(j.mcpServers.remote, '把别人的远端 server 踩掉了')
+  const r = removeHosts(['antigravity'], env)
+  assert.equal(r[0].removed, true)
+  assert.equal(JSON.parse(readFileSync(file, 'utf8')).mcpServers['memory-eternal'], undefined)
+})
+
+test('Cline：优先 CLINE_MCP_SETTINGS_PATH，缺省走 ~/.cline/data/settings，IDE 那份存在也能识别', () => {
+  const dir = tmp()
+  const explicit = path.join(dir, 'cline_mcp_settings.json')
+  writeFileSync(explicit, JSON.stringify({ mcpServers: {} }, null, 2))
+  const w = writeHosts(canonical, ['cline'], { CLINE_MCP_SETTINGS_PATH: explicit })
+  assert.equal(w[0].ok, true, JSON.stringify(w[0]))
+  assert.equal(JSON.parse(readFileSync(explicit, 'utf8')).mcpServers['memory-eternal'].command, REAL_NODE)
+  removeHosts(['cline'], { CLINE_MCP_SETTINGS_PATH: explicit })
+
+  // IDE（VS Code globalStorage）那份存在时，未显式指路径也要认出来
+  const appData = path.join(dir, 'AppData', 'Roaming')
+  const ide = path.join(appData, 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json')
+  mkdirSync(path.dirname(ide), { recursive: true })
+  writeFileSync(ide, JSON.stringify({ mcpServers: {} }, null, 2))
+  const env = { APPDATA: appData, MEMORY_HOST_CLINE_PATH: '' }
+  const m = hostMatrix(env).find((h) => h.id === 'cline')
+  assert.equal(m.installed, true, 'IDE 那份存在时应视为已安装')
+  assert.equal(m.path, ide, '应指向 IDE 实际在用的那份')
+  const w2 = writeHosts(canonical, ['cline'], env)
+  assert.equal(w2[0].ok, true, JSON.stringify(w2[0]))
+  assert.equal(JSON.parse(readFileSync(ide, 'utf8')).mcpServers['memory-eternal'].command, REAL_NODE)
+})
+
+test('Qwen Code / Kimi CLI / GrokBot：三家 JSON 宿主写入→回读→只删自己', () => {
+  const cases = [
+    { id: 'qwen', env: 'MEMORY_HOST_QWEN_PATH', name: 'settings.json' },
+    { id: 'kimi', env: 'MEMORY_HOST_KIMI_PATH', name: 'mcp.json' },
+    { id: 'grokbot', env: 'MEMORY_HOST_GROKBOT_PATH', name: 'mcp.json' },
+  ]
+  for (const c of cases) {
+    const dir = tmp()
+    const file = path.join(dir, c.name)
+    writeFileSync(file, JSON.stringify({ mcpServers: { other: { command: 'uvx', args: ['x'] } }, theme: 'dark' }, null, 2))
+    const env = { [c.env]: file }
+    const w = writeHosts(canonical, [c.id], env)
+    assert.equal(w[0].ok, true, c.id + ' 写入失败：' + JSON.stringify(w[0]))
+    const j = JSON.parse(readFileSync(file, 'utf8'))
+    assert.equal(j.mcpServers['memory-eternal'].command, REAL_NODE)
+    assert.ok(j.mcpServers.other, c.id + ' 把别人的 server 踩掉了')
+    assert.equal(j.theme, 'dark', c.id + ' 把其它顶层键踩掉了')
+
+    writeHosts(canonical, [c.id], env)
+    assert.equal(Object.keys(JSON.parse(readFileSync(file, 'utf8')).mcpServers).length, 2, c.id + ' 重复写入出现两条')
+
+    const r = removeHosts([c.id], env)
+    assert.equal(r[0].removed, true)
+    const after = JSON.parse(readFileSync(file, 'utf8'))
+    assert.equal(after.mcpServers['memory-eternal'], undefined)
+    assert.ok(after.mcpServers.other)
+  }
+})
+
+test('GrokBot：没有点目录那份时，认 %APPDATA%\\GrokBot\\mcp.json', () => {
+  const dir = tmp()
+  const appData = path.join(dir, 'AppData', 'Roaming')
+  const file = path.join(appData, 'GrokBot', 'mcp.json')
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify({ mcpServers: {} }, null, 2))
+  const env = { APPDATA: appData, MEMORY_HOST_GROKBOT_PATH: '' }
+  const m = hostMatrix(env).find((h) => h.id === 'grokbot')
+  assert.equal(m.installed, true)
+  assert.equal(m.path, file, '应指向 APPDATA 那份')
+  const w = writeHosts(canonical, ['grokbot'], env)
+  assert.equal(w[0].ok, true, JSON.stringify(w[0]))
+  assert.equal(JSON.parse(readFileSync(file, 'utf8')).mcpServers['memory-eternal'].command, REAL_NODE)
+})

@@ -183,30 +183,46 @@ npx -y -p memory-eternal dsh-memory tui     # 终端里的实时待审队列
 
 同一份 SQLite 库，下面这些宿主都能读写；写入一律进**待审队列**，审核在 DSH / Web 面板里做（与宿主是谁无关）。
 
-**v0.49.11 起新增三个宿主 + 一条 HTTP 通道**，都**不强制**：默认只自动挂 DSH，其余要你在面板里点一下或显式执行命令。
+**15 个宿主，一张表看全** · `✅` 一键挂载 · `⚠️` 有条件 · `➖` 手填一条 · `❌` 不提供 MCP 配置
 
-| 平台 | 接入 | 配哪个文件 | 自动挂载 | 验证 |
-|---|---|---|---|---|
-| **MengBot** | MCP stdio | 应用内「设置 → MCP 服务器」／机器人项目 `.mcp.json` | ⚠️ 只有给了项目根（`MEMORY_HOST_MENGBOT_PROJECT`）才写项目 `.mcp.json`，不动应用配置 | 会话里看工具是否出现 |
-| **OpenClaw** | MCP stdio（客户端也支持 HTTP） | `~/.openclaw/openclaw.json` 的 `mcp.servers`（JSON5） | ✅ 一键；含注释时**拒绝改写**并提示手填 | `openclaw mcp probe memory-eternal` |
-| **Hermes Agent** | MCP stdio（客户端也支持 HTTP） | `~/.hermes/config.yaml` 的 `mcp_servers` | ✅ 一键；只换自己那块，注释与其它键原样保留 | `hermes mcp test memory-eternal` |
-| **云端 bot / 远程 agent** | MCP over HTTP | `POST /memory-eternal/api/mcp`（Streamable HTTP，云端带 `Bearer me_…`） | —（不用装进程） | 打一次 `tools/list` 即知 |
+### 🌍 国际主流
 
-细节、真实示例与坑见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。
+| 宿主 | 类型 | 配置位置 | 挂载 |
+|---|---|---|---|
+| **DeepSeek Harness** | 插件（内嵌面板） | `~/.dsh/mcp-servers.json` | ✅ 装插件即挂 |
+| **Claude Code** | CLI / IDE 插件 | `~/.claude.json` | ✅ `connect claude` |
+| **Codex CLI / Desktop** | CLI | `~/.codex/config.toml` | ✅ `connect codex` |
+| **Cursor** | IDE | `~/.cursor/mcp.json` | ✅ `connect cursor` |
+| **Windsurf** | IDE | `~/.codeium/windsurf/mcp_config.json` | ✅ 面板点一下 |
+| **Cline** | VS Code 插件 | `~/.cline/data/settings/cline_mcp_settings.json` | ✅ 面板点一下 |
+| **Gemini CLI** | CLI（Google） | `~/.gemini/settings.json` → `mcpServers` | ✅ 面板点一下 |
+| **Antigravity** | **桌面 IDE**（Google） | `~/.gemini/config/mcp_config.json` → `mcpServers` | ✅ 面板点一下 |
+| **OpenClaw** | 网关（JSON5） | `~/.openclaw/openclaw.json` → `mcp.servers` | ✅ 含注释时拒绝改写 |
+| **Hermes Agent** | CLI（YAML） | `~/.hermes/config.yaml` → `mcp_servers` | ✅ 只换自己那块 |
+| **VS Code Copilot** | IDE | portable 的 `mcpServers` | ➖ 手填 |
+| **Gemini 桌面应用 / 网页版** | 聊天客户端 | 不提供 MCP 配置 | ❌ 接不了（Google 侧桌面形态用 Antigravity） |
 
-- **DeepSeek Harness（桌面版 / `dsh web`）** —— 插件：`dsh plugin --profile desktop add memory-eternal`；内嵌完整面板（审核 · 星图 · 账本 · 云端切换 · 密钥管理）。
-- **Claude Code** —— MCP：`dsh-memory connect claude`；会话结束自动沉淀（写用户级 hook）。
-- **Codex / Codex Desktop** —— MCP：`dsh-memory connect codex`；同上，不依赖插件。
-- **Cursor** —— MCP：`dsh-memory connect cursor`；另有 [Cursor / VS Code 扩展](cursor-extension/README.md)。
-- **MengBot** —— MCP：应用内「设置 → MCP 服务器」挂一条 stdio，或写进机器人项目的 `.mcp.json`；每个 bot 一个库或共用一份，见 [INTEGRATIONS](docs/INTEGRATIONS.md)。
-- **OpenClaw** —— MCP：`~/.openclaw/openclaw.json`（JSON5）的 `mcp.servers` 加一条 stdio，用 `openclaw mcp probe memory-eternal` 验连通。
-- **Hermes Agent（NousResearch）** —— MCP：`~/.hermes/config.yaml` 的 `mcp_servers` 加一条，用 `hermes mcp test memory-eternal` 验证。
-- **云端 bot / 远程 agent** —— HTTP：`POST /memory-eternal/api/mcp`（MCP Streamable HTTP，云端带 `Bearer me_…`）；本机也可 `dsh-memory mcp --cloud … --token me_…` 把 stdio 转接到远端实例。
-- **WorkBuddy 等其它 MCP 客户端** —— MCP：标准 stdio，`command: npx` / `args: ["-y","-p","memory-eternal","dsh-memory","mcp"]`。
-- **终端（TUI）** —— `npx -y -p memory-eternal dsh-memory tui`：实时队列、全选、批量批/驳、长文读卡。
-- **Web 端** —— `dsh-memory open` → http://127.0.0.1:7999：独立部署，不需要宿主也能审核/检索/备份。
-- **Orca 启动器** —— 见 [orca-plugin](orca-plugin/README.md)：一键带库启动。
-- **云端实例** —— 登录后同一套 API 走 HTTPS（见上面的「云端记忆」），本机离线时用本地库。
+### 🇨🇳 国内主流
+
+| 宿主 | 类型 | 配置位置 | 挂载 |
+|---|---|---|---|
+| **MengBot** | 机器人平台 | 应用内「设置 → MCP 服务器」／项目 `.mcp.json` | ⚠️ 给了 `MEMORY_HOST_MENGBOT_PROJECT` 才写项目文件 |
+| **Qwen Code** | CLI（阿里，Gemini CLI 同源） | `~/.qwen/settings.json` → `mcpServers` | ✅ 面板点一下 |
+| **Kimi CLI** | CLI（月之暗面） | `~/.kimi/mcp.json` | ✅ 面板点一下 |
+| **GrokBot** | 桌面客户端 | `~/.grokbot/mcp.json` ／ `%APPDATA%\GrokBot\mcp.json` | ✅ 面板点一下（官方未公开格式，按约定探测） |
+| **智谱清言 / ZhipuAI** | 桌面 / Web | 应用内添加 | ➖ 只探测，手填 |
+| **WorkBuddy** | 桌面客户端 | 应用内添加 | ➖ 只探测，手填 |
+| **Cherry Studio** | 桌面客户端 | 应用内「设置 → MCP 服务器」 | ➖ 无外部配置文件 |
+
+### ☁️ 不用装进程
+
+| 通道 | 用法 |
+|---|---|
+| **云端 bot / 远程 agent** | `POST /memory-eternal/api/mcp`（Streamable HTTP，云端带 `Bearer me_…`） |
+| **终端 TUI** | `npx -y -p memory-eternal dsh-memory tui` —— 实时队列、全选、批量批/驳、长文读卡 |
+| **Web 面板** | `dsh-memory open` → http://127.0.0.1:7999：独立部署，审核 / 检索 / 备份 |
+
+一次投影多处：`dsh-memory mcp mount --host gemini,qwen,kimi`（`--host all` 全挂）。字段名、示例与坑见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)；Orca 启动器见 [orca-plugin](orca-plugin/README.md)，编辑器扩展见 [cursor-extension](cursor-extension/README.md)。
 
 > MCP 对外就是标准 stdio server，5 个工具：`memory_recall` / `memory_capture` / `memory_stats` / `memory_audit_list` / `memory_revise`。没列到的客户端按上面那行 stdio 配置写即可。
 

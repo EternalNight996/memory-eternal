@@ -3,8 +3,9 @@
 memory-eternal 对外就是一个**标准 MCP stdio server**（零依赖 JSON-RPC 2.0，入口 `node bin/dsh-memory.mjs mcp`），
 所以「支持某个 agent」= 在它的 MCP 配置里加一条 server 定义。同一份 SQLite 库可以被多个 agent 共用，也可以按库隔离。
 
-> 本页的宿主字段名/配置文件位置按各家 2026-11 官方文档核对过（OpenClaw `~/.openclaw/openclaw.json`、
-> Hermes `~/.hermes/config.yaml`、MengBot 应用内「MCP 服务器」+ 项目 `.mcp.json`）。
+> 本页的宿主字段名/配置文件位置按各家 2026-11 官方文档核对过（Gemini CLI `~/.gemini/settings.json`、
+> Antigravity `~/.gemini/config/mcp_config.json`、Cline `cline_mcp_settings.json`、
+> OpenClaw `~/.openclaw/openclaw.json`、Hermes `~/.hermes/config.yaml`、MengBot 应用内「MCP 服务器」+ 项目 `.mcp.json`）。
 > 各家偶尔会改版，接不上时先看本节末尾的「验证清单」。
 
 ## 通用启动命令
@@ -119,24 +120,166 @@ mcp_servers:
   审核仍由你在 DSH / Web 面板完成。
 - **隔离**：Claude 引擎只认「应用内 MCP 服务器 + 集成 + 项目 `.mcp.json`」，不继承本机 `~/.claude`；
   除非显式设 `OMB_CLAUDE_INHERIT_USER_CONFIG=1`。
-- **云托管的 bot 连不到本地 stdio**：本服务的 MCP 侧只有 stdio，云端实例要走 HTTP 端点（当前未提供）。
-  详见「已知边界」第 1 条。
+- **云托管的 bot 连不到本地 stdio**：走 HTTP 端点 `POST /memory-eternal/api/mcp`（见「云端 / 远程」一节）。
 - MengBot 自己的 `MEMORY.md` 仍是它的工作区记忆，两者不冲突：MEMORY.md 是"这个 bot 现在在做的事"，
   memory-eternal 是"审核过的长期结论"。
 
-## 三家速查
+## Gemini CLI（Google）
 
-| | 配置文件 | 顶层键 | stdio 字段 | 工具过滤 | 验证 |
-|---|---|---|---|---|---|
-| Hermes Agent | `~/.hermes/config.yaml` | `mcp_servers` | command / args / env | `tools.include`/`exclude` | `hermes mcp test <name>` |
-| OpenClaw | `~/.openclaw/openclaw.json`（JSON5） | `mcp.servers` | command / args / env / cwd | `toolFilter.include`/`exclude` | `openclaw mcp probe <name>` |
-| MengBot | 应用内「MCP 服务器」+ 项目 `.mcp.json` | `mcpServers`（.mcp.json） | command / args / env | 无 MCP 级过滤文档 | 会话内看工具是否出现 |
+配置文件：`~/.gemini/settings.json`（用户级）；项目级是同形状的 `<repo>/.gemini/settings.json`。
 
-三家都支持 Streamable HTTP / SSE 客户端，但 memory-eternal 的 MCP 侧**只做 stdio**，统一按 stdio 接。
+```json
+{
+  "mcpServers": {
+    "memory-eternal": {
+      "command": "npx",
+      "args": ["-y", "-p", "memory-eternal", "dsh-memory", "mcp"],
+      "env": { "MEMORY_VAULT_DIR": "C:\\Users\\<you>\\.dsh\\memory-vault-ok" },
+      "trust": true,
+      "includeTools": ["memory_recall", "memory_capture", "memory_stats"]
+    }
+  }
+}
+```
+
+- 外层键 **`mcpServers`**，与其它配置（`theme`、`mcp` 全局段…）平级；自动挂载只增删自己那一条。
+- **环境变量会被清洗**：启动 MCP 子进程时默认剥离 `*KEY*` / `*TOKEN*` / `*SECRET*` / `*AUTH*` 类宿主变量，
+  只有你在 `env` 里显式写出的才会传进去 —— `MEMORY_VAULT_DIR` 必须写死。
+- `trust` 默认 `false`（每次工具调用都要确认）；`includeTools` / `excludeTools` 收窄暴露面，`excludeTools` 优先。
+- 远端形态：`url`（SSE）或 `httpUrl`（Streamable HTTP）。验证：会话里敲 `/mcp`。
+
+## Antigravity（Google）
+
+配置文件：`~/.gemini/config/mcp_config.json`（全局）；插件可自带 `plugins/<name>/mcp_config.json`。
+
+```json
+{
+  "mcpServers": {
+    "memory-eternal": {
+      "command": "npx",
+      "args": ["-y", "-p", "memory-eternal", "dsh-memory", "mcp"],
+      "env": { "MEMORY_VAULT_DIR": "C:\\Users\\<you>\\.dsh\\memory-vault-ok" }
+    }
+  }
+}
+```
+
+- stdio 字段：`command` / `args` / `env`；远端只认 `url`（Streamable HTTP，旧键 `serverUrl` 也吃）。
+- **不认 2024-11-05 的 legacy HTTP+SSE** —— 别把 `url` 指向 `/sse`；指向 `POST /memory-eternal/api/mcp` 即可。
+- 配好后 agent 自动 discovery，工具直接出现在工具集里，没有额外启用开关。
+
+> **Antigravity 就是 Google 的“桌面端”** —— 它是桌面 IDE（agentic IDE），配置文件在用户目录的 `.gemini/config/mcp_config.json`，
+> 不是 `.antigravity` 之类的新目录，别找错地方。
+>
+> 另有一个同名易混的东西：**Gemini 桌面应用 / 网页版**（macOS / Windows 聊天客户端 + gemini.google.com）。
+> 它只是聊天界面，**不提供 MCP 客户端配置**，因此接不进 memory-eternal —— Google 侧能挂 MCP 的桌面形态就是 Antigravity。
+
+## Cline
+
+配置文件（CLI）：`~/.cline/data/settings/cline_mcp_settings.json`（可用 `CLINE_MCP_SETTINGS_PATH` 覆盖）；
+VS Code 扩展版把同一份放在 `%APPDATA%\\Code\\User\\globalStorage\\saoudrizwan.claude-dev\\settings`。
+
+```json
+{
+  "mcpServers": {
+    "memory-eternal": {
+      "command": "npx",
+      "args": ["-y", "-p", "memory-eternal", "dsh-memory", "mcp"]
+    }
+  }
+}
+```
+
+- 面板 **MCP Servers → Configure → Configure MCP Servers** 打开的就是这份文件；远端支持 Streamable HTTP（推荐）与 SSE（legacy）。
+- 自动挂载优先写「用户实际在用的那份」：`MEMORY_HOST_CLINE_PATH` → 已有 CLI 文件 → IDE 的 globalStorage。
+
+## Qwen Code（阿里）
+
+配置文件：`~/.qwen/settings.json`（用户级）；项目级是 `<repo>/.qwen/settings.json`，两者同形。
+
+```json
+{
+  "mcpServers": {
+    "memory-eternal": {
+      "command": "npx",
+      "args": ["-y", "-p", "memory-eternal", "dsh-memory", "mcp"],
+      "env": { "MEMORY_VAULT_DIR": "C:\\Users\\<you>\\.dsh\\memory-vault-ok" }
+    }
+  }
+}
+```
+
+- 与 Gemini CLI 同源，所以键名（`mcpServers`）与`trust`/`includeTools`/`excludeTools`这套过滤都一样；
+- 也可以用它自己的命令加：`qwen mcp add --scope user memory-eternal npx -y -p memory-eternal dsh-memory mcp`（写的就是上面那个文件）；
+- 会话里 `/mcp` 查看与管理已连接的 server。
+
+## Kimi CLI（月之暗面）
+
+配置文件：用户级 `~/.kimi/mcp.json`（**只有一个作用域**，没有按项目覆盖，也没有 `--mcp-config` 参数）。
+
+```json
+{
+  "mcpServers": {
+    "memory-eternal": {
+      "command": "npx",
+      "args": ["-y", "-p", "memory-eternal", "dsh-memory", "mcp"]
+    }
+  }
+}
+```
+
+- 超时一类参数走 `KIMI_MCP_*` 环境变量；
+- 想按项目隔离库，就靠 `env` 里的 `MEMORY_VAULT_DIR` 区分。
+
+## GrokBot
+
+**官方没有公开 MCP 配置文件文档**，本机按两个最常见约定探测，实际生效位置以你装的版本为准：
+
+- 用户目录：`~/.grokbot/mcp.json`；
+- Windows 漫游目录：`%APPDATA%\\GrokBot\\mcp.json`。
+
+```json
+{
+  "mcpServers": {
+    "memory-eternal": {
+      "command": "npx",
+      "args": ["-y", "-p", "memory-eternal", "dsh-memory", "mcp"]
+    }
+  }
+}
+```
+
+- 自动挂载会写「已存在的那份」，两份都不存在时写到用户目录那份；想指定就用 `MEMORY_HOST_GROKBOT_PATH`；
+- 如果它其实是应用内配置（没有外部 JSON），就照应用内面板填同一段 stdio。
+
+## 各家速查
+
+| | 配置文件 | 顶层键 | 工具过滤 | 自动挂载 |
+|---|---|---|---|---|
+| Gemini CLI | `~/.gemini/settings.json` | `mcpServers` | `includeTools`/`excludeTools` / `trust` | ✅ |
+| Antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers` | 无（agent 侧确认） | ✅ |
+| Cline | `~/.cline/data/settings/cline_mcp_settings.json` | `mcpServers` | 无 MCP 级过滤 | ✅ |
+| Hermes Agent | `~/.hermes/config.yaml` | `mcp_servers` | `tools.include`/`exclude` | ✅ |
+| OpenClaw | `~/.openclaw/openclaw.json`（JSON5） | `mcp.servers` | `toolFilter.include`/`exclude` | ✅（含注释拒绝改写） |
+| Qwen Code | `~/.qwen/settings.json` | `mcpServers` | `includeTools`/`excludeTools` / `trust` | ✅ |
+| Kimi CLI | `~/.kimi/mcp.json` | `mcpServers` | 无 | ✅ |
+| GrokBot | `~/.grokbot/mcp.json` 或 `%APPDATA%\\GrokBot\\mcp.json` | `mcpServers` | 无（官方未公开） | ✅（按约定） |
+| MengBot | 应用内「MCP 服务器」+ 项目 `.mcp.json` | `mcpServers`（.mcp.json） | 无 MCP 级过滤文档 | ⚠️ 需项目根 |
+
+这些客户端都支持 Streamable HTTP / SSE；memory-eternal 侧同时提供 **stdio**（本地进程）与 **HTTP**（`POST /memory-eternal/api/mcp`，单次 JSON 响应形态），本地宿主按 stdio 接最省事。
+
+**没有可写配置文件、只能在应用内添加的**：
+
+| 客户端 | 怎么加 |
+|---|---|
+| Cherry Studio | 设置 → MCP 服务器（配置存在 Redux/localStorage，没有外部 JSON） |
+| 智谱清言 / ZhipuAI | 应用内 MCP 面板，填同一段 stdio |
+| WorkBuddy | 应用内 MCP 设置 |
+| VS Code Copilot | 新版用 portable `mcpServers`、旧版用 `mcp.json` 的 `servers`，键与位置不唯一，按版本手填 |
 
 ## 自动挂载器覆盖到哪
 
-能**自动写配置**的宿主：DSH、Claude Code、Codex CLI、Cursor、Windsurf、项目根 `.mcp.json`，
+能**自动写配置**的宿主：DSH、Claude Code、Codex CLI、Cursor、Windsurf、**Gemini CLI**、**Antigravity**、**Cline**、**Qwen Code**、**Kimi CLI**、**GrokBot**、项目根 `.mcp.json`，
 以及本次新增的 **OpenClaw**（`.openclaw/openclaw.json` 的 `mcp.servers`）、
 **Hermes**（`.hermes/config.yaml` 的 `mcp_servers`，YAML 块级编辑、注释与其它键原样保留）、
 **MengBot**（机器人项目 `.mcp.json`，需用 `MEMORY_HOST_MENGBOT_PROJECT` 指向项目根）。

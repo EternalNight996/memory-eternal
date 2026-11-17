@@ -188,30 +188,46 @@ Not everything should be injected into every session. Core memory is the small, 
 
 One SQLite vault that all of the following can read from and write to. Every write lands in the **review queue**; approving happens in the DSH / Web panel, regardless of which host wrote the card.
 
-**New in v0.49.11: three more hosts plus an HTTP channel** — none of them is mandatory. Only DSH auto-mounts itself; the rest need one click in the panel or an explicit command.
+**15 harnesses in one glance** · `✅` one-click mount · `⚠️` conditional · `➖` paste one entry · `❌` no MCP config
 
-| Platform | Transport | Config file | Auto-mount | Verify |
-|---|---|---|---|---|
-| **MengBot** | MCP stdio | In-app “Settings → MCP servers” / bot project `.mcp.json` | ⚠️ only writes the project `.mcp.json` when `MEMORY_HOST_MENGBOT_PROJECT` is set; never touches app config | tools showing up in the session |
-| **OpenClaw** | MCP stdio (client also speaks HTTP) | `mcp.servers` in `~/.openclaw/openclaw.json` (JSON5) | ✅ one click; **refuses to rewrite** a file with comments and tells you to paste the entry | `openclaw mcp probe memory-eternal` |
-| **Hermes Agent** | MCP stdio (client also speaks HTTP) | `mcp_servers` in `~/.hermes/config.yaml` | ✅ one click; replaces only its own block, keeps comments and other keys | `hermes mcp test memory-eternal` |
-| **Cloud bots / remote agents** | MCP over HTTP | `POST /memory-eternal/api/mcp` (Streamable HTTP; `Bearer me_…` on cloud) | — (no process needed) | one `tools/list` call tells you |
+### 🌍 International
 
-Details, real-world snippets and pitfalls: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+| Harness | Kind | Config location | Mount |
+|---|---|---|---|
+| **DeepSeek Harness** | plugin (embedded panel) | `~/.dsh/mcp-servers.json` | ✅ auto with the plugin |
+| **Claude Code** | CLI / IDE plugin | `~/.claude.json` | ✅ `connect claude` |
+| **Codex CLI / Desktop** | CLI | `~/.codex/config.toml` | ✅ `connect codex` |
+| **Cursor** | IDE | `~/.cursor/mcp.json` | ✅ `connect cursor` |
+| **Windsurf** | IDE | `~/.codeium/windsurf/mcp_config.json` | ✅ click in the panel |
+| **Cline** | VS Code extension | `~/.cline/data/settings/cline_mcp_settings.json` | ✅ click in the panel |
+| **Gemini CLI** | CLI (Google) | `~/.gemini/settings.json` → `mcpServers` | ✅ click in the panel |
+| **Antigravity** | **desktop IDE** (Google) | `~/.gemini/config/mcp_config.json` → `mcpServers` | ✅ click in the panel |
+| **OpenClaw** | gateway (JSON5) | `~/.openclaw/openclaw.json` → `mcp.servers` | ✅ refuses files with comments |
+| **Hermes Agent** | CLI (YAML) | `~/.hermes/config.yaml` → `mcp_servers` | ✅ replaces only its own block |
+| **VS Code Copilot** | IDE | portable `mcpServers` | ➖ paste one entry |
+| **Gemini desktop app / web** | chat client | no MCP config exposed | ❌ not an MCP host (Google's desktop harness is Antigravity) |
 
-- **DeepSeek Harness (desktop / `dsh web`)** — plugin: `dsh plugin --profile desktop add memory-eternal`; full embedded panel (review · graph · ledger · cloud switcher · key management).
-- **Claude Code** — MCP: `dsh-memory connect claude`; auto-capture on session end (user-level hook).
-- **Codex / Codex Desktop** — MCP: `dsh-memory connect codex`; same, no plugin required.
-- **Cursor** — MCP: `dsh-memory connect cursor`; plus the [Cursor / VS Code extension](cursor-extension/README.md).
-- **MengBot** — MCP: mount one stdio server in the app's “Settings → MCP servers”, or add it to the bot project's `.mcp.json`; one vault per bot or a shared one — see [INTEGRATIONS](docs/INTEGRATIONS.md).
-- **OpenClaw** — MCP: add one stdio server under `mcp.servers` in `~/.openclaw/openclaw.json` (JSON5); verify with `openclaw mcp probe memory-eternal`.
-- **Hermes Agent (NousResearch)** — MCP: add one entry under `mcp_servers` in `~/.hermes/config.yaml`; verify with `hermes mcp test memory-eternal`.
-- **Cloud bots / remote agents** — HTTP: `POST /memory-eternal/api/mcp` (MCP Streamable HTTP; `Bearer me_…` on cloud instances). Locally, `dsh-memory mcp --cloud … --token me_…` points the stdio adapter at a remote instance.
-- **WorkBuddy and any other MCP client** — MCP: standard stdio, `command: npx` / `args: ["-y","-p","memory-eternal","dsh-memory","mcp"]`.
-- **Terminal (TUI)** — `npx -y -p memory-eternal dsh-memory tui`: live queue, select-all, batch approve/reject, long-form reader.
-- **Web** — `dsh-memory open` → http://127.0.0.1:7999: standalone; review, search and backup without any host.
-- **Orca launcher** — see [orca-plugin](orca-plugin/README.md): launches with the vault already attached.
-- **Cloud instance** — same API over HTTPS after sign-in (see "Cloud memory" above); the local vault is your offline copy.
+### 🇨🇳 China
+
+| Harness | Kind | Config location | Mount |
+|---|---|---|---|
+| **MengBot** | bot platform | in-app “Settings → MCP servers” / project `.mcp.json` | ⚠️ writes the project file only with `MEMORY_HOST_MENGBOT_PROJECT` |
+| **Qwen Code** | CLI (Alibaba, Gemini-CLI fork) | `~/.qwen/settings.json` → `mcpServers` | ✅ click in the panel |
+| **Kimi CLI** | CLI (Moonshot) | `~/.kimi/mcp.json` | ✅ click in the panel |
+| **GrokBot** | desktop client | `~/.grokbot/mcp.json` / `%APPDATA%\GrokBot\mcp.json` | ✅ click in the panel (undocumented format, detected by convention) |
+| **Zhipu / ZhipuAI** | desktop / web | add inside the app | ➖ detect only |
+| **WorkBuddy** | desktop client | add inside the app | ➖ detect only |
+| **Cherry Studio** | desktop client | in-app “Settings → MCP servers” | ➖ no external config file |
+
+### ☁️ No local process needed
+
+| Channel | How |
+|---|---|
+| **Cloud bots / remote agents** | `POST /memory-eternal/api/mcp` (Streamable HTTP; `Bearer me_…` on cloud) |
+| **Terminal TUI** | `npx -y -p memory-eternal dsh-memory tui` — live queue, select-all, batch approve/reject |
+| **Web panel** | `dsh-memory open` → http://127.0.0.1:7999: review / search / backup, standalone |
+
+Project onto several hosts at once: `dsh-memory mcp mount --host gemini,qwen,kimi` (`--host all` for everything). Field names, snippets and pitfalls: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md); Orca launcher: [orca-plugin](orca-plugin/README.md); editor extension: [cursor-extension](cursor-extension/README.md).
 
 > MCP is just a standard stdio server with 5 tools: `memory_recall` / `memory_capture` / `memory_stats` / `memory_audit_list` / `memory_revise`. Anything not listed works with the same stdio snippet.
 
