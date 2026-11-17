@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
   <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
-  <img src="https://img.shields.io/badge/release-v0.49.13-FF7A45" alt="release" />
+  <img src="https://img.shields.io/badge/release-v0.49.14-FF7A45" alt="release" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
@@ -263,7 +263,7 @@ dsh-memory ledger --days 30 --json        # recall injection / capture calls / u
 | Mode | Notes |
 |---|---|
 | Built-in (default) | Zero dependencies; R@5 96.3% on our set, paraphrase 40% |
-| Local Ollama (recommended upgrade) | bge-m3 vectors; R@5 99.1%, paraphrase 70%, ~100 ms |
+| Local Ollama (recommended upgrade) | bge-m3 vectors; R@5 99.1%, paraphrase 70%, ~100 ms (cold start included; warm query embedding measures 28–35 ms) |
 | Online API | OpenAI-compatible endpoint, pay per call |
 
 The first visit to the memory page runs a 3-step guide with everything on by default: memory core / auto-capture / auto-recall / core-memory injection / working memory / built-in semantics. Re-open it from **🧭 Guide** in Settings → Semantic recall. Details: [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md).
@@ -357,6 +357,147 @@ The diagram is only true because three invariants are enforced in code, not by c
 | Recall costs **zero model calls** | FTS5 + BM25; the LLM runs only while distilling |
 
 > The cloud adds exactly one edge: `API → resolveTenant() → that owner's own vault`. No shared tables between tenants, so data cannot leak across.
+
+### 🔁 What actually happens in one session
+
+The host agent does not "read a folder". It walks a chain with budgets, a gate, and fallbacks:
+
+| # | When | What runs | What it does | Blocks the chat? |
+|---|---|---|---|---|
+| 1 | Session start | `index.js` | Assembles systemPrompt sections: **core memory** (`order 120`, ≤6 cards / ≤2000 chars), the session scratchpad, the **auto-recall rules** (`order 600`), optional news digest. Core memory is recomputed every 5 s and rebuilt only when it changes | No |
+| 2 | You ask | Host agent | Normal reasoning. Whether to consult memory is its own call — the rules section only tells it *when* to look | — |
+| 3 | Agent recalls | `memory_recall` tool | **In-process** call to `vault.search()` — no HTTP port involved; default 5 cards, 130 chars of summary each, 20 s tool timeout | Yes (that step only) |
+| 4 | Answer | Host agent | The recall result is just another tool output, same as reading a file | — |
+| 5 | Turn ends | `agent/turn-stopping` | Session events queue up → truncated to a char budget → **consecutive turns merged** (one LLM call for several turns) | No (the serial listener deliberately does not await the LLM) |
+| 6 | Distill | Host LLM (`ctx.get('llm')`) | Dialogue → one card; skipped under `captureMinChars=120`; 60 s per-session cooldown; `max_tokens=4000` | No (background job) |
+| 7 | Dedupe | `pickNeighbors()` | Only the **8** most related existing cards (`DEDUP_NEIGHBORS`) go to the model, which picks "new card" vs `append_to` (near-dup threshold `0.62`) | No |
+| 8 | Persist | `vault.js` | Writes to `quarantine` (`status=pending`); **the main store is untouched** | No |
+| 9 | Human review | You | Approve in the review center → moves to `cards` → FTS5 index (reconciled every 5 min) + vectors backfilled when enabled (`batch 16`) | — |
+
+In one line: **the agent proposes and pulls on demand; it never decides what enters the main store.**
+
+### 📥📤 The two read paths
+
+They are called "two" because their context cost is fundamentally different:
+
+| | Push: systemPrompt injection | Pull: `memory_recall` tool |
+|---|---|---|
+| Triggered by | The plugin, every turn | The agent, when it decides to |
+| Content | Core memory (≤6 cards / ≤2000 chars) + rules + scratchpad | Title / path / summary of the top-N hits |
+| Budget | `coreMemoryLimit` / `coreMemoryMaxChars`, hard caps | `recallLimit` (default 5, max 20) × `recallSummaryLen` (default 130 chars) |
+| Grows with card count? | No (caps are constants) | No (count and length are constants) |
+| Typical use | "Never do X", "my preferences" — constraints that must hold every turn | Past decisions, pitfalls, project background |
+
+> There is a third, opt-in path for full text: `recallIncludeBody=true` appends up to 800 chars of body per hit — off by default precisely to keep the context small.
+
+### 💰 Who calls a model, and when
+
+| Moment | Calls | Sync/async | If it fails |
+|---|---|---|---|
+| Recall (default) | **No model**: FTS5 + BM25 inside SQLite | sync | Index error → full-table fallback scan |
+| Recall (semantic on) | Ollama `bge-m3`, **one** query embedding | sync, 15 s timeout | 60 s failure cooldown → pure lexical |
+| Recall (rerank on) | Your rerank model, top-30 candidates only | sync, 20 s timeout | Original order kept |
+| Per-turn distill | Host LLM (fed 8 neighbour cards) | **async** | Raw source card stored (zero distill cost), still human-reviewed |
+| Vector backfill | Ollama, `batch 16` | **async** | Semantic path stays off below 30% coverage |
+
+### 🚀 Does a bigger vault make the agent slower or dumber?
+
+This deserves numbers, not adjectives. The table below comes from the repo's own script on **synthetic vaults in a temp dir** (Windows / node v24.19.0 / 2026-11-18; ~1600 chars body per card, dim=768):
+
+| Cards | FTS/BM25 | Vector scoring | End-to-end `search()` | Vector bytes read | **Chars injected per recall** | Corpus body |
+|---|---|---|---|---|---|---|
+| 200 | 0.31 ms | 1.2 ms | 28 ms | 0.6 MB | 283 chars | 0.32 M chars |
+| 1 000 | 0.90 ms | 11.4 ms | 38 ms | 2.9 MB | 286 chars | 1.60 M chars |
+| 2 000 | 1.61 ms | 25.8 ms | 43 ms | 5.9 MB | 304 chars | 3.21 M chars |
+| 5 000 | 3.55 ms | 55.5 ms | 71 ms | 14.6 MB | 307 chars | 8.01 M chars |
+
+(Repeat runs on the same machine wobble by roughly ±20%; the order of magnitude and the shape of the curve are what matter, not the absolute numbers.)
+
+Reproduce it yourself (writes only to the system temp dir, never touches your vault):
+
+```bash
+node scripts/bench-capacity.mjs                  # 200,1000,2000,5000 by default
+node scripts/bench-capacity.mjs 500,5000,20000   # custom sizes
+```
+
+> Capacity lives in `bench-capacity.mjs` (synthetic vaults; measures latency and injected volume); quality lives in `bench-recall.mjs` (`--vault` snapshot + golden set; measures R@5 / MRR / Top1). They are kept apart on purpose — never quote capacity numbers as quality results.
+
+**Finding 1 — context cost is independent of card count.** Going from 50 to 5 000 cards keeps a recall at roughly 300 chars, because `limit=5` and 130 chars per card are hard truncations. Stuffing the whole corpus instead would be 8.1 **million** chars — four orders of magnitude apart. The agent always sees "5 summaries", never "a library".
+
+**Finding 2 — latency grows far slower than intuition.** At 5 000 cards, lexical recall is 3.6 ms and end-to-end is 71 ms. The lexical path is an inverted index with a **fixed 80-row candidate pool** (`max(limit×4, 80)`), not a linear scan.
+
+**Finding 3 — only vector scoring is truly linear.** There is no ANN index: it reads every `card_vec` BLOB and does a cosine each. At 5 000 cards that is 14.6 MB and ~55 ms — the steepest curve in the table.
+
+So the practical capacity guidance:
+
+| Vault size | Recommendation | Why |
+|---|---|---|
+| ≤ 5 k cards | Everything on: lexical + semantic + rerank | Vector scoring stays in the tens of ms |
+| 5 k – 10 k | Lexical + rerank on; semantic **on demand** | Measured at 9 752 cards: 124 ms cosine / 38 MB read, ~300 ms end-to-end |
+| > 10 k | Lexical + rerank; semantic only **after splitting vaults** | Splitting is the only real fix for the linear term |
+
+### 🧪 Real-vault measurement: one index incident at 9 752 cards
+
+A real incident is worth more than synthetic data.
+
+The vault held 9 752 approved cards while `cards_fts` held only **50 rows** — the index stopped being filled after a bulk import, and recall **silently** falls back to "full-table scan + substring counting" when the index is missing. The same query then gives two different answers:
+
+| Query | Index at 50 rows (fallback scan) | After rebuild (FTS5 + BM25) |
+|---|---|---|
+| `审核 红线 批准` | "DSH 记忆库巡检现状…" (irrelevant) | "审核中心 #27 可就地查看正文 + 批准/驳回" ✓ |
+| `Ollama 语义召回` | "autokill-purge 模型清单…" (irrelevant) | "本地 Embedding 服务（Ollama/bge-m3）离线部署" ✓ |
+| `npm 发布 403 账号冷却` | "0.47.0 发版前收尾…" (borderline) | "v0.49.13 发布记录与 npm 冷却问题" ✓ |
+
+That is what "the agent got dumber" actually looks like: **not many cards — a missing index**. Nothing errors, search still returns rows; the answers just start looking like random draws.
+
+| Metric (real vault, 9 752 cards) | Measured |
+|---|---|
+| Lexical recall (after rebuild) | **2.5 – 4.3 ms** |
+| Index rebuild | **3.5 – 9.8 s** (one-off, 9 752 rows) |
+| Full-table cosine (9 752 vectors, dim=1024, 38.1 MB read) | **124 ms** |
+| End-to-end recall (semantic on, incl. one Ollama query embedding) | **250 – 314 ms** |
+| Injected per recall | **~1 350 chars** (5 × title + path + 130-char summary), independent of card count |
+
+The cost structure is plain: **lexical is nearly free; semantic costs ~0.3 s per 10 k cards.**
+
+Ollama is a separate account: on this machine a warm `bge-m3` query embedding measures **28–35 ms** (dim=1024), and it is called **once** per recall only when semantic recall is enabled — independent of vault size. What scales is re-scoring the vault, not the model. Cold start has its own one-off cost (first model load).
+
+As for "dumber": the failure mode was never "many cards" — it is **bad cards winning the 5 slots**. That is why the defence is a gate, not a quota:
+
+- Only human-approved cards reach the main store (232 pending cards sit in `quarantine` and cannot affect recall);
+- Distillation dedupes first (0.62 threshold): repeats are `append_to`-merged instead of piling up;
+- Every recall accepts "useful / not useful" feedback, which feeds straight back into ranking (`useful×2 − useless×2`);
+- Stale cards, once archived, are **physically excluded** from recall;
+- The exit criterion is written into the ledger: **if the useful rate stays below ~60%, lower `recallLimit` / `recallSummaryLen` or turn memory off.**
+
+### 🧰 Operations: when index and vectors need a manual top-up
+
+The index is maintained **only at the moment a card is written** (`indexCardById` / `unindexCard`). Cards arriving through bulk import, Markdown migration, or an upgrade are never backfilled automatically — a known gap in the current implementation, so check it once:
+
+```bash
+node scripts/reindex-fts.mjs          # report only: approved cards vs indexed rows
+node scripts/reindex-fts.mjs --force  # rebuild (writes cards_fts / _fts_rows only)
+```
+
+| Symptom | How to tell | Fix |
+|---|---|---|
+| Hits feel like random draws | `cards_fts` rows < `cards` rows | the two commands above |
+| Semantic recall seems off | `card_vec` coverage < 30%; the gate disables it silently | Panel → Semantic recall → backfill (`batch 16`) |
+| Gets slower over time | Missing index means a full-table scan per recall | same, rebuild first |
+
+> The flip side matters too: **once the index is complete and vectors are full, recall switches from "full-table fallback" to "FTS + semantic fusion"**, and a recall goes from a few ms to roughly 300 ms (10 k cards, dim=1024). That is time spent buying accuracy, not a regression — if the trade feels wrong, turn semantic off and the lexical path stays as it was.
+
+### 🧯 What happens when a link breaks
+
+| Failure | Automatic behaviour | What you notice |
+|---|---|---|
+| Ollama not running / port closed | 60 s failure cooldown, back to pure lexical | Recall still works, synonyms get weaker |
+| Vector coverage < 30% | Semantic path disabled | Same (avoids "half-indexed" ranking noise) |
+| Rerank unset / timed out | Original order kept | Nothing |
+| Host LLM unavailable | Raw source card stored, flagged as degraded | Cards become raw dialogue, still human-reviewed |
+| FTS index broken | Full-table fallback scan | Slower, but still finds things |
+| Vault file corrupted | Daily backups + auto-restore | Rolls back to the newest usable backup at boot |
+
 
 ## 🔗 MEM Pair: pair two vaults, exchange cards (v0.49.10)
 
