@@ -51,7 +51,7 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 
 ## 📊 How it compares — measured, not advertised
 
-> Data date **2026-11-15**: stars come from the GitHub API (raw integers); public scores are transcribed from each
+> Data date **2026-11-18**: stars come from the GitHub API (raw integers); public scores are transcribed from each
 > project's own README / paper **in their own metric**, and metrics are never mixed in one column. Visual version:
 > [bench/comparison.html](bench/comparison.html); methodology and repro scripts: [bench/COMPARISON.md](bench/COMPARISON.md).
 
@@ -61,14 +61,14 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 |---|---|---|---|---|---|---|---|
 | 🥇 1 | **memory-eternal (Ollama)** | 8.6 | 8.6 | 9.5 | 9.0 | 8.0 | **8.54** |
 | 🥈 2 | **memory-eternal (built-in)** | 7.1 | 6.8 | 9.5 | 9.0 | 9.5 | **8.48** |
-| 🥉 3 | Mem0 (69.0k★) | 9.3 | 9.0 | 6.0 | 6.0 | 6.5 | 7.49 |
+| 🥉 3 | Mem0 (69.1k★) | 9.3 | 9.0 | 6.0 | 6.0 | 6.5 | 7.49 |
 | 4 | MemOS (12.4k★) | 8.5 | 8.5 | 7.0 | 6.0 | 7.0 | 7.38 |
-| 5 | graphiti (32.8k★) | 7.8 | 8.5 | 8.0 | 6.0 | 7.0 | 7.26 |
+| 5 | graphiti (32.9k★) | 7.8 | 8.5 | 8.0 | 6.0 | 7.0 | 7.26 |
 | 6 | basic-memory (4.6k★) | 6.5 | 6.5 | 9.0 | 6.0 | 9.0 | 7.26 |
-| 7 | Letta (25.4k★) | 8.0 | 8.5 | 8.0 | 6.0 | 6.5 | 7.22 |
+| 7 | Letta (25.5k★) | 8.0 | 8.5 | 8.0 | 6.0 | 6.5 | 7.22 |
 | 8 | mcp-memory-service (2.1k★) | 6.0 | 6.0 | 9.0 | 5.0 | 9.5 | 7.17 |
 | 9 | memobase (3.0k★) | 7.2 | 7.0 | 8.0 | 6.0 | 8.0 | 7.15 |
-| 10 | cognee (33.3k★) | 8.0 | 8.5 | 8.0 | 5.5 | 7.0 | 7.14 |
+| 10 | cognee (33.4k★) | 8.0 | 8.5 | 8.0 | 5.5 | 7.0 | 7.14 |
 | 11 | supermemory (31.6k★) | 8.0 | 8.0 | 6.5 | 5.5 | 6.5 | 7.14 |
 | 12 | Zep (5.0k★, closed product) | 7.0 | 7.5 | 6.5 | 6.5 | 6.0 | 6.88 |
 
@@ -76,18 +76,18 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 
 | Project | Stars | Public score (as reported) | Local / zero API | Human review gate |
 |---|---|---|---|---|
-| **memory-eternal (bge-m3)** | 176 | **R@5 97.2%** on our own 500-question set (retrieval) | needs Ollama | ✅ |
-| **memory-eternal (built-in)** | 176 | **R@5 95.4%** on our own 500-question set (retrieval) | ✅ / ✅ | ✅ |
-| Mem0 | 68,996 | LongMemEval 94.4 (**managed platform** figure, not the OSS build) | partial | weak |
-| cognee | 33,321 | BEAM 100K 0.79 / BEAM 10M 0.67 (0–1 scale) | partial | medium |
-| graphiti | 32,814 | no LongMemEval / LoCoMo number in the repo | partial | medium |
-| supermemory | 31,628 | LongMemEval **R@15 95%** (~720 tokens) | partial | weak |
-| Letta ※ | 25,445 | no LongMemEval / LoCoMo number in the repo | partial | medium |
-| MemOS | 12,403 | LongMemEval 89.20 (OmniMemEval) | partial | medium |
+| **memory-eternal (bge-m3)** | 196 | **R@5 97.2%** on our own 500-question set (retrieval) | needs Ollama | ✅ |
+| **memory-eternal (built-in)** | 196 | **R@5 95.4%** on our own 500-question set (retrieval) | ✅ / ✅ | ✅ |
+| Mem0 | 69,120 | LongMemEval 94.4 (**managed platform** figure, not the OSS build) | partial | weak |
+| cognee | 33,371 | BEAM 100K 0.79 / BEAM 10M 0.67 (0–1 scale) | partial | medium |
+| graphiti | 32,889 | no LongMemEval / LoCoMo number in the repo | partial | medium |
+| supermemory | 31,644 | LongMemEval **R@15 95%** (~720 tokens) | partial | weak |
+| Letta ※ | 25,471 | no LongMemEval / LoCoMo number in the repo | partial | medium |
+| MemOS | 12,435 | LongMemEval 89.20 (OmniMemEval) | partial | medium |
 | Zep ※ | 5,007 | paper: LongMemEval accuracy **+18.5%** over MemGPT, −90% latency | ❌ | medium |
-| basic-memory | 4,577 | no public memory benchmark number | ✅ / ✅ | weak |
-| memobase | 2,958 | LoCoMo 75.78 (third-party reproduction, LLM-Judge overall) | partial | medium |
-| mcp-memory-service | 2,127 | LongMemEval-S **R@5 86.0%** with zero LLM calls | ✅ / ✅ | weak |
+| basic-memory | 4,612 | no public memory benchmark number | ✅ / ✅ | weak |
+| memobase | 2,960 | LoCoMo 75.78 (third-party reproduction, LLM-Judge overall) | partial | medium |
+| mcp-memory-service | 2,135 | LongMemEval-S **R@5 86.0%** with zero LLM calls | ✅ / ✅ | weak |
 
 > ※ **Status that has to be stated**: `getzep/zep` is a samples/integrations repo for Zep Cloud — the product itself is
 > closed source (the open graph engine is graphiti). `letta-ai/letta` is archived with active source in `letta-code`.
