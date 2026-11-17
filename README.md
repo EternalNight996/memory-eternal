@@ -444,6 +444,7 @@ node $(dirname $(which dsh-memory))/../lib/web.js --port 7989 --vault ~/.dsh/mem
 - [完整手册（中文）](docs/GUIDE.zh-CN.md) · [Full manual (English)](docs/GUIDE.md)
 - [云端多租户与部署](docs/CLOUD.md) · [私有化部署（Docker / systemd）](docs/DEPLOY.md) · [私有组件边界](docs/PRIVATE.md)
 - [更新日志](docs/CHANGELOG.md) · [架构细节](docs/ARCHITECTURE.md) · [主题皮肤](docs/UI-SKINS.md)
+- [📚 全部文档索引](docs/README.md) —— 接入 / 运维 / 历史发版说明按目录归档
 - [终端插件（dsh-tui）](dsh-tui-plugin/README.md) · [Orca 启动器](orca-plugin/README.md) · [Cursor / VS Code 扩展](cursor-extension/README.md)
 - [反馈问题](https://github.com/EternalNight996/memory-eternal/issues)
 
