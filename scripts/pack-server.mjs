@@ -29,8 +29,10 @@ const withWeb = process.argv.includes('--with-web')
 const dry = process.argv.includes('--dry-run')
 
 const CLIENT_ONLY = new Set(['client.js'])
+// ⚠ 除了 .js 还要带上 .json：订阅页视图配置（pay-views.json）就是运行时读的，
+//   漏了它页面就静默退回默认文案（线上实测：标题变成 undefined）。
 const libFiles = readdirSync(path.join(ROOT, 'lib'))
-  .filter((f) => f.endsWith('.js') && !CLIENT_ONLY.has(f))
+  .filter((f) => (f.endsWith('.js') || f.endsWith('.json')) && !CLIENT_ONLY.has(f))
   .sort()
 
 const extras = [

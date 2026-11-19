@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "views": {
+    "personal": {
+      "title": "个人订阅",
+      "subtitle": "给自己用：选一档按月付费，提前续费自动累加到现有到期日之后。",
+      "hint": "按卡片数 / 每分钟请求 / 记忆库数量分档。团队版与旗舰版备案完成后开放。",
+      "theme": "personal",
+      "plans": [
+        "sub-personal"
+      ],
+      "periodPlans": {
+        "half": [
+          "sub-personal-half"
+        ],
+        "year": [
+          "sub-personal-year"
+        ]
+      },
+      "periods": [
+        {
+          "key": "month",
+          "label": "月付",
+          "suffix": ""
+        },
+        {
+          "key": "half",
+          "label": "半年",
+          "suffix": "-half"
+        },
+        {
+          "key": "year",
+          "label": "年付",
+          "suffix": "-year"
+        }
+      ]
+    }
+  },
+  "active": "personal"
+}
