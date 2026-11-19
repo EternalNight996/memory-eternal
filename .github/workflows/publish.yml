@@ -1,5 +1,9 @@
-> 用 OIDC trusted publishing 发 npm：**不再需要 2FA-bypass token、不用手输 TOTP**。
-> 以后 `git push --tags` 推 `vX.Y.Z` → 自动发布 + 生成 provenance。
+# 发布通道（2026-11-19 起，用户指令）：
+#   · 正式版 / 补丁版 `vX.Y.Z` 推 tag → 本工作流 npm publish + provenance（必须先在对话里得到用户批准）
+#   · 测试版 `vX.Y.Z-alpha.N` / `-beta.N` / `-rc.N` 推 tag → 只跑 build + tests，**不发布 npm**
+#     测试版只发 GitHub Pre-release（scripts/release-test.mjs 创建），npm / Gitee 一律不动
+#
+# 用 OIDC trusted publishing 发 npm：不再需要 2FA-bypass token、不用手输 TOTP。
 
 name: Publish to npm
 
@@ -42,7 +46,32 @@ jobs:
       - name: Install npm with OIDC support
         run: npm i -g npm@^11.5.0
 
+      # 通道判定只看 package.json 版本，不看 ref 名（分支名带 `-` 不影响手动触发的 dry-run）
+      - name: Detect release channel
+        id: channel
+        run: |
+          set -e
+          ver="$(node -p "require('./package.json').version")"
+          case "$ver" in
+            *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT"; echo "测试版 $ver：只跑 build/tests，不发布 npm" ;;
+            *)   echo "prerelease=false" >> "$GITHUB_OUTPUT"; echo "正式版 $ver" ;;
+          esac
+
+      # 幂等：release.mjs 会先 npm publish 再推 tag，这里再发一次会 403；已存在就跳过
+      - name: Check npm version
+        id: npmcheck
+        run: |
+          set -e
+          ver="$(node -p "require('./package.json').version")"
+          if curl -fsS "https://registry.npmjs.org/memory-eternal/${ver}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "npm 上已存在 ${ver}：跳过发布（release.mjs 或上一轮已发过）"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           set -e
           tag="${GITHUB_REF_NAME#v}"
@@ -75,19 +104,39 @@ jobs:
           MEMORY_TEST: '1'
 
       - name: Publish (dry-run)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        if: ${{ steps.channel.outputs.prerelease != 'true' && steps.npmcheck.outputs.exists != 'true' && github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: npm publish --access public --dry-run
 
       - name: Publish (OIDC trusted publishing)
-        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
+        if: ${{ steps.channel.outputs.prerelease != 'true' && steps.npmcheck.outputs.exists != 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)) }}
         run: npm publish --access public --provenance
 
       - name: Summary
-        if: success()
+        if: ${{ success() && steps.channel.outputs.prerelease != 'true' && steps.npmcheck.outputs.exists != 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         run: |
           {
             echo "## ✅ Published memory-eternal@${{ github.ref_name }}"
             echo ""
             echo "- npm: https://www.npmjs.com/package/memory-eternal/v/$(node -p "require('./package.json').version")"
             echo "- 方式: OIDC trusted publishing（无长期 token、无 TOTP）"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary (already published — skipped)
+        if: ${{ success() && steps.channel.outputs.prerelease != 'true' && steps.npmcheck.outputs.exists == 'true' }}
+        run: |
+          {
+            echo "## ✅ Already published — npm publish skipped"
+            echo ""
+            echo "- version: $(node -p "require('./package.json').version")"
+            echo "- npm 上已存在该版本（release.mjs 已发布），本工作流只做了 build/tests 校验。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary (test version — npm skipped)
+        if: ${{ success() && steps.channel.outputs.prerelease == 'true' }}
+        run: |
+          {
+            echo "## 🧪 Test version — npm publish skipped"
+            echo ""
+            echo "- version: $(node -p "require('./package.json').version")"
+            echo "- 测试版只发 GitHub Pre-release（scripts/release-test.mjs）；npm / Gitee 未动。"
           } >> "$GITHUB_STEP_SUMMARY"
