@@ -1311,7 +1311,7 @@ export const ZH = {
   switchedTo: '已切换到 {who}',
     planTiersTitle: '可选档位',
   planTiersCurrent: '（当前）',
-  planTiersPriceNote: '记忆云专属定价（约为 MengBot 客户端三档的 6 折）；年付另有折扣，以订阅页为准。',
+  planTiersPriceNote: '价格与档位由 MengBot 实时下发（与订阅页一致）；拉不到时显示「—」，不做本地估算。',
   robotTierNote: '这三档是记忆云自己的套餐：按「卡片数 / 记忆库数 / 请求速率」分层，不含 MengBot 客户端的机器人与并发任务权益。',
   noCapsHint: '这一档还没有下发配额（caps 为空）。存储上限与速率以订阅页说明为准。',
   managePlan: '升级 / 续费',
@@ -6488,9 +6488,10 @@ function daysLeft(v) {
  * **不带价格**。用户看不到"我现在每月付多少、升下一档要多少"，套餐卡就只剩一行名字。
  * 硬编码的代价是价格变了要改代码 —— 所以下面显示时会带「以订阅页为准」的说明。
  */
-// 记忆云自己的定价（约为 MengBot 客户端三档的 6 折）：个人 18 / 团队 118 / 旗舰 399
-// 注意：这里只负责**显示**；实际扣款以 MengBot 订阅页为准，改价必须两边同步。
-const PLAN_PRICE = { free: 0, personal: 18, pro: 118, max: 399, 'sub-merchant': 199, 'sub-merchant-pro': 999 }
+// ⚠ 不再参与渲染：面板的档位价格一律由后端从 MengBot 拉下来（/cloud/billing/plan 的 tiers），
+// 拿不到就显示「—」。本地常量只保留给极少数离线场景兜底，**不要**再拿它渲染价格 ——
+// 两边各写一份必然开叉（面板 ¥18 / 支付页 ¥39）。
+const PLAN_PRICE = { free: 0, personal: 39, pro: 79, max: 329, 'sub-merchant': 199, 'sub-merchant-pro': 999 }
 
 /**
  * 这些档位是 **MengBot 通用订阅（含云端机器人）**，memory-eternal 只用得到其中的
@@ -12014,7 +12015,12 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         <div style={{ borderTop: '1px solid var(--me-c-border)' }}>
                           {/* 权益：到期 / 配额，一眼看完；缺数据就不显示那一行，不留空壳 */}
                           <div style={{ padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanLabel')}</span><span style={{ fontWeight: 600 }}>{cloudPlan ? planLabelOf(cloudPlan.plan, true) : '—'}{cloudPlan && PLAN_PRICE[String(cloudPlan.plan || '').toLowerCase()] ? ' · ¥' + PLAN_PRICE[String(cloudPlan.plan).toLowerCase()] + '/月' : ''}</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanLabel')}</span><span style={{ fontWeight: 600 }}>{cloudPlan ? planLabelOf(cloudPlan.plan, true) : '—'}{(() => {
+                              const t2 = (cloudPlan && Array.isArray(cloudPlan.tiers) ? cloudPlan.tiers : []).find(
+                                (x) => x && String(x.plan || '').toLowerCase() === String(cloudPlan.plan || '').toLowerCase(),
+                              )
+                              return t2 && t2.price != null ? ' · ¥' + Number(t2.price) + '/月' : ''
+                            })()}</span></div>
                             {cloudPlan && formatExpiry(cloudPlan.expiresAt) ? (
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanExpires')}</span><span style={{ textAlign: 'right' }}>{formatExpiry(cloudPlan.expiresAt)}{daysLeft(cloudPlan.expiresAt) !== null ? ' · ' + (daysLeft(cloudPlan.expiresAt) > 0 ? t('daysLeft').replace('{n}', String(daysLeft(cloudPlan.expiresAt))) : t('expired')) : ''}</span></div>
                             ) : null}
@@ -12041,12 +12047,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {cloudPlan.plans.map((pid) => {
                         const cur = String(cloudPlan.plan || '').toLowerCase() === String(pid).toLowerCase()
-                        const price = PLAN_PRICE[String(pid).toLowerCase()]
+                        // 价格**只认后端从 MengBot 拉到的权威值**：两边各写一份必然开叉（面板 ¥18 / 支付页 ¥39）。
+                        // 拿不到就显示「—」，宁可不显示也不显示错的。
+                        const tier = (Array.isArray(cloudPlan.tiers) ? cloudPlan.tiers : []).find(
+                          (x) => x && String(x.plan || '').toLowerCase() === String(pid).toLowerCase(),
+                        )
+                        const price = tier && tier.price != null ? Number(tier.price) : null
                         return (
                           <div key={pid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, opacity: cur ? 1 : 0.75 }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: cur ? 'var(--me-c-success)' : 'var(--me-c-border-strong)' }} />
-                            <span style={{ flex: 1 }}>{planLabelOf(pid, true)}{cur ? ' ' + t('planTiersCurrent') : ''}</span>
-                            <span style={{ opacity: 0.7 }}>{price ? '¥' + price + '/月' : '—'}</span>
+                            <span style={{ flex: 1 }}>{(tier && tier.name) || planLabelOf(pid, true)}{cur ? ' ' + t('planTiersCurrent') : ''}</span>
+                            <span style={{ opacity: 0.7 }}>{price != null ? '¥' + price + '/月' : '—'}</span>
                           </div>
                         )
                       })}

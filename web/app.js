@@ -11976,7 +11976,7 @@
     switchedTo: "\u5DF2\u5207\u6362\u5230 {who}",
     planTiersTitle: "\u53EF\u9009\u6863\u4F4D",
     planTiersCurrent: "\uFF08\u5F53\u524D\uFF09",
-    planTiersPriceNote: "\u8BB0\u5FC6\u4E91\u4E13\u5C5E\u5B9A\u4EF7\uFF08\u7EA6\u4E3A MengBot \u5BA2\u6237\u7AEF\u4E09\u6863\u7684 6 \u6298\uFF09\uFF1B\u5E74\u4ED8\u53E6\u6709\u6298\u6263\uFF0C\u4EE5\u8BA2\u9605\u9875\u4E3A\u51C6\u3002",
+    planTiersPriceNote: "\u4EF7\u683C\u4E0E\u6863\u4F4D\u7531 MengBot \u5B9E\u65F6\u4E0B\u53D1\uFF08\u4E0E\u8BA2\u9605\u9875\u4E00\u81F4\uFF09\uFF1B\u62C9\u4E0D\u5230\u65F6\u663E\u793A\u300C\u2014\u300D\uFF0C\u4E0D\u505A\u672C\u5730\u4F30\u7B97\u3002",
     robotTierNote: "\u8FD9\u4E09\u6863\u662F\u8BB0\u5FC6\u4E91\u81EA\u5DF1\u7684\u5957\u9910\uFF1A\u6309\u300C\u5361\u7247\u6570 / \u8BB0\u5FC6\u5E93\u6570 / \u8BF7\u6C42\u901F\u7387\u300D\u5206\u5C42\uFF0C\u4E0D\u542B MengBot \u5BA2\u6237\u7AEF\u7684\u673A\u5668\u4EBA\u4E0E\u5E76\u53D1\u4EFB\u52A1\u6743\u76CA\u3002",
     noCapsHint: "\u8FD9\u4E00\u6863\u8FD8\u6CA1\u6709\u4E0B\u53D1\u914D\u989D\uFF08caps \u4E3A\u7A7A\uFF09\u3002\u5B58\u50A8\u4E0A\u9650\u4E0E\u901F\u7387\u4EE5\u8BA2\u9605\u9875\u8BF4\u660E\u4E3A\u51C6\u3002",
     managePlan: "\u5347\u7EA7 / \u7EED\u8D39",
@@ -16859,7 +16859,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.19" : "";
+  var CLIENT_VERSION = true ? "0.49.21" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -16937,7 +16937,6 @@ ${COMPONENTS_CSS}
     return Math.ceil((t - Date.now()) / 864e5);
   }
   __name(daysLeft, "daysLeft");
-  var PLAN_PRICE = { free: 0, personal: 18, pro: 118, max: 399, "sub-merchant": 199, "sub-merchant-pro": 999 };
   var PLAN_IS_ROBOT_TIER = { personal: true, pro: true, max: true };
   function planLabelOf(plan, zh) {
     const k = String(plan || "").toLowerCase();
@@ -17178,7 +17177,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-19T13:32:23+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-19T14:04:28+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -22691,7 +22690,12 @@ ${t("quoteHint")}`,
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanLabel") }),
                           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontWeight: 600 }, children: [
                             cloudPlan ? planLabelOf(cloudPlan.plan, true) : "\u2014",
-                            cloudPlan && PLAN_PRICE[String(cloudPlan.plan || "").toLowerCase()] ? " \xB7 \xA5" + PLAN_PRICE[String(cloudPlan.plan).toLowerCase()] + "/\u6708" : ""
+                            (() => {
+                              const t2 = (cloudPlan && Array.isArray(cloudPlan.tiers) ? cloudPlan.tiers : []).find(
+                                (x) => x && String(x.plan || "").toLowerCase() === String(cloudPlan.plan || "").toLowerCase()
+                              );
+                              return t2 && t2.price != null ? " \xB7 \xA5" + Number(t2.price) + "/\u6708" : "";
+                            })()
                           ] })
                         ] }),
                         cloudPlan && formatExpiry(cloudPlan.expiresAt) ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
@@ -22724,14 +22728,17 @@ ${t("quoteHint")}`,
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.5, marginBottom: 6 }, children: t("planTiersTitle") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 4 }, children: cloudPlan.plans.map((pid) => {
                           const cur = String(cloudPlan.plan || "").toLowerCase() === String(pid).toLowerCase();
-                          const price = PLAN_PRICE[String(pid).toLowerCase()];
+                          const tier = (Array.isArray(cloudPlan.tiers) ? cloudPlan.tiers : []).find(
+                            (x) => x && String(x.plan || "").toLowerCase() === String(pid).toLowerCase()
+                          );
+                          const price = tier && tier.price != null ? Number(tier.price) : null;
                           return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, opacity: cur ? 1 : 0.75 }, children: [
                             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 5, height: 5, borderRadius: "50%", flex: "none", background: cur ? "var(--me-c-success)" : "var(--me-c-border-strong)" } }),
                             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { flex: 1 }, children: [
-                              planLabelOf(pid, true),
+                              tier && tier.name || planLabelOf(pid, true),
                               cur ? " " + t("planTiersCurrent") : ""
                             ] }),
-                            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.7 }, children: price ? "\xA5" + price + "/\u6708" : "\u2014" })
+                            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.7 }, children: price != null ? "\xA5" + price + "/\u6708" : "\u2014" })
                           ] }, pid);
                         }) }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10, opacity: 0.4, marginTop: 5, lineHeight: 1.6 }, children: t("planTiersPriceNote") })
