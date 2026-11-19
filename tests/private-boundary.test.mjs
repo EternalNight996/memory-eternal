@@ -7,13 +7,15 @@ import fs from 'node:fs'
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
 const web = fs.readFileSync('lib/web.js', 'utf8')
 
-test('私有包命名固定为 memory-eternal-cloud，且版本跟随宿主插件', () => {
+test('私有包命名固定为 memory-eternal-cloud，版本独立于宿主插件', () => {
   const cloudPkgPath = 'private/memory-eternal-cloud/package.json'
   assert.ok(fs.existsSync(cloudPkgPath), '私有包目录必须在（private/memory-eternal-cloud）')
   const cloudPkg = JSON.parse(fs.readFileSync(cloudPkgPath, 'utf8'))
   assert.equal(cloudPkg.name, 'memory-eternal-cloud', '包名固定为 memory-eternal-cloud')
   assert.equal(cloudPkg.private, true, '必须是 private，防止误发公共 npm')
-  assert.equal(cloudPkg.version, pkg.version, '版本跟随宿主插件（否则兼容矩阵会对不上）')
+  // 2026-11-19 维护者决定：私有服务端版本独立（固定 1.0.0），不能被 `npm version` / 发版脚本连带改掉。
+  // 兼容性以 COMPAT.md 为准，不靠版本号与宿主相等；pack-cloud 只对不一致打警告。
+  assert.match(String(cloudPkg.version), /^\d+\.\d+\.\d+$/, '私有包版本必须是独立 semver（如 1.0.0）')
   // 打包脚本存在且能列出清单
   assert.ok(fs.existsSync('scripts/pack-cloud.mjs'), '要有私有打包脚本')
   assert.equal(pkg.scripts['cloud:pack'], 'node scripts/pack-cloud.mjs')
@@ -50,7 +52,8 @@ test('私有模块只依赖公开内部契约（api / db / capture-run）与彼�
   // 允许的依赖：公开出口 + 私有模块之间互相依赖（cloud-server ⇄ cloud-auth 是一套的）
   const ALLOWED = ['api.js', 'db.js', 'capture-run.js', 'vault.js', 'cloud-auth.js', 'cloud-server.js', 'license.js', 'entitlement.js', 'oidc.js', 'webhook.js', 'billing.js', 'quota.js',
     // 云端内部拆出来的模块（只被 cloud-* 引用，同样属于私有组件）
-    'cloud-admin-ui.js', 'cloud-user-login.js', 'cloud-login-client.js', 'server-db.js', 'accounts.js', 'cloud-vaults.js']
+    'cloud-admin-ui.js', 'cloud-user-login.js', 'cloud-login-client.js', 'server-db.js', 'accounts.js', 'cloud-vaults.js',
+    'cloud-console.js', 'cloud-console-client.js']
   for (const f of ['lib/cloud-auth.js', 'lib/cloud-server.js']) {
     if (!fs.existsSync(f)) continue // 开源分发里没有这两个文件，跳过检查
     const src = fs.readFileSync(f, 'utf8')

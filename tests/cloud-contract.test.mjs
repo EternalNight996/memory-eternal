@@ -38,9 +38,9 @@ test('服务端不引用客户端 UI 代码（剥离干净）', () => {
   // 云端只依赖服务端模块（不含客户端源码 / 静态资源）；云端内部拆出的模块也算服务端
   const deps = [...src.matchAll(/from '\.\/([\w.-]+\.js)'/g)].map((m) => m[1])
   assert.deepEqual(deps.sort(), [
-    'accounts.js', 'api.js', 'billing.js', 'cloud-admin-ui.js', 'cloud-auth.js', 'cloud-login-client.js',
-    'cloud-user-login.js', 'cloud-vaults.js', 'db.js', 'entitlement.js', 'license.js', 'oidc.js',
-    'quota.js', 'server-db.js', 'vault.js', 'webhook.js',
+    'accounts.js', 'api.js', 'billing.js', 'cloud-admin-ui.js', 'cloud-auth.js', 'cloud-console-client.js',
+    'cloud-console.js', 'cloud-login-client.js', 'cloud-user-login.js', 'cloud-vaults.js', 'db.js',
+    'entitlement.js', 'license.js', 'oidc.js', 'quota.js', 'server-db.js', 'vault.js', 'webhook.js',
   ], '云端模块只应依赖服务端模块（api / cloud-auth / license / entitlement / oidc / webhook / billing / quota / db + 云端内部拆分模块）')
 })
 

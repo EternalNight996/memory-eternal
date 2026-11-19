@@ -28,6 +28,8 @@ const SOURCES = [
   ['lib/cloud-admin-ui.js', 'lib/cloud-admin-ui.js'],
   ['lib/cloud-user-login.js', 'lib/cloud-user-login.js'],
   ['lib/cloud-login-client.js', 'lib/cloud-login-client.js'],
+  ['lib/cloud-console.js', 'lib/cloud-console.js'],
+  ['lib/cloud-console-client.js', 'lib/cloud-console-client.js'],
   ['lib/cloud-vaults.js', 'lib/cloud-vaults.js'],
   ['lib/server-db.js', 'lib/server-db.js'],
   ['lib/accounts.js', 'lib/accounts.js'],
