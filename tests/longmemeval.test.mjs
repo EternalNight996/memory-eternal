@@ -1,5 +1,6 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { promises as fsp } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -12,9 +13,14 @@ after(async () => {
   for (const p of tmpRoots) { try { await fsp.rm(p, { recursive: true, force: true }) } catch { /* Windows 句柄 */ } }
 })
 
-const qs = normalizeQuestions(JSON.parse(await fsp.readFile(path.join('bench', 'longmemeval', 'fixture.json'), 'utf8')))
+// bench/longmemeval/fixture.json 是本地 bench 资产（.gitignore 排除），CI / 新克隆里没有。
+// 缺文件时跳过依赖它的用例，而不是让整个文件在模块加载期 ENOENT 崩掉。
+const FIXTURE = path.join('bench', 'longmemeval', 'fixture.json')
+const hasFixture = fs.existsSync(FIXTURE)
+const qs = hasFixture ? normalizeQuestions(JSON.parse(fs.readFileSync(FIXTURE, 'utf8'))) : []
+const NEED_FIXTURE = hasFixture ? false : '缺 bench/longmemeval/fixture.json（本地 bench 资产，不入库）'
 
-test('normalizeQuestions：兼容数组与 {questions}，缺字段的题被丢弃', () => {
+test('normalizeQuestions：兼容数组与 {questions}，缺字段的题被丢弃', { skip: NEED_FIXTURE }, () => {
   assert.equal(qs.length, 3)
   const wrapped = normalizeQuestions({ questions: JSON.parse(JSON.stringify(qs.map((q) => ({ question_id: q.id, question: q.question, haystack_sessions: q.sessions, haystack_session_ids: q.sessionIds, answer_session_ids: [...q.gold] })))) })
   assert.equal(wrapped.length, 3)
@@ -29,7 +35,7 @@ test('sessionToCard：turns 拼成正文，标题带会话号', () => {
   assert.match(c.body, /assistant: B/)
 })
 
-test('端到端：每题独立库，金标会话能被题目召回且排名第 1', async () => {
+test('端到端：每题独立库，金标会话能被题目召回且排名第 1', { skip: NEED_FIXTURE }, async () => {
   for (const q of qs) {
     const root = await makeScratchVault()
     tmpRoots.push(root)
