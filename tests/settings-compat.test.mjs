@@ -138,11 +138,14 @@ function fakeReq(body, method = 'POST', url = '/memory-eternal/api/config') {
   }
 }
 
-test('Config：每个字段都带 schema.meta.volatile（0.1.7 表单只投影 volatile 字段）', () => {
+test('Config：不得标 meta.volatile（DSH 0.2.2 会把 volatile 字段回传成 {}）', () => {
+  // v0.49.18 的结论：DSH 0.2.2 把标了 volatile 的字段当「可写引用」维护，插件收到的是空对象，
+  // 于是每个布尔字段都触发 ValidationError，整条插件被拒。热更新改用插件自带设置页（auto:false），
+  // 宿主表单不再投影这些字段 —— 这里守住「不要回退到 markAllVolatile(Config)」。
   const fields = Object.entries(Config.dict ?? {})
   assert.ok(fields.length >= 25, `Config 字段数异常（${fields.length}）`)
   for (const [name, field] of fields) {
-    assert.equal(field?.meta?.volatile, true, `字段 ${name} 缺 meta.volatile —— 新版设置页会拒写`)
+    assert.notEqual(field?.meta?.volatile, true, `字段 ${name} 不应标 volatile —— DSH 0.2.2 会把它变成空对象`)
   }
 })
 
