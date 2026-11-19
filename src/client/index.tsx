@@ -44,6 +44,22 @@ import { makeQrMatrix } from './qr.js'
 
 const NS = 'memory-eternal'
 const API = '/memory-eternal/api'
+// issue #67：面板「查看库」作用域。值只放配置里的 profile 名，用 cookie 传给服务端，
+// 这样所有面板请求（待审/卡片/日志/健康/图谱）自动跟随，不用改 200 多处 fetch。
+// 作用域只影响数据面，不改默认库、不改 activeVault、不影响 Agent 写入。
+const VIEW_VAULT_COOKIE = 'me_view_vault'
+const getViewVaultCookie = () => {
+  try {
+    const m = new RegExp('(?:^|;\\s*)' + VIEW_VAULT_COOKIE + '=([^;]*)').exec(document.cookie || '')
+    return m ? decodeURIComponent(m[1]) : ''
+  } catch { return '' }
+}
+const setViewVaultCookie = (name) => {
+  try {
+    const v = String(name || '').trim()
+    document.cookie = VIEW_VAULT_COOKIE + '=' + encodeURIComponent(v) + '; path=/; max-age=' + (v ? 31536000 : 0) + '; SameSite=Lax'
+  } catch { /* 非浏览器环境忽略 */ }
+}
 // ---- 运行位置（本地 / 云端）------------------------------------------------
 // 切换器把 `API` 从相对路径改成云端绝对地址，并给所有请求注入 Authorization。
 // 这样**不用改 200 多处 `fetch(API + '/xxx')`**：调用点拿到的仍是同一个字符串常量语义。
@@ -1731,6 +1747,11 @@ export const ZH = {
   vaultAdd: '添加一个库',
   vaultActive: '激活库',
   vaultActiveNone: '默认库（不指定）',
+  viewVault: '查看库',
+  viewVaultDefault: '默认库（跟随当前生效库）',
+  viewVaultHint: '只影响本面板的查看与审核（待审 / 卡片 / 日志 / 健康），不修改默认库，也不改变 Agent 写入的库。',
+  viewVaultChip: '查看中',
+  viewVaultReset: '回到默认库',
   vaultSrcEnv: '环境变量 MEMORY_VAULT_DIR',
   vaultSrcProfile: '激活库配置',
   vaultSrcWorkspace: '按项目目录自动命中',
@@ -3221,6 +3242,11 @@ export const EN = {
   vaultAdd: 'Add a vault',
   vaultActive: 'Active vault',
   vaultActiveNone: 'Default vault (unset)',
+  viewVault: 'View vault',
+  viewVaultDefault: 'Default (follow effective vault)',
+  viewVaultHint: 'Only affects what this panel reads and reviews (pending, cards, logs, health). It does not change the default vault or where agents write.',
+  viewVaultChip: 'Viewing',
+  viewVaultReset: 'Back to default vault',
   vaultSrcEnv: 'env MEMORY_VAULT_DIR',
   vaultSrcProfile: 'activeVault profile',
   vaultSrcWorkspace: 'matched by project dir',
@@ -7232,6 +7258,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [quoteIdx, setQuoteIdx] = useState(0)
   const [newCard, setNewCard] = useState(null)
   const [dataVer, setDataVer] = useState(0)
+  // issue #67：当前面板查看的库（profile 名，空 = 默认库）
+  const [viewVault, setViewVaultState] = useState(() => getViewVaultCookie())
   const bump = useCallback(() => setDataVer((v) => v + 1), [])
   // 卡片类型索引：**跟随当前 kind 上下文** —— 切到「技能」只看技能类型、切到知识/项目/教训等看知识类型、
   // 「全部」两类混排。两类各缓存一份（模块级 TYPE_CACHE，跨组件挂载保留），切 kind 时先用缓存立即渲染、
@@ -7390,6 +7418,16 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       setLoading(false)
     }
   }, [])
+
+  // issue #67：切换「查看库」——写 cookie（服务端只认配置里的 profile 名），再让数据面板整体重拉。
+  // 不触碰 activeVault / vaultDir 配置，所以不会把「按项目隔离」永久钉死。
+  const applyViewVault = useCallback((name) => {
+    const next = String(name || '').trim()
+    setViewVaultCookie(next)
+    setViewVaultState(next)
+    loadAll()
+    bump()
+  }, [loadAll, bump])
 
   // 删除单张记忆卡（卡片行按钮 / 卡片阅读器）
   const deleteMemory = async (path) => {
@@ -7674,6 +7712,13 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         <div className={`mc-v5-top${inHost ? ' in-host' : ''}`}>
           <img className="mc-v5-logo" src={brandIcon} alt="" />
           <span className="mc-v5-crumb"><b>{t('memoryTitle')}</b><i>/</i><span>{t(view === 'cards' ? 'cardsTab' : view === 'graph' ? 'graphTab' : view === 'news' ? 'newsTab' : view === 'stats' ? 'tabUsage' : view === 'audit' ? 'tabAudit' : view === 'optimize' ? 'tabRecycle' : view === 'terminal' ? 'terminalTab' : 'tabConfig')}</span></span>
+          {/* issue #67：看的是哪个库必须一眼可见；否则用户会以为「项目库的卡丢了」 */}
+          {viewVault ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 8, padding: '2px 9px', borderRadius: 999, background: 'rgba(139,92,246,.14)', color: '#8b5cf6', fontSize: 11.5, fontWeight: 600 }} title={t('viewVaultHint')}>
+              👁 {t('viewVaultChip')}：{viewVault}
+              <button type="button" onClick={() => applyViewVault('')} title={t('viewVaultReset')} aria-label={t('viewVaultReset')} style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 11 }}>✕</button>
+            </span>
+          ) : null}
           <div className="spacer" />
           <div className="mc-v5-top-actions">
             {/* 顶栏右侧「收口胶囊」：运行位置（点/域名 + caret）＋ 版本号 ＋ 帮助合并成一颗。
@@ -8288,7 +8333,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
           {visited.has('terminal') && <TerminalGuide t={t} />}
         </div>
         <div style={{ display: view === 'config' ? 'contents' : 'none' }}>
-          {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} />}
+          {visited.has('config') && <ConfigPanel t={t} onReload={() => loadAll()} version={dataVer} viewVault={viewVault} onViewVaultChange={applyViewVault} />}
         </div>
         <div style={{ display: view === 'stats' ? 'contents' : 'none' }}>
           {visited.has('stats') && <LibraryAdmin t={t} tab="stats" onReload={() => loadAll()} version={dataVer} onOpenCard={openCard} />}
@@ -9574,7 +9619,7 @@ function EmbeddingPanel({ t, hidden }) {
   )
 }
 
-function ConfigPanel({ t, onReload, version, compact }) {
+function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChange }) {
   // 弹窗形态：分页导航（保留 5 个分类，第 5 个是「实验性」）
   // 切库会重挂载外层：回到切库前那一页（通常是「实验性」），不要跳回「通用」。
   const [page, setPage] = useState(() => LAST_CFG_PAGE || 'general')
@@ -11871,6 +11916,17 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     {profilesOf(form).filter((p) => p && p.name).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
                   </select>
                 </label>
+              </div>
+              {/* issue #67：面板「查看库」作用域 —— 只看/审某个项目库，不切默认库、不改 activeVault */}
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--dsw-alias-border-l2, #d1d5db)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span style={{ opacity: 0.65 }}>{t('viewVault')}</span>
+                  <select value={viewVault || ''} onChange={(e) => { if (onViewVaultChange) onViewVaultChange(e.target.value) }} disabled={readonly} style={vaultInput}>
+                    <option value="">{t('viewVaultDefault')}</option>
+                    {profilesOf(form).filter((p) => p && p.name).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                  </select>
+                </label>
+                <div style={{ fontSize: 10.5, opacity: 0.6, marginTop: 4, lineHeight: 1.6 }}>{t('viewVaultHint')}</div>
               </div>
             </CfgSection>
             {/* 成本控制（省钱、控 LLM 消耗） */}
