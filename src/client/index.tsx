@@ -9552,6 +9552,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
   // 已连接时展示套餐（比只有一行地址更能证明"真的连上了"）
   const [cloudPlan, setCloudPlan] = useState(null)
+  // 支付域由服务端按**当前云端实例**下发（切换实例后升级链接跟着切）；空 = 用官方默认
+  const [cloudPayBase, setCloudPayBase] = useState('')
   // 手动填密钥默认折叠：登录是主路径，密钥是备用，两套并列会让界面没主次
   const [showKeyField, setShowKeyField] = useState(false)
   // 账号菜单是否展开（整块可点，点开显示账号信息 / 切换账号 / 退出登录）
@@ -10797,6 +10799,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
       })
       const d = await r.json().catch(() => ({}))
       if (d && d.ok && d.plan) setCloudPlan(d.plan)
+      if (d && d.ok && typeof d.payBase === 'string' && d.payBase) setCloudPayBase(d.payBase)
     } catch { /* 忽略 */ }
   }
 
@@ -10820,7 +10823,9 @@ function ConfigPanel({ t, onReload, version, compact }) {
     const plan = String((cloudPlan && cloudPlan.plan) || '').toLowerCase().replace(/^memory-/, '')
     const sku = plan && plan !== 'free' ? 'sub-memory-' + plan : 'sub-memory-pro'
     const params = new URLSearchParams({ merchant: 'memory-eternal', sku, source: 'memory-eternal' })
-    return 'https://pay.mengbot.com.cn/subscribe?' + params.toString()
+    // 跟随当前云端实例：服务端下发的 payBase 优先（自建/另一个官方实例不能指向别人的订阅页）
+    const base = (cloudPayBase || 'https://pay.mengbot.vip').replace(/\/+$/, '')
+    return base + '/subscribe?' + params.toString()
   }
 
   const importLocalToCloud = async () => {

@@ -1,4 +1,4 @@
-﻿// 支付：**直接拼 subscribe 深链**，不代用户调 MengBot 端点。
+// 支付：**直接拼 subscribe 深链**，不代用户调 MengBot 端点。
 // （MengBot 第 4 封 Q2 确认：`?sku=` 是深链，`order` 非必需，`source` 会写进订单 note）
 //
 // 这样做的收益：不需要 omc_ 设备令牌、不需要 OIDC access_token/refresh_token、
@@ -7,7 +7,7 @@
 // 守六件事：
 //   ① plan 白名单是 personal/pro/max（对方 B2 定稿），废弃的 team/enterprise 要拒；
 //   ② 也接受直接传 sku（sub-xxx）；
-//   ③ 拼出的 URL 是 https://pay.mengbot.com.cn/subscribe?sku=...&source=...；
+//   ③ 拼出的 URL 是 https://pay.mengbot.vip/subscribe?sku=...&source=...（官方已迁到 .vip）；
 //   ④ 没有 owner 就不能下单（必须先登录）；
 //   ⑤ 不做任何网络调用（纯字符串拼接，不可能因网络失败）；
 //   ⑥ planView 的 canCheckout 不再依赖 access_token。
@@ -42,10 +42,19 @@ test('废弃的 plan 被拒（team / enterprise 不存在了）', async () => {
 test('拼出 subscribe 深链：sku + source', async () => {
   const r = await createCheckout({ plan: 'max', owner: 'u@x.com', source: 'memory-eternal', env: {} })
   assert.equal(r.ok, true)
-  assert.equal(r.url, 'https://pay.mengbot.com.cn/subscribe?sku=sub-max&source=memory-eternal')
+  assert.equal(r.url, 'https://pay.mengbot.vip/subscribe?sku=sub-max&source=memory-eternal')
   assert.equal(r.sku, 'sub-max')
   assert.equal(r.plan, 'max')
   assert.equal(r.via, 'subscribe-deeplink')
+})
+
+test('深链跟随当前云端实例：切域名后升级链接跟着切', async () => {
+  // 官方实例：mem.<后缀> → pay.<同后缀>
+  const mem = await createCheckout({ plan: 'max', owner: 'u@x.com', env: {}, cloudUrl: 'https://mem.mengbot.vip' })
+  assert.equal(mem.url, 'https://pay.mengbot.vip/subscribe?sku=sub-max&source=memory-eternal')
+  // 自建域名不猜，回退官方默认（猜错会把用户带去别人的订阅页）
+  const selfHosted = await createCheckout({ plan: 'max', owner: 'u@x.com', env: {}, cloudUrl: 'https://memory.example.com' })
+  assert.equal(selfHosted.url, 'https://pay.mengbot.vip/subscribe?sku=sub-max&source=memory-eternal')
 })
 
 test('直接传 sku 也认（sub-pro）', async () => {

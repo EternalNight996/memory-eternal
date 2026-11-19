@@ -42,7 +42,7 @@ curl -s http://127.0.0.1:7999/memory-eternal/api/mcp \
   云端实例在 `headers` 里带 `Authorization: Bearer me_…`。
 - 想保留 stdio 让宿主照常拉起、但读写落到远端实例：
   ```bash
-  dsh-memory mcp --cloud https://mem.mengbot.com.cn --token me_xxx
+  dsh-memory mcp --cloud https://mem.mengbot.vip --token me_xxx
   ```
   令牌会变成 `Authorization`（实测：不带令牌云端业务接口一律 401，带令牌召回/统计正常）。
   **注意**：`memory_audit_list` 与 `memory_revise` 依赖本地审核库，远端模式下仍读本机库。

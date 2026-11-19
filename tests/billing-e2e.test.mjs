@@ -55,7 +55,7 @@ test('支付闭环：登录 → 拿 subscribe 深链 → webhook 回推 → 套�
     body: JSON.stringify({ plan: 'pro', source: 'memory-eternal' }),
   })).json()
   assert.equal(co.ok, true, JSON.stringify(co))
-  assert.equal(co.url, 'https://pay.mengbot.com.cn/subscribe?sku=sub-pro&source=memory-eternal')
+  assert.equal(co.url, 'https://pay.mengbot.vip/subscribe?sku=sub-pro&source=memory-eternal')
   assert.equal(co.sku, 'sub-pro')
 
   // ③ 支付成功 → MengBot 推 webhook
