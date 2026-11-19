@@ -9,7 +9,7 @@
     - id: memory-eternal
       name: memory-eternal
       config:
-        enabled: true
+        # 不写 enabled：DSH 的插件启停开关与本字段同名，会互相覆盖（见 index.js Config 注释）
         autoCapture: true
         autoRecall: true
         vaultDir: ''
