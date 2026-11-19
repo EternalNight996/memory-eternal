@@ -28,6 +28,8 @@
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
 | **v0.49.18** | 2026-11-19 | **修白屏真因：`markAllVolatile(Config)` 在 DSH 0.2.2 下把 55 个配置字段全变成 `{}`**。现场：插件能被加载、但激活时报 `ValidationError: $.enabled expected boolean but got [object Object]`，改哪个字段错误就挪到下一个字段（`enabled` → `coreMemoryEnabled` → …），因为**每个字段都是坏的，DSH 只报第一个**。探针实测（`~/.dsh/memory-eternal-config-probe.json`）拿到 `{"enabled":{},"autoCapture":{},…55 个键全 {}` —— 根因是插件自己给全部字段打了 `meta.volatile`（本意让设置改动热生效），而 DSH 0.2.2 把 volatile 字段当「可写引用」维护，回传即为空对象。修法：**停止调用 `markAllVolatile(Config)`**，代价是设置改动不再热生效（需重载页面）。新增 `tests/config-shape.test.mjs`（3 例）：源码不得出现该调用、`Config({enabled:{}})` 必须报 expected boolean、真实标量必须通过。探针代码已移除。 |
+> **v0.49.17 已撤回（2026-11-19）**：它只删掉了 patch 里的 `config.enabled`，但**真正的根因未修** —— `markAllVolatile(Config)` 让 55 个配置字段在 DSH 0.2.2 下变成 `{}`。装这一版仍会 `ValidationError` 白屏。npm 侧未上架，GitHub / Gitee 的 Release 已撤下。请用 **v0.49.18**。
+
 | **v0.49.17** | 2026-11-19 | **修 `config.enabled` 与 DSH 启停开关撞名导致的白屏（`ValidationError: $.enabled expected boolean but got [object Object]`）**。现场：DSH 激活插件时校验失败，整条 entry 被拒，侧边栏图标与记忆页全部消失。根因：DSH 在**插件条目**上自己维护一个 `enabled` 启停开关，而 `cordis.patch.yml` 的 `config` 里又写了同名字段 `enabled: true` —— 两者撞名，DSH 把条目侧的开关对象塞进了 `$.enabled`，跟插件 Config 的 `z.boolean()` 冲突。修法：**bundle patch 的 config 不再写 `enabled`**（插件的 `Config.enabled` 保留 `z.boolean().default(true)`，默认即启用，设置页/DSH 开关管启停）。新增 `tests/patch-shape.test.mjs`（3 例）守卫：patch 必须是 insert 形式、config 下不得出现 `enabled`、Config 仍保留该字段。另：v0.49.16 的 Release 一并撤下（与 0.49.15 同因未扩散到 npm）。 |
 > **v0.49.16 已撤回（2026-11-19）**：`cordis.patch.yml` 的 `config` 里写了 `enabled: true`，与 DSH 的插件启停开关同名 → 激活时 `ValidationError: $.enabled expected boolean but got [object Object]`，插件被整体拒绝。npm 侧未上架（账号冻结期间 403），GitHub / Gitee Release 已撤下。请用 **v0.49.17**。
 
