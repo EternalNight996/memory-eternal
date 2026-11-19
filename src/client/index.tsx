@@ -6828,6 +6828,15 @@ function FirstRunWizard({ t, onDone }) {
     </div>
   )
 }
+/** 云端域名基座的兜底值（服务端 /cloud/conn 下发成功前的默认）。 */
+const CLOUD_DOMAINS_FALLBACK = { memUrl: 'https://mem.mengbot.com.cn', accountsUrl: 'https://accounts.mengbot.com.cn' }
+/**
+ * 当前生效的域名基座 —— 模块级。
+ * 必须在**组件外**：组件内在声明 useState 之前就可能用到（placeholder / 提示文案），
+ * 用 const 声明在组件内会踩 TDZ（ReferenceError: memUrl is not defined，整页兜底）。
+ */
+let cloudDomainsRef = { ...CLOUD_DOMAINS_FALLBACK }
+
 function MemoryLibraryInner({ t, inModal, onClose }) {
   const inHost = typeof window !== 'undefined' && (!!window.__DSH_BOOT__ || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
   const [overview, setOverview] = useState(null)
@@ -7719,8 +7728,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 <div className="mc-cloud-fields" style={{ opacity: cloudForm.mode === 'cloud' ? 1 : 0.55 }}>
                   <label className="mc-field">
                     <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder={memUrl} disabled={cloudForm.mode !== 'cloud'} />
-                    <span className="mc-field-hint">{t('cloudUrlHint').replace('{host}', memUrl).replace('{accounts}', accountsUrl)}</span>
+                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder={cloudDomainsRef.memUrl} disabled={cloudForm.mode !== 'cloud'} />
+                    <span className="mc-field-hint">{t('cloudUrlHint').replace('{host}', cloudDomainsRef.memUrl).replace('{accounts}', cloudDomainsRef.accountsUrl)}</span>
                   </label>
                   <label className="mc-field">
                     <span className="mc-field-label">{t('cloudTokenLabel')}</span>
@@ -9556,8 +9565,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [cloudPayBase, setCloudPayBase] = useState('')
   // 域名基座（服务端 /cloud/conn 下发）：切基座后 placeholder、提示文案、支付深链一起换
   const [cloudDomains, setCloudDomains] = useState(null)
-  const memUrl = (cloudDomains && cloudDomains.memUrl) || 'https://mem.mengbot.com.cn'
-  const accountsUrl = (cloudDomains && cloudDomains.accountsUrl) || 'https://accounts.mengbot.com.cn'
+  const memUrl = (cloudDomains && cloudDomains.memUrl) || CLOUD_DOMAINS_FALLBACK.memUrl
+  const accountsUrl = (cloudDomains && cloudDomains.accountsUrl) || CLOUD_DOMAINS_FALLBACK.accountsUrl
+  // 同步到模块级：让组件内**声明之前**的 JSX（placeholder / 提示文案）也能读到
+  if (cloudDomains && cloudDomains.memUrl) cloudDomainsRef = cloudDomains
   // 手动填密钥默认折叠：登录是主路径，密钥是备用，两套并列会让界面没主次
   const [showKeyField, setShowKeyField] = useState(false)
   // 账号菜单是否展开（整块可点，点开显示账号信息 / 切换账号 / 退出登录）

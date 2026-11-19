@@ -16859,7 +16859,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.18" : "";
+  var CLIENT_VERSION = true ? "0.49.19" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17178,7 +17178,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-19T13:07:23+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-19T13:23:54+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17334,6 +17334,8 @@ ${COMPONENTS_CSS}
     ] }) });
   }
   __name(FirstRunWizard, "FirstRunWizard");
+  var CLOUD_DOMAINS_FALLBACK = { memUrl: "https://mem.mengbot.com.cn", accountsUrl: "https://accounts.mengbot.com.cn" };
+  var cloudDomainsRef = { ...CLOUD_DOMAINS_FALLBACK };
   function MemoryLibraryInner({ t, inModal, onClose }) {
     const inHost = typeof window !== "undefined" && (!!window.__DSH_BOOT__ || String(location.pathname || "").includes("/memory-eternal/api/ui/app"));
     const [overview, setOverview] = (0, import_react2.useState)(null);
@@ -18218,8 +18220,8 @@ ${COMPONENTS_CSS}
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cloud-fields", style: { opacity: cloudForm.mode === "cloud" ? 1 : 0.55 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: memUrl, disabled: cloudForm.mode !== "cloud" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudUrlHint").replace("{host}", memUrl).replace("{accounts}", accountsUrl) })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: cloudDomainsRef.memUrl, disabled: cloudForm.mode !== "cloud" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudUrlHint").replace("{host}", cloudDomainsRef.memUrl).replace("{accounts}", cloudDomainsRef.accountsUrl) })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
@@ -20177,8 +20179,9 @@ ${t("quoteHint")}`,
     const [cloudPlan, setCloudPlan] = (0, import_react2.useState)(null);
     const [cloudPayBase, setCloudPayBase] = (0, import_react2.useState)("");
     const [cloudDomains, setCloudDomains] = (0, import_react2.useState)(null);
-    const memUrl2 = cloudDomains && cloudDomains.memUrl || "https://mem.mengbot.com.cn";
-    const accountsUrl2 = cloudDomains && cloudDomains.accountsUrl || "https://accounts.mengbot.com.cn";
+    const memUrl = cloudDomains && cloudDomains.memUrl || CLOUD_DOMAINS_FALLBACK.memUrl;
+    const accountsUrl = cloudDomains && cloudDomains.accountsUrl || CLOUD_DOMAINS_FALLBACK.accountsUrl;
+    if (cloudDomains && cloudDomains.memUrl) cloudDomainsRef = cloudDomains;
     const [showKeyField, setShowKeyField] = (0, import_react2.useState)(false);
     const [acctOpen, setAcctOpen] = (0, import_react2.useState)(false);
     const [importJob, setImportJob] = (0, import_react2.useState)(null);
@@ -20557,7 +20560,7 @@ ${t("quoteHint")}`,
     }, "runJunkAction");
     const [cloudTab, setCloudTab] = (0, import_react2.useState)(() => readCloudConn().mode === "cloud" ? "cloud" : "local");
     const [merchants, setMerchants] = (0, import_react2.useState)([]);
-    const [mchForm, setMchForm] = (0, import_react2.useState)(() => ({ name: "", domain: "", endpoint: String(readCloudConn().merchantEndpoint || memUrl2) }));
+    const [mchForm, setMchForm] = (0, import_react2.useState)(() => ({ name: "", domain: "", endpoint: String(readCloudConn().merchantEndpoint || memUrl) }));
     const [mchBusy, setMchBusy] = (0, import_react2.useState)(false);
     const [mchErr, setMchErr] = (0, import_react2.useState)("");
     const [mchSecret, setMchSecret] = (0, import_react2.useState)(null);
@@ -20967,7 +20970,7 @@ ${t("quoteHint")}`,
       if (cloudTab !== "cloud" || isConnected) return;
       if (deviceAuth || deviceBusy) return;
       if (!String(cloudForm.url || "").trim()) {
-        setCloudForm((f) => ({ ...f, url: memUrl2 }));
+        setCloudForm((f) => ({ ...f, url: memUrl }));
         return;
       }
       startDeviceLogin();
@@ -22818,7 +22821,7 @@ ${t("quoteHint")}`,
                     showKeyField ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: memUrl2 })
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: memUrl })
                       ] }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
@@ -23153,7 +23156,7 @@ ${t("quoteHint")}`,
                       {
                         value: mchForm.endpoint,
                         onChange: (e) => setMchForm((f) => ({ ...f, endpoint: e.target.value })),
-                        placeholder: memUrl2
+                        placeholder: memUrl
                       }
                     ),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("merchantEndpointHint") })

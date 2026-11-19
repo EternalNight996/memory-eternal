@@ -1,6 +1,6 @@
 {
   "name": "memory-eternal-cloud",
-  "version": "0.49.18",
+  "version": "0.49.19",
   "private": true,
   "description": "Memory Eternal 云端服务端（多租户 + 密钥 / MengBot 授权）。商用私有组件，不随 memory-eternal 开源包发布。",
   "type": "module",

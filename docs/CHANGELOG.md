@@ -27,6 +27,9 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.49.19** | 2026-11-19 | **修前端 TDZ：`ReferenceError: memUrl is not defined`（面板渲染崩 → ErrorBoundary 兜底成白屏）**。现场：0.49.18 让插件成功激活后，记忆面板一渲染就报 `memUrl is not defined`（堆栈指向 `MemoryLibraryInner`）。根因：域名改造时把 `const memUrl = …` 写在组件中部（第 9568 行），而 `placeholder={memUrl}` 与提示文案在 7722 行就用 —— **同一函数作用域、声明之前**，`const` 的 TDZ 直接抛 ReferenceError。修法：把域名基座提到**模块级**（`CLOUD_DOMAINS_FALLBACK` + 可变引用 `cloudDomainsRef`），声明前的 JSX 一律用 `cloudDomainsRef.memUrl`，组件内的 state 继续驱动响应式更新并在拿到下发值时同步模块级。新增 `tests/client-scope.test.mjs`（3 例）：声明前不得裸用 `memUrl`（注释行豁免）、必须有模块级引用、声明前的 placeholder 必须走模块级。 |
+> **v0.49.18 已撤回（2026-11-19）**：它修好了 `markAllVolatile`（插件能激活），但记忆面板一渲染就 `ReferenceError: memUrl is not defined`（前端 TDZ），被 ErrorBoundary 兜住后仍是白屏。npm 侧未上架，GitHub / Gitee 的 Release 已撤下。请用 **v0.49.19**。
+
 | **v0.49.18** | 2026-11-19 | **修白屏真因：`markAllVolatile(Config)` 在 DSH 0.2.2 下把 55 个配置字段全变成 `{}`**。现场：插件能被加载、但激活时报 `ValidationError: $.enabled expected boolean but got [object Object]`，改哪个字段错误就挪到下一个字段（`enabled` → `coreMemoryEnabled` → …），因为**每个字段都是坏的，DSH 只报第一个**。探针实测（`~/.dsh/memory-eternal-config-probe.json`）拿到 `{"enabled":{},"autoCapture":{},…55 个键全 {}` —— 根因是插件自己给全部字段打了 `meta.volatile`（本意让设置改动热生效），而 DSH 0.2.2 把 volatile 字段当「可写引用」维护，回传即为空对象。修法：**停止调用 `markAllVolatile(Config)`**，代价是设置改动不再热生效（需重载页面）。新增 `tests/config-shape.test.mjs`（3 例）：源码不得出现该调用、`Config({enabled:{}})` 必须报 expected boolean、真实标量必须通过。探针代码已移除。 |
 > **v0.49.17 已撤回（2026-11-19）**：它只删掉了 patch 里的 `config.enabled`，但**真正的根因未修** —— `markAllVolatile(Config)` 让 55 个配置字段在 DSH 0.2.2 下变成 `{}`。装这一版仍会 `ValidationError` 白屏。npm 侧未上架，GitHub / Gitee 的 Release 已撤下。请用 **v0.49.18**。
 
