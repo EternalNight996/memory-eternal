@@ -17178,7 +17178,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-17T16:57:35+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-18T15:14:26+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -20175,6 +20175,7 @@ ${t("quoteHint")}`,
     }, [page]);
     const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
     const [cloudPlan, setCloudPlan] = (0, import_react2.useState)(null);
+    const [cloudPayBase, setCloudPayBase] = (0, import_react2.useState)("");
     const [showKeyField, setShowKeyField] = (0, import_react2.useState)(false);
     const [acctOpen, setAcctOpen] = (0, import_react2.useState)(false);
     const [importJob, setImportJob] = (0, import_react2.useState)(null);
@@ -21468,6 +21469,7 @@ ${t("quoteHint")}`,
         });
         const d = await r.json().catch(() => ({}));
         if (d && d.ok && d.plan) setCloudPlan(d.plan);
+        if (d && d.ok && typeof d.payBase === "string" && d.payBase) setCloudPayBase(d.payBase);
       } catch {
       }
     }, "loadCloudPlan");
@@ -21475,7 +21477,8 @@ ${t("quoteHint")}`,
       const plan = String(cloudPlan && cloudPlan.plan || "").toLowerCase().replace(/^memory-/, "");
       const sku = plan && plan !== "free" ? "sub-memory-" + plan : "sub-memory-pro";
       const params = new URLSearchParams({ merchant: "memory-eternal", sku, source: "memory-eternal" });
-      return "https://pay.mengbot.com.cn/subscribe?" + params.toString();
+      const base = (cloudPayBase || "https://pay.mengbot.vip").replace(/\/+$/, "");
+      return base + "/subscribe?" + params.toString();
     }, "subscribeUrl");
     const importLocalToCloud = /* @__PURE__ */ __name(async () => {
       if (importJob && importJob.importing) return;
