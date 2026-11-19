@@ -10803,25 +10803,6 @@
 
   // src/client/qr.js
   var import_qrcode = __toESM(require_qrcode(), 1);
-  function makeQrMatrix(text, opts) {
-    const value = String(text || "");
-    if (!value) return null;
-    try {
-      const qr = import_qrcode.default.create(value, { errorCorrectionLevel: opts && opts.ecLevel || "M" });
-      const size = qr.modules.size;
-      const data = qr.modules.data;
-      const modules = [];
-      for (let r = 0; r < size; r++) {
-        const row = new Array(size);
-        for (let c = 0; c < size; c++) row[c] = !!data[r * size + c];
-        modules.push(row);
-      }
-      return { size, modules };
-    } catch {
-      return null;
-    }
-  }
-  __name(makeQrMatrix, "makeQrMatrix");
 
   // src/client/index.tsx
   var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
@@ -11278,6 +11259,11 @@
     return openViaAnchor(url);
   }
   __name(openExternal, "openExternal");
+  function cloudInstanceIconUrl(base) {
+    const b = String(base || "").trim().replace(/\/+$/, "");
+    return b ? b + "/memory-eternal/api/icon.png" : "";
+  }
+  __name(cloudInstanceIconUrl, "cloudInstanceIconUrl");
   var PAGE_SIZE = 100;
   var ZH = {
     nav: "\u8BB0\u5FC6",
@@ -11836,7 +11822,7 @@
     cloudWriteModeBoth: "\u53CC\u5199\uFF1A\u4E91\u7AEF + \u672C\u673A\u5404\u4E00\u4EFD",
     peerTitle: "\u4E92\u76F8\u914D\u5BF9\uFF08MEM Pair\uFF09",
     peerSub: "\u548C\u53E6\u4E00\u4E2A memory-eternal \u5B9E\u4F8B\uFF08\u5982\u9694\u79BB\u8FD0\u8425\u7684 mem-purge@7989\uFF09\u914D\u5BF9\u540E\u4E92\u76F8\u4F20\u5361\uFF1B\u9996\u6B21\u8981\u5BF9\u65B9\u786E\u8BA4\uFF0C\u4E4B\u540E\u53EA\u51ED\u5339\u914D\u7801\u5C31\u80FD\u91CD\u8FDE",
-    peerMyCode: "\u6211\u7684\u5339\u914D\u7801",
+    peerMyCode: "\u5C40\u57DF\u7F51\u914D\u5BF9\u7801\uFF08MEM Pair\uFF09",
     peerCopy: "\u590D\u5236",
     peerCopied: "\u5DF2\u590D\u5236",
     peerFp: "\u6307\u7EB9",
@@ -12121,6 +12107,19 @@
     cloudTestFail: "\u8FDE\u63A5\u5931\u8D25",
     cloudLoginButton: "\u7528 MengBot \u8D26\u53F7\u767B\u5F55",
     cloudLoginDone: "\u5DF2\u767B\u5F55 \xB7 {owner}",
+    pollWaitingTitle: "\u7B49\u5F85\u6D4F\u89C8\u5668\u767B\u5F55",
+    pollIdleHint: "\u70B9\u4E0B\u9762\u7684\u6309\u94AE\uFF0C\u7528\u7CFB\u7EDF\u6D4F\u89C8\u5668\u6253\u5F00\u767B\u5F55\u9875\uFF08\u626B\u7801 / \u5BC6\u7801 / \u5BC6\u94A5\uFF09",
+    pollWaitingHint: "\u5DF2\u7528\u7CFB\u7EDF\u6D4F\u89C8\u5668\u6253\u5F00\u767B\u5F55\u9875\uFF08\u626B\u7801 / \u5BC6\u7801 / \u5BC6\u94A5\u5747\u53EF\uFF09\u3002\u5B8C\u6210\u540E\u5BA2\u6237\u7AEF\u4F1A\u81EA\u52A8\u62FF\u5230\u4EE4\u724C\uFF0C\u65E0\u9700\u624B\u52A8\u590D\u5236\u3002",
+    pollReopen: "\u91CD\u65B0\u6253\u5F00\u767B\u5F55\u9875",
+    pollNeedAuthorize: "\u8BF7\u5728\u6D4F\u89C8\u5668\u91CC\u5B8C\u6210\u6CE8\u518C\uFF08\u8865\u8BBE\u5BC6\u7801\uFF09\uFF0C\u5B8C\u6210\u540E\u91CD\u65B0\u70B9\u4E00\u6B21\u300C\u767B\u5F55\u300D",
+    pollFailed: "\u767B\u5F55\u5931\u8D25",
+    pairCodeLabel: "\u51ED\u5339\u914D\u7801\u8FDE\u63A5\u4E91\u7AEF\u5E93",
+    pairCodeHint: "\u5728\u4E91\u7AEF\u63A7\u5236\u53F0 /console \u751F\u6210 pc_ \u5F00\u5934\u7684\u5339\u914D\u7801\uFF1B\u586B\u8FDB\u6765\u5373\u53EF\u76F4\u63A5\u8FDE\u63A5\uFF0C\u65E0\u9700\u518D\u6362\u4EE4\u724C",
+    pairCodePlaceholder: "pc_\u2026",
+    pairConnect: "\u8FDE\u63A5",
+    pairInvalid: "\u5339\u914D\u7801\u683C\u5F0F\u4E0D\u5BF9\uFF08\u5E94\u4EE5 pc_ \u5F00\u5934\uFF09",
+    pairConnected: "\u5DF2\u7528\u5339\u914D\u7801\u8FDE\u63A5\u4E91\u7AEF\u5E93",
+    cloudInstanceIcon: "\u8BB0\u5FC6\u4E91\u5B9E\u4F8B",
     cloudNowActive: "\u5F53\u524D\u5728\u7528\u4E91\u7AEF\uFF1A{url}",
     cloudKeptButInactive: "\u4E91\u7AEF\u6682\u4E0D\u53EF\u7528\uFF08{err}\uFF09\u2014\u2014 \u914D\u7F6E\u5DF2\u4FDD\u7559\uFF0C\u672A\u5207\u6362\uFF1B\u4FEE\u597D\u540E\u70B9\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u91CD\u8BD5",
     cloudNowLocal: "\u5F53\u524D\u5728\u7528\u672C\u5730\u8BB0\u5FC6\u5E93",
@@ -13360,7 +13359,7 @@
     cloudWriteModeBoth: "Both: cloud + local copy",
     peerTitle: "Pairing (MEM Pair)",
     peerSub: "Pair with another memory-eternal instance (e.g. the isolated mem-purge@7989) and exchange cards. First time needs confirmation; afterwards the pair code alone is enough",
-    peerMyCode: "My pair code",
+    peerMyCode: "LAN pair code (MEM Pair)",
     peerCopy: "Copy",
     peerCopied: "Copied",
     peerFp: "Fingerprint",
@@ -13614,6 +13613,19 @@
     cloudTestFail: "Connection failed",
     cloudLoginButton: "Sign in with MengBot",
     cloudLoginDone: "Signed in \xB7 {owner}",
+    pollWaitingTitle: "Waiting for browser sign-in",
+    pollIdleHint: "Click below to open the sign-in page in your system browser (QR / password / key)",
+    pollWaitingHint: "The sign-in page is open in your system browser (QR / password / key). The client picks up the token automatically \u2014 no copy-paste needed.",
+    pollReopen: "Reopen sign-in page",
+    pollNeedAuthorize: "Finish registration in the browser (set a password), then click Sign in again",
+    pollFailed: "Sign-in failed",
+    pairCodeLabel: "Connect a cloud vault with a matching code",
+    pairCodeHint: "Generate a pc_\u2026 code in the cloud console (/console); pasting it here connects directly \u2014 no token exchange needed.",
+    pairCodePlaceholder: "pc_\u2026",
+    pairConnect: "Connect",
+    pairInvalid: "Invalid matching code (must start with pc_)",
+    pairConnected: "Connected with matching code",
+    cloudInstanceIcon: "Memory Cloud instance",
     cloudNowActive: "Currently on cloud: {url}",
     cloudKeptButInactive: 'Cloud unavailable ({err}) \u2014 config kept, not switched. Fix it, then hit "Test connection"',
     cloudNowLocal: "Currently using the local vault",
@@ -17008,43 +17020,6 @@ ${COMPONENTS_CSS}
     return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
   }
   __name(formatExpiry, "formatExpiry");
-  function QrCode({ text, size = 128, label }) {
-    const qr = (0, import_react2.useMemo)(() => {
-      const v = String(text || "");
-      if (!v) return null;
-      try {
-        return makeQrMatrix(v);
-      } catch {
-        return null;
-      }
-    }, [text]);
-    if (!qr) return null;
-    const quiet = 4;
-    const dim = qr.size + quiet * 2;
-    const rects = [];
-    for (let r = 0; r < qr.size; r++) {
-      for (let c = 0; c < qr.size; c++) {
-        if (qr.modules[r][c]) rects.push(/* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: c + quiet, y: r + quiet, width: 1, height: 1 }, r + "-" + c));
-      }
-    }
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-      "svg",
-      {
-        width: size,
-        height: size,
-        viewBox: "0 0 " + dim + " " + dim,
-        role: "img",
-        "aria-label": label || "QR code",
-        shapeRendering: "crispEdges",
-        style: { background: "#fff", borderRadius: 8, display: "block", flex: "none" },
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: 0, y: 0, width: dim, height: dim, fill: "#fff" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("g", { fill: "#000", children: rects })
-        ]
-      }
-    );
-  }
-  __name(QrCode, "QrCode");
   var PanelErrorBoundary = class extends import_react2.default.Component {
     static {
       __name(this, "PanelErrorBoundary");
@@ -17213,7 +17188,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-19T20:00:34+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-19T21:45:08+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18251,7 +18226,10 @@ ${COMPONENTS_CSS}
               ) : null,
               cloudOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cloud-pop", role: "dialog", "aria-label": t("cloudSwitchHint"), children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cloud-pop-head", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: t("cloudSwitchTitle") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { style: { display: "inline-flex", alignItems: "center", gap: 7 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", { src: cloudInstanceIconUrl(String(cloudForm.url || cloudConn.url || cloudDomainsRef.memUrl)), alt: "", style: { width: 18, height: 18, borderRadius: 5 } }),
+                    t("cloudSwitchTitle")
+                  ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-cloud-pop-x", onClick: () => setCloudOpen(false), "aria-label": t("close"), children: "\u2715" })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-cloud-modes", children: [["local", t("cloudModeLocal"), t("cloudModeLocalHint")], ["cloud", t("cloudModeCloud"), t("cloudModeCloudHint")]].map(([m, label, hint]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
@@ -20352,23 +20330,34 @@ ${t("quoteHint")}`,
     const [deviceAuth, setDeviceAuth] = (0, import_react2.useState)(null);
     const [deviceErr, setDeviceErr] = (0, import_react2.useState)("");
     const [deviceBusy, setDeviceBusy] = (0, import_react2.useState)(false);
+    const pollLoginUrl = /* @__PURE__ */ __name((pollId) => {
+      const base = String(cloudForm && cloudForm.url || memUrl || "").trim().replace(/\/+$/, "");
+      if (!base) return "";
+      return base + "/memory-eternal/api/login?tab=qr&poll_id=" + encodeURIComponent(pollId);
+    }, "pollLoginUrl");
     const startPollLogin = /* @__PURE__ */ __name(async () => {
       setPollErr("");
-      const url = cloudApi2("/cloud/auth/poll/start");
-      if (!url) {
+      const base = String(cloudForm && cloudForm.url || memUrl || "").trim().replace(/\/+$/, "");
+      if (!/^https?:\/\//i.test(base)) {
         setPollErr(t("cloudUrlRequired"));
         return;
       }
       try {
-        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const r = await fetch(base + "/memory-eternal/api/cloud/auth/poll/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        });
         const d = await r.json().catch(() => ({}));
         if (!d.ok || !d.pollId) {
           setPollErr(d.error || "HTTP " + r.status);
           return;
         }
-        setPollAuth({ pollId: d.pollId, openedAt: Date.now(), interval: Number(d.interval) || 3, expiresIn: Number(d.expiresIn) || 600 });
+        const loginUrl = pollLoginUrl(d.pollId);
+        setPollAuth({ pollId: d.pollId, openedAt: Date.now(), interval: Number(d.interval) || 3, expiresIn: Number(d.expiresIn) || 600, url: loginUrl });
+        if (!String(cloudForm.url || "").trim()) setCloudForm((f) => ({ ...f, url: base }));
         try {
-          window.open(d.url, "_blank", "noopener,noreferrer");
+          await openExternal(loginUrl);
         } catch {
         }
       } catch (e) {
@@ -20379,6 +20368,63 @@ ${t("quoteHint")}`,
       setPollAuth(null);
       setPollErr("");
     }, "cancelPollLogin");
+    const [pairCode, setPairCode] = (0, import_react2.useState)("");
+    const [pairBusy, setPairBusy] = (0, import_react2.useState)(false);
+    const [pairErr, setPairErr] = (0, import_react2.useState)("");
+    const connectByPairCode = /* @__PURE__ */ __name(async () => {
+      setPairErr("");
+      const code = String(pairCode || "").trim();
+      if (!/^pc_[A-Za-z0-9._-]{6,}$/.test(code)) {
+        setPairErr(t("pairInvalid"));
+        return;
+      }
+      const base = String(cloudForm.url || memUrl || "").trim().replace(/\/+$/, "");
+      if (!/^https?:\/\//i.test(base)) {
+        setPairErr(t("cloudUrlInvalid"));
+        return;
+      }
+      setPairBusy(true);
+      try {
+        const h = await fetch(base + "/memory-eternal/api/cloud/health", {
+          signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0
+        }).then((r) => r.json()).catch(() => null);
+        if (!h || h.ok === false) {
+          setPairErr(t("cloudTestFail"));
+          return;
+        }
+        const prepared = persistCloud({ mode: "cloud", url: base, token: code });
+        if (!prepared.ok) {
+          setPairErr(t("cloudUrlInvalid"));
+          return;
+        }
+        const next = prepared.next;
+        activateCloud({ ...next, token: code });
+        try {
+          const w = await fetch(base + "/memory-eternal/api/cloud/whoami", {
+            headers: { Authorization: "Bearer " + code },
+            signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0
+          }).then((r) => r.json()).catch(() => null);
+          if (w && w.ok && w.owner) saveCloudConn({ ...readCloudConn(), owner: w.owner, profile: w.profile || null });
+        } catch {
+        }
+        setCloudForm((f) => ({ ...f, mode: "cloud", token: code, url: base }));
+        setCloudConn(readCloudConn());
+        try {
+          notify2(t("pairConnected"), true);
+        } catch {
+        }
+        setTimeout(() => {
+          try {
+            location.reload();
+          } catch {
+          }
+        }, 300);
+      } catch (e) {
+        setPairErr(String(e && e.message || e));
+      } finally {
+        setPairBusy(false);
+      }
+    }, "connectByPairCode");
     (0, import_react2.useEffect)(() => {
       if (!pollAuth || !pollAuth.pollId) return;
       let alive = true;
@@ -20412,10 +20458,15 @@ ${t("quoteHint")}`,
               setCloudTest({ ok: true, authenticated: true, owner: d.owner || "", profile: d.profile || null });
               setPollAuth(null);
               try {
-                notify2(t("deviceDone"), true);
+                notify2(t("cloudLoginDone").replace("{owner}", d.owner || "-"), true);
               } catch {
               }
             }
+            return;
+          }
+          if (d.needAuthorize) {
+            setPollErr(t("pollNeedAuthorize"));
+            setPollAuth(null);
             return;
           }
           if (d.pending) {
@@ -21033,13 +21084,10 @@ ${t("quoteHint")}`,
     }, [currentVaultKey, vaultList, cloudDataActive]);
     (0, import_react2.useEffect)(() => {
       if (cloudTab !== "cloud" || isConnected) return;
-      if (deviceAuth || deviceBusy) return;
       if (!String(cloudForm.url || "").trim()) {
         setCloudForm((f) => ({ ...f, url: memUrl }));
-        return;
       }
-      startDeviceLogin();
-    }, [cloudTab, isConnected, cloudForm.url]);
+    }, [cloudTab, isConnected, cloudForm.url, memUrl]);
     const uploadVaultToCloud = /* @__PURE__ */ __name(async (src) => {
       if (!src) {
         setImportJob({ importing: false, dir: "up", err: t("cfPickLocalVault") });
@@ -21553,15 +21601,10 @@ ${t("quoteHint")}`,
       } catch {
       }
     }, "loadCloudPlan");
-    const subscribeUrl = /* @__PURE__ */ __name(() => {
-      const plan = String(cloudPlan && cloudPlan.plan || "").toLowerCase().replace(/^memory-/, "");
-      const tlist = cloudPlan && cloudPlan.tiers && Array.isArray(cloudPlan.tiers.plans) ? cloudPlan.tiers.plans : [];
-      const hit = tlist.find((x) => x && String(x.plan || "").toLowerCase() === plan);
-      const sku = hit && hit.sku || (plan && plan !== "free" ? "sub-" + plan : "sub-personal");
-      const params = new URLSearchParams({ merchant: "memory-eternal", sku, source: "memory-eternal" });
-      const base = (cloudPayBase || "https://pay.mengbot.vip").replace(/\/+$/, "");
-      return base + "/subscribe?" + params.toString();
-    }, "subscribeUrl");
+    const consoleUrl = /* @__PURE__ */ __name(() => {
+      const base = String(cloudConn && cloudConn.url || cloudForm.url || "").trim().replace(/\/+$/, "");
+      return base ? base + "/memory-eternal/api/console" : "";
+    }, "consoleUrl");
     const importLocalToCloud = /* @__PURE__ */ __name(async () => {
       if (importJob && importJob.importing) return;
       importCancelRef.current = false;
@@ -21622,12 +21665,6 @@ ${t("quoteHint")}`,
       setCloudPlan(null);
       setCloudTest(null);
       setAcctOpen(false);
-      setTimeout(() => {
-        try {
-          startDeviceLogin();
-        } catch {
-        }
-      }, 0);
     }, "switchAccount");
     const useAccount = /* @__PURE__ */ __name((acc) => {
       if (!acc || !acc.token) return;
@@ -21650,6 +21687,12 @@ ${t("quoteHint")}`,
     }, "useAccount");
     const disconnectCloud = /* @__PURE__ */ __name(() => {
       const cur = readCloudConn();
+      try {
+        const base = String(cur && cur.url || cloudForm.url || "").trim().replace(/\/+$/, "");
+        if (base) fetch(base + "/memory-eternal/api/signout", { method: "POST", credentials: "include" }).catch(() => {
+        });
+      } catch {
+      }
       const cleared = {
         ...cur,
         mode: "local",
@@ -22730,6 +22773,10 @@ ${t("quoteHint")}`,
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelErrorBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AgentMcpMountCard, { t, form, set }) })
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-cloud"), id: "sec-cloud", icon: "\u{1F9EA}", title: t("cloudSection"), sub: t("cloudSectionSub"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(PanelErrorBoundary, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 2 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", { src: cloudInstanceIconUrl(String(cloudForm.url || memUrl)), alt: t("cloudInstanceIcon"), style: { width: 20, height: 20, borderRadius: 6 } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 11.5, opacity: 0.65 }, children: String(cloudForm.url || memUrl).replace(/^https?:\/\//, "") })
+                ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { marginTop: 10 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudWriteModeLabel") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: (form && form.cloudWriteMode) === "both" ? "both" : "cloud", onChange: (e) => set("cloudWriteMode", e.target.value), children: [
@@ -22749,6 +22796,7 @@ ${t("quoteHint")}`,
                         "aria-expanded": acctOpen,
                         style: { display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "13px 15px", background: "transparent", border: "none", cursor: "pointer", color: "inherit", font: "inherit" },
                         children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", { src: cloudInstanceIconUrl(String(cloudForm.url || cloudConn.url || memUrl)), alt: t("cloudInstanceIcon"), style: { width: 26, height: 26, borderRadius: 7, flex: "none" } }),
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                             AccountBadge,
                             {
@@ -22822,10 +22870,12 @@ ${t("quoteHint")}`,
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10, opacity: 0.4, marginTop: 5, lineHeight: 1.6 }, children: t("planTiersPriceNote") })
                       ] }) : null,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", onClick: () => {
-                        try {
-                          window.open(subscribeUrl(), "_blank", "noopener");
-                        } catch {
+                        const u = consoleUrl();
+                        if (!u) {
+                          notify2(t("cloudUrlRequired"), false);
+                          return;
                         }
+                        openExternal(u);
                       }, style: { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "var(--me-c-accent, #2563eb)", font: "inherit", fontSize: 12.5 }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("managePlan") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.5 }, children: "\u2197" })
@@ -22861,47 +22911,25 @@ ${t("quoteHint")}`,
                       }, style: { display: "block", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "var(--me-c-danger, #dc2626)", font: "inherit", fontSize: 12.5 }, children: t("cloudSignOut") })
                     ] }) : null
                   ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                    deviceAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap", border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "16px 18px", background: "var(--me-c-surface)" }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QrCode, { text: deviceAuth.verificationUriComplete || deviceAuth.verificationUri, size: 124, label: t("deviceQrLabel") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 9, minWidth: 0, flex: 1 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t("qrLogin") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, color: "var(--me-c-text-dim)" }, children: t("qrScanHint") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                          "button",
-                          {
-                            type: "button",
-                            onClick: () => {
-                              try {
-                                navigator.clipboard.writeText(deviceAuth.userCode);
-                                notify2(t("deviceCopied"), true);
-                              } catch {
-                              }
-                            },
-                            title: t("deviceCopy"),
-                            style: { alignSelf: "flex-start", fontFamily: "ui-monospace,Consolas,monospace", fontSize: 21, fontWeight: 700, letterSpacing: 2.5, padding: 0, background: "none", border: "none", color: "inherit", cursor: "pointer" },
-                            children: deviceAuth.userCode
-                          }
-                        ),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", onClick: () => {
-                          try {
-                            window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, "_blank", "noopener");
-                          } catch {
-                          }
-                        }, children: t("qrOpen") }) }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, opacity: 0.45 }, children: [
-                          "\u23F3 ",
-                          t("qrWaiting")
-                        ] }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, lineHeight: 1.6, opacity: 0.5, display: "flex", gap: 5, alignItems: "flex-start" }, children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: "none" }, children: "\u26A0" }),
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("qrSecurityHint") })
-                        ] })
+                    pollAuth ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "18px 20px", background: "var(--me-c-surface)" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 600, marginBottom: 6 }, children: t("pollWaitingTitle") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, color: "var(--me-c-text-dim)", lineHeight: 1.7 }, children: t("pollWaitingHint") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", onClick: () => {
+                          const u = pollAuth.url || pollLoginUrl(pollAuth.pollId);
+                          if (u) openExternal(u);
+                        }, children: t("pollReopen") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: cancelPollLogin, children: t("cancel") })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, opacity: 0.45, marginTop: 8 }, children: [
+                        "\u23F3 ",
+                        t("qrWaiting")
                       ] })
                     ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, padding: "22px 20px", textAlign: "center", background: "var(--me-c-surface)" }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, opacity: 0.7, marginBottom: 12 }, children: deviceBusy ? t("deviceStarting") : t("deviceIdleHint") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: deviceBusy, onClick: startDeviceLogin, children: t("cloudLoginButton") })
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, opacity: 0.7, marginBottom: 12 }, children: t("pollIdleHint") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: startPollLogin, children: t("cloudLoginButton") })
                     ] }),
-                    deviceErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: deviceErr }) : null,
+                    pollErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: pollErr }) : null,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => setShowKeyField((v) => !v), style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "var(--me-c-text-dim)", textDecoration: "underline" }, children: showKeyField ? t("cloudHideKey") : t("cloudManualConfig") }) }),
                     showKeyField ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
@@ -22917,7 +22945,16 @@ ${t("quoteHint")}`,
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: cloudBusy, onClick: saveCloud, children: t("cloudSave") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: cloudBusy, onClick: testCloud, children: cloudBusy ? "\u23F3" : t("cloudTestBtn") })
                       ] })
-                    ] }) : null
+                    ] }) : null,
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--me-c-border)" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("pairCodeLabel") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: pairCode, onChange: (e) => setPairCode(e.target.value), placeholder: t("pairCodePlaceholder"), style: { flex: 1 } }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: pairBusy, onClick: connectByPairCode, children: pairBusy ? t("loading") : t("pairConnect") })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("pairCodeHint") }),
+                      pairErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: pairErr }) : null
+                    ] }) })
                   ] }),
                   isConnected && localVault ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "9px 11px", background: "var(--me-c-surface)" }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.6, marginBottom: 3 }, children: isCloudInstance ? t("cloudVaultLabel") : t("localVaultLabel") }),

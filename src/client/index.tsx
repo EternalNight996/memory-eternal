@@ -605,6 +605,12 @@ async function openExternal(url) {
   //    于是每点一次「Web 版」弹两个标签页（用户报的就是这个）。现在只走 anchor。
   return openViaAnchor(url)
 }
+
+/** 云端实例的官方图标（客户端改造 R5）：<base>/memory-eternal/api/icon.png */
+function cloudInstanceIconUrl(base) {
+  const b = String(base || '').trim().replace(/\/+$/, '')
+  return b ? b + '/memory-eternal/api/icon.png' : ''
+}
 // 真分页页大小：首屏只拉一页（服务端 offset/limit），滚到底再续拉下一页
 const PAGE_SIZE = 100
 
@@ -1171,7 +1177,7 @@ export const ZH = {
   cloudWriteModeBoth: '双写：云端 + 本机各一份',
   peerTitle: '互相配对（MEM Pair）',
   peerSub: '和另一个 memory-eternal 实例（如隔离运营的 mem-purge@7989）配对后互相传卡；首次要对方确认，之后只凭匹配码就能重连',
-  peerMyCode: '我的匹配码',
+  peerMyCode: '局域网配对码（MEM Pair）',
   peerCopy: '复制',
   peerCopied: '已复制',
   peerFp: '指纹',
@@ -1457,6 +1463,19 @@ export const ZH = {
   cloudTestFail: '连接失败',
   cloudLoginButton: '用 MengBot 账号登录',
   cloudLoginDone: '已登录 · {owner}',
+  pollWaitingTitle: '等待浏览器登录',
+  pollIdleHint: '点下面的按钮，用系统浏览器打开登录页（扫码 / 密码 / 密钥）',
+  pollWaitingHint: '已用系统浏览器打开登录页（扫码 / 密码 / 密钥均可）。完成后客户端会自动拿到令牌，无需手动复制。',
+  pollReopen: '重新打开登录页',
+  pollNeedAuthorize: '请在浏览器里完成注册（补设密码），完成后重新点一次「登录」',
+  pollFailed: '登录失败',
+  pairCodeLabel: '凭匹配码连接云端库',
+  pairCodeHint: '在云端控制台 /console 生成 pc_ 开头的匹配码；填进来即可直接连接，无需再换令牌',
+  pairCodePlaceholder: 'pc_…',
+  pairConnect: '连接',
+  pairInvalid: '匹配码格式不对（应以 pc_ 开头）',
+  pairConnected: '已用匹配码连接云端库',
+  cloudInstanceIcon: '记忆云实例',
   cloudNowActive: '当前在用云端：{url}',
   cloudKeptButInactive: '云端暂不可用（{err}）—— 配置已保留，未切换；修好后点「测试连接」重试',
   cloudNowLocal: '当前在用本地记忆库',
@@ -2697,7 +2716,7 @@ export const EN = {
   cloudWriteModeBoth: 'Both: cloud + local copy',
   peerTitle: 'Pairing (MEM Pair)',
   peerSub: 'Pair with another memory-eternal instance (e.g. the isolated mem-purge@7989) and exchange cards. First time needs confirmation; afterwards the pair code alone is enough',
-  peerMyCode: 'My pair code',
+  peerMyCode: 'LAN pair code (MEM Pair)',
   peerCopy: 'Copy',
   peerCopied: 'Copied',
   peerFp: 'Fingerprint',
@@ -2952,6 +2971,19 @@ export const EN = {
   cloudTestFail: 'Connection failed',
   cloudLoginButton: 'Sign in with MengBot',
   cloudLoginDone: 'Signed in · {owner}',
+  pollWaitingTitle: 'Waiting for browser sign-in',
+  pollIdleHint: 'Click below to open the sign-in page in your system browser (QR / password / key)',
+  pollWaitingHint: 'The sign-in page is open in your system browser (QR / password / key). The client picks up the token automatically — no copy-paste needed.',
+  pollReopen: 'Reopen sign-in page',
+  pollNeedAuthorize: 'Finish registration in the browser (set a password), then click Sign in again',
+  pollFailed: 'Sign-in failed',
+  pairCodeLabel: 'Connect a cloud vault with a matching code',
+  pairCodeHint: 'Generate a pc_… code in the cloud console (/console); pasting it here connects directly — no token exchange needed.',
+  pairCodePlaceholder: 'pc_…',
+  pairConnect: 'Connect',
+  pairInvalid: 'Invalid matching code (must start with pc_)',
+  pairConnected: 'Connected with matching code',
+  cloudInstanceIcon: 'Memory Cloud instance',
   cloudNowActive: 'Currently on cloud: {url}',
   cloudKeptButInactive: 'Cloud unavailable ({err}) — config kept, not switched. Fix it, then hit "Test connection"',
   cloudNowLocal: 'Currently using the local vault',
@@ -7767,7 +7799,10 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
             {cloudOpen && (
               <div className="mc-cloud-pop" role="dialog" aria-label={t('cloudSwitchHint')}>
                 <div className="mc-cloud-pop-head">
-                  <b>{t('cloudSwitchTitle')}</b>
+                  <b style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                    <img src={cloudInstanceIconUrl(String(cloudForm.url || cloudConn.url || cloudDomainsRef.memUrl))} alt="" style={{ width: 18, height: 18, borderRadius: 5 }} />
+                    {t('cloudSwitchTitle')}
+                  </b>
                   <button type="button" className="mc-cloud-pop-x" onClick={() => setCloudOpen(false)} aria-label={t('close')}>✕</button>
                 </div>
                 <div className="mc-cloud-modes">
@@ -9780,25 +9815,75 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    *   ② 浏览器回跳我们的 callback（服务端换好令牌存进票仓）→ 这里轮询取走
    * 对用户就是「点一下 → 浏览器授权 → 回来已经登录」。
    */
+  /** 登录页地址：带客户端签发的 poll_id（服务端已支持同一张票复用）。 */
+  const pollLoginUrl = (pollId) => {
+    const base = String((cloudForm && cloudForm.url) || memUrl || '').trim().replace(/\/+$/, '')
+    if (!base) return ''
+    return base + '/memory-eternal/api/login?tab=qr&poll_id=' + encodeURIComponent(pollId)
+  }
   const startPollLogin = async () => {
     setPollErr('')
-    const url = cloudApi('/cloud/auth/poll/start')
-    if (!url) { setPollErr(t('cloudUrlRequired')); return }
+    const base = String((cloudForm && cloudForm.url) || memUrl || '').trim().replace(/\/+$/, '')
+    if (!/^https?:\/\//i.test(base)) { setPollErr(t('cloudUrlRequired')); return }
     try {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      const r = await fetch(base + '/memory-eternal/api/cloud/auth/poll/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      })
       const d = await r.json().catch(() => ({}))
       if (!d.ok || !d.pollId) {
         setPollErr(d.error || ('HTTP ' + r.status))
         return
       }
-      setPollAuth({ pollId: d.pollId, openedAt: Date.now(), interval: Number(d.interval) || 3, expiresIn: Number(d.expiresIn) || 600 })
-      // 打开浏览器。Electron 里 window.open 可能被拦，所以同时把 URL 存起来给用户手动点。
-      try { window.open(d.url, '_blank', 'noopener,noreferrer') } catch { /* 忽略 */ }
+      const loginUrl = pollLoginUrl(d.pollId)
+      setPollAuth({ pollId: d.pollId, openedAt: Date.now(), interval: Number(d.interval) || 3, expiresIn: Number(d.expiresIn) || 600, url: loginUrl })
+      if (!String(cloudForm.url || '').trim()) setCloudForm((f) => ({ ...f, url: base }))
+      // R1：改用**系统浏览器**打开登录页（Electron 里 window.open 常被拦），且带上客户端自己的票。
+      try { await openExternal(loginUrl) } catch { /* 忽略 */ }
     } catch (e) {
       setPollErr(String((e && e.message) || e))
     }
   }
   const cancelPollLogin = () => { setPollAuth(null); setPollErr('') }
+  // R4：云端库匹配码（pc_…）。服务端已认它直接当 Bearer 用（/cards 200），不需要再换票。
+  const [pairCode, setPairCode] = useState('')
+  const [pairBusy, setPairBusy] = useState(false)
+  const [pairErr, setPairErr] = useState('')
+  const connectByPairCode = async () => {
+    setPairErr('')
+    const code = String(pairCode || '').trim()
+    if (!/^pc_[A-Za-z0-9._-]{6,}$/.test(code)) { setPairErr(t('pairInvalid')); return }
+    const base = String((cloudForm.url || memUrl || '')).trim().replace(/\/+$/, '')
+    if (!/^https?:\/\//i.test(base)) { setPairErr(t('cloudUrlInvalid')); return }
+    setPairBusy(true)
+    try {
+      // 先探活（公开 health），避免把前缀切到一个连不上的地址
+      const h = await fetch(base + '/memory-eternal/api/cloud/health', {
+        signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
+      }).then((r) => r.json()).catch(() => null)
+      if (!h || h.ok === false) { setPairErr(t('cloudTestFail')); return }
+      const prepared = persistCloud({ mode: 'cloud', url: base, token: code })
+      if (!prepared.ok) { setPairErr(t('cloudUrlInvalid')); return }
+      const next = prepared.next
+      activateCloud({ ...next, token: code })
+      // 尽力取 owner（pc_ 不保证 whoami 可读；失败不影响「已连接」）
+      try {
+        const w = await fetch(base + '/memory-eternal/api/cloud/whoami', {
+          headers: { Authorization: 'Bearer ' + code },
+          signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
+        }).then((r) => r.json()).catch(() => null)
+        if (w && w.ok && w.owner) saveCloudConn({ ...readCloudConn(), owner: w.owner, profile: w.profile || null })
+      } catch { /* 忽略 */ }
+      setCloudForm((f) => ({ ...f, mode: 'cloud', token: code, url: base }))
+      setCloudConn(readCloudConn())
+      try { notify(t('pairConnected'), true) } catch { /* 忽略 */ }
+      // 切前缀后整页重载最干净（与 saveCloud 相同）
+      setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 300)
+    } catch (e) {
+      setPairErr(String((e && e.message) || e))
+    } finally {
+      setPairBusy(false)
+    }
+  }
   /** 轮询取票：拿到就落盘并激活（与手动填密钥同一条下游）。 */
   useEffect(() => {
     if (!pollAuth || !pollAuth.pollId) return
@@ -9822,8 +9907,14 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
             setCloudForm((f) => ({ ...f, mode: 'cloud', token: d.token }))
             setCloudTest({ ok: true, authenticated: true, owner: d.owner || '', profile: d.profile || null })
             setPollAuth(null)
-            try { notify(t('deviceDone'), true) } catch { /* 忽略 */ }
+            try { notify(t('cloudLoginDone').replace('{owner}', d.owner || '-'), true) } catch { /* 忽略 */ }
           }
+          return
+        }
+        // R2：浏览器侧判定需要补注册（补设密码）—— 不是失败，提示用户回浏览器完成
+        if (d.needAuthorize) {
+          setPollErr(t('pollNeedAuthorize'))
+          setPollAuth(null)
           return
         }
         if (d.pending) { timer = setTimeout(tick, interval); return }
@@ -10395,14 +10486,11 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    */
   useEffect(() => {
     if (cloudTab !== 'cloud' || isConnected) return
-    if (deviceAuth || deviceBusy) return
     if (!String(cloudForm.url || '').trim()) {
       setCloudForm((f) => ({ ...f, url: memUrl }))
-      return
     }
-    startDeviceLogin()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cloudTab, isConnected, cloudForm.url])
+    // R1：不再自动发起设备码登录；等用户点「用 MengBot 账号登录」再开系统浏览器（避免未经点击弹窗/开浏览器）
+  }, [cloudTab, isConnected, cloudForm.url, memUrl])
 
   /**
    * 拉套餐信息（已连接时展示）。失败静默 —— 它只是锦上添花，不该影响连接状态。
@@ -10910,21 +10998,14 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    * 分片 200 张/批：单批约 3 MB，内存恒定，中断后重跑代价小。
    */
   /** 订阅/续费深链（MengBot 的 subscribe 页，source 必须是 memory-eternal 才记账）。 */
-  const subscribeUrl = () => {
-    // 这里的「续费/升级」是**记忆云**的订阅，不是 MengBot 客户端的三档。
-    // 所以：① 必须带 merchant=memory-eternal（订阅页靠它切到记忆云视图）；② SKU 用 sub-memory-*，
-    // 不能拼成 sub-pro —— 那是客户端 Pro，用户点进来会以为买错东西。
-    const plan = String((cloudPlan && cloudPlan.plan) || '').toLowerCase().replace(/^memory-/, '')
-    // ⚠ SKU 必须用 /api/pricing 返回的原值：sub-memory-* 系列已被 MengBot 停用，
-    // 传过去会得到「未知 SKU」。拿不到下拉列表时才回退到通用三档的拼法。
-    const tlist = (cloudPlan && cloudPlan.tiers && Array.isArray(cloudPlan.tiers.plans)) ? cloudPlan.tiers.plans : []
-    const hit = tlist.find((x) => x && String(x.plan || '').toLowerCase() === plan)
-    const sku = (hit && hit.sku) || (plan && plan !== 'free' ? 'sub-' + plan : 'sub-personal')
-    const params = new URLSearchParams({ merchant: 'memory-eternal', sku, source: 'memory-eternal' })
-    // 跟随当前云端实例：服务端下发的 payBase 优先（自建/另一个官方实例不能指向别人的订阅页）
-    const base = (cloudPayBase || 'https://pay.mengbot.vip').replace(/\/+$/, '')
-    return base + '/subscribe?' + params.toString()
+  /** R6：不要在客户端拼订阅深链（缺 merchant 会落空白页）——直接开服务端控制台，深链由它给出。 */
+  const consoleUrl = () => {
+    const base = String((cloudConn && cloudConn.url) || cloudForm.url || '').trim().replace(/\/+$/, '')
+    return base ? base + '/memory-eternal/api/console' : ''
   }
+
+  // 旧版 subscribeUrl() 已删除：R6 要求不要在客户端拼订阅深链（缺 merchant 会落空白页），
+  // 「升级 / 续费」统一打开服务端控制台（consoleUrl()），深链由控制台给出。
 
   const importLocalToCloud = async () => {
     if (importJob && importJob.importing) return
@@ -10988,8 +11069,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     setCloudPlan(null)
     setCloudTest(null)
     setAcctOpen(false)
-    // 下一帧再发起：让 isConnected 先翻成 false，否则设备码面板不会渲染
-    setTimeout(() => { try { startDeviceLogin() } catch { /* 忽略 */ } }, 0)
+    // 不再自动发起设备码登录：登录按钮会走 poll + 系统浏览器（R1）
   }
 
   /** 直接切到台账里的另一个账号（不重新登录）。 */
@@ -11012,6 +11092,11 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     //（"临时回本地、之后还能切回云端"）。而「切换账号」的语义是**真断开**，
     // 必须把令牌彻底清掉，否则重开面板又变回已登录（用户实测踩到）。
     const cur = readCloudConn()
+    // R3：通知服务端注销（cookie 会话）；网络失败也照常清本地令牌
+    try {
+      const base = String((cur && cur.url) || cloudForm.url || '').trim().replace(/\/+$/, '')
+      if (base) fetch(base + '/memory-eternal/api/signout', { method: 'POST', credentials: 'include' }).catch(() => {})
+    } catch { /* 忽略 */ }
     const cleared = {
       ...cur,
       mode: 'local',
@@ -12060,6 +12145,10 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
               {/* 局部兜底：云端面板依赖的东西最多（localStorage / fetch / 本地库路径），
                   它自己崩了不该让整页设置打不开。这里再包一层，崩了只影响这一块。 */}
               <PanelErrorBoundary>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                <img src={cloudInstanceIconUrl(String(cloudForm.url || memUrl))} alt={t('cloudInstanceIcon')} style={{ width: 20, height: 20, borderRadius: 6 }} />
+                <span style={{ fontSize: 11.5, opacity: 0.65 }}>{String(cloudForm.url || memUrl).replace(/^https?:\/\//, '')}</span>
+              </div>
               {/* 自动沉淀写哪里（v0.48.3）：云端模式下默认只写云端，避免本机库继续长碎片卡 */}
               <label className="mc-field" style={{ marginTop: 10 }}>
                 <span className="mc-field-label">{t('cloudWriteModeLabel')}</span>
@@ -12083,6 +12172,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                         aria-expanded={acctOpen}
                         style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '13px 15px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit' }}
                       >
+                        <img src={cloudInstanceIconUrl(String(cloudForm.url || cloudConn.url || memUrl))} alt={t('cloudInstanceIcon')} style={{ width: 26, height: 26, borderRadius: 7, flex: 'none' }} />
                         <AccountBadge
                           owner={cloudIdentity.owner || ''}
                           profile={cloudIdentity.profile || null}
@@ -12145,7 +12235,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                     <div style={{ fontSize: 10, opacity: 0.4, marginTop: 5, lineHeight: 1.6 }}>{t('planTiersPriceNote')}</div>
                   </div>
                 ) : null}
-                <button type="button" onClick={() => { try { window.open(subscribeUrl(), '_blank', 'noopener') } catch { /* 忽略 */ } }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
+                <button type="button" onClick={() => { const u = consoleUrl(); if (!u) { notify(t('cloudUrlRequired'), false); return } openExternal(u) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
                             <span>{t('managePlan')}</span><span style={{ opacity: 0.5 }}>↗</span>
                           </button>
                           {/* 其他账号：台账里除当前账号外的，点一下直接切（不用重新扫码） */}
@@ -12186,38 +12276,23 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                   ) : (
                     <>
                     {/* 极简：二维码优先；地址与密钥收进「手动配置」，普通用户看不到 */}
-                    {deviceAuth ? (
-                      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '16px 18px', background: 'var(--me-c-surface)' }}>
-                        <QrCode text={deviceAuth.verificationUriComplete || deviceAuth.verificationUri} size={124} label={t('deviceQrLabel')} />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 14, fontWeight: 600 }}>{t('qrLogin')}</div>
-                          <div style={{ fontSize: 11.5, color: 'var(--me-c-text-dim)' }}>{t('qrScanHint')}</div>
-                          {/* 码本身可点复制 —— 少一个按钮就少一份视觉噪音 */}
-                          <button
-                            type="button"
-                            onClick={() => { try { navigator.clipboard.writeText(deviceAuth.userCode); notify(t('deviceCopied'), true) } catch { /* 忽略 */ } }}
-                            title={t('deviceCopy')}
-                            style={{ alignSelf: 'flex-start', fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 21, fontWeight: 700, letterSpacing: 2.5, padding: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
-                          >
-                            {deviceAuth.userCode}
-                          </button>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-      <Btn variant="primary" size="sm" onClick={() => { try { window.open(deviceAuth.verificationUriComplete || deviceAuth.verificationUri, '_blank', 'noopener') } catch { /* 忽略 */ } }}>{t('qrOpen')}</Btn>
-    </div>
-                          <div style={{ fontSize: 11, opacity: 0.45 }}>⏳ {t('qrWaiting')}</div>
-            <div style={{ fontSize: 10.5, lineHeight: 1.6, opacity: 0.5, display: 'flex', gap: 5, alignItems: 'flex-start' }}>
-              <span style={{ flex: 'none' }}>⚠</span>
-              <span>{t('qrSecurityHint')}</span>
-            </div>
+                    {pollAuth ? (
+                      <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '18px 20px', background: 'var(--me-c-surface)' }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{t('pollWaitingTitle')}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--me-c-text-dim)', lineHeight: 1.7 }}>{t('pollWaitingHint')}</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                          <Btn variant="primary" size="sm" onClick={() => { const u = pollAuth.url || pollLoginUrl(pollAuth.pollId); if (u) openExternal(u) }}>{t('pollReopen')}</Btn>
+                          <Btn variant="ghost" size="sm" onClick={cancelPollLogin}>{t('cancel')}</Btn>
                         </div>
+                        <div style={{ fontSize: 11, opacity: 0.45, marginTop: 8 }}>⏳ {t('qrWaiting')}</div>
                       </div>
                     ) : (
                       <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 12, padding: '22px 20px', textAlign: 'center', background: 'var(--me-c-surface)' }}>
-                        <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 12 }}>{deviceBusy ? t('deviceStarting') : t('deviceIdleHint')}</div>
-                        <Btn variant="primary" size="sm" disabled={deviceBusy} onClick={startDeviceLogin}>{t('cloudLoginButton')}</Btn>
+                        <div style={{ fontSize: 12.5, opacity: 0.7, marginBottom: 12 }}>{t('pollIdleHint')}</div>
+                        <Btn variant="primary" size="sm" disabled={cloudBusy} onClick={startPollLogin}>{t('cloudLoginButton')}</Btn>
                       </div>
                     )}
-                    {deviceErr ? <Status tone="bad" text={deviceErr} /> : null}
+                    {pollErr ? <Status tone="bad" text={pollErr} /> : null}
                     <div>
                       <button type="button" onClick={() => setShowKeyField((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--me-c-text-dim)', textDecoration: 'underline' }}>
                         {showKeyField ? t('cloudHideKey') : t('cloudManualConfig')}
@@ -12240,6 +12315,18 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                         </div>
                       </div>
                     ) : null}
+                    {/* R4：库匹配码（pc_…）与 MEM Pair 的匹配码是两套东西，标签写清楚 */}
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--me-c-border)' }}>
+                      <label className="mc-field">
+                        <span className="mc-field-label">{t('pairCodeLabel')}</span>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input value={pairCode} onChange={(e) => setPairCode(e.target.value)} placeholder={t('pairCodePlaceholder')} style={{ flex: 1 }} />
+                          <Btn variant="secondary" size="sm" disabled={pairBusy} onClick={connectByPairCode}>{pairBusy ? t('loading') : t('pairConnect')}</Btn>
+                        </div>
+                        <span className="mc-field-hint">{t('pairCodeHint')}</span>
+                        {pairErr ? <Status tone="bad" text={pairErr} /> : null}
+                      </label>
+                    </div>
                     </>
                   )}
                   {/* 登录之后才显示下面这些（账号卡/库位置/传输区）：没登录时这里只有登录入口，
