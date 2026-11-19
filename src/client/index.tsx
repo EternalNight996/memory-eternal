@@ -734,6 +734,7 @@ export const ZH = {
   skillsScanned: '扫描',
   skillsCreated: '新增',
   skillsUpdated: '更新',
+  skillsRefreshed: '位置更新',
   skillsPendingUpdates: '待审更新',
   skillsSyncFail: '技能卡同步失败',
   skillUpdatesFound: '发现技能新版本',
@@ -741,8 +742,12 @@ export const ZH = {
   skillUpdatesReview: '去审核',
   skillUpdatesLater: '稍后',
   skillUpdatesContentChanged: '同版本内容有变化',
+  skillUpdatesDiff: '正文 +{added} / -{removed} 行',
   skillUpdatesNoVersion: '未标注版本',
   skillUpdatesNeedReview: '有技能更新待审核',
+  auditDiffTitle: '修改对比（原文 → 修改）',
+  auditDiffSame: '内容没有变化（只改了元数据）',
+  auditDiffMore: '…还有 {n} 行',
   cardsTab: '知识卡',
   webTab: 'Web 版',
   webOpening: '正在用默认浏览器打开 Web 版…',
@@ -2248,6 +2253,7 @@ export const EN = {
   skillsScanned: 'scanned',
   skillsCreated: 'created',
   skillsUpdated: 'updated',
+  skillsRefreshed: 'relocated',
   skillsPendingUpdates: 'pending updates',
   skillsSyncFail: 'Skill sync failed',
   skillUpdatesFound: 'Skill updates found',
@@ -2255,7 +2261,11 @@ export const EN = {
   skillUpdatesReview: 'Review now',
   skillUpdatesLater: 'Later',
   skillUpdatesContentChanged: 'Content changed at the same version',
+  skillUpdatesDiff: 'Body +{added} / -{removed} lines',
   skillUpdatesNoVersion: 'No version',
+  auditDiffTitle: 'Changes (original → revision)',
+  auditDiffSame: 'No content change (metadata only)',
+  auditDiffMore: '…{n} more lines',
   skillUpdatesNeedReview: 'skill updates need review',
   cardsTab: 'Cards',
   webTab: 'Web version',
@@ -7567,7 +7577,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         const msg = t('skillsSyncDone') + ' · ' + t('skillsScanned') + ' ' + (r.total || 0) +
           ' · ' + t('skillsCreated') + ' ' + (r.created || 0) +
           ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) +
-          ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0)
+          ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0) +
+          (r.refreshed ? ' · ' + t('skillsRefreshed') + ' ' + r.refreshed : '')
         setLibToast({ ok: true, msg })
         if (Array.isArray(r.updates) && r.updates.length) setSkillReview({ updates: r.updates })
         await loadAll()
@@ -7795,12 +7806,23 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 const from = u.fromVersion || t('skillUpdatesNoVersion')
                 const to = u.toVersion || t('skillUpdatesNoVersion')
                 const same = from === to
+                const ch = u.changed || {}
+                const detail = [
+                  same ? '' : from + ' → ' + to,
+                  ch.contentChanged ? t('skillUpdatesDiff').replace('{added}', String(ch.added || 0)).replace('{removed}', String(ch.removed || 0)) : '',
+                ].filter(Boolean).join(' · ') || t('skillUpdatesContentChanged')
                 return (
-                  <div key={(u.path || u.name || '') + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--dsw-alias-border-l1, #e5e7eb)' }}>
+                  <div key={(u.path || u.name || '') + i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--dsw-alias-border-l1, #e5e7eb)' }}>
                     <span style={{ flex: 'none', padding: '1px 7px', borderRadius: 999, background: 'rgba(139,92,246,.14)', color: '#8b5cf6', fontSize: 10.5, fontWeight: 700 }}>skill</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <b style={{ display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</b>
-                      <span style={{ fontSize: 10.5, opacity: .65 }}>{same ? t('skillUpdatesContentChanged') : from + ' → ' + to}</span>
+                      <span style={{ display: 'block', fontSize: 10.5, opacity: .65 }}>{detail}</span>
+                      {ch.contentChanged && (ch.sampleOld || ch.sampleNew) && (
+                        <div style={{ marginTop: 4, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 10.5, lineHeight: 1.55, wordBreak: 'break-word' }}>
+                          {ch.sampleOld ? <div style={{ color: '#f87171' }}>- {ch.sampleOld}</div> : null}
+                          {ch.sampleNew ? <div style={{ color: '#34d399' }}>+ {ch.sampleNew}</div> : null}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
@@ -11530,7 +11552,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       if (Array.isArray(r.updates) && r.updates.length) {
                         try { window.dispatchEvent(new CustomEvent('me-skill-updates', { detail: { updates: r.updates } })) } catch { /* 非浏览器环境忽略 */ }
                       }
-                      notify(t('skillsSyncDone') + '：' + t('skillsScanned') + ' ' + (r.total || 0) + ' · ' + t('skillsCreated') + ' ' + (r.created || 0) + ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) + ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0) + (r.pendingUpdates || r.updated ? ' · ' + t('skillUpdatesNeedReview') : ''))
+                      notify(t('skillsSyncDone') + '：' + t('skillsScanned') + ' ' + (r.total || 0) + ' · ' + t('skillsCreated') + ' ' + (r.created || 0) + ' · ' + t('skillsUpdated') + ' ' + (r.updated || 0) + ' · ' + t('skillsPendingUpdates') + ' ' + (r.pendingUpdates || 0) + (r.refreshed ? ' · ' + t('skillsRefreshed') + ' ' + r.refreshed : '') + (r.pendingUpdates || r.updated ? ' · ' + t('skillUpdatesNeedReview') : ''))
                     } else notify((r && r.error) || t('skillsSyncFail'), false)
                   } catch (e) { notify(t('skillsSyncFail'), false) } finally { setBusy('') }
                 }}>{busy === 'skills' ? t('syncingSkills') : t('syncSkills')}</button>
@@ -12790,6 +12812,8 @@ function AuditPanel({ t, onReload, version }) {
   // issue #27：审核中心过去只列标题，看不到正文、只能盲批。
   // 现在点击队列行直接更新右侧判词面板，正文按需拉取；不再用行内展开/弹窗。
   const [bodies, setBodies] = useState({})
+  // 修改副本（revision）的原文正文：按需拉取，用于「原文 → 修改」对比
+  const [originals, setOriginals] = useState({})
   const bodyState = (p) => bodies[p] || {}
   const toggled = [...sel]
   const previewCard = items.find((c) => c.path === previewPath) || items[0] || null
@@ -12813,6 +12837,17 @@ function AuditPanel({ t, onReload, version }) {
     if (!c || bodies[c.path]) return
     fetchBody(c, c.status || (tab === 'pending' ? 'pending' : 'rejected'))
   }, [previewCard && previewCard.path, tab])
+  // 修改副本：拉原卡正文做 diff。拿不到也不阻塞审批（显示「对比不可用」）。
+  const originalTarget = previewCard && previewCard.revision && previewCard.revision.targetPath
+  useEffect(() => {
+    if (!originalTarget || originals[originalTarget]) return
+    let alive = true
+    fetch(`${API}/card?path=${encodeURIComponent(originalTarget)}&status=approved`)
+      .then((x) => x.json())
+      .then((r) => { if (alive) setOriginals((o) => ({ ...o, [originalTarget]: r && r.ok ? { text: r.text || '' } : { error: (r && r.error) || 'HTTP' } })) })
+      .catch((e) => { if (alive) setOriginals((o) => ({ ...o, [originalTarget]: { error: String((e && e.message) || e) } })) })
+    return () => { alive = false }
+  }, [originalTarget])
   const reclassify = async () => {
     if (!window.confirm(t('reclassify') + '？只处理自动沉淀的待审原文卡，不改人工卡。')) return
     setBusy('reclassify')
@@ -12996,6 +13031,25 @@ function AuditPanel({ t, onReload, version }) {
                         extra={<span style={{ fontSize: 11, opacity: 0.75 }}>{t('auditBodyFailHint')}</span>}
                       />
                     )}
+                    {originalTarget && previewSt.text != null && (() => {
+                      const orig = originals[originalTarget]
+                      if (!orig || orig.text == null) return null
+                      const before = stripRepeatedTitle(splitFrontmatter(orig.text).body, previewCard.title)
+                      const after = stripRepeatedTitle(splitFrontmatter(previewSt.text).body, previewCard.title)
+                      const d = lineDiff(before, after)
+                      const row = { padding: '0 9px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }
+                      return (
+                        <div style={{ margin: '0 0 10px', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)', borderRadius: 8, overflow: 'hidden' }}>
+                          <div style={{ padding: '6px 9px', fontSize: 11, fontWeight: 700, opacity: .72, background: 'rgba(139,92,246,.08)' }}>{t('auditDiffTitle')}</div>
+                          <div style={{ maxHeight: 220, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 11.5, lineHeight: 1.55 }}>
+                            {d.same && <div style={{ ...row, opacity: .6 }}>{t('auditDiffSame')}</div>}
+                            {d.removed.map((line, i) => <div key={'d-r-' + i} style={{ ...row, color: '#f87171', background: 'rgba(239,68,68,.08)' }}>- {line}</div>)}
+                            {d.added.map((line, i) => <div key={'d-a-' + i} style={{ ...row, color: '#34d399', background: 'rgba(34,197,94,.10)' }}>+ {line}</div>)}
+                            {d.more > 0 && <div style={{ ...row, opacity: .6 }}>{t('auditDiffMore').split('{n}').join(String(d.more))}</div>}
+                          </div>
+                        </div>
+                      )
+                    })()}
                     {previewSt.text != null
                       ? <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(stripRepeatedTitle(splitFrontmatter(previewSt.text).body, previewCard.title)) }} />
                       : (!previewSt.loading && <p className="me-audit-preview-summary">{previewCard.summary || ''}</p>)}
@@ -14009,6 +14063,24 @@ const stripRepeatedTitle = (md, title) => {
     while (i < lines.length && !lines[i].trim()) lines.splice(i, 1)
   }
   return lines.join('\n')
+}
+// issue #66：修改副本要能看出「原文 → 修改」到底改了哪几行，而不是只给一个标题。
+// 用公共前后缀做线性 diff（技能卡变更通常是局部的，够用），返回增删行并截断。
+const lineDiff = (before, after, limit = 80) => {
+  const A = String(before || '').replace(/\r\n/g, '\n').split('\n')
+  const B = String(after || '').replace(/\r\n/g, '\n').split('\n')
+  let p = 0
+  while (p < A.length && p < B.length && A[p] === B[p]) p++
+  let s = 0
+  while (s < A.length - p && s < B.length - p && A[A.length - 1 - s] === B[B.length - 1 - s]) s++
+  const removed = A.slice(p, A.length - s)
+  const added = B.slice(p, B.length - s)
+  return {
+    removed: removed.slice(0, limit),
+    added: added.slice(0, limit),
+    more: Math.max(0, removed.length - limit) + Math.max(0, added.length - limit),
+    same: removed.length === 0 && added.length === 0,
+  }
 }
 const tocOfMarkdown = (md) => {
   const out = []

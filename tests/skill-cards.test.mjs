@@ -9,7 +9,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { writeCard, listCards, setCardStatus, setCardKind, readCard } from '../lib/vault.js'
 import { setAuditConfig } from '../lib/db.js'
-import { syncSkillCards, parseSkillFile, buildSkillCardBody, collectSkillFiles } from '../lib/skill-cards.js'
+import { syncSkillCards, parseSkillFile, buildSkillCardBody, collectSkillFiles, skillBodyKey, skillCardChange } from '../lib/skill-cards.js'
 import { parseCaptureJson, AGENT_CARD_KINDS, agentCardKind } from '../lib/capture.js'
 import { createApi, API_PREFIX } from '../lib/api.js'
 import { callTool } from '../lib/mcp.js'
@@ -358,4 +358,109 @@ test('技能卡可在批准后重新归类（setCardKind 支持 skill）', async
   await setCardKind(root, base.path, 'knowledge')
   const [card] = await listCards(root, { status: ['approved'], kind: 'knowledge' })
   assert.equal(card.path, base.path)
+})
+
+// issue #66：dsh-skills-manager 把 SKILL.md 在 opencode / dsh / cc-switch 之间搬来搬去，
+// 旧同步把「技能文件路径」当成内容，每搬一次就生成一批「技能版本/内容有更新」的待审副本。
+test('同内容只换目录（技能管理器搬迁）：不生成待审更新，只原地跟随路径', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-skill-move-'))
+  const root = path.join(home, 'vault')
+  const roots = [path.join(home, 'opencode', 'skills'), path.join(home, 'cc-switch', 'skills')]
+  const noHome = path.join(home, 'none')
+  const env = {
+    ...process.env,
+    DSH_HOME: noHome,
+    DSH_AGENTS_HOME: path.join(noHome, 'agents'),
+    CLAUDE_CONFIG_DIR: path.join(noHome, 'claude'),
+    CODEX_HOME: path.join(noHome, 'codex'),
+    CURSOR_HOME: path.join(noHome, 'cursor'),
+    GEMINI_HOME: path.join(noHome, 'gemini'),
+    XDG_CONFIG_HOME: path.join(noHome, 'config'),
+    MEMORY_SKILL_DIRS: roots.join(path.delimiter),
+  }
+  const skillMd = '---\nname: move-me\ndescription: Move me skill\nversion: 1.0.0\n---\n\n# move-me\n\nSame body.\n'
+  const dirA = path.join(roots[0], 'move-me')
+  fs.mkdirSync(dirA, { recursive: true })
+  fs.writeFileSync(path.join(dirA, 'SKILL.md'), skillMd, 'utf8')
+
+  const first = await syncSkillCards(root, { env, cwd: home })
+  assert.equal(first.created, 1, JSON.stringify(first))
+  const [base] = await listCards(root, { status: ['pending'], kind: 'skill' })
+  await setCardStatus(root, base.path, 'approved')
+
+  // 搬迁：内容一字未改，只有目录变了
+  const dirB = path.join(roots[1], 'move-me')
+  fs.mkdirSync(dirB, { recursive: true })
+  fs.copyFileSync(path.join(dirA, 'SKILL.md'), path.join(dirB, 'SKILL.md'))
+  fs.rmSync(dirA, { recursive: true, force: true })
+
+  const moved = await syncSkillCards(root, { env, cwd: home })
+  assert.equal(moved.pendingUpdates, 0, '换目录不能生成待审更新：' + JSON.stringify(moved))
+  assert.equal(moved.updated, 0, JSON.stringify(moved))
+  assert.equal(moved.updates.length, 0, JSON.stringify(moved.updates))
+  assert.equal(moved.refreshed, 1, '路径变化应原地跟随：' + JSON.stringify(moved))
+  const pending = await listCards(root, { status: ['pending'], kind: 'skill' })
+  assert.equal(pending.length, 0, '审核队列里不能多出「修改」副本')
+  const after = await readCard(root, base.path)
+  assert.match(after.text, /cc-switch/, '卡里的技能文件路径应刷新到新位置')
+  assert.doesNotMatch(after.text, /opencode/, '不应保留旧路径')
+})
+
+test('注册表与磁盘扫描的来源/提供方/路径不同，不算内容更新', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'me-skill-regfs-'))
+  const root = path.join(home, 'vault')
+  const work = path.join(home, 'work')
+  fs.mkdirSync(work, { recursive: true })
+  const skillDir = path.join(home, '.dsh', 'skills', 'alpha')
+  fs.mkdirSync(skillDir, { recursive: true })
+  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: alpha\ndescription: Alpha skill\nversion: 1.0.0\n---\n\nDo alpha.\n', 'utf8')
+  const noHome = path.join(home, 'none')
+  const env = {
+    ...process.env,
+    DSH_HOME: path.join(home, '.dsh'),
+    DSH_AGENTS_HOME: path.join(noHome, 'agents'),
+    CLAUDE_CONFIG_DIR: path.join(noHome, 'claude'),
+    CODEX_HOME: path.join(noHome, 'codex'),
+    CURSOR_HOME: path.join(noHome, 'cursor'),
+    GEMINI_HOME: path.join(noHome, 'gemini'),
+    XDG_CONFIG_HOME: path.join(noHome, 'config'),
+    MEMORY_SKILL_DIRS: '',
+  }
+  const registry = {
+    list: async () => [{ name: 'alpha', description: 'Alpha skill', version: '1.0.0', source: 'user-dsh', provider: 'filesystem', path: '/skills/alpha/SKILL.md', invocation: { modelInvocable: true, userInvocable: true } }],
+    get: async (name) => ({ name, content: 'Do alpha.' }),
+  }
+  const first = await syncSkillCards(root, { env, cwd: work, skills: registry, includeFilesystem: false })
+  assert.equal(first.created, 1, JSON.stringify(first))
+  const [base] = await listCards(root, { status: ['pending'], kind: 'skill' })
+  await setCardStatus(root, base.path, 'approved')
+
+  // 独立 web 面板（没有注册表）走磁盘扫描：provider / path 与注册表不同，内容相同
+  const second = await syncSkillCards(root, { env, cwd: work })
+  assert.equal(second.pendingUpdates, 0, '不能因为扫描入口不同就生成待审修改：' + JSON.stringify(second))
+  assert.equal(second.updates.length, 0, JSON.stringify(second.updates))
+  assert.equal(second.refreshed, 1, JSON.stringify(second))
+})
+
+test('变更摘要：换路径不算变更，版本/正文变化能区分（skillCardChange）', () => {
+  const meta = (file, ver = '1.0.0', content = 'Do alpha.') => [
+    '# alpha', '', 'Alpha skill', '', '## 技能信息', '',
+    '- 名称：alpha', '- 类型：其它', '- 来源：user-dsh', '- 版本：' + ver,
+    '- 提供方：filesystem', '- 技能文件：' + file, '- 模型可调用：是', '- 用户可调用：是', '',
+    '## 技能说明', '', content,
+  ].join('\n')
+
+  const same = skillCardChange(meta('C:/a/skills/alpha/SKILL.md'), meta('C:/b/skills/alpha/SKILL.md'))
+  assert.equal(same.versionChanged, false)
+  assert.equal(same.contentChanged, false)
+  assert.equal(same.added, 0)
+  assert.equal(same.removed, 0)
+
+  const changed = skillCardChange(meta('C:/a/skills/alpha/SKILL.md'), meta('C:/b/skills/alpha/SKILL.md', '1.1.0', 'Do alpha better.'))
+  assert.equal(changed.versionChanged, true)
+  assert.equal(changed.contentChanged, true)
+  assert.ok(changed.added >= 1, JSON.stringify(changed))
+  assert.ok(changed.removed >= 1, JSON.stringify(changed))
+  assert.ok(changed.sampleNew || changed.sampleOld, JSON.stringify(changed))
+  assert.equal(skillBodyKey(meta('C:/a/x')).includes('技能文件'), false, '比较键里不应残留技能文件路径')
 })

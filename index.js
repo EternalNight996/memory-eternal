@@ -522,7 +522,7 @@ export function apply(ctx, config) {
     const cfg = settings.get() ?? {}
     if (cfg.enabled === false) return { ok: false, error: '记忆核心已禁用' }
     if (opts.auto === true && cfg.skillCardsAutoSync === false) {
-      return { ok: true, skipped: true, reason: '自动同步已关闭', source: 'none', total: 0, created: 0, updated: 0, pendingUpdates: 0, unchanged: 0, skippedCount: 0, removed: 0, errors: [] }
+      return { ok: true, skipped: true, reason: '自动同步已关闭', source: 'none', total: 0, created: 0, updated: 0, pendingUpdates: 0, refreshed: 0, unchanged: 0, skippedCount: 0, removed: 0, errors: [] }
     }
     // 同一时刻只跑一次：启动自动同步与用户点「同步技能」撞在一起时，不能各自写一遍。
     if (skillSyncPromise) return skillSyncPromise
