@@ -75,3 +75,9 @@ test('旧的伪主按钮 me-on 只减不增（基线锁定）', () => {
   // 基线：接入设计系统时是 42；只允许下降，新增会在 CI 里挡住
   assert.ok(n <= 42, `me-on 出现 ${n} 次，超过基线 42 —— 新代码请用 <Btn variant="primary">`)
 })
+
+// issue #68：关于页的「GitHub 仓库」按钮曾指向已废弃的 mengbot-ai/memory-eternal（404）。
+test('关于页 GitHub 仓库链接指向本仓库（issue #68）', () => {
+  assert.doesNotMatch(src, /mengbot-ai\/memory-eternal/, '不能用已废弃的 mengbot-ai 仓库地址')
+  assert.match(src, /github\.com\/EternalNight996\/memory-eternal/, '必须指向本仓库')
+})

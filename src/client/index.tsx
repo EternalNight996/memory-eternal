@@ -8328,7 +8328,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
               </button>
               <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Btn variant="secondary" size="sm" onClick={() => openSupport('group')}>{t('supportGroup')}</Btn>
-                <Btn variant="ghost" size="sm" onClick={() => openExternal('https://github.com/mengbot-ai/memory-eternal')}>{t('aboutGithub')}</Btn>
+                <Btn variant="ghost" size="sm" onClick={() => openExternal('https://github.com/EternalNight996/memory-eternal')}>{t('aboutGithub')}</Btn>
               </div>
             </div>
           </div>

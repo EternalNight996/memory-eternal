@@ -17,7 +17,9 @@ const CARD = JSON.stringify({
   body: '这是一张经过重新蒸馏的知识卡，结论清晰。',
 })
 
-function mockLlm(payload = CARD) {
+let llmPayload = CARD
+
+function mockLlm(payload = llmPayload) {
   return {
     listProviders() { return [{ id: 'mock-provider' }] },
     async listModels() { return [{ id: 'mock-model' }] },
@@ -101,4 +103,41 @@ test('不存在的卡 / 缺 path 返回明确错误', async () => {
   assert.equal(a.ok, false)
   const b = await post('/audit/redistill', {})
   assert.equal(b.ok, false)
+})
+
+// issue #64：append_to 结果是 {append_to, update}，没有 save 字段。
+// 旧实现先判 save !== true，直接把「应并入已有卡」误报成 422「模型未产出可保存的知识卡」。
+test('模型判定 append_to：返回「应并入已有卡」，不再误报 422（issue #64）', async () => {
+  const w = await writeCard(root, {
+    kind: 'content',
+    title: '待并入的原文卡',
+    tags: ['raw', 'distill-failed'],
+    body: '原始对话被降级保留下来的内容。' + '这里是一条可以复用的技术结论与参数说明，包含命令与配置项。'.repeat(10),
+    status: 'pending',
+    submittedBy: 'agent',
+    reason: 'AI 自动沉淀（蒸馏无输出 → 原文卡兜底）',
+  })
+  assert.equal(w.ok, true)
+  llmPayload = JSON.stringify({ append_to: '03-Knowledge/已有卡.md', update: '补充：这条应追加到已有卡，而不是新建。' })
+  try {
+    const r = await post('/audit/redistill', { path: w.path })
+    assert.equal(r.ok, false, JSON.stringify(r))
+    assert.equal(r.appendTo, '03-Knowledge/已有卡.md', JSON.stringify(r))
+    assert.match(r.error, /并入已有卡/, JSON.stringify(r))
+    // 原卡内容不能被改（只是提示，不是写入）
+    const q = await auditQueue(root)
+    const card = q.pending.find((c) => c.path === w.path)
+    assert.ok(card, '原文卡应仍在待审队列')
+    assert.equal(card.title, '待并入的原文卡')
+  } finally {
+    llmPayload = CARD
+  }
+})
+
+test('宿主沉淀链路：append_to 判断必须先于 save（issue #64 不可达回归）', async () => {
+  const src = await fsp.readFile(new URL('../index.js', import.meta.url), 'utf8')
+  const appendAt = src.indexOf('if (result.append_to)')
+  const saveAt = src.indexOf('if (result.save !== true)')
+  assert.ok(appendAt >= 0 && saveAt >= 0, '两处判断都要在')
+  assert.ok(appendAt < saveAt, 'append_to 必须先判，否则 {append_to, update} 会被当成「不值得保存」跳过')
 })
