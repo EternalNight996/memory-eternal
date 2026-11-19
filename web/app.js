@@ -10996,7 +10996,7 @@
     }
     let health;
     try {
-      const r = await globalThis.fetch(url + "/memory-eternal/api/cloud/health", { signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0 });
+      const r = await globalThis.fetch(url + "/api/cloud/health", { signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0 });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d || d.ok === false) {
         return { ok: false, error: d && d.error || "HTTP " + r.status };
@@ -11005,7 +11005,7 @@
     } catch (e) {
       const msg = String(e && e.message || e);
       const diag = {
-        url: url + "/memory-eternal/api/cloud/health",
+        url: url + "/api/cloud/health",
         origin: typeof location !== "undefined" && location.origin ? location.origin : "(\u65E0)",
         href: typeof location !== "undefined" && location.href ? location.href : "(\u65E0)",
         online: typeof navigator !== "undefined" ? !!navigator.onLine : null
@@ -11024,7 +11024,7 @@
       };
     }
     try {
-      const r = await globalThis.fetch(url + "/memory-eternal/api/cloud/whoami", {
+      const r = await globalThis.fetch(url + "/api/cloud/whoami", {
         headers: { Authorization: "Bearer " + token },
         signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0
       });
@@ -11261,7 +11261,7 @@
   __name(openExternal, "openExternal");
   function cloudInstanceIconUrl(base) {
     const b = String(base || "").trim().replace(/\/+$/, "");
-    return b ? b + "/memory-eternal/api/icon.png" : "";
+    return b ? b + "/api/icon.png" : "";
   }
   __name(cloudInstanceIconUrl, "cloudInstanceIconUrl");
   var PAGE_SIZE = 100;
@@ -17188,7 +17188,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-19T22:18:59+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-19T23:16:18+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -20239,7 +20239,7 @@ ${t("quoteHint")}`,
     const cloudApi2 = /* @__PURE__ */ __name((path) => {
       const base = String(cloudForm && cloudForm.url || "").trim().replace(/\/+$/, "");
       if (!base) return "";
-      return base + "/memory-eternal/api" + path;
+      return base + "/api" + path;
     }, "cloudApi");
     const [junk, setJunk] = (0, import_react2.useState)(null);
     const [junkBusy, setJunkBusy] = (0, import_react2.useState)(false);
@@ -20333,7 +20333,7 @@ ${t("quoteHint")}`,
     const pollLoginUrl = /* @__PURE__ */ __name((pollId) => {
       const base = String(cloudForm && cloudForm.url || memUrl || "").trim().replace(/\/+$/, "");
       if (!base) return "";
-      return base + "/memory-eternal/api/login?tab=qr&poll_id=" + encodeURIComponent(pollId);
+      return base + "/api/login?tab=qr&poll_id=" + encodeURIComponent(pollId);
     }, "pollLoginUrl");
     const startPollLogin = /* @__PURE__ */ __name(async () => {
       setPollErr("");
@@ -20343,7 +20343,7 @@ ${t("quoteHint")}`,
         return;
       }
       try {
-        const r = await fetch(base + "/memory-eternal/api/cloud/auth/poll/start", {
+        const r = await fetch(base + "/api/cloud/auth/poll/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: "{}"
@@ -20385,7 +20385,7 @@ ${t("quoteHint")}`,
       }
       setPairBusy(true);
       try {
-        const h = await fetch(base + "/memory-eternal/api/cloud/health", {
+        const h = await fetch(base + "/api/cloud/health", {
           signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0
         }).then((r) => r.json()).catch(() => null);
         if (!h || h.ok === false) {
@@ -20400,7 +20400,7 @@ ${t("quoteHint")}`,
         const next = prepared.next;
         activateCloud({ ...next, token: code });
         try {
-          const w = await fetch(base + "/memory-eternal/api/cloud/whoami", {
+          const w = await fetch(base + "/api/cloud/whoami", {
             headers: { Authorization: "Bearer " + code },
             signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0
           }).then((r) => r.json()).catch(() => null);
@@ -20948,7 +20948,7 @@ ${t("quoteHint")}`,
         return;
       }
       const back = location.origin + location.pathname;
-      const url = base + "/memory-eternal/api/cloud/auth/start?redirect_uri=" + encodeURIComponent(back);
+      const url = base + "/api/cloud/auth/start?redirect_uri=" + encodeURIComponent(back);
       try {
         location.href = url;
       } catch {
@@ -21603,7 +21603,7 @@ ${t("quoteHint")}`,
     }, "loadCloudPlan");
     const consoleUrl = /* @__PURE__ */ __name(() => {
       const base = String(cloudConn && cloudConn.url || cloudForm.url || "").trim().replace(/\/+$/, "");
-      return base ? base + "/memory-eternal/api/console" : "";
+      return base ? base + "/api/console" : "";
     }, "consoleUrl");
     const importLocalToCloud = /* @__PURE__ */ __name(async () => {
       if (importJob && importJob.importing) return;
@@ -21689,7 +21689,7 @@ ${t("quoteHint")}`,
       const cur = readCloudConn();
       try {
         const base = String(cur && cur.url || cloudForm.url || "").trim().replace(/\/+$/, "");
-        if (base) fetch(base + "/memory-eternal/api/signout", { method: "POST", credentials: "include" }).catch(() => {
+        if (base) fetch(base + "/api/signout", { method: "POST", credentials: "include" }).catch(() => {
         });
       } catch {
       }

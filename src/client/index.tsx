@@ -312,7 +312,7 @@ async function probeCloud(form) {
   // ① 可达性（不需要令牌）
   let health
   try {
-    const r = await globalThis.fetch(url + '/memory-eternal/api/cloud/health', { signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined })
+    const r = await globalThis.fetch(url + '/api/cloud/health', { signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined })
     const d = await r.json().catch(() => ({}))
     if (!r.ok || !d || d.ok === false) {
       return { ok: false, error: (d && d.error) || ('HTTP ' + r.status) }
@@ -325,7 +325,7 @@ async function probeCloud(form) {
     // 用户截图就能立刻区分「地址填错」「origin 被 CORS 拒」「断网」。
     const msg = String((e && e.message) || e)
     const diag = {
-      url: url + '/memory-eternal/api/cloud/health',
+      url: url + '/api/cloud/health',
       origin: (typeof location !== 'undefined' && location.origin) ? location.origin : '(无)',
       href: (typeof location !== 'undefined' && location.href) ? location.href : '(无)',
       online: (typeof navigator !== 'undefined') ? !!navigator.onLine : null,
@@ -344,7 +344,7 @@ async function probeCloud(form) {
     }
   }
   try {
-    const r = await globalThis.fetch(url + '/memory-eternal/api/cloud/whoami', {
+    const r = await globalThis.fetch(url + '/api/cloud/whoami', {
       headers: { Authorization: 'Bearer ' + token },
       signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
     })
@@ -609,7 +609,7 @@ async function openExternal(url) {
 /** 云端实例的官方图标（客户端改造 R5）：<base>/memory-eternal/api/icon.png */
 function cloudInstanceIconUrl(base) {
   const b = String(base || '').trim().replace(/\/+$/, '')
-  return b ? b + '/memory-eternal/api/icon.png' : ''
+  return b ? b + '/api/icon.png' : ''
 }
 // 真分页页大小：首屏只拉一页（服务端 offset/limit），滚到底再续拉下一页
 const PAGE_SIZE = 100
@@ -9711,7 +9711,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const cloudApi = (path) => {
     const base = String((cloudForm && cloudForm.url) || '').trim().replace(/\/+$/, '')
     if (!base) return ''
-    return base + '/memory-eternal/api' + path
+    return base + '/api' + path
   }
 
   const [junk, setJunk] = useState(null)          // scanJunk 的结果
@@ -9819,14 +9819,14 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const pollLoginUrl = (pollId) => {
     const base = String((cloudForm && cloudForm.url) || memUrl || '').trim().replace(/\/+$/, '')
     if (!base) return ''
-    return base + '/memory-eternal/api/login?tab=qr&poll_id=' + encodeURIComponent(pollId)
+    return base + '/api/login?tab=qr&poll_id=' + encodeURIComponent(pollId)
   }
   const startPollLogin = async () => {
     setPollErr('')
     const base = String((cloudForm && cloudForm.url) || memUrl || '').trim().replace(/\/+$/, '')
     if (!/^https?:\/\//i.test(base)) { setPollErr(t('cloudUrlRequired')); return }
     try {
-      const r = await fetch(base + '/memory-eternal/api/cloud/auth/poll/start', {
+      const r = await fetch(base + '/api/cloud/auth/poll/start', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
       })
       const d = await r.json().catch(() => ({}))
@@ -9857,7 +9857,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     setPairBusy(true)
     try {
       // 先探活（公开 health），避免把前缀切到一个连不上的地址
-      const h = await fetch(base + '/memory-eternal/api/cloud/health', {
+      const h = await fetch(base + '/api/cloud/health', {
         signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
       }).then((r) => r.json()).catch(() => null)
       if (!h || h.ok === false) { setPairErr(t('cloudTestFail')); return }
@@ -9867,7 +9867,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       activateCloud({ ...next, token: code })
       // 尽力取 owner（pc_ 不保证 whoami 可读；失败不影响「已连接」）
       try {
-        const w = await fetch(base + '/memory-eternal/api/cloud/whoami', {
+        const w = await fetch(base + '/api/cloud/whoami', {
           headers: { Authorization: 'Bearer ' + code },
           signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
         }).then((r) => r.json()).catch(() => null)
@@ -10321,7 +10321,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     const base = String(cloudForm.url || '').replace(/\/+$/, '')
     if (!/^https?:\/\//i.test(base)) { setCloudTest({ ok: false, error: t('cloudUrlInvalid') }); return }
     const back = location.origin + location.pathname
-    const url = base + '/memory-eternal/api/cloud/auth/start?redirect_uri=' + encodeURIComponent(back)
+    const url = base + '/api/cloud/auth/start?redirect_uri=' + encodeURIComponent(back)
     try { location.href = url } catch { /* 忽略 */ }
   }
   // 首页「备份与迁移」按钮会发这个事件，让配置面板直接跳到备份分区（低频迁移动作归到这里）
@@ -11001,7 +11001,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   /** R6：不要在客户端拼订阅深链（缺 merchant 会落空白页）——直接开服务端控制台，深链由它给出。 */
   const consoleUrl = () => {
     const base = String((cloudConn && cloudConn.url) || cloudForm.url || '').trim().replace(/\/+$/, '')
-    return base ? base + '/memory-eternal/api/console' : ''
+    return base ? base + '/api/console' : ''
   }
 
   // 旧版 subscribeUrl() 已删除：R6 要求不要在客户端拼订阅深链（缺 merchant 会落空白页），
@@ -11095,7 +11095,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     // R3：通知服务端注销（cookie 会话）；网络失败也照常清本地令牌
     try {
       const base = String((cur && cur.url) || cloudForm.url || '').trim().replace(/\/+$/, '')
-      if (base) fetch(base + '/memory-eternal/api/signout', { method: 'POST', credentials: 'include' }).catch(() => {})
+      if (base) fetch(base + '/api/signout', { method: 'POST', credentials: 'include' }).catch(() => {})
     } catch { /* 忽略 */ }
     const cleared = {
       ...cur,
