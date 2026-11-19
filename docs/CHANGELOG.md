@@ -27,6 +27,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.49.20** | 2026-11-19 | **记忆云套餐重新定价（约为 MengBot 客户端三档的 6 折）+ 配额重设**。① 价格：个人 **¥18/月**、团队 **¥118/月**、旗舰 **¥399/月**（`PLAN_PRICE`；`pro` 档显示名由「专业版」改为「团队版」，沿用既有 `sub-pro` SKU，MengBot 侧无需新增 SKU）。② 配额按「卡片 / 库 / 速率」重设并**只升不降**：`personal` 2000→**10000** 卡、1→3 库、120→300 rpm；`pro` 5000→**50000** 卡、1→10 库、300→900 rpm；`max` 200000→**500000** 卡、50 库、1200→3000 rpm；`free` 保持 500 卡 / 60 rpm。③ 面板文案改为「记忆云专属定价（约 6 折），按卡片数/库数/速率分层，不含 MengBot 客户端的机器人与并发任务权益」，不再写「专属知识库套餐在谈」。④ 老 entitlement 的 `team` / `enterprise` 仍保留在表里（删掉会让那些租户静默掉到 DEFAULT_QUOTA）。 |
 | **v0.49.19** | 2026-11-19 | **修前端 TDZ：`ReferenceError: memUrl is not defined`（面板渲染崩 → ErrorBoundary 兜底成白屏）**。现场：0.49.18 让插件成功激活后，记忆面板一渲染就报 `memUrl is not defined`（堆栈指向 `MemoryLibraryInner`）。根因：域名改造时把 `const memUrl = …` 写在组件中部（第 9568 行），而 `placeholder={memUrl}` 与提示文案在 7722 行就用 —— **同一函数作用域、声明之前**，`const` 的 TDZ 直接抛 ReferenceError。修法：把域名基座提到**模块级**（`CLOUD_DOMAINS_FALLBACK` + 可变引用 `cloudDomainsRef`），声明前的 JSX 一律用 `cloudDomainsRef.memUrl`，组件内的 state 继续驱动响应式更新并在拿到下发值时同步模块级。新增 `tests/client-scope.test.mjs`（3 例）：声明前不得裸用 `memUrl`（注释行豁免）、必须有模块级引用、声明前的 placeholder 必须走模块级。 |
 > **v0.49.18 已撤回（2026-11-19）**：它修好了 `markAllVolatile`（插件能激活），但记忆面板一渲染就 `ReferenceError: memUrl is not defined`（前端 TDZ），被 ErrorBoundary 兜住后仍是白屏。npm 侧未上架，GitHub / Gitee 的 Release 已撤下。请用 **v0.49.19**。
 

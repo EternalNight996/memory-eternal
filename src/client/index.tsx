@@ -1311,8 +1311,8 @@ export const ZH = {
   switchedTo: '已切换到 {who}',
     planTiersTitle: '可选档位',
   planTiersCurrent: '（当前）',
-  planTiersPriceNote: '价格为 MengBot 公开月价（另有半年/年付折扣），以订阅页为准。',
-  robotTierNote: '这几档是 MengBot 的云端机器人订阅（含云端桌面与并发任务）。memory-eternal 只用到其中的存储与检索 API —— 专属知识库套餐在谈。',
+  planTiersPriceNote: '记忆云专属定价（约为 MengBot 客户端三档的 6 折）；年付另有折扣，以订阅页为准。',
+  robotTierNote: '这三档是记忆云自己的套餐：按「卡片数 / 记忆库数 / 请求速率」分层，不含 MengBot 客户端的机器人与并发任务权益。',
   noCapsHint: '这一档还没有下发配额（caps 为空）。存储上限与速率以订阅页说明为准。',
   managePlan: '升级 / 续费',
   perMinute: '次/分',
@@ -2545,7 +2545,7 @@ export const EN = {
   cloudPlanLabel: 'Plan',
   planTiersTitle: 'Available tiers',
   planTiersCurrent: '(current)',
-  planTiersPriceNote: 'Public monthly price from MengBot; half-year/yearly discounts apply. The subscribe page is authoritative.',
+  planTiersPriceNote: 'Memory Cloud pricing (~60% of the MengBot client tiers); yearly discounts apply. The subscribe page is authoritative.',
   robotTierNote: 'These tiers are MengBot\'s cloud-robot subscriptions (cloud desktop + concurrent tasks). memory-eternal only uses the storage and retrieval API — a dedicated plan is being discussed.',
   noCapsHint: 'This tier has no caps yet. Storage and rate limits follow the subscribe page.',
   cloudPlanExpires: 'Expires',
@@ -6488,7 +6488,9 @@ function daysLeft(v) {
  * **不带价格**。用户看不到"我现在每月付多少、升下一档要多少"，套餐卡就只剩一行名字。
  * 硬编码的代价是价格变了要改代码 —— 所以下面显示时会带「以订阅页为准」的说明。
  */
-const PLAN_PRICE = { free: 0, personal: 39, pro: 79, max: 329, 'sub-merchant': 199, 'sub-merchant-pro': 999 }
+// 记忆云自己的定价（约为 MengBot 客户端三档的 6 折）：个人 18 / 团队 118 / 旗舰 399
+// 注意：这里只负责**显示**；实际扣款以 MengBot 订阅页为准，改价必须两边同步。
+const PLAN_PRICE = { free: 0, personal: 18, pro: 118, max: 399, 'sub-merchant': 199, 'sub-merchant-pro': 999 }
 
 /**
  * 这些档位是 **MengBot 通用订阅（含云端机器人）**，memory-eternal 只用得到其中的
@@ -6503,7 +6505,7 @@ function planLabelOf(plan, zh) {
   const ZH = {
     free: '免费版',
     personal: '个人版',
-    pro: '专业版',
+    pro: '团队版',
     max: '旗舰版',
     'sub-merchant': '商户版',
     'sub-merchant-pro': '商户旗舰版',
@@ -6511,7 +6513,7 @@ function planLabelOf(plan, zh) {
   const EN = {
     free: 'Free',
     personal: 'Personal',
-    pro: 'Pro',
+    pro: 'Team',
     max: 'Max',
     'sub-merchant': 'Merchant',
     'sub-merchant-pro': 'Merchant Pro',
