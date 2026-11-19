@@ -27,6 +27,7 @@ test('resolvePayBase 优先级：显式配置 > 按实例推导 > 官方默认',
   assert.equal(resolvePayBase({ env: { MEMORY_MENGBOT_PAY_BASE: 'https://pay.internal.example/' }, cloudUrl: 'https://mem.mengbot.vip' }), 'https://pay.internal.example')
   assert.equal(resolvePayBase({ env: {}, cloudUrl: 'https://mem.mengbot.vip' }), 'https://pay.mengbot.vip')
   assert.equal(resolvePayBase({ env: {}, cloudUrl: 'https://memory.example.com' }), DEFAULT_PAY_BASE)
+  assert.equal(DEFAULT_PAY_BASE, 'https://pay.mengbot.com.cn')   // 备案域是默认首选
   assert.equal(resolvePayBase({ env: {}, cloudUrl: '' }), DEFAULT_PAY_BASE)
 })
 

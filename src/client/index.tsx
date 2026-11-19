@@ -1008,7 +1008,7 @@ export const ZH = {
   cloudModeCloud: '云端',
   cloudModeCloudHint: '连你的云端实例，跨设备同步',
   cloudUrlLabel: '云端实例地址',
-  cloudUrlHint: 'memory-eternal-cloud 实例地址，如 https://mem.mengbot.com.cn',
+  cloudUrlHint: 'memory-eternal-cloud 实例地址，如 {host}',
   cloudTokenLabel: '访问密钥',
   cloudTokenHint: '登录可留空；直连他人实例才填',
   cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
@@ -2519,7 +2519,7 @@ export const EN = {
   cloudModeCloud: 'Cloud',
   cloudModeCloudHint: 'Connect to a cloud instance (URL + key, or a MengBot token)',
   cloudUrlLabel: 'Cloud instance URL',
-  cloudUrlHint: 'The memory-eternal-cloud server address (e.g. https://mem.mengbot.com.cn) — NOT the MengBot identity host accounts.mengbot.com.cn',
+  cloudUrlHint: 'The memory-eternal-cloud server address (e.g. {host}) — NOT the MengBot identity host {accounts}',
   cloudTokenLabel: 'Access key (optional)',
   cloudTokenHint: 'Leave empty if you sign in with MengBot; only needed when connecting to someone else instance',
   cloudTokenPeek: 'Current token: {peek} ({len} chars)',
@@ -7719,8 +7719,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 <div className="mc-cloud-fields" style={{ opacity: cloudForm.mode === 'cloud' ? 1 : 0.55 }}>
                   <label className="mc-field">
                     <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" disabled={cloudForm.mode !== 'cloud'} />
-                    <span className="mc-field-hint">{t('cloudUrlHint')}</span>
+                    <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder={memUrl} disabled={cloudForm.mode !== 'cloud'} />
+                    <span className="mc-field-hint">{t('cloudUrlHint').replace('{host}', memUrl).replace('{accounts}', accountsUrl)}</span>
                   </label>
                   <label className="mc-field">
                     <span className="mc-field-label">{t('cloudTokenLabel')}</span>
@@ -9554,6 +9554,10 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [cloudPlan, setCloudPlan] = useState(null)
   // 支付域由服务端按**当前云端实例**下发（切换实例后升级链接跟着切）；空 = 用官方默认
   const [cloudPayBase, setCloudPayBase] = useState('')
+  // 域名基座（服务端 /cloud/conn 下发）：切基座后 placeholder、提示文案、支付深链一起换
+  const [cloudDomains, setCloudDomains] = useState(null)
+  const memUrl = (cloudDomains && cloudDomains.memUrl) || 'https://mem.mengbot.com.cn'
+  const accountsUrl = (cloudDomains && cloudDomains.accountsUrl) || 'https://accounts.mengbot.com.cn'
   // 手动填密钥默认折叠：登录是主路径，密钥是备用，两套并列会让界面没主次
   const [showKeyField, setShowKeyField] = useState(false)
   // 账号菜单是否展开（整块可点，点开显示账号信息 / 切换账号 / 退出登录）
@@ -9908,7 +9912,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
   const [cloudTab, setCloudTab] = useState(() => (readCloudConn().mode === 'cloud' ? 'cloud' : 'local'))
 
   const [merchants, setMerchants] = useState([])
-  const [mchForm, setMchForm] = useState(() => ({ name: '', domain: '', endpoint: String(readCloudConn().merchantEndpoint || 'https://mem.mengbot.com.cn') }))
+  const [mchForm, setMchForm] = useState(() => ({ name: '', domain: '', endpoint: String(readCloudConn().merchantEndpoint || memUrl) }))
   const [mchBusy, setMchBusy] = useState(false)
   const [mchErr, setMchErr] = useState('')
   /** 刚生成的商户密钥（只显示一次，刷新即消失）。 */
@@ -10312,7 +10316,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     if (cloudTab !== 'cloud' || isConnected) return
     if (deviceAuth || deviceBusy) return
     if (!String(cloudForm.url || '').trim()) {
-      setCloudForm((f) => ({ ...f, url: 'https://mem.mengbot.com.cn' }))
+      setCloudForm((f) => ({ ...f, url: memUrl }))
       return
     }
     startDeviceLogin()
@@ -10476,7 +10480,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
       setResetJob({ phase: 'done', pct: 100, result: d })
       // 清完刷新：库计数、概览
       try { loadVaults() } catch { /* 忽略 */ }
-      try { loadCloudPlan() } catch { /* 忽略 */ }
+      try { void loadCloudDomains(); loadCloudPlan() } catch { /* 忽略 */ }
       try { notify(t('resetDoneMsg'), true) } catch { /* 忽略 */ }
     } catch (e) {
       setResetJob({ phase: 'error', err: String((e && e.message) || e) })
@@ -10787,6 +10791,15 @@ function ConfigPanel({ t, onReload, version, compact }) {
     }
   }
 
+  /** 拉当前生效的域名基座（/cloud/conn 下发）。免费版也要拉 —— placeholder 与提示文案靠它。 */
+  const loadCloudDomains = async () => {
+    try {
+      const r = await fetch(API + '/cloud/conn', { headers: { Accept: 'application/json' } })
+      const d = await r.json().catch(() => ({}))
+      if (d && d.ok && d.domains && d.domains.memUrl) setCloudDomains(d.domains)
+    } catch { /* 拿不到就用备案默认值 */ }
+  }
+
   const loadCloudPlan = async () => {
     const url = cloudApi('/cloud/billing/plan')
     if (!url) return
@@ -10905,7 +10918,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
     setCloudForm((f) => ({ ...f, mode: 'cloud', url, token: acc.token }))
     setCloudTest({ ok: true, authenticated: true, owner: acc.owner, profile: acc.profile || null })
     setAcctOpen(false)
-    try { loadCloudPlan() } catch { /* 忽略 */ }
+    try { void loadCloudDomains(); loadCloudPlan() } catch { /* 忽略 */ }
     try { notify(t('switchedTo').replace('{who}', acc.owner), true) } catch { /* 忽略 */ }
   }
 
@@ -12110,7 +12123,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <label className="mc-field">
                           <span className="mc-field-label">{t('cloudUrlLabel')}</span>
-                          <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://mem.mengbot.com.cn" />
+                          <input value={cloudForm.url} onChange={(e) => setCloudForm((f) => ({ ...f, url: e.target.value }))} placeholder={memUrl} />
                         </label>
                         <label className="mc-field">
                           <span className="mc-field-label">{t('cloudTokenLabel')}</span>
@@ -12481,7 +12494,7 @@ function ConfigPanel({ t, onReload, version, compact }) {
                     <input
                       value={mchForm.endpoint}
                       onChange={(e) => setMchForm((f) => ({ ...f, endpoint: e.target.value }))}
-                      placeholder="https://mem.mengbot.com.cn"
+                      placeholder={memUrl}
                     />
                     <span className="mc-field-hint">{t('merchantEndpointHint')}</span>
                   </label>

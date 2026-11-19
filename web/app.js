@@ -11673,7 +11673,7 @@
     cloudModeCloud: "\u4E91\u7AEF",
     cloudModeCloudHint: "\u8FDE\u4F60\u7684\u4E91\u7AEF\u5B9E\u4F8B\uFF0C\u8DE8\u8BBE\u5907\u540C\u6B65",
     cloudUrlLabel: "\u4E91\u7AEF\u5B9E\u4F8B\u5730\u5740",
-    cloudUrlHint: "memory-eternal-cloud \u5B9E\u4F8B\u5730\u5740\uFF0C\u5982 https://mem.mengbot.com.cn",
+    cloudUrlHint: "memory-eternal-cloud \u5B9E\u4F8B\u5730\u5740\uFF0C\u5982 {host}",
     cloudTokenLabel: "\u8BBF\u95EE\u5BC6\u94A5",
     cloudTokenHint: "\u767B\u5F55\u53EF\u7559\u7A7A\uFF1B\u76F4\u8FDE\u4ED6\u4EBA\u5B9E\u4F8B\u624D\u586B",
     cloudTokenPeek: "\u5F53\u524D\u4EE4\u724C\uFF1A{peek}\uFF08\u5171 {len} \u5B57\u7B26\uFF09",
@@ -13182,7 +13182,7 @@
     cloudModeCloud: "Cloud",
     cloudModeCloudHint: "Connect to a cloud instance (URL + key, or a MengBot token)",
     cloudUrlLabel: "Cloud instance URL",
-    cloudUrlHint: "The memory-eternal-cloud server address (e.g. https://mem.mengbot.com.cn) \u2014 NOT the MengBot identity host accounts.mengbot.com.cn",
+    cloudUrlHint: "The memory-eternal-cloud server address (e.g. {host}) \u2014 NOT the MengBot identity host {accounts}",
     cloudTokenLabel: "Access key (optional)",
     cloudTokenHint: "Leave empty if you sign in with MengBot; only needed when connecting to someone else instance",
     cloudTokenPeek: "Current token: {peek} ({len} chars)",
@@ -17178,7 +17178,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-18T15:14:26+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-19T11:08:30+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18218,8 +18218,8 @@ ${COMPONENTS_CSS}
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cloud-fields", style: { opacity: cloudForm.mode === "cloud" ? 1 : 0.55 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: "https://mem.mengbot.com.cn", disabled: cloudForm.mode !== "cloud" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudUrlHint") })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: memUrl, disabled: cloudForm.mode !== "cloud" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("cloudUrlHint").replace("{host}", memUrl).replace("{accounts}", accountsUrl) })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
@@ -20176,6 +20176,9 @@ ${t("quoteHint")}`,
     const [cloudForm, setCloudForm] = (0, import_react2.useState)(() => readCloudConn());
     const [cloudPlan, setCloudPlan] = (0, import_react2.useState)(null);
     const [cloudPayBase, setCloudPayBase] = (0, import_react2.useState)("");
+    const [cloudDomains, setCloudDomains] = (0, import_react2.useState)(null);
+    const memUrl2 = cloudDomains && cloudDomains.memUrl || "https://mem.mengbot.com.cn";
+    const accountsUrl2 = cloudDomains && cloudDomains.accountsUrl || "https://accounts.mengbot.com.cn";
     const [showKeyField, setShowKeyField] = (0, import_react2.useState)(false);
     const [acctOpen, setAcctOpen] = (0, import_react2.useState)(false);
     const [importJob, setImportJob] = (0, import_react2.useState)(null);
@@ -20554,7 +20557,7 @@ ${t("quoteHint")}`,
     }, "runJunkAction");
     const [cloudTab, setCloudTab] = (0, import_react2.useState)(() => readCloudConn().mode === "cloud" ? "cloud" : "local");
     const [merchants, setMerchants] = (0, import_react2.useState)([]);
-    const [mchForm, setMchForm] = (0, import_react2.useState)(() => ({ name: "", domain: "", endpoint: String(readCloudConn().merchantEndpoint || "https://mem.mengbot.com.cn") }));
+    const [mchForm, setMchForm] = (0, import_react2.useState)(() => ({ name: "", domain: "", endpoint: String(readCloudConn().merchantEndpoint || memUrl2) }));
     const [mchBusy, setMchBusy] = (0, import_react2.useState)(false);
     const [mchErr, setMchErr] = (0, import_react2.useState)("");
     const [mchSecret, setMchSecret] = (0, import_react2.useState)(null);
@@ -20964,7 +20967,7 @@ ${t("quoteHint")}`,
       if (cloudTab !== "cloud" || isConnected) return;
       if (deviceAuth || deviceBusy) return;
       if (!String(cloudForm.url || "").trim()) {
-        setCloudForm((f) => ({ ...f, url: "https://mem.mengbot.com.cn" }));
+        setCloudForm((f) => ({ ...f, url: memUrl2 }));
         return;
       }
       startDeviceLogin();
@@ -21122,6 +21125,7 @@ ${t("quoteHint")}`,
         } catch {
         }
         try {
+          void loadCloudDomains();
           loadCloudPlan();
         } catch {
         }
@@ -21457,6 +21461,14 @@ ${t("quoteHint")}`,
         setXfer({ busy: false, err: String(e && e.message || e) });
       }
     }, "transferLocalVaults");
+    const loadCloudDomains = /* @__PURE__ */ __name(async () => {
+      try {
+        const r = await fetch(API + "/cloud/conn", { headers: { Accept: "application/json" } });
+        const d = await r.json().catch(() => ({}));
+        if (d && d.ok && d.domains && d.domains.memUrl) setCloudDomains(d.domains);
+      } catch {
+      }
+    }, "loadCloudDomains");
     const loadCloudPlan = /* @__PURE__ */ __name(async () => {
       const url = cloudApi2("/cloud/billing/plan");
       if (!url) return;
@@ -21557,6 +21569,7 @@ ${t("quoteHint")}`,
       setCloudTest({ ok: true, authenticated: true, owner: acc.owner, profile: acc.profile || null });
       setAcctOpen(false);
       try {
+        void loadCloudDomains();
         loadCloudPlan();
       } catch {
       }
@@ -22805,7 +22818,7 @@ ${t("quoteHint")}`,
                     showKeyField ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudUrlLabel") }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: "https://mem.mengbot.com.cn" })
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: cloudForm.url, onChange: (e) => setCloudForm((f) => ({ ...f, url: e.target.value })), placeholder: memUrl2 })
                       ] }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("cloudTokenLabel") }),
@@ -23140,7 +23153,7 @@ ${t("quoteHint")}`,
                       {
                         value: mchForm.endpoint,
                         onChange: (e) => setMchForm((f) => ({ ...f, endpoint: e.target.value })),
-                        placeholder: "https://mem.mengbot.com.cn"
+                        placeholder: memUrl2
                       }
                     ),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-hint", children: t("merchantEndpointHint") })

@@ -55,7 +55,8 @@ test('支付闭环：登录 → 拿 subscribe 深链 → webhook 回推 → 套�
     body: JSON.stringify({ plan: 'pro', source: 'memory-eternal' }),
   })).json()
   assert.equal(co.ok, true, JSON.stringify(co))
-  assert.equal(co.url, 'https://pay.mengbot.vip/subscribe?sku=sub-pro&source=memory-eternal')
+  // 默认基座是备案域 mengbot.com.cn；切到 mengbot.vip 由 MEMORY_MENGBOT_DOMAIN 或云端连接推导（见 domains.test.mjs）
+  assert.equal(co.url, 'https://pay.mengbot.com.cn/subscribe?sku=sub-pro&source=memory-eternal')
   assert.equal(co.sku, 'sub-pro')
 
   // ③ 支付成功 → MengBot 推 webhook

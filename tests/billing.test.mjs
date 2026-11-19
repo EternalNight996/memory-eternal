@@ -7,7 +7,7 @@
 // 守六件事：
 //   ① plan 白名单是 personal/pro/max（对方 B2 定稿），废弃的 team/enterprise 要拒；
 //   ② 也接受直接传 sku（sub-xxx）；
-//   ③ 拼出的 URL 是 https://pay.mengbot.vip/subscribe?sku=...&source=...（官方已迁到 .vip）；
+//   ③ 拼出的 URL 是 https://pay.<基座>/subscribe?sku=...&source=...（默认备案域）；
 //   ④ 没有 owner 就不能下单（必须先登录）；
 //   ⑤ 不做任何网络调用（纯字符串拼接，不可能因网络失败）；
 //   ⑥ planView 的 canCheckout 不再依赖 access_token。
@@ -42,7 +42,7 @@ test('废弃的 plan 被拒（team / enterprise 不存在了）', async () => {
 test('拼出 subscribe 深链：sku + source', async () => {
   const r = await createCheckout({ plan: 'max', owner: 'u@x.com', source: 'memory-eternal', env: {} })
   assert.equal(r.ok, true)
-  assert.equal(r.url, 'https://pay.mengbot.vip/subscribe?sku=sub-max&source=memory-eternal')
+  assert.equal(r.url, 'https://pay.mengbot.com.cn/subscribe?sku=sub-max&source=memory-eternal')
   assert.equal(r.sku, 'sub-max')
   assert.equal(r.plan, 'max')
   assert.equal(r.via, 'subscribe-deeplink')
@@ -54,7 +54,7 @@ test('深链跟随当前云端实例：切域名后升级链接跟着切', async
   assert.equal(mem.url, 'https://pay.mengbot.vip/subscribe?sku=sub-max&source=memory-eternal')
   // 自建域名不猜，回退官方默认（猜错会把用户带去别人的订阅页）
   const selfHosted = await createCheckout({ plan: 'max', owner: 'u@x.com', env: {}, cloudUrl: 'https://memory.example.com' })
-  assert.equal(selfHosted.url, 'https://pay.mengbot.vip/subscribe?sku=sub-max&source=memory-eternal')
+  assert.equal(selfHosted.url, 'https://pay.mengbot.com.cn/subscribe?sku=sub-max&source=memory-eternal')
 })
 
 test('直接传 sku 也认（sub-pro）', async () => {
