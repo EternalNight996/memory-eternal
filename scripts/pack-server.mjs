@@ -80,7 +80,7 @@ delete sp.devDependencies
 // ⚠ 服务端**运行时依赖**必须显式写进 dependencies：
 //   否则在服务器上执行任何 `npm install <新包>` 都会按 package.json 重算，
 //   把 ad-hoc 装进来的 pg / qrcode 当成多余包剪掉（实测已发生一次：装 qrcode 顺手删了 pg）。
-sp.dependencies = { pg: '^8.13.1', qrcode: '^1.5.4' }
+sp.dependencies = { pg: '^8.13.1', qrcode: '^1.5.4', nodemailer: '^6.9.16' }
 sp.description = 'Memory Eternal 服务端（多租户记忆库 API）。由 scripts/pack-server.mjs 从主仓产出，勿手改。'
 writeFileSync(path.join(stage, 'package.json'), JSON.stringify(sp, null, 2) + '\n')
 
