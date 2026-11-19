@@ -4,6 +4,25 @@
 
 ---
 
+## 发布通道与审批（2026-11-19 起，强制）
+
+| 通道 | 版本号示例 | GitHub | npm | Gitee | 需用户批准 |
+|---|---|---|---|---|---|
+| Alpha（α）内部测试 | `0.50.0-alpha.1` | ✅ Pre-release | ❌ | ❌ | 不需要 |
+| Beta（β）公开测试 | `0.50.0-beta.1` | ✅ Pre-release | ❌ | ❌ | 不需要 |
+| RC 候选发布 | `0.50.0-rc.1` | ✅ Pre-release | ❌ | ❌ | 不需要 |
+| Release 正式版 | `0.50.0` | ✅ Release | ✅ | ✅ | **需要** |
+| Patch 补丁版 | `0.50.1`（只修 bug / 微改） | ✅ Release | ✅ | ✅ | **需要** |
+
+- **测试版**：`npm run release:test -- --dry-run` 预览 → `npm run release:test` 发布。
+  只建 GitHub Pre-release（推 `vX.Y.Z-alpha.N` tag），**不 npm publish、不发 Gitee、不推 main**。
+  tag 推上去后 CI 只跑 build + tests，不会发布 npm（`.github/workflows/publish.yml` 按 `package.json` 版本识别测试版）。
+- **正式版 / 补丁版**：必须先在对话里得到用户明确批准，再执行 `npm run release:approved`（等价于 `node scripts/release.mjs --approved`）。
+  未加 `--approved` 时脚本会直接拒绝；`npm run release:dry` 只预览、无需批准。
+- 测试版版本号必须显式带 `-alpha.N` / `-beta.N` / `-rc.N`；`scripts/release.mjs` 遇到测试版版本会拒绝执行，避免把测试版三端齐发。
+
+---
+
 ## 0. 先看懂：插件是怎么被「发现」的
 
 DSH 插件市场（`dshmarket`）不是人工审核制，而是**自动同步**两类来源：

@@ -7,11 +7,16 @@
 //
 // 用法：
 //   node scripts/release.mjs --dry-run          # 只做检查与打印，不写任何远端
-//   node scripts/release.mjs                    # 正式发布（会 npm publish + push + 建 Release）
-//   node scripts/release.mjs --skip-npm         # 只同步 git/GitHub/Gitee
+//   node scripts/release.mjs --approved         # 正式发布（会 npm publish + push + 建 Release）
+//   node scripts/release.mjs --approved --skip-npm   # 只同步 git/GitHub/Gitee
 //   node scripts/release.mjs --only-gitee       # 只补建 Gitee Release
 //   node scripts/release.mjs --allow-dirty      # 允许带未提交改动发布（默认拒绝）
 //   node scripts/release.mjs --tag=v0.10.0 --notes-file=notes.md
+//
+// 发布通道（2026-11-19 用户指令，强制）：
+//   · 正式版 / 补丁版（x.y.z）**必须先得到用户明确批准**，才允许加 --approved 执行；
+//   · 测试版（x.y.z-alpha.N / -beta.N / -rc.N）不走本脚本，只发 GitHub Pre-release：
+//     `node scripts/release-test.mjs`（不上 npm、不发 Gitee）。
 //
 // Gitee 需要 token：环境变量 `GITEE_TOKEN`，或文件 `~/.config/memory-eternal/gitee-token`
 // （一行 token，不要提交进仓库）。token 需要在 Gitee → 设置 → 私人令牌 生成，
@@ -95,6 +100,28 @@ say(`package.json version = ${pkg.version} → tag = ${tag}`)
 if (tag !== `v${pkg.version}` && !flag('allow-tag-mismatch')) {
   throw new Error(`tag(${tag}) 与 package.json 版本(${pkg.version}) 不一致；确属有意请加 --allow-tag-mismatch`)
 }
+
+// ---- 发布通道闸门（2026-11-19 用户指令）-----------------------------------
+// 正式版/补丁版必须先在对话里得到用户明确批准，才允许加 --approved 真正发布；
+// 测试版（alpha/beta/rc）一律不走本脚本 —— 只发 GitHub Pre-release，不上 npm、不发 Gitee。
+// 这道闸门是纪律提醒，不是安全边界：真正的审批在对话里，批准前不推正式 tag。
+if (/-/.test(String(pkg.version))) {
+  throw new Error(
+    `package.json 版本 ${pkg.version} 是测试版（alpha/beta/rc）。\n` +
+    '测试版只发 GitHub Pre-release，不上 npm、不发 Gitee：\n' +
+    '  node scripts/release-test.mjs --dry-run   # 预览\n' +
+    '  node scripts/release-test.mjs             # 建 GitHub Pre-release',
+  )
+}
+if (!DRY && !flag('approved')) {
+  throw new Error(
+    '正式版发布必须经用户批准：请先在对话里取得明确同意，再加 --approved 重跑。\n' +
+    '  node scripts/release.mjs --approved            # 正式发布（npm + GitHub + Gitee）\n' +
+    '  node scripts/release.mjs --dry-run             # 只预览（不需要批准）\n' +
+    '未获批准时只能发测试版：node scripts/release-test.mjs',
+  )
+}
+say(`发布通道：正式版 ${pkg.version}${flag('approved') ? '（已获批准）' : '（dry-run 预览）'} ✓`)
 
 const dirty = run('git', ['status', '--porcelain']).out
 if (dirty && !flag('allow-dirty')) {
