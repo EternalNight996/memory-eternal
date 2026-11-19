@@ -18,26 +18,33 @@ function withHome(fn, mengbot = { baseUrl: 'https://cloud.mengbot.example' }) {
   return Promise.resolve(fn(env, home)).finally(() => { try { fs.rmSync(home, { recursive: true, force: true }) } catch { /* 忽略 */ } })
 }
 
-/** 假 mengbot：按 control-plane 的真实路径与响应形状 */
+/** 假 mengbot：按 control-plane 的真实路径与响应形状（含 text()，与真实 Response 一致） */
+const resp = (ok, status, payload) => ({
+  ok,
+  status,
+  json: async () => payload,
+  text: async () => JSON.stringify(payload),
+  headers: { get: () => null },
+})
 const fakeMengbot = (calls) => async (url, init = {}) => {
   calls.push({ url, method: init.method || 'GET', body: init.body ? JSON.parse(init.body) : null, auth: (init.headers || {}).Authorization })
-  if (url.endsWith('/api/auth/email-otp/send-verification-otp')) return { ok: true, status: 200, json: async () => ({ ok: true }) }
+  if (url.endsWith('/api/auth/email-otp/send-verification-otp')) return resp(true, 200, { ok: true })
   if (url.endsWith('/api/auth/sign-in/email-otp')) {
     const b = JSON.parse(init.body)
-    if (b.otp === '12345678') return { ok: true, status: 200, json: async () => ({ token: 'utoken_ok', user: { id: 'u1', email: 'yg@example.com' } }) }
-    return { ok: false, status: 401, json: async () => ({ code: 'INVALID_OTP', message: 'invalid code' }) }
+    if (b.otp === '12345678') return resp(true, 200, { token: 'utoken_ok', user: { id: 'u1', email: 'yg@example.com' } })
+    return resp(false, 401, { code: 'INVALID_OTP', message: 'invalid code' })
   }
   if (url.endsWith('/v1/me')) {
     return init.headers.Authorization === 'Bearer utoken_ok'
-      ? { ok: true, status: 200, json: async () => ({ user: { id: 'u1', email: 'yg@example.com', name: 'YG' } }) }
-      : { ok: false, status: 401, json: async () => ({ error: 'unauthorized' }) }
+      ? resp(true, 200, { user: { id: 'u1', email: 'yg@example.com', name: 'YG' } })
+      : resp(false, 401, { error: 'unauthorized' })
   }
   if (url.endsWith('/v1/installations/self')) {
     return init.headers.Authorization === 'Bearer mb_install_abc.def'
-      ? { ok: true, status: 200, json: async () => ({ installation: { id: 'inst-1', name: 'PC' } }) }
-      : { ok: false, status: 401, json: async () => ({ error: 'unauthorized' }) }
+      ? resp(true, 200, { installation: { id: 'inst-1', name: 'PC' } })
+      : resp(false, 401, { error: 'unauthorized' })
   }
-  return { ok: false, status: 404, json: async () => ({ error: 'not found' }) }
+  return resp(false, 404, { error: 'not found' })
 }
 
 test('未配置 baseUrl → 明确原因（不发请求）', () => withHome(async (env) => {

@@ -38,6 +38,7 @@ test('测试版脚本：只建 GitHub Pre-release，不碰 npm / Gitee', () => {
   assert.match(src, /gh release create/, '通过 gh 建 Release')
   assert.doesNotMatch(src, /run\('npm', \['publish'/, '测试版不得 npm publish')
   assert.doesNotMatch(src, /gitee\.com\/api/, '测试版不得调 Gitee Release API')
+  assert.match(src, /--untracked-files=no/, '未跟踪文件不会进 tag，不该挡住测试版发布')
   assert.match(src, /-alpha|alpha\|beta\|rc/i, '要识别 alpha/beta/rc 通道')
 })
 

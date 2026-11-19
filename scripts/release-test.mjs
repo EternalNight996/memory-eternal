@@ -96,9 +96,9 @@ if (String(headPkg.version) !== version) {
 }
 say('HEAD 版本号一致 ✓')
 
-const dirty = run('git', ['status', '--porcelain']).out
+const dirty = run('git', ['status', '--porcelain', '--untracked-files=no']).out
 if (dirty && !flag('allow-dirty')) {
-  throw new Error(`工作区有未提交改动，拒绝发布（先 commit，或加 --allow-dirty）：\n${dirty}`)
+  throw new Error(`工作区有未提交的已跟踪改动，拒绝发布（先 commit，或加 --allow-dirty）：\n${dirty}`)
 }
 say('工作区干净 ✓')
 

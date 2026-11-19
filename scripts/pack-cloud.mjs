@@ -26,6 +26,11 @@ const SOURCES = [
   // epoch 毫秒修复根本没被覆盖上去，配额还在按 enterprise 兜底跑）。
   ['lib/cloud-auth.js', 'lib/cloud-auth.js'],
   ['lib/cloud-admin-ui.js', 'lib/cloud-admin-ui.js'],
+  ['lib/cloud-user-login.js', 'lib/cloud-user-login.js'],
+  ['lib/cloud-login-client.js', 'lib/cloud-login-client.js'],
+  ['lib/cloud-vaults.js', 'lib/cloud-vaults.js'],
+  ['lib/server-db.js', 'lib/server-db.js'],
+  ['lib/accounts.js', 'lib/accounts.js'],
   ['lib/cloud-server.js', 'lib/cloud-server.js'],
   ['lib/billing.js', 'lib/billing.js'],
   ['lib/entitlement.js', 'lib/entitlement.js'],

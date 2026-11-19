@@ -35,9 +35,13 @@ test('客户端清单：未配置渠道时给明确原因，不返回空 200', (
 test('服务端不引用客户端 UI 代码（剥离干净）', () => {
   assert.doesNotMatch(src, /from '\.\.\/src\/client/, '不允许 import 客户端源码')
   assert.doesNotMatch(src, /web\/app\.js|web\/index\.html/, '不允许引用客户端静态资源')
-  // 云端只依赖 api.js（数据层出口）与 cloud-auth.js（鉴权）
+  // 云端只依赖服务端模块（不含客户端源码 / 静态资源）；云端内部拆出的模块也算服务端
   const deps = [...src.matchAll(/from '\.\/([\w.-]+\.js)'/g)].map((m) => m[1])
-  assert.deepEqual(deps.sort(), ['api.js', 'billing.js', 'cloud-auth.js', 'db.js', 'entitlement.js', 'license.js', 'oidc.js', 'quota.js', 'webhook.js'], '云端模块只应依赖 api / cloud-auth / license / entitlement / oidc / webhook / billing / quota / db')
+  assert.deepEqual(deps.sort(), [
+    'accounts.js', 'api.js', 'billing.js', 'cloud-admin-ui.js', 'cloud-auth.js', 'cloud-login-client.js',
+    'cloud-user-login.js', 'cloud-vaults.js', 'db.js', 'entitlement.js', 'license.js', 'oidc.js',
+    'quota.js', 'server-db.js', 'vault.js', 'webhook.js',
+  ], '云端模块只应依赖服务端模块（api / cloud-auth / license / entitlement / oidc / webhook / billing / quota / db + 云端内部拆分模块）')
 })
 
 test('版本统一：没传 version 时读 package.json（客户端兼容判断要用）', () => {
