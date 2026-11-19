@@ -81,3 +81,10 @@ test('关于页 GitHub 仓库链接指向本仓库（issue #68）', () => {
   assert.doesNotMatch(src, /mengbot-ai\/memory-eternal/, '不能用已废弃的 mengbot-ai 仓库地址')
   assert.match(src, /github\.com\/EternalNight996\/memory-eternal/, '必须指向本仓库')
 })
+
+// issue #67：面板「查看库」作用域（cookie 传递，服务端只认配置里的 profile 名）
+test('查看库作用域入口存在（issue #67）', () => {
+  assert.match(src, /me_view_vault/, 'cookie 名必须是 me_view_vault')
+  assert.match(src, /viewVaultHint/, '要有作用域说明文案')
+  assert.match(src, /setViewVaultCookie/, '切换时必须写 cookie')
+})
