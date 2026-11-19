@@ -46,6 +46,10 @@ jobs:
       - name: Install npm with OIDC support
         run: npm i -g npm@^11.5.0
 
+      # 构建与测试需要项目依赖（esbuild 等）；早先没有这一步，Build 直接 ERR_MODULE_NOT_FOUND
+      - name: Install dependencies
+        run: npm ci
+
       # 通道判定只看 package.json 版本，不看 ref 名（分支名带 `-` 不影响手动触发的 dry-run）
       - name: Detect release channel
         id: channel
