@@ -21,6 +21,7 @@ test('publish.yml 是合法 YAML 开头，且测试版 tag 不发布 npm', () =>
   assert.match(wf, /steps\.channel\.outputs\.prerelease != 'true'/, 'npm 发布步骤必须带通道守卫')
   assert.match(wf, /steps\.npmcheck\.outputs\.exists != 'true'/, '已发布版本要幂等跳过（release.mjs 先发 npm 再推 tag）')
   assert.match(wf, /Detect release channel/, '要有通道识别步骤')
+  assert.match(wf, /run: npm ci/, '要先装项目依赖（esbuild）再 build，否则 CI 直接 ERR_MODULE_NOT_FOUND')
   assert.match(wf, /startsWith\(github\.ref, 'refs\/tags\/'\)/, 'tag 校验只在 tag 事件上跑（手动 dispatch 的 ref 是分支）')
 })
 
