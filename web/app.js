@@ -16859,7 +16859,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.21" : "";
+  var CLIENT_VERSION = true ? "0.49.22" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17177,7 +17177,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-19T14:04:28+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-19T14:08:57+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21489,7 +21489,9 @@ ${t("quoteHint")}`,
     }, "loadCloudPlan");
     const subscribeUrl = /* @__PURE__ */ __name(() => {
       const plan = String(cloudPlan && cloudPlan.plan || "").toLowerCase().replace(/^memory-/, "");
-      const sku = plan && plan !== "free" ? "sub-memory-" + plan : "sub-memory-pro";
+      const tlist = cloudPlan && cloudPlan.tiers && Array.isArray(cloudPlan.tiers.plans) ? cloudPlan.tiers.plans : [];
+      const hit = tlist.find((x) => x && String(x.plan || "").toLowerCase() === plan);
+      const sku = hit && hit.sku || (plan && plan !== "free" ? "sub-" + plan : "sub-personal");
       const params = new URLSearchParams({ merchant: "memory-eternal", sku, source: "memory-eternal" });
       const base = (cloudPayBase || "https://pay.mengbot.vip").replace(/\/+$/, "");
       return base + "/subscribe?" + params.toString();
@@ -22691,9 +22693,8 @@ ${t("quoteHint")}`,
                           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontWeight: 600 }, children: [
                             cloudPlan ? planLabelOf(cloudPlan.plan, true) : "\u2014",
                             (() => {
-                              const t2 = (cloudPlan && Array.isArray(cloudPlan.tiers) ? cloudPlan.tiers : []).find(
-                                (x) => x && String(x.plan || "").toLowerCase() === String(cloudPlan.plan || "").toLowerCase()
-                              );
+                              const tlist = cloudPlan && cloudPlan.tiers && Array.isArray(cloudPlan.tiers.plans) ? cloudPlan.tiers.plans : [];
+                              const t2 = tlist.find((x) => x && String(x.plan || "").toLowerCase() === String(cloudPlan.plan || "").toLowerCase());
                               return t2 && t2.price != null ? " \xB7 \xA5" + Number(t2.price) + "/\u6708" : "";
                             })()
                           ] })
@@ -22728,9 +22729,8 @@ ${t("quoteHint")}`,
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.5, marginBottom: 6 }, children: t("planTiersTitle") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 4 }, children: cloudPlan.plans.map((pid) => {
                           const cur = String(cloudPlan.plan || "").toLowerCase() === String(pid).toLowerCase();
-                          const tier = (Array.isArray(cloudPlan.tiers) ? cloudPlan.tiers : []).find(
-                            (x) => x && String(x.plan || "").toLowerCase() === String(pid).toLowerCase()
-                          );
+                          const tierList = cloudPlan.tiers && Array.isArray(cloudPlan.tiers.plans) ? cloudPlan.tiers.plans : [];
+                          const tier = tierList.find((x) => x && String(x.plan || "").toLowerCase() === String(pid).toLowerCase());
                           const price = tier && tier.price != null ? Number(tier.price) : null;
                           return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, opacity: cur ? 1 : 0.75 }, children: [
                             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 5, height: 5, borderRadius: "50%", flex: "none", background: cur ? "var(--me-c-success)" : "var(--me-c-border-strong)" } }),
