@@ -36,10 +36,12 @@ test('登录页与管理端页面各自渲染，且互相指引', () => {
   assert.match(admin, /记忆云管理端/)
   assert.match(admin, /签发访问密钥/)
   const user = userLoginPage({})
-  // 用户端现在是「登录 / 注册」双形态，不再是单一的「用户登录」标题
-  assert.match(user, /登录 \/ 注册/)
-  assert.match(user, /注册新账号/)
-  assert.match(user, /MengBot/)
+  // 用户端：扫码优先的三种登录方式（扫码 / 密码 / 密钥），注册已拆成独立页；底部互指管理端
+  assert.match(user, /登录记忆云/)
+  assert.match(user, /扫码/)
+  assert.match(user, /密码/)
+  assert.match(user, /密钥/)
+  assert.match(user, /立即注册/)
   assert.match(user, /api\/admin/)   // 指引管理员去管理端，两页互指
 })
 

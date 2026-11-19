@@ -5,9 +5,8 @@
 // 这条守卫把「发布形态」真的构造出来再加载一次，是唯一能提前发现该问题的方式。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cpSync, rmSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { cpSync, rmSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
 
 const SRC = process.cwd()
 const pkg = JSON.parse(readFileSync(path.join(SRC, 'package.json'), 'utf8'))
@@ -29,7 +28,9 @@ test('公开模块不得 import 私有模块（发布态会缺文件）', () => 
 })
 
 test('按 files 白名单构造发布态后，index.js 与 api.js 仍能加载', async () => {
-  const DST = path.join(os.tmpdir(), 'me-publish-shape-' + process.pid)
+  // 必须放在仓库内：index.js 静态 import @deepseek-ai/schemastery 等依赖，
+  // 放 os.tmpdir() 时向上找不到 node_modules，CI（Linux）会直接 ERR_MODULE_NOT_FOUND。
+  const DST = mkdtempSync(path.join(SRC, '.tmp-publish-shape-'))
   mkdirSync(DST, { recursive: true })
   try {
     for (const f of ['index.js', 'package.json']) cpSync(path.join(SRC, f), path.join(DST, f))

@@ -7,7 +7,7 @@ import path from 'node:path'
 import {
   parseCard, safeSlug, textSimilarity, queryTerms, ensureVault, listCards,
   writeCard, readCard, appendUpdate, search, graph, overview, dedupCheck,
-  stats, optimizeCandidates, searchAll, graphAll, readFeedback, addFeedback, mergeCards, countCards,
+  stats, optimizeCandidates, searchAll, graphAll, readFeedback, addFeedback, mergeCards, countCards, TITLE_COLLATOR,
 } from '../lib/vault.js'
 import { closeAllDb } from '../lib/db.js'
 
@@ -207,7 +207,7 @@ test('listCards 真分页：offset/limit/total 一致、无重叠、标题排序
 
   const byTitle = await listCards(root, { sort: 'title' })
   const sorted = byTitle.map((c) => c.title)
-  assert.deepEqual(sorted, [...sorted].sort((a, b) => a.localeCompare(b)), '标题排序应全局有序')
+  assert.deepEqual(sorted, [...sorted].sort((a, b) => TITLE_COLLATOR.compare(a, b)), '标题排序应全局有序（用 zh 拼音排序器，不随进程 locale 漂移）')
 
   // 服务端署名过滤：session:* / 空署名 归入 deepseek-harness
   await writeCard(root, { kind: 'knowledge', title: '宿主卡', tags: ['p'], body: '宿主自动沉淀的卡片正文内容足够长以便入库。', status: 'approved', submittedBy: 'deepseek-harness' }, { dedup: false })
