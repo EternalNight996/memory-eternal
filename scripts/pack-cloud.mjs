@@ -25,6 +25,7 @@ const SOURCES = [
   // 全新安装直接 ERR_MODULE_NOT_FOUND（本次云端升级就踩到了：entitlement 的
   // epoch 毫秒修复根本没被覆盖上去，配额还在按 enterprise 兜底跑）。
   ['lib/cloud-auth.js', 'lib/cloud-auth.js'],
+  ['lib/cloud-admin-ui.js', 'lib/cloud-admin-ui.js'],
   ['lib/cloud-server.js', 'lib/cloud-server.js'],
   ['lib/billing.js', 'lib/billing.js'],
   ['lib/entitlement.js', 'lib/entitlement.js'],

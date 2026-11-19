@@ -18,6 +18,13 @@ import { execFileSync } from 'node:child_process'
 
 const ROOT = process.cwd()
 const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
+// 服务端有**自己的版本号**（private/memory-eternal-cloud/package.json），与插件解耦：
+// 云端可以独立发 1.x，不必跟着插件的 0.49.x 走。
+let serverVersion = pkg.version
+try {
+  const cp = JSON.parse(readFileSync(path.join(ROOT, 'private/memory-eternal-cloud/package.json'), 'utf8'))
+  if (cp && cp.version) serverVersion = String(cp.version)
+} catch { /* 私有包不在（开源检出）→ 退回插件版本 */ }
 const withWeb = process.argv.includes('--with-web')
 const dry = process.argv.includes('--dry-run')
 
@@ -38,7 +45,7 @@ const entries = [...libFiles.map((f) => ['lib/' + f, 'lib/' + f]), ...extras]
   .filter(([src]) => existsSync(path.join(ROOT, src)))
 const missing = extras.filter(([src]) => !existsSync(path.join(ROOT, src))).map(([src]) => src)
 
-console.log('包名 memory-eternal-server · 版本 ' + pkg.version)
+console.log('包名 memory-eternal-server · 版本 ' + serverVersion)
 console.log('lib 模块 ' + libFiles.length + ' 个' + (withWeb ? '（含网页 UI）' : '（API-only）'))
 if (missing.length) console.log('缺文件（跳过）：' + missing.join(', '))
 
@@ -69,7 +76,7 @@ delete sp.devDependencies
 sp.description = 'Memory Eternal 服务端（多租户记忆库 API）。由 scripts/pack-server.mjs 从主仓产出，勿手改。'
 writeFileSync(path.join(stage, 'package.json'), JSON.stringify(sp, null, 2) + '\n')
 
-const out = path.join(ROOT, 'dist', 'memory-eternal-server-' + pkg.version + '.tgz')
+const out = path.join(ROOT, 'dist', 'memory-eternal-server-' + serverVersion + '.tgz')
 mkdirSync(path.dirname(out), { recursive: true })
 execFileSync('tar', ['-czf', out, '-C', stage, '.'], { stdio: 'inherit' })
 rmSync(stage, { recursive: true, force: true })
