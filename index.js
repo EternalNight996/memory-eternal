@@ -198,7 +198,13 @@ function markAllVolatile(schema) {
   return schema
 }
 
-markAllVolatile(Config)
+// ⚠ 不要调用 markAllVolatile(Config)：
+// DSH 0.2.2 把标了 volatile 的字段当成「可写引用（ref）」维护，回传给插件时是**空对象** `{}`，
+// 于是每个布尔字段都变成 `{enabled: {}, autoCapture: {}, …}`，校验直接报
+// `ValidationError: $.enabled expected boolean but got [object Object]`，整条插件被拒绝激活（白屏）。
+// 实测证据：`~/.dsh/memory-eternal-config-probe.json` 里 55 个键全是 `{}`。
+// 代价：设置改动不再"热生效"，需要重载页面 —— 用可靠性换这个便利，值得。
+// markAllVolatile(Config)
 
 /**
  * 「现在该不该跑一次自动备份」的纯判定。
