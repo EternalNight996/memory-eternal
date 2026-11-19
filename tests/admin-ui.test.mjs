@@ -36,9 +36,11 @@ test('登录页与管理端页面各自渲染，且互相指引', () => {
   assert.match(admin, /记忆云管理端/)
   assert.match(admin, /签发访问密钥/)
   const user = userLoginPage({})
-  assert.match(user, /用户登录/)
+  // 用户端现在是「登录 / 注册」双形态，不再是单一的「用户登录」标题
+  assert.match(user, /登录 \/ 注册/)
+  assert.match(user, /注册新账号/)
   assert.match(user, /MengBot/)
-  assert.match(user, /api\/admin/)
+  assert.match(user, /api\/admin/)   // 指引管理员去管理端，两页互指
 })
 
 test('用户登录页不含管理令牌输入（权限串味的直接证据）', () => {
