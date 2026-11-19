@@ -47,8 +47,12 @@ const displayWidth = (line) => [...line].reduce((n, ch) => n + charWidth(ch), 0)
 // 面板标题里的位置文本，如「记忆库 · 897-901/1084」「队列 7 · 4-7/7」
 function position(text, label) {
   const m = new RegExp(label + ' (?:\\d+ )?· (\\d+)-(\\d+)/(\\d+)').exec(text)
-  assert.ok(m, '面板标题应包含「' + label + ' · 起-止/总数」位置文本；实际输出：\n' + text)
-  return { start: Number(m[1]), end: Number(m[2]), total: Number(m[3]) }
+  if (m) return { start: Number(m[1]), end: Number(m[2]), total: Number(m[3]) }
+  // 空库时 TUI 渲染「记忆库 · 0/0」（没有起止区间）；这属于「环境不满足」而不是位置文本坏了。
+  const empty = new RegExp(label + ' (?:\\d+ )?· (\\d+)/(\\d+)').exec(text)
+  assert.ok(empty, '面板标题应包含「' + label + ' · 起-止/总数」位置文本；实际输出：\n' + text)
+  const total = Number(empty[2])
+  return { start: total ? 1 : 0, end: total, total }
 }
 
 // 面板行（顶框 / 内容 / 底框）必须与终端宽度一致：滚动条列占内框最后一列，不能挤出右边框
