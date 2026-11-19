@@ -6,7 +6,7 @@
 // - 增强版知识图谱（力导向布局 / 渐变发光节点 / 曲线渐变连线 / 节点按度数放大 / 悬停高亮 / 入场动画）；
 // - 设置 → 记忆 内嵌页面（复用同一套 MemoryLibrary）。
 //
-// 数据全部来自 host 的 /memory-eternal/api/* JSON 路由（同源 fetch），不引入额外依赖。
+// 数据全部来自 host 的 /api/* JSON 路由（同源 fetch），不引入额外依赖。
 
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
@@ -43,7 +43,7 @@ import { mergeLocalOverlay } from './config-merge.js'
 import { makeQrMatrix } from './qr.js'
 
 const NS = 'memory-eternal'
-const API = '/memory-eternal/api'
+const API = '/api'
 // issue #67：面板「查看库」作用域。值只放配置里的 profile 名，用 cookie 传给服务端，
 // 这样所有面板请求（待审/卡片/日志/健康/图谱）自动跟随，不用改 200 多处 fetch。
 // 作用域只影响数据面，不改默认库、不改 activeVault、不影响 Agent 写入。
@@ -142,7 +142,7 @@ function saveXferResume(rs) {
 /**
  * 只打**本机**服务的 fetch（绕过云端重写）。
  *
- * 为什么需要：云端模式下全局 fetch 会把 `/memory-eternal/api/...` 重写到云端实例。
+ * 为什么需要：云端模式下全局 fetch 会把 `/api/...` 重写到云端实例。
  * 但客户端的「我的本地库在哪 / 本地库有哪些」这问题只能问本机 —— 否则本地库在
  * 界面上就"消失"了（切到云端后看到的全是服务器上的路径）。
  *
@@ -517,7 +517,7 @@ function probeCloudBoot(timeoutMs = 3000) {
 }
 
 // 包装 fetch：云端模式下把相对 API 路径**重写成云端绝对地址**并补 Authorization。
-// 这样 200 多处 `fetch(API + '/xxx')` 一行都不用改：调用点写的仍是 `/memory-eternal/api/...`。
+// 这样 200 多处 `fetch(API + '/xxx')` 一行都不用改：调用点写的仍是 `/api/...`。
 try {
   const _fetch = globalThis.fetch && globalThis.fetch.bind(globalThis)
   // 留一个**不被重写**的原始 fetch：本地进程的「我的库在哪」必须问本地，
@@ -606,7 +606,7 @@ async function openExternal(url) {
   return openViaAnchor(url)
 }
 
-/** 云端实例的官方图标（客户端改造 R5）：<base>/memory-eternal/api/icon.png */
+/** 云端实例的官方图标（客户端改造 R5）：<base>/api/icon.png */
 function cloudInstanceIconUrl(base) {
   const b = String(base || '').trim().replace(/\/+$/, '')
   return b ? b + '/api/icon.png' : ''
@@ -6334,7 +6334,7 @@ function useWebUrl() {
   const [url, setUrl] = useState(API + '/ui/app')
   useEffect(() => {
     let alive = true
-    const fallback = () => fetch('/memory-eternal/api/web-info')
+    const fallback = () => fetch('/api/web-info')
       .then((r) => r.json())
       .then((d) => {
         if (alive && d && d.ok && d.alive !== false && d.url) setUrl(d.url.endsWith('/') ? d.url : d.url + '/')
@@ -6909,7 +6909,11 @@ const CLOUD_DOMAINS_FALLBACK = { memUrl: 'https://mem.mengbot.com.cn', accountsU
 let cloudDomainsRef = { ...CLOUD_DOMAINS_FALLBACK }
 
 function MemoryLibraryInner({ t, inModal, onClose }) {
-  const inHost = typeof window !== 'undefined' && (!!window.__DSH_BOOT__ || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
+  // 两种前缀都认：host 加载 UI 的静态路径可能是旧的 /memory-eternal/api/ui/app，
+  // 也可能是统一后的 /api/ui/app —— 只认一种会在另一种下判错“不是宿主内”，从而隐藏云端入口。
+  const inHost = typeof window !== 'undefined' && (!!window.__DSH_BOOT__
+    || String(location.pathname || '').includes('/api/ui/app')
+    || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
   const [overview, setOverview] = useState(null)
   // 布局大小：宿主配置 uiScale + 本地即时事件；默认 standard
   const [uiScale, setUiScale] = useState(() => {
@@ -9704,7 +9708,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    * 云端专属接口的绝对地址。
    *
    * 为什么不用相对前缀 `API`：`API` 在「云端模式还没激活」时指向**本地**服务
-   * （/memory-eternal/api/*），而设备码登录、商户注册这些接口只存在于云端实例上 ——
+   * （/api/*），而设备码登录、商户注册这些接口只存在于云端实例上 ——
    * 用相对路径必然 404「未知接口」（用户实测踩到）。
    * 这里显式用用户填的 cloudForm.url 拼绝对地址，与 probeCloud 的做法一致。
    */
