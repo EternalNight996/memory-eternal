@@ -7,12 +7,12 @@
     "url": "https://github.com/EternalNight996/memory-eternal",
     "source": "github"
   },
-  "version": "0.49.21",
+  "version": "0.49.22",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "memory-eternal",
-      "version": "0.49.21",
+      "version": "0.49.22",
       "transport": {
         "type": "stdio"
       },

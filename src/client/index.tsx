@@ -10848,7 +10848,11 @@ function ConfigPanel({ t, onReload, version, compact }) {
     // 所以：① 必须带 merchant=memory-eternal（订阅页靠它切到记忆云视图）；② SKU 用 sub-memory-*，
     // 不能拼成 sub-pro —— 那是客户端 Pro，用户点进来会以为买错东西。
     const plan = String((cloudPlan && cloudPlan.plan) || '').toLowerCase().replace(/^memory-/, '')
-    const sku = plan && plan !== 'free' ? 'sub-memory-' + plan : 'sub-memory-pro'
+    // ⚠ SKU 必须用 /api/pricing 返回的原值：sub-memory-* 系列已被 MengBot 停用，
+    // 传过去会得到「未知 SKU」。拿不到下拉列表时才回退到通用三档的拼法。
+    const tlist = (cloudPlan && cloudPlan.tiers && Array.isArray(cloudPlan.tiers.plans)) ? cloudPlan.tiers.plans : []
+    const hit = tlist.find((x) => x && String(x.plan || '').toLowerCase() === plan)
+    const sku = (hit && hit.sku) || (plan && plan !== 'free' ? 'sub-' + plan : 'sub-personal')
     const params = new URLSearchParams({ merchant: 'memory-eternal', sku, source: 'memory-eternal' })
     // 跟随当前云端实例：服务端下发的 payBase 优先（自建/另一个官方实例不能指向别人的订阅页）
     const base = (cloudPayBase || 'https://pay.mengbot.vip').replace(/\/+$/, '')
@@ -12016,9 +12020,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                           {/* 权益：到期 / 配额，一眼看完；缺数据就不显示那一行，不留空壳 */}
                           <div style={{ padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanLabel')}</span><span style={{ fontWeight: 600 }}>{cloudPlan ? planLabelOf(cloudPlan.plan, true) : '—'}{(() => {
-                              const t2 = (cloudPlan && Array.isArray(cloudPlan.tiers) ? cloudPlan.tiers : []).find(
-                                (x) => x && String(x.plan || '').toLowerCase() === String(cloudPlan.plan || '').toLowerCase(),
-                              )
+                              const tlist = (cloudPlan && cloudPlan.tiers && Array.isArray(cloudPlan.tiers.plans)) ? cloudPlan.tiers.plans : []
+                              const t2 = tlist.find((x) => x && String(x.plan || '').toLowerCase() === String(cloudPlan.plan || '').toLowerCase())
                               return t2 && t2.price != null ? ' · ¥' + Number(t2.price) + '/月' : ''
                             })()}</span></div>
                             {cloudPlan && formatExpiry(cloudPlan.expiresAt) ? (
@@ -12049,9 +12052,8 @@ function ConfigPanel({ t, onReload, version, compact }) {
                         const cur = String(cloudPlan.plan || '').toLowerCase() === String(pid).toLowerCase()
                         // 价格**只认后端从 MengBot 拉到的权威值**：两边各写一份必然开叉（面板 ¥18 / 支付页 ¥39）。
                         // 拿不到就显示「—」，宁可不显示也不显示错的。
-                        const tier = (Array.isArray(cloudPlan.tiers) ? cloudPlan.tiers : []).find(
-                          (x) => x && String(x.plan || '').toLowerCase() === String(pid).toLowerCase(),
-                        )
+                        const tierList = (cloudPlan.tiers && Array.isArray(cloudPlan.tiers.plans)) ? cloudPlan.tiers.plans : []
+                        const tier = tierList.find((x) => x && String(x.plan || '').toLowerCase() === String(pid).toLowerCase())
                         const price = tier && tier.price != null ? Number(tier.price) : null
                         return (
                           <div key={pid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, opacity: cur ? 1 : 0.75 }}>
