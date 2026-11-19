@@ -1156,7 +1156,8 @@ export function apply(ctx, config) {
         } else logCapture(sessionId, 'fail', `蒸馏无输出，且兜底原文卡也失败：${raw.reason || raw.error || '未知原因'}`, { model: route.model, preview: preview(text) })
         return
       }
-      if (result.save !== true) { logCapture(sessionId, 'skip', '模型判定不值得保存', { model: route.model, preview: preview(text) }); return }
+      // issue #64：append_to 的结果没有 save 字段，必须先判 append_to，再判 save。
+      // 反过来写会让「追加到已有卡」永远走进「模型判定不值得保存」被静默跳过。
       if (result.append_to) {
         // 模型判定属于已有卡 → 追加更新记录，不新建（boujoy 语义）。
         await captureUpdate(root, result.append_to, result.update, { threshold: cfg.dedupThreshold })
@@ -1166,6 +1167,7 @@ export function apply(ctx, config) {
         logCapture(sessionId, 'appended', `追加更新「${appT}」（模型判定属于已有卡）`, { path: result.append_to, model: route.model, title: appT, preview: preview(text) })
         return
       }
+      if (result.save !== true) { logCapture(sessionId, 'skip', '模型判定不值得保存', { model: route.model, preview: preview(text) }); return }
       const card = {
         kind: result.kind,
         title: result.title,
