@@ -70,6 +70,8 @@ for (const [src, dst] of entries) {
 
 const sp = { ...pkg }
 sp.name = 'memory-eternal-server'
+sp.version = serverVersion   // ⚠ 必须显式写回：只改文件名而包内版本仍是插件版本，
+                              //   运行时会报 0.49.x，与「独立版本 1.0.0」自相矛盾。
 sp.private = true
 delete sp.files
 delete sp.devDependencies
