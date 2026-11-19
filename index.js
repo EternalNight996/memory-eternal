@@ -58,6 +58,9 @@ export const inject = ['systemPrompt', 'settings']
 // "TypeError: ...volatile is not a function"，把整个插件打挂；这里统一在构造后打标记，
 // 新旧版本行为一致（.volatile() 本身就等价于 .extra('volatile', true)，只写 meta）。
 export const Config = z.object({
+  // 注意：patch 里**不要写 config.enabled** —— DSH 会在插件条目上再维护一个 enabled 开关，
+  // 两者同名时会把对象塞进这里，导致 `$.enabled expected boolean but got [object Object]`、插件被整体拒绝。
+  // 这里保留字段（默认 true），由用户在设置页/DSH 开关控制。
   enabled: z.boolean().default(true),
   autoCapture: z.boolean().default(true),
   autoRecall: z.boolean().default(true),
