@@ -188,7 +188,7 @@ async function main() {
         return
       }
 
-      // 远端模式：dsh-memory mcp --cloud https://mem.mengbot.com.cn --token me_xxx
+      // 远端模式：dsh-memory mcp --cloud https://mem.mengbot.vip --token me_xxx
       // 把地址与令牌塞进 env，让 lib/mcp.js 的远端适配层带上 Authorization —— 云端实例所有业务接口都要它。
       const cloudArg = String(argOf('--cloud') || argOf('--api') || '').trim()
       const tokenArg = String(argOf('--token') || '').trim()
