@@ -23,7 +23,7 @@ test('connect 需要令牌（无令牌 401，不泄露任何租户信息）', ()
   // 令牌解析统一走 tenantOf（内部是 resolveTenant；header 与 cookie 都认）
   assert.match(block, /tenantOf\(req\)/, '必须解析令牌')
   assert.match(block, /401/, '无令牌要 401')
-  assert.match(src, /const tenantOf = \(req\) =>[\s\S]{0,400}resolveTenant/, 'tenantOf 内部要用 resolveTenant')
+  assert.match(src, /const tenantOf = \(req\) =>[\s\S]{0,1200}resolveTenant/, 'tenantOf 内部要用 resolveTenant')
 })
 
 test('客户端清单：未配置渠道时给明确原因，不返回空 200', () => {

@@ -114,10 +114,10 @@ test('云端面板三态互斥：isConnected 同时控制「登录CTA不显示�
 
   // else 之后必须出现登录面板（会自己渲染二维码或"扫码登录"按钮）
   const after = region.slice(elseIdx)
-  const hasLoginPanel = after.includes('{deviceAuth ? (') || after.includes('{!isConnected && deviceAuth ? (')
+  const hasLoginPanel = after.includes('{pollAuth ? (') || after.includes('{deviceAuth ? (') || after.includes('{!isConnected && deviceAuth ? (')
   assert.ok(hasLoginPanel, '登录面板必须出现在未连接（else）分支内，否则已连接时仍会显示')
 
   // 且 isConnected 分支**内部**不能出现登录面板（那才是真重复渲染）
   const head = region.slice(0, elseIdx)
-  assert.ok(!head.includes('{deviceAuth ? ('), '已连接分支里不该再有设备码面板')
+  assert.ok(!head.includes('{pollAuth ? (') && !head.includes('{deviceAuth ? ('), '已连接分支里不该再有设备码面板')
 })
