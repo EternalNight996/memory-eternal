@@ -646,15 +646,16 @@ async function probeCloudHealth() {
       CLOUD_HEALTH.plan = String((d.connect && d.connect.plan) || '')
       const realOwner = String((d.connect && d.connect.owner) || '')
       CLOUD_HEALTH.owner = realOwner
-      // **自动纠正 owner**：换了账号后 token 变了但本地 owner 可能还是旧的
-      //（实测：token 属于 mengbot996，配置里却写着 13048770337，
-      //  导致面板显示的账号名和实际数据对不上）。
-      // 服务端是唯一真相源，以它为准。
+      // **自动纠正 owner**：换了账号后 token 变了但本地 owner 可能还是旧的。
+      // ⚠ 只改 **localStorage**，**绝不写服务端**。
+      //   实测事故：全新浏览器（localStorage 为空 → mode:'local', active:false）
+      //   打开面板，健康检查拿到真实 owner，顺手 syncCloudConnToServer(fixed)，
+      //   结果把服务端的 mode=cloud/active=true **降级成 local/false** ——
+      //   云端配置被一个"只读探测"擦掉，之后怎么切都切不过去。
+      //   服务端是唯一真相源，只由用户明确动作（登录/切换/断开）写。
       if (realOwner && realOwner !== String(cfg.owner || '')) {
         try {
-          const fixed = { ...readCloudConn(), owner: realOwner }
-          saveCloudConn(fixed)
-          try { syncCloudConnToServer(fixed) } catch { /* 忽略 */ }
+          saveCloudConn({ ...readCloudConn(), owner: realOwner })
         } catch { /* 忽略 */ }
       }
       const exp = d.connect && d.connect.expiresAt ? Date.parse(d.connect.expiresAt) : 0
