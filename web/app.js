@@ -16943,7 +16943,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.30" : "";
+  var CLIENT_VERSION = true ? "0.49.31" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17224,7 +17224,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T13:34:32+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T13:39:31+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -19165,7 +19165,24 @@ ${t("quoteHint")}`,
       setMsg({ kind: "ok", text: t("dynPortSwitched") + " \u2192 " + (d.url || "http://127.0.0.1:" + d.port) + "\uFF08" + t("dynReopen") + "\uFF09" });
     }, "doPort");
     const curDb = ov && ov.dbPath ? String(ov.dbPath).split(/[\\/]/).pop() : "\u2014";
+    const pkgV = String(ov && ov.pkgVersion || "");
+    const runV = String(ov && ov.version || "");
+    const staleVer = !!(pkgV && runV && pkgV !== runV);
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+      staleVer && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid #f85149", background: "rgba(248,81,73,.1)", borderRadius: 10, padding: "12px 14px", fontSize: 12.5, lineHeight: 1.8 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { color: "#f85149" }, children: "\u26A0 \u63D2\u4EF6\u5DF2\u66F4\u65B0\uFF0C\u4F46\u5BBF\u4E3B\u8FD8\u5728\u8DD1\u65E7\u7248\u672C" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 4, opacity: 0.85 }, children: [
+          "\u78C1\u76D8\u7248\u672C ",
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: pkgV }),
+          " \xB7 \u8FD0\u884C\u7248\u672C ",
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { children: runV })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 4, opacity: 0.75 }, children: [
+          "\u8FD9\u671F\u95F4\u5BF9\u4EE3\u7801\u7684\u4EFB\u4F55\u4FEE\u6539\u90FD\u4E0D\u4F1A\u751F\u6548\u3002\u8BF7",
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: "\u5B8C\u5168\u9000\u51FA DSH" }),
+          "\uFF08\u786E\u8BA4\u8FDB\u7A0B\u7ED3\u675F\uFF09\u518D\u6253\u5F00\u3002"
+        ] })
+      ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0, flex: "0 1 240px" }, children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("dynDbLabel") }),
