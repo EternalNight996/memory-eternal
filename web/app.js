@@ -11128,6 +11128,16 @@
   bootstrapCloudMode();
   (/* @__PURE__ */ __name(function syncConnFromServer() {
     if (typeof window === "undefined" || typeof fetch !== "function") return;
+    try {
+      if (document.readyState === "complete") sessionStorage.removeItem("me-cloud-resync-done");
+      else window.addEventListener("load", () => {
+        try {
+          sessionStorage.removeItem("me-cloud-resync-done");
+        } catch {
+        }
+      }, { once: true });
+    } catch {
+    }
     const run = /* @__PURE__ */ __name(async () => {
       try {
         const local = readCloudConn();
@@ -11152,6 +11162,21 @@
         };
         saveCloudConn(merged);
         applyCloudConn(merged, { noSync: true });
+        const sourceChanged = local.mode !== merged.mode || local.active !== merged.active;
+        if (sourceChanged) {
+          try {
+            if (!sessionStorage.getItem("me-cloud-resync-done")) {
+              sessionStorage.setItem("me-cloud-resync-done", "1");
+              setTimeout(() => {
+                try {
+                  location.reload();
+                } catch {
+                }
+              }, 80);
+            }
+          } catch {
+          }
+        }
       } catch {
       }
     }, "run");
@@ -17029,7 +17054,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.50.0" : "";
+  var CLIENT_VERSION = true ? "0.50.1" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17310,7 +17335,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T17:22:38+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T17:46:01+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21760,6 +21785,15 @@ ${t("quoteHint")}`,
         });
         notifyAcrossRemount(kind === "cloud" ? t("switchToCloudDone") : t("switchToLocalDone"), true);
         window.dispatchEvent(new CustomEvent(VAULT_SWITCH_EVT, { detail: { kind } }));
+        try {
+          setTimeout(() => {
+            try {
+              location.reload();
+            } catch {
+            }
+          }, 260);
+        } catch {
+        }
       } catch (e) {
         try {
           notify2(String(e && e.message || e), false);
