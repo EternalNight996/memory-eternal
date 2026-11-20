@@ -64,7 +64,12 @@ try {
     })
     const d = await r.json().catch(() => ({}))
     if (r.ok && d.granted) {
-      pass('授权有效  plan=' + d.connect.plan + '  到期=' + String(d.connect.expiresAt || '').slice(0, 10))
+      const realOwner = String((d.connect && d.connect.owner) || '')
+      if (realOwner && realOwner !== String(cfg.owner || '')) {
+        // 配置里的 owner 是旧的：换了账号但没同步。以服务端为准并提示。
+        fail('账号不一致：配置写的是 ' + (cfg.owner || '(空)') + '，token 实际属于 ' + realOwner + ' → 客户端健康检查会自动纠正')
+      }
+      pass('授权有效  plan=' + d.connect.plan + '  到期=' + String(d.connect.expiresAt || '').slice(0, 10) + '  owner=' + (realOwner || '-'))
       info('云端库: ' + (d.connect.vaults || []).map((x) => x.name + '(' + x.cards + ')').join(', '))
     } else fail('授权失败 ' + r.status + ' ' + (d.code || '') + ' ' + (d.error || ''))
   }
