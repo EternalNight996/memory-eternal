@@ -474,7 +474,8 @@ function saveCloudCredentials({ url, token, owner, profile } = {}) {
     ...prev,
     url: String(url || prev.url || '').trim().replace(/\/+$/, ''),
     token: String(token || prev.token || '').trim(),
-    owner: String(owner || prev.owner || ''),
+    // owner 以本次登录为准；只有本次没给才沿用旧的
+    owner: String((owner && String(owner).trim()) || prev.owner || ''),
     profile: profile || prev.profile || null,
     lastError: '',
     lastCheckAt: Date.now(),
@@ -625,7 +626,19 @@ async function probeCloudHealth() {
       CLOUD_HEALTH.status = 'ok'
       CLOUD_HEALTH.lastError = ''
       CLOUD_HEALTH.plan = String((d.connect && d.connect.plan) || '')
-      CLOUD_HEALTH.owner = String((d.connect && d.connect.owner) || '')
+      const realOwner = String((d.connect && d.connect.owner) || '')
+      CLOUD_HEALTH.owner = realOwner
+      // **自动纠正 owner**：换了账号后 token 变了但本地 owner 可能还是旧的
+      //（实测：token 属于 mengbot996，配置里却写着 13048770337，
+      //  导致面板显示的账号名和实际数据对不上）。
+      // 服务端是唯一真相源，以它为准。
+      if (realOwner && realOwner !== String(cfg.owner || '')) {
+        try {
+          const fixed = { ...readCloudConn(), owner: realOwner }
+          saveCloudConn(fixed)
+          try { syncCloudConnToServer(fixed) } catch { /* 忽略 */ }
+        } catch { /* 忽略 */ }
+      }
       const exp = d.connect && d.connect.expiresAt ? Date.parse(d.connect.expiresAt) : 0
       CLOUD_HEALTH.daysLeft = exp ? Math.max(0, Math.ceil((exp - Date.now()) / 86400000)) : null
     } else {

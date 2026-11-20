@@ -11120,7 +11120,8 @@
       ...prev,
       url: String(url || prev.url || "").trim().replace(/\/+$/, ""),
       token: String(token || prev.token || "").trim(),
-      owner: String(owner || prev.owner || ""),
+      // owner 以本次登录为准；只有本次没给才沿用旧的
+      owner: String(owner && String(owner).trim() || prev.owner || ""),
       profile: profile || prev.profile || null,
       lastError: "",
       lastCheckAt: Date.now()
@@ -11246,7 +11247,19 @@
         CLOUD_HEALTH.status = "ok";
         CLOUD_HEALTH.lastError = "";
         CLOUD_HEALTH.plan = String(d.connect && d.connect.plan || "");
-        CLOUD_HEALTH.owner = String(d.connect && d.connect.owner || "");
+        const realOwner = String(d.connect && d.connect.owner || "");
+        CLOUD_HEALTH.owner = realOwner;
+        if (realOwner && realOwner !== String(cfg.owner || "")) {
+          try {
+            const fixed = { ...readCloudConn(), owner: realOwner };
+            saveCloudConn(fixed);
+            try {
+              syncCloudConnToServer(fixed);
+            } catch {
+            }
+          } catch {
+          }
+        }
         const exp = d.connect && d.connect.expiresAt ? Date.parse(d.connect.expiresAt) : 0;
         CLOUD_HEALTH.daysLeft = exp ? Math.max(0, Math.ceil((exp - Date.now()) / 864e5)) : null;
       } else {
@@ -17150,7 +17163,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.51.0" : "";
+  var CLIENT_VERSION = true ? "0.51.1" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17431,7 +17444,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T22:04:58+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T22:20:25+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
