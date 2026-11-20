@@ -11277,12 +11277,26 @@
         // 本机宿主的待办排空
         "/web-info",
         // 本机端口 / 令牌
-        "/events"
+        "/events",
         // 本机 SSE
+        "/setup-run",
+        // 一键挂载所有宿主
+        "/setup-shell",
+        // 挂载脚本
+        "/config",
+        // 本机配置读写（改的是这台机器的开关）
+        "/restart-self",
+        // 重启本机宿主
+        "/logs",
+        // 本机日志文件
+        "/open-in-folder"
+        // 本机资源管理器
       ];
+      const LOCAL_HINTS = /\/(mcp|setup|host|agent)s?(\/|\?|$)/;
       const isLocalOnly = /* @__PURE__ */ __name((u) => {
         if (typeof u !== "string") return false;
         for (const p of LOCAL_ONLY) if (u.startsWith(LOCAL_PREFIX + p)) return true;
+        if (u.startsWith(LOCAL_PREFIX) && LOCAL_HINTS.test(u.slice(LOCAL_PREFIX.length))) return true;
         return false;
       }, "isLocalOnly");
       globalThis.fetch = (input, init) => {
@@ -17015,7 +17029,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.44" : "";
+  var CLIENT_VERSION = true ? "0.49.45" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17296,7 +17310,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T15:55:51+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T16:17:28+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -22094,7 +22108,7 @@ ${t("quoteHint")}`,
       try {
         const [c, ss, b, rt] = await Promise.all([
           fetch(`${API}/config`).then((r) => r.json()).catch(() => null),
-          fetch(`${API}/setup-status`).then((r) => r.json()).catch(() => null),
+          fetch(`${API}/setup-status`, { cache: "no-store" }).then((r) => r.json()).catch(() => null),
           fetch(`${API}/budget`).then((r) => r.json()).catch(() => null),
           fetch(`${API}/llm-routes`).then((r) => r.json()).catch(() => null)
         ]);
@@ -22332,7 +22346,7 @@ ${t("quoteHint")}`,
     }, "applyPlan");
     const refreshSetup = /* @__PURE__ */ __name(async () => {
       try {
-        const s = await fetch(API + "/setup-status").then((r) => r.json());
+        const s = await fetch(API + "/setup-status", { cache: "no-store" }).then((r) => r.json());
         if (s && s.ok) setSetupStatus(s);
       } catch {
       }
@@ -22345,7 +22359,7 @@ ${t("quoteHint")}`,
         if (d && d.ok) notify2(tf(action === "install" ? "mcpInstalled" : "mcpUninstalled", { agent }));
         else notify2(tf("mcpActionFail", { agent, error: d?.error || "" }), false);
         try {
-          const s = await fetch(`${API}/setup-status`).then((x) => x.json());
+          const s = await fetch(`${API}/setup-status`, { cache: "no-store" }).then((x) => x.json());
           if (s && s.ok) setSetupStatus(s);
         } catch {
         }
