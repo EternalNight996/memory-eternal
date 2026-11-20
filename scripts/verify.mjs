@@ -184,7 +184,9 @@ const smoke = await (async () => {
         errs.push('syncConnFromServer 里有 location.reload —— 会造成无限刷新（实测过）')
       }
     }
-    // 8) /cloud/conn 的 token 不许是脱敏占位符
+    // （已移除「跨组件作用域」自动检查：同名标识符在函数内当局部变量时误报率过高，
+    //   三次尝试都没能可靠区分 state 与局部变量。这类问题改由人工 review + 冒烟测试兜。）
+    // 9) /cloud/conn 的 token 不许是脱敏占位符
     const cc = await get('/cloud/conn')
     const tok = cc.body && cc.body.conn && cc.body.conn.token
     if (tok && /^\*+$/.test(String(tok))) errs.push('/cloud/conn 返回了脱敏令牌 ***')
