@@ -159,7 +159,11 @@ const smoke = await (async () => {
     const ss = await get('/setup-status')
     const bad = ((ss.body && ss.body.agents) || []).filter((x) => x.mcpPath && /^\/(root|opt|var|etc)\b/.test(x.mcpPath))
     if (bad.length) errs.push('MCP 出现服务器路径: ' + bad.map((x) => x.mcpPath).join(','))
-    // 5) /cloud/conn 的 token 不许是脱敏占位符
+    // 5) /setup-status 必须禁止缓存（否则界面会一直显示旧数据/服务器路径）
+    const ssr = await fetch(B + '/setup-status', { signal: AbortSignal.timeout(8000) })
+    const cc2 = String(ssr.headers.get('cache-control') || '')
+    if (!/no-store/.test(cc2)) errs.push('/setup-status 缺 Cache-Control: no-store（实际 "' + cc2 + '"）')
+    // 6) /cloud/conn 的 token 不许是脱敏占位符
     const cc = await get('/cloud/conn')
     const tok = cc.body && cc.body.conn && cc.body.conn.token
     if (tok && /^\*+$/.test(String(tok))) errs.push('/cloud/conn 返回了脱敏令牌 ***')

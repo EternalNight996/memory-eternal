@@ -664,10 +664,21 @@ try {
       '/drain-pending',   // 本机宿主的待办排空
       '/web-info',        // 本机端口 / 令牌
       '/events',          // 本机 SSE
+      '/setup-run',       // 一键挂载所有宿主
+      '/setup-shell',     // 挂载脚本
+      '/config',          // 本机配置读写（改的是这台机器的开关）
+      '/restart-self',    // 重启本机宿主
+      '/logs',            // 本机日志文件
+      '/open-in-folder',  // 本机资源管理器
     ]
+    // 反向兜底：**任何**带 mcp / setup / host 语义的路径都留在本机。
+    // 白名单漏一项就会出现"MCP 部分请求打到云端、显示服务器路径"，
+    // 这类漏项比误拦更难发现，所以再加一道关键词兜底。
+    const LOCAL_HINTS = /\/(mcp|setup|host|agent)s?(\/|\?|$)/
     const isLocalOnly = (u) => {
       if (typeof u !== 'string') return false
       for (const p of LOCAL_ONLY) if (u.startsWith(LOCAL_PREFIX + p)) return true
+      if (u.startsWith(LOCAL_PREFIX) && LOCAL_HINTS.test(u.slice(LOCAL_PREFIX.length))) return true
       return false
     }
     globalThis.fetch = (input, init) => {
@@ -11534,7 +11545,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     try {
       const [c, ss, b, rt] = await Promise.all([
         fetch(`${API}/config`).then((r) => r.json()).catch(() => null),
-        fetch(`${API}/setup-status`).then((r) => r.json()).catch(() => null),
+        fetch(`${API}/setup-status`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
         fetch(`${API}/budget`).then((r) => r.json()).catch(() => null),
         fetch(`${API}/llm-routes`).then((r) => r.json()).catch(() => null),
       ])
@@ -11710,7 +11721,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   }
   // 单智能体安装/卸载 MCP：POST /mcp/action，操作后刷新状态
   const refreshSetup = async () => {
-    try { const s = await fetch(API + '/setup-status').then((r) => r.json()); if (s && s.ok) setSetupStatus(s) } catch { /* 探测失败保持旧数据 */ }
+    try { const s = await fetch(API + '/setup-status', { cache: 'no-store' }).then((r) => r.json()); if (s && s.ok) setSetupStatus(s) } catch { /* 探测失败保持旧数据 */ }
   }
   const mcpAction = async (agent, action) => {
     setBusy(agent + action)
@@ -11719,7 +11730,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       const d = await r.json()
       if (d && d.ok) notify(tf(action === 'install' ? 'mcpInstalled' : 'mcpUninstalled', { agent }))
       else notify(tf('mcpActionFail', { agent, error: d?.error || '' }), false)
-      try { const s = await fetch(`${API}/setup-status`).then((x) => x.json()); if (s && s.ok) setSetupStatus(s) } catch {}
+      try { const s = await fetch(`${API}/setup-status`, { cache: 'no-store' }).then((x) => x.json()); if (s && s.ok) setSetupStatus(s) } catch {}
     } catch { notify(t('mergeFail'), false) }
     finally { setBusy('') }
   }
