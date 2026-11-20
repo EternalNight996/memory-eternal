@@ -13016,7 +13016,13 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                       </div>
                       <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11.5, wordBreak: 'break-all' }}>
                         {cloudDataActive
-                          ? (String(getApiTarget()).replace(/^https?:\/\//, '').replace(/\/.*$/, '') + ' · ' + String(cloudVault || 'default') + '（' + (overview && overview.cards != null ? Number(overview.cards) : '?') + ' 张）')
+                          ? (String(getApiTarget()).replace(/^https?:\/\//, '').replace(/\/.*$/, '') + ' · ' + String(cloudVault || 'default')
+                              + '（' + (() => {
+                                // ConfigPanel 里没有 overview 这个 state —— 用云端库清单里对应库的卡片数
+                                const nm = String(cloudVault || 'default')
+                                const hit = (Array.isArray(cloudVaultList) ? cloudVaultList : []).find((v) => String((v && v.name) || '') === nm)
+                                return hit && hit.cards != null ? Number(hit.cards) : '?'
+                              })() + ' 张）')
                           : (localVault ? localVault.full : '（未取到）')}
                       </div>
                     </div>
