@@ -10935,13 +10935,31 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    * 这里看的是**已落盘的数据源**（切到云端之后，即使关掉这个页签也仍然在云端）。
    * 库列表用它决定：本机库不标「当前」、云端库行标「当前」。
    */
-  const cloudDataActive = cloudConn.mode === 'cloud'
+  /**
+   * 云端数据源是否**真的在生效**。
+   *
+   * 判据不能只看 localStorage：配置可能已经是 cloud（服务端唯一真相源），
+   * 但 localStorage 还是旧的 local —— 于是下拉把「memory-vault」标成（当前），
+   * 云端 default 看着像"切不过去"。
+   *
+   * 所以：**localStorage 说 cloud** 或者 **健康检查确认云端已连（status==='ok'）**，
+   * 两者任一成立就算云端在用。
+   */
+  const cloudDataActive = (
+    cloudConn.mode === 'cloud'
     && cloudConn.active !== false
     && !!(String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim())
+  ) || (health && health.status === 'ok' && !!(String(cloudConn.token || cloudForm.token || '').trim()))
 
-  /** 当前**真正在读**的库：'cloud' 或本机库路径。下拉默认显示它。 */
+  /**
+   * 当前**真正在读**的库：'cloud::<库名>' 或本机库路径。
+   *
+   * ⚠ 必须带库名。之前固定返回 'cloud'，而下拉选项的值是 'cloud::default' ——
+   * 两者不相等，于是「立即切换」按钮被判成"已经是当前库"而**永久禁用**，
+   * 表现就是「云端 default 怎么都切不过去」。
+   */
   const currentVaultKey = cloudDataActive
-    ? 'cloud'
+    ? ('cloud::' + String(cloudVault || 'default'))
     : String((((vaultList || []).find((v) => v.isCurrent)) || {}).path || '')
 
   /**
@@ -10994,9 +11012,17 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   // 下拉默认落在「当前库」；列表刷新/切换完成后跟着走（用户已经选了别的库时不打断他）
   useEffect(() => {
     if (!currentVaultKey) return
-    setVaultPick((cur) => (cur && vaultPickChoices().some((o) => o.value === cur) ? cur : currentVaultKey))
+    setVaultPick((cur) => {
+      const opts = vaultPickChoices()
+      if (cur && opts.some((o) => o.value === cur && !o.disabled)) return cur
+      // currentVaultKey 可能暂时不在列表里（云端库清单还没拉到）→ 落到第一个可用项，
+      // 否则按钮会因为"选中的值不在选项里"而一直 disabled
+      if (opts.some((o) => o.value === currentVaultKey)) return currentVaultKey
+      const firstUsable = opts.find((o) => !o.disabled)
+      return firstUsable ? firstUsable.value : currentVaultKey
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentVaultKey, vaultList, cloudDataActive])
+  }, [currentVaultKey, vaultList, cloudDataActive, cloudVaultList])
 
   /**
    * 进「连接云端」就自动拉起设备码 —— 用户不该先点一次按钮才看到二维码
@@ -13011,7 +13037,13 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                             size="sm"
                             disabled={!!switching || !!(importJob && importJob.importing) || !vaultPick || vaultPick === currentVaultKey}
                             onClick={() => setSwitchConfirm({ from: currentVaultKey, to: vaultPick })}
-                            title={t('switchNowHint')}
+                            title={
+                              switching ? t('switchingVault')
+                                : (importJob && importJob.importing) ? '正在传输中，等它结束再切'
+                                  : !vaultPick ? '先在下拉里选一个库'
+                                    : vaultPick === currentVaultKey ? '已经是当前库了（想切换请先在下拉里选**另一个**）'
+                                      : t('switchNowHint')
+                            }
                           >
                             {switching ? t('switchingVault') : t('switchNowBtn')}
                           </Btn>
