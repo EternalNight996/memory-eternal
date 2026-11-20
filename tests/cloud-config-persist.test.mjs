@@ -12,9 +12,13 @@ import fs from 'node:fs'
 const src = fs.readFileSync('src/client/index.tsx', 'utf8')
 
 test('配置模型含 active / lastError / lastCheckAt', () => {
-  assert.match(src, /active: mode === 'cloud' \? raw\.active !== false : false/, '读配置时要还原 active')
+  // active 现在多一个条件：token 为脏值（***）时 readCloudConn 会把它清成空，
+  // 此时 active 必须为 false —— 否则界面会显示"已连接"但每个请求都 401。
+  assert.match(src, /active: mode === 'cloud' && tok \? raw\.active !== false : false/, '读配置时要还原 active（且 token 有效才算）')
   assert.match(src, /lastError: String\(raw\.lastError \|\| ''\)/, '要还原 lastError')
   assert.match(src, /lastCheckAt: raw\.lastCheckAt \|\| null/, '要还原 lastCheckAt')
+  // *** 是历史脱敏留下的脏值，必须识别
+  assert.match(src, /\/\^\\\*\+\$\/\.test\(tok\.trim\(\)\)/, '要识别 *** 脏值')
 })
 
 test('applyCloudConn 只在 active 时才切云端', () => {
@@ -33,8 +37,8 @@ test('markCloudFailed 保留 url/token 并置 active=false', () => {
 })
 
 test('activateCloud 只在验证通过后调用', () => {
-  assert.match(src, /function activateCloud\(next\)/, '要有 activateCloud')
-  assert.match(src, /active: true, lastError: ''/, '激活时清掉错误')
+  assert.match(src, /function activateCloud\(next, opts\)/, '要有 activateCloud')
+  assert.match(src, /active: true,\s*lastError: ''/, '激活时清掉错误')
   // 保存流程：probeCloud 成功才 activate
   const saveBlocks = src.match(/const saveCloud = async \(\) => \{[\s\S]{0,1400}?\n  \}/g) || []
   assert.ok(saveBlocks.length >= 2, '两处 saveCloud（顶栏 + 设置页）都要有')
