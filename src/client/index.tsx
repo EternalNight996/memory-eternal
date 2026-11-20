@@ -538,8 +538,27 @@ try {
   try { if (_fetch) globalThis.__meRawFetch = _fetch } catch { /* 忽略 */ }
   if (_fetch && !globalThis.__meFetchPatched) {
     globalThis.__meFetchPatched = true
+    // **永远只在本机执行**的接口：它们操作的是**这台电脑上**的文件（Agent 挂载写
+    // ~/.claude.json / DSH 配置，探活看本机装了哪些宿主）。
+    // 云端模式下若被代理到服务器，就会去检测 Linux 的 /root/.claude.json —— 实测
+    // 界面上所有宿主都显示「未安装」，因为查的是服务器而不是本机。
+    const LOCAL_ONLY = [
+      '/mcp/action',      // 挂载 / 卸载 MCP
+      '/setup-status',    // 本机装了哪些 Agent 宿主
+      '/mcp/detect',      // 探测（如果以后加）
+      '/vault-path',      // 本机库路径
+      '/open-path',       // 用本机资源管理器打开目录
+      '/drain-pending',   // 本机宿主的待办排空
+      '/web-info',        // 本机端口 / 令牌
+      '/events',          // 本机 SSE
+    ]
+    const isLocalOnly = (u) => {
+      if (typeof u !== 'string') return false
+      for (const p of LOCAL_ONLY) if (u.startsWith(LOCAL_PREFIX + p)) return true
+      return false
+    }
     globalThis.fetch = (input, init) => {
-      if (API_TARGET_URL && typeof input === 'string' && input.startsWith(LOCAL_PREFIX)) {
+      if (API_TARGET_URL && typeof input === 'string' && input.startsWith(LOCAL_PREFIX) && !isLocalOnly(input)) {
         // 首屏闸门：等探活决定走云端还是已回退本地（最多 3 秒，之后一定放行）
         return modeReady.then(() => {
           // 探活期间可能已回退：回退后这个请求改打本地
