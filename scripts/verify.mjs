@@ -181,7 +181,12 @@ const smoke = await (async () => {
     {
       const m = cli.match(/function syncConnFromServer\(\)[\s\S]*?\n\}\)\(\)/)
       if (m && /location\.reload/.test(m[0])) {
-        errs.push('syncConnFromServer 里有 location.reload —— 会造成无限刷新（实测过）')
+        // reload 本身允许（数据源变了必须刷一次，否则主面板永远停在本机数据），
+        // **但必须**带 sessionStorage 防循环标记，否则 reload → 模块重跑 → 再 reload。
+        const guarded = /sessionStorage\.(getItem|setItem)\(['"]me-cloud-one-reload/.test(m[0])
+        if (!guarded) {
+          errs.push('syncConnFromServer 里的 location.reload 没有防循环标记（必须有 sessionStorage me-cloud-one-reload）')
+        }
       }
     }
     // （已移除「跨组件作用域」自动检查：同名标识符在函数内当局部变量时误报率过高，
