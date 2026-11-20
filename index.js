@@ -321,7 +321,10 @@ export function humanizeDistillFailure(failure) {
     '或改用其它蒸馏模型，或关闭「蒸馏知识卡」只存原文卡（内容不会丢）'
 }
 
-const API_PREFIX = '/api'
+// ⚠ 必须用**独立命名空间**：DSH 宿主自己也占用 /api，
+// 插件再用 /api 会撞路由，安装后宿主启动即崩（实测：装了 0.49.26 就起不来）。
+// 云端服务的 /api 是**另一台服务器**上的路径，与本地插件无关。
+const API_PREFIX = '/memory-eternal/api'
 
 // DSH 宿主自动沉淀卡的署名：用可读名而非 agent 会话 id，便于在智能体筛选中归组。
 const DSH_AGENT = 'deepseek-harness'
