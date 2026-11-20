@@ -16943,7 +16943,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.32" : "";
+  var CLIENT_VERSION = true ? "0.49.33" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17224,7 +17224,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T13:47:10+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T14:23:45+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21215,7 +21215,7 @@ ${t("quoteHint")}`,
     (0, import_react2.useEffect)(() => {
       if (cloudTab === "cloud" && String(cloudForm.token || "").trim()) loadCloudPlan();
     }, [cloudTab, cloudForm.token]);
-    const isConnected = !!(String(cloudConn.token || "").trim() || String(cloudForm.token || "").trim());
+    const isConnected = isCloudUsable(cloudConn) || String(cloudConn.token || "").trim() && cloudConn.mode === "cloud" && !String(cloudConn.lastError || "").trim();
     const cloudDataActive = cloudConn.mode === "cloud" && cloudConn.active !== false && !!(String(cloudConn.token || "").trim() || String(cloudForm.token || "").trim());
     const currentVaultKey = cloudDataActive ? "cloud" : String(((vaultList || []).find((v) => v.isCurrent) || {}).path || "");
     const vaultPickChoices = /* @__PURE__ */ __name(() => {
@@ -21747,18 +21747,31 @@ ${t("quoteHint")}`,
     }, "loadCloudDomains");
     const loadCloudPlan = /* @__PURE__ */ __name(async () => {
       const url = cloudApi2("/cloud/billing/plan");
-      if (!url) return;
       const token = String(cloudForm.token || "").trim();
-      if (!token) return;
+      if (!url || !token) {
+        setCloudPlan(null);
+        return;
+      }
       try {
         const r = await fetch(url, {
           headers: { Authorization: "Bearer " + token },
           signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0
         });
         const d = await r.json().catch(() => ({}));
-        if (d && d.ok && d.plan) setCloudPlan(d.plan);
-        if (d && d.ok && typeof d.payBase === "string" && d.payBase) setCloudPayBase(d.payBase);
+        if (!(d && d.ok && d.plan)) {
+          setCloudPlan(null);
+          return;
+        }
+        const gotOwner = String(d.plan && d.plan.owner || "").trim();
+        const wantOwner = String(cloudForm.owner || cloudConn.owner || "").trim();
+        if (gotOwner && wantOwner && gotOwner.toLowerCase() !== wantOwner.toLowerCase()) {
+          setCloudPlan(null);
+          return;
+        }
+        setCloudPlan(d.plan);
+        if (typeof d.payBase === "string" && d.payBase) setCloudPayBase(d.payBase);
       } catch {
+        setCloudPlan(null);
       }
     }, "loadCloudPlan");
     const consoleUrl = /* @__PURE__ */ __name(() => {

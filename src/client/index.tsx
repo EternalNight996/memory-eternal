@@ -10580,7 +10580,10 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   // 「登录了就是云端，没登录就是本地」——只以**有没有令牌**为判据。
   // 运行模式下拉已经删掉（用户要的口径），所以不能再拿 cloudTab 当条件；
   // active=false 只表示这次探活失败（人还是登录着的），界面仍按已登录渲染，状态行会标黄。
-  const isConnected = !!(String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim())
+  // 「已连接」= **授权有效**，不是「有 token」。
+  // 光有 token 时会显示「已连接 · 个人版 · 到期 2027-02-17」，但服务端早已 403 ——
+  // 用户看到的是一个已经失效的云端账号，还以为能切过去（实测踩到）。
+  const isConnected = isCloudUsable(cloudConn) || (String(cloudConn.token || '').trim() && cloudConn.mode === 'cloud' && !String(cloudConn.lastError || '').trim())
   /**
    * 「现在面板读的是云端库」。
    *
@@ -11124,18 +11127,28 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
 
   const loadCloudPlan = async () => {
     const url = cloudApi('/cloud/billing/plan')
-    if (!url) return
+    // 停用云端 / 没令牌 → **必须清空**，否则面板继续挂着上一个账号的套餐
+    // （实测：13048770337 明明是 free，面板却显示「个人版 · 到期 2027-02-17」，
+    //   那是之前 eternalnightyeah2 登录时留下的 cloudPlan state）
     const token = String(cloudForm.token || '').trim()
-    if (!token) return
+    if (!url || !token) { setCloudPlan(null); return }
     try {
       const r = await fetch(url, {
         headers: { Authorization: 'Bearer ' + token },
         signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(8000) : undefined,
       })
       const d = await r.json().catch(() => ({}))
-      if (d && d.ok && d.plan) setCloudPlan(d.plan)
-      if (d && d.ok && typeof d.payBase === 'string' && d.payBase) setCloudPayBase(d.payBase)
-    } catch { /* 忽略 */ }
+      if (!(d && d.ok && d.plan)) { setCloudPlan(null); return }
+      // 服务端回的 owner 与本地记的 owner 不一致 = 串号，宁可不显示
+      const gotOwner = String((d.plan && d.plan.owner) || '').trim()
+      const wantOwner = String(cloudForm.owner || cloudConn.owner || '').trim()
+      if (gotOwner && wantOwner && gotOwner.toLowerCase() !== wantOwner.toLowerCase()) {
+        setCloudPlan(null)
+        return
+      }
+      setCloudPlan(d.plan)
+      if (typeof d.payBase === 'string' && d.payBase) setCloudPayBase(d.payBase)
+    } catch { setCloudPlan(null) }
   }
 
   /**
