@@ -546,22 +546,28 @@ bootstrapCloudMode()
         profile: s.profile || null,
       }
       saveCloudConn(merged)
+      // 先记下**应用前**的前缀，才能判断这次同步是否真的换了数据源
+      const targetBefore = getApiTarget()
       applyCloudConn(merged, { noSync: true })   // 本来就是从服务端来的，不需要再写回去
-      // **关键**：如果这次同步把数据源从「本地」改成「云端」，
-      // 页面**已经用本地前缀把首屏加载完了** —— 光改 API_TARGET_URL 不会重跑已发出的请求，
-      // 用户看到的仍然是本地库，刷新一次又回到本地，形成"切了又回来"的循环。
-      // 所以数据源变化时必须 reload 一次，让所有请求走新前缀。
-      // 用 sessionStorage 打标，避免 reload → 同步 → reload 的死循环。
-      // **绝不自动 reload**：这里跑在模块加载阶段，reload 会让模块重新执行、
-      // 再次进入这里 → 无限刷新闪屏（用户实测：打开面板一直闪）。
-      // 数据源已被 applyCloudConn 切好，新发出的请求都走云端；
-      // 已经渲染的组件数据是旧的，由界面提示用户手动刷新（或下次打开自然就好）。
+      const prefixChanged = targetBefore !== getApiTarget()
       const sourceChanged = local.mode !== merged.mode || local.active !== merged.active
       if (sourceChanged) {
         try {
-          window.__meCloudResynced = true   // 供 UI 显示"建议刷新"横幅
+          window.__meCloudResynced = true
           window.dispatchEvent(new CustomEvent('me-cloud-resynced', { detail: { mode: merged.mode } }))
         } catch { /* 忽略 */ }
+      }
+      // **前缀真的变了就 reload 一次**（用 sessionStorage 打标，只会刷一次）。
+      // 只改 API_TARGET_URL 不会重跑已发出的首屏请求 → 用户看到"配置说云端 9897，
+      // 主面板还是本机 10479"。之前怕死循环所以完全不敢刷，结果数据永远对不上；
+      // 现在有标记兜底，最多刷一次，不会再无限闪。
+      if (prefixChanged) {
+        try {
+          if (!sessionStorage.getItem('me-cloud-one-reload')) {
+            sessionStorage.setItem('me-cloud-one-reload', '1')
+            setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 120)
+          }
+        } catch { /* 隐私模式：不刷也能用，只是数据要手动刷新 */ }
       }
     } catch { /* 服务端没起来就保持现状 */ }
   }
@@ -11788,6 +11794,11 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     setCloudPlan(null)
     setCloudTest(null)
     try { notify(t('cloudDisconnected'), true) } catch { /* 忽略 */ }
+    // 断开会把请求前缀从云端切回本机，但**已经渲染的组件数据还是云端的** ——
+    // 不刷新就只看到"点了没反应"（用户实测）。这里刷新一次让全站回到本地库。
+    try {
+      setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 400)
+    } catch { /* 忽略 */ }
   }
   // 配置页滚动位置：编辑/保存/按钮触发的重渲染不能把视图弹回顶部。
   const scrollRef = useRef(null)
