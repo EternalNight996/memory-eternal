@@ -10931,11 +10931,13 @@
     try {
       const raw = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || "{}");
       const mode = raw.mode === "cloud" ? "cloud" : "local";
+      let tok = String(raw.token || "");
+      if (/^\*+$/.test(tok.trim())) tok = "";
       return {
         mode,
         url: String(raw.url || ""),
-        token: String(raw.token || ""),
-        active: mode === "cloud" ? raw.active !== false : false,
+        token: tok,
+        active: mode === "cloud" && tok ? raw.active !== false : false,
         lastError: String(raw.lastError || ""),
         lastCheckAt: raw.lastCheckAt || null,
         // owner / profile 也要持久化：重开面板要能直接显示「谁连着」，
@@ -17002,7 +17004,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.42" : "";
+  var CLIENT_VERSION = true ? "0.49.43" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17283,7 +17285,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T15:44:11+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T15:48:27+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
