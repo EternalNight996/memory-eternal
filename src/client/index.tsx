@@ -8701,8 +8701,24 @@ function DynamicDbPortCard({ t, set }) {
   }
 
   const curDb = ov && ov.dbPath ? String(ov.dbPath).split(/[\\/]/).pop() : '—'
+  // 升级了但宿主没重启：磁盘版本 ≠ 运行版本 → 所有改动都不生效，必须提示。
+  // 这个坑反复出现过（改了代码、装了新版，界面行为却还是旧的），做成常驻自检。
+  const pkgV = String((ov && ov.pkgVersion) || '')
+  const runV = String((ov && ov.version) || '')
+  const staleVer = !!(pkgV && runV && pkgV !== runV)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {staleVer && (
+        <div style={{ border: '1px solid #f85149', background: 'rgba(248,81,73,.1)', borderRadius: 10, padding: '12px 14px', fontSize: 12.5, lineHeight: 1.8 }}>
+          <b style={{ color: '#f85149' }}>⚠ 插件已更新，但宿主还在跑旧版本</b>
+          <div style={{ marginTop: 4, opacity: 0.85 }}>
+            磁盘版本 <code>{pkgV}</code> · 运行版本 <code>{runV}</code>
+          </div>
+          <div style={{ marginTop: 4, opacity: 0.75 }}>
+            这期间对代码的任何修改都不会生效。请<b>完全退出 DSH</b>（确认进程结束）再打开。
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <label className="mc-field" style={{ margin: 0, flex: '0 1 240px' }}>
           <span className="mc-field-label">{t('dynDbLabel')}</span>
