@@ -11052,6 +11052,11 @@
     return !!(c.mode === "cloud" && c.active !== false && !String(c.lastError || "").trim() && String(c.token || "").trim());
   }
   __name(isCloudUsable, "isCloudUsable");
+  function hasCloudCred(conn) {
+    const c = conn || {};
+    return !!(String(c.token || "").trim() && String(c.url || "").trim());
+  }
+  __name(hasCloudCred, "hasCloudCred");
   function persistCloud(form) {
     const prev = readCloudConn();
     const wantCloud = form && form.mode === "cloud";
@@ -16955,7 +16960,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.35" : "";
+  var CLIENT_VERSION = true ? "0.49.36" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17236,7 +17241,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T15:14:11+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T15:17:38+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21232,10 +21237,11 @@ ${t("quoteHint")}`,
     const currentVaultKey = cloudDataActive ? "cloud" : String(((vaultList || []).find((v) => v.isCurrent) || {}).path || "");
     const vaultPickChoices = /* @__PURE__ */ __name(() => {
       const out = [];
-      if (isCloudUsable(cloudConn)) {
+      if (hasCloudCred(cloudConn)) {
+        const st = cloudDataActive ? "" : String(cloudConn.lastError || "").trim() ? "\uFF08\u672A\u6388\u6743\uFF09" : "\uFF08\u672A\u5207\u6362\uFF09";
         out.push({
           value: "cloud",
-          label: "\u2601 " + t("cloudVaultEntry") + (cloudConn.owner ? " \xB7 " + cloudConn.owner : "") + (cloudDataActive ? " " + t("vaultCurrent") : "")
+          label: "\u2601 " + t("cloudVaultEntry") + (cloudConn.owner ? " \xB7 " + cloudConn.owner : "") + st + (cloudDataActive ? " " + t("vaultCurrent") : "")
         });
       }
       for (const v of vaultList || []) {
@@ -21616,7 +21622,7 @@ ${t("quoteHint")}`,
         setSwitching("");
       }
     }, "switchLocalVault");
-    const switchDataSource = /* @__PURE__ */ __name((kind) => {
+    const switchDataSource = /* @__PURE__ */ __name(async (kind) => {
       if (switching) return;
       const conn = readCloudConn();
       const url = String(conn.url || cloudForm.url || "").trim();
@@ -21627,6 +21633,43 @@ ${t("quoteHint")}`,
         } catch {
         }
         return;
+      }
+      if (kind === "cloud") {
+        setSwitching(kind);
+        try {
+          const r = await fetch(url.replace(/\/+$/, "") + "/api/cloud/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+            body: "{}",
+            credentials: "include"
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok || !d.granted) {
+            setSwitching("");
+            const why = String(d.error || "HTTP " + r.status);
+            try {
+              notify2("\u2601\uFE0F \u4E91\u7AEF\u62D2\u7EDD\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
+            } catch {
+            }
+            saveCloudConn({ ...conn, mode: "cloud", active: false, lastError: why });
+            setCloudConn(readCloudConn());
+            return;
+          }
+          try {
+            saveCloudConn({ ...conn, mode: "cloud", active: true, lastError: "", owner: String(d.connect && d.connect.owner || conn.owner || "") });
+          } catch {
+          }
+        } catch (e) {
+          setSwitching("");
+          const why = String(e && e.message || e).slice(0, 80);
+          try {
+            notify2("\u2601\uFE0F \u8FDE\u4E0D\u4E0A\u4E91\u7AEF\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
+          } catch {
+          }
+          saveCloudConn({ ...conn, mode: "cloud", active: false, lastError: why });
+          setCloudConn(readCloudConn());
+          return;
+        }
       }
       setSwitching(kind);
       const next = kind === "cloud" ? { ...conn, mode: "cloud", active: true, url, token, owner: conn.owner || "" } : { ...conn, mode: "local", active: false };
@@ -21714,7 +21757,7 @@ ${t("quoteHint")}`,
     }, "runXfer");
     const vaultChoices = /* @__PURE__ */ __name(() => {
       const out = [];
-      if (isCloudUsable(cloudConn)) {
+      if (hasCloudCred(cloudConn)) {
         const n = cloudVaultList && cloudVaultList.length ? Number(cloudVaultList[0].cards) || 0 : null;
         out.push({ value: "cloud", label: "\u2601 " + t("cloudVaultEntry") + (cloudConn.owner ? " \xB7 " + cloudConn.owner : "") + (n === null ? "" : "\uFF08" + n + " " + t("cardsUnit") + "\uFF09") });
       }
