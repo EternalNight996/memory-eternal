@@ -11003,14 +11003,14 @@
     if (token.startsWith("mba_")) {
       return { ok: false, error: "mba_ \u662F MengBot \u7BA1\u7406\u5458\u4EE4\u724C\uFF0C\u4E0D\u80FD\u7528\u4E8E\u7B2C\u4E09\u65B9\u63A5\u5165 \u2014\u2014 \u8BF7\u5230 MengBot\u300CAPI\u300D\u9875\u521B\u5EFA mbt_ \u4EE4\u724C" };
     }
-    let health;
+    let health2;
     try {
       const r = await globalThis.fetch(url + "/api/cloud/health", { signal: typeof AbortSignal !== "undefined" ? AbortSignal.timeout(8e3) : void 0 });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d || d.ok === false) {
         return { ok: false, error: d && d.error || "HTTP " + r.status };
       }
-      health = d;
+      health2 = d;
     } catch (e) {
       const msg = String(e && e.message || e);
       const diag = {
@@ -11027,9 +11027,9 @@
         reachable: true,
         authenticated: false,
         owner: "",
-        version: health.version || "",
+        version: health2.version || "",
         needLogin: true,
-        message: "\u670D\u52A1\u7AEF\u53EF\u8FBE\uFF08v" + (health.version || "?") + "\uFF09\uFF0C\u5F53\u524D\u672A\u767B\u5F55 \u2014\u2014 \u70B9\u300C\u7528 MengBot \u8D26\u53F7\u767B\u5F55\u300D\uFF0C\u6216\u5728\u8BBF\u95EE\u5BC6\u94A5\u91CC\u586B me_ \u5F00\u5934\u7684\u5BC6\u94A5"
+        message: "\u670D\u52A1\u7AEF\u53EF\u8FBE\uFF08v" + (health2.version || "?") + "\uFF09\uFF0C\u5F53\u524D\u672A\u767B\u5F55 \u2014\u2014 \u70B9\u300C\u7528 MengBot \u8D26\u53F7\u767B\u5F55\u300D\uFF0C\u6216\u5728\u8BBF\u95EE\u5BC6\u94A5\u91CC\u586B me_ \u5F00\u5934\u7684\u5BC6\u94A5"
       };
     }
     try {
@@ -11047,7 +11047,7 @@
           via: d.via,
           // profile 只有展示用的三项（name/email/picture），用来渲染头像
           profile: d.profile || null,
-          version: health.version || ""
+          version: health2.version || ""
         };
       }
       return { ok: false, reachable: true, error: d && d.error || "HTTP " + r.status };
@@ -17146,7 +17146,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.51.2" : "";
+  var CLIENT_VERSION = true ? "0.51.3" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17427,7 +17427,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T22:30:00+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T22:39:58+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17842,7 +17842,25 @@ ${COMPONENTS_CSS}
       };
     }, []);
     const cloudUsable = isCloudUsable(cloudConn);
-    const avatarWho = String(cloudConn && cloudConn.profile && (cloudConn.profile.name || cloudConn.profile.displayName) || cloudConn && cloudConn.owner || "");
+    const [topHealth, setTopHealth] = (0, import_react2.useState)(() => ({ ...CLOUD_HEALTH }));
+    (0, import_react2.useEffect)(() => {
+      const onHealth = /* @__PURE__ */ __name((e) => setTopHealth({ ...e && e.detail ? e.detail : CLOUD_HEALTH }), "onHealth");
+      try {
+        window.addEventListener(CLOUD_HEALTH_EVT, onHealth);
+      } catch {
+      }
+      startCloudHealthLoop();
+      setTopHealth({ ...CLOUD_HEALTH });
+      return () => {
+        try {
+          window.removeEventListener(CLOUD_HEALTH_EVT, onHealth);
+        } catch {
+        }
+      };
+    }, []);
+    const avatarWho = String(
+      String(topHealth && topHealth.owner || "").trim() || cloudConn && cloudConn.profile && (cloudConn.profile.name || cloudConn.profile.displayName) || cloudConn && cloudConn.owner || ""
+    );
     const avatarUrl = String(cloudConn && cloudConn.profile && (cloudConn.profile.avatar || cloudConn.profile.picture) || "");
     const avatarInitial = avatarWho ? avatarWho.trim().charAt(0).toUpperCase() : "?";
     const [cloudBusy, setCloudBusy] = (0, import_react2.useState)(false);
@@ -18471,7 +18489,7 @@ ${COMPONENTS_CSS}
                     "aria-expanded": cloudOpen,
                     children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", {}),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-label", children: cloudConn.mode === "cloud" && cloudConn.active !== false ? String(cloudConn.url || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || t("cloudModeCloud") : t("cloudModeLocal") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-label", children: health.status === "ok" || health.status === "offline" || health.status === "denied" ? String(cloudConn.url || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || t("cloudModeCloud") : t("cloudModeLocal") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-caret", children: cloudOpen ? "\u25B4" : "\u25BE" })
                     ]
                   }
@@ -20582,11 +20600,11 @@ ${t("quoteHint")}`,
     const importCancelRef = (0, import_react2.useRef)(false);
     const [resume, setResume] = (0, import_react2.useState)(() => readXferResume());
     const [switching, setSwitching] = (0, import_react2.useState)("");
-    const [health, setHealth] = (0, import_react2.useState)(() => ({ ...CLOUD_HEALTH }));
+    const [health2, setHealth] = (0, import_react2.useState)(() => ({ ...CLOUD_HEALTH }));
     const healthDot = (() => {
-      const st = health.status;
+      const st = health2.status;
       const color = st === "ok" ? "#22c55e" : st === "offline" || st === "denied" ? "#ef4444" : "#9ca3af";
-      const text = st === "ok" ? "\u5DF2\u8FDE\u63A5" + (health.plan ? " \xB7 " + health.plan : "") + (health.daysLeft != null ? " \xB7 \u5269 " + health.daysLeft + " \u5929" : "") : st === "offline" ? "\u8FDE\u4E0D\u4E0A\uFF1A" + (health.lastError || "\u670D\u52A1\u5668\u65E0\u54CD\u5E94") : st === "denied" ? "\u65E0\u6743\u9650\uFF1A" + (health.lastError || "\u9700\u8981\u8BA2\u9605") : st === "local" ? "\u672C\u5730\u6A21\u5F0F" : "\u672A\u68C0\u6D4B";
+      const text = st === "ok" ? "\u5DF2\u8FDE\u63A5" + (health2.plan ? " \xB7 " + health2.plan : "") + (health2.daysLeft != null ? " \xB7 \u5269 " + health2.daysLeft + " \u5929" : "") : st === "offline" ? "\u8FDE\u4E0D\u4E0A\uFF1A" + (health2.lastError || "\u670D\u52A1\u5668\u65E0\u54CD\u5E94") : st === "denied" ? "\u65E0\u6743\u9650\uFF1A" + (health2.lastError || "\u9700\u8981\u8BA2\u9605") : st === "local" ? "\u672C\u5730\u6A21\u5F0F" : "\u672A\u68C0\u6D4B";
       return { color, text };
     })();
     (0, import_react2.useEffect)(() => {
@@ -22098,7 +22116,12 @@ ${t("quoteHint")}`,
     const cancelImport = /* @__PURE__ */ __name(() => {
       importCancelRef.current = true;
     }, "cancelImport");
-    const cloudIdentity = cloudTest && cloudTest.authenticated ? { owner: cloudTest.owner || "", profile: cloudTest.profile || null } : { owner: cloudConn && cloudConn.owner || "", profile: cloudConn && cloudConn.profile || null };
+    const cloudIdentity = (() => {
+      const real = String(health2 && health2.owner || "").trim();
+      if (real) return { owner: real, profile: cloudConn && cloudConn.profile || null };
+      if (cloudTest && cloudTest.authenticated) return { owner: cloudTest.owner || "", profile: cloudTest.profile || null };
+      return { owner: cloudConn && cloudConn.owner || "", profile: cloudConn && cloudConn.profile || null };
+    })();
     const switchAccount = /* @__PURE__ */ __name(() => {
       const cur = readCloudConn();
       const cleared = { ...cur, mode: "local", active: false, token: "", owner: "", profile: null, lastError: "" };
@@ -23493,11 +23516,11 @@ ${t("quoteHint")}`,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
                         "span",
                         {
-                          title: healthDot.text + (health.lastCheckAt ? "\uFF08" + new Date(health.lastCheckAt).toLocaleTimeString("zh-CN") + " \u68C0\u6D4B\uFF09" : ""),
+                          title: healthDot.text + (health2.lastCheckAt ? "\uFF08" + new Date(health2.lastCheckAt).toLocaleTimeString("zh-CN") + " \u68C0\u6D4B\uFF09" : ""),
                           style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, opacity: 0.85, whiteSpace: "nowrap" },
                           children: [
                             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 7, height: 7, borderRadius: "50%", background: healthDot.color, flex: "none" } }),
-                            health.status === "ok" ? "\u5DF2\u8FDE\u63A5" : health.status === "offline" ? "\u79BB\u7EBF" : health.status === "denied" ? "\u672A\u6388\u6743" : health.status === "local" ? "\u672C\u5730" : "\u2026"
+                            health2.status === "ok" ? "\u5DF2\u8FDE\u63A5" : health2.status === "offline" ? "\u79BB\u7EBF" : health2.status === "denied" ? "\u672A\u6388\u6743" : health2.status === "local" ? "\u672C\u5730" : "\u2026"
                           ]
                         }
                       ),
@@ -25870,7 +25893,7 @@ ${t("quoteHint")}`,
     const [opt, setOpt] = (0, import_react2.useState)(null);
     const [budget, setBudget] = (0, import_react2.useState)(null);
     const [captureLog, setCaptureLog] = (0, import_react2.useState)(null);
-    const [health, setHealth] = (0, import_react2.useState)(null);
+    const [health2, setHealth] = (0, import_react2.useState)(null);
     const [ledger, setLedger] = (0, import_react2.useState)(null);
     const [align, setAlign] = (0, import_react2.useState)(null);
     const runAlign = (0, import_react2.useCallback)(async () => {
@@ -26138,21 +26161,21 @@ ${t("quoteHint")}`,
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { children: t("runtimeTitle") }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: t("runtimeSub") })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-pagecount", children: health ? `${health.total || 0} ${t("cardsUnit")}` : "" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-pagecount", children: health2 ? `${health2.total || 0} ${t("cardsUnit")}` : "" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => fetchAll(), children: t("refresh") })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-statusgrid", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-statuscard", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-status-ico", children: "\u{1F5C4}\uFE0F" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: health ? health.total || 0 : "\u2014" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: health2 ? health2.total || 0 : "\u2014" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("dbTitle") }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("small", { children: health?.db?.journalMode || health?.db?.journal_mode || "SQLite" })
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("small", { children: health2?.db?.journalMode || health2?.db?.journal_mode || "SQLite" })
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-statuscard", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-status-ico", children: "\u{1F4BE}" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: health?.backups?.count ?? "\u2014" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: health2?.backups?.count ?? "\u2014" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("backupTitle") }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("small", { children: health?.backups?.newestAt ? `${Math.max(0, Math.floor((Date.now() - Number(health.backups.newestAt)) / 864e5))} \u5929\u524D` : "\u2014" })
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("small", { children: health2?.backups?.newestAt ? `${Math.max(0, Math.floor((Date.now() - Number(health2.backups.newestAt)) / 864e5))} \u5929\u524D` : "\u2014" })
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-statuscard", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-status-ico", children: "\u2728" }),
@@ -26162,7 +26185,7 @@ ${t("quoteHint")}`,
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-statuscard", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-status-ico", children: "\u{1F3F7}\uFE0F" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: health?.version || "\u2014" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: health2?.version || "\u2014" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t("versionTitle") }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("small", { children: t("v5Local") })
             ] })
@@ -26177,14 +26200,14 @@ ${t("quoteHint")}`,
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { flex: 1 } }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => fetchAll(), children: t("refresh") })
             ] }),
-            !health ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: space(2), display: "flex", flexDirection: "column", gap: space(2) }, children: [
+            !health2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: space(2), display: "flex", flexDirection: "column", gap: space(2) }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Skeleton, { h: 14, w: "52%" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Skeleton, { h: 14, w: "64%" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Skeleton, { h: 14, w: "44%" })
             ] }) : (() => {
-              const db = health.db || {};
+              const db = health2.db || {};
               const dbOk = db.writable !== false && !db.corrupt;
-              const bk = health.backups || { count: 0, newestAt: 0 };
+              const bk = health2.backups || { count: 0, newestAt: 0 };
               const ageDays = bk.newestAt ? Math.floor((Date.now() - Number(bk.newestAt)) / 864e5) : -1;
               const bkLevel = !bk.count ? "bad" : ageDays > 7 ? "warn" : "ok";
               const cap = captureLog && captureLog.available ? captureLog.health : null;
@@ -26208,7 +26231,7 @@ ${t("quoteHint")}`,
                   text: !cap ? t("healthNoRecords") : cap.ok ? t("healthCapOk") : t("healthCapFail") + "\uFF1A" + (cap.reason || "")
                 },
                 (() => {
-                  const cs = health.capture;
+                  const cs = health2.capture;
                   if (!cs) return { label: t("healthCapSeq"), level: "none", text: t("healthNoRecords") };
                   const seqBad = cs.seqOk === false;
                   const failAt = Number(cs.lastFail && cs.lastFail.at) || 0;
