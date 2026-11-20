@@ -11047,6 +11047,11 @@
     }
   }
   __name(probeCloud, "probeCloud");
+  function isCloudUsable(conn) {
+    const c = conn || {};
+    return !!(c.mode === "cloud" && c.active !== false && !String(c.lastError || "").trim() && String(c.token || "").trim());
+  }
+  __name(isCloudUsable, "isCloudUsable");
   function persistCloud(form) {
     const prev = readCloudConn();
     const wantCloud = form && form.mode === "cloud";
@@ -16915,7 +16920,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.28" : "";
+  var CLIENT_VERSION = true ? "0.49.29" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17196,7 +17201,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T12:32:48+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T13:28:15+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17610,7 +17615,7 @@ ${COMPONENTS_CSS}
         alive = false;
       };
     }, []);
-    const cloudUsable2 = !!(cloudConn && cloudConn.mode === "cloud" && cloudConn.active !== false && !cloudConn.lastError && String(cloudConn.token || "").trim());
+    const cloudUsable = isCloudUsable(cloudConn);
     const avatarWho = String(cloudConn && cloudConn.profile && (cloudConn.profile.name || cloudConn.profile.displayName) || cloudConn && cloudConn.owner || "");
     const avatarUrl = String(cloudConn && cloudConn.profile && (cloudConn.profile.avatar || cloudConn.profile.picture) || "");
     const avatarInitial = avatarWho ? avatarWho.trim().charAt(0).toUpperCase() : "?";
@@ -21163,7 +21168,7 @@ ${t("quoteHint")}`,
     const currentVaultKey = cloudDataActive ? "cloud" : String(((vaultList || []).find((v) => v.isCurrent) || {}).path || "");
     const vaultPickChoices = /* @__PURE__ */ __name(() => {
       const out = [];
-      if (cloudUsable) {
+      if (isCloudUsable(cloudConn)) {
         out.push({
           value: "cloud",
           label: "\u2601 " + t("cloudVaultEntry") + (cloudConn.owner ? " \xB7 " + cloudConn.owner : "") + (cloudDataActive ? " " + t("vaultCurrent") : "")
@@ -21645,7 +21650,7 @@ ${t("quoteHint")}`,
     }, "runXfer");
     const vaultChoices = /* @__PURE__ */ __name(() => {
       const out = [];
-      if (cloudUsable) {
+      if (isCloudUsable(cloudConn)) {
         const n = cloudVaultList && cloudVaultList.length ? Number(cloudVaultList[0].cards) || 0 : null;
         out.push({ value: "cloud", label: "\u2601 " + t("cloudVaultEntry") + (cloudConn.owner ? " \xB7 " + cloudConn.owner : "") + (n === null ? "" : "\uFF08" + n + " " + t("cardsUnit") + "\uFF09") });
       }
