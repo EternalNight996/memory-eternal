@@ -8138,7 +8138,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 {/* 徽章按**实时健康状态**显示，不读 localStorage。
                     localStorage 可能还是换账号前的 mode=local，而服务端已是 cloud ——
                     用户看到「本地私有」但实际连的是云端（反馈：云端连上了但状态不同步）。 */}
-                <span className="mc-v5-sys-label">{(health.status === 'ok' || health.status === 'offline' || health.status === 'denied')
+                <span className="mc-v5-sys-label">{(topHealth.status === 'ok' || topHealth.status === 'offline' || topHealth.status === 'denied')
                   ? (String(cloudConn.url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || t('cloudModeCloud'))
                   : t('cloudModeLocal')}</span>
                 <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
