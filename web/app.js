@@ -10993,6 +10993,10 @@
   }
   __name(applyCloudConn, "applyCloudConn");
   var API_TARGET_URL = "";
+  function getApiTarget() {
+    return String(API_TARGET_URL || "");
+  }
+  __name(getApiTarget, "getApiTarget");
   async function probeCloud(form) {
     const url = String(form && form.url || "").replace(/\/+$/, "");
     if (!/^https?:\/\//i.test(url)) return { ok: false, error: "url-invalid" };
@@ -17146,7 +17150,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.4" : "";
+  var CLIENT_VERSION = true ? "0.52.5" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17427,7 +17431,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T23:40:02+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T23:49:46+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17587,7 +17591,7 @@ ${COMPONENTS_CSS}
   var cloudDomainsRef = { ...CLOUD_DOMAINS_FALLBACK };
   function MemoryLibraryInner({ t, inModal, onClose }) {
     const inHost = typeof window !== "undefined" && (!!window.__DSH_BOOT__ || String(location.pathname || "").includes("/api/ui/app") || String(location.pathname || "").includes("/memory-eternal/api/ui/app"));
-    const [overview, setOverview] = (0, import_react2.useState)(null);
+    const [overview2, setOverview] = (0, import_react2.useState)(null);
     const [uiScale, setUiScale] = (0, import_react2.useState)(() => {
       try {
         const v = localStorage.getItem("me-ui-scale");
@@ -18124,8 +18128,8 @@ ${COMPONENTS_CSS}
     (0, import_react2.useEffect)(() => {
       if (view === "cards") loadCardTypes(kind, { force: true });
     }, [view, kind, dataVer, loadCardTypes]);
-    const quarantinePending = overview?.quarantine?.pending ?? 0;
-    const quarantineDeleted = (overview?.quarantine?.deleted ?? 0) + (overview?.quarantine?.rejected ?? 0);
+    const quarantinePending = overview2?.quarantine?.pending ?? 0;
+    const quarantineDeleted = (overview2?.quarantine?.deleted ?? 0) + (overview2?.quarantine?.rejected ?? 0);
     const searchTimer = (0, import_react2.useRef)(null);
     const [cardTotal, setCardTotal] = (0, import_react2.useState)(0);
     const [loadingMore, setLoadingMore] = (0, import_react2.useState)(false);
@@ -18508,8 +18512,17 @@ ${COMPONENTS_CSS}
                     "aria-haspopup": "dialog",
                     "aria-expanded": cloudOpen,
                     children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { style: { background: topHealth.status === "ok" ? "#4ade80" : topHealth.status === "offline" || topHealth.status === "denied" ? "#ef4444" : "#9ca3af" } }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-label", children: topHealth.status === "ok" ? "\u4E91\u7AEF " + (String(topHealth.owner || cloudConn.owner || "").split("@")[0] || "") : topHealth.status === "offline" || topHealth.status === "denied" ? "\u4E91\u7AEF" + (topHealth.owner ? " " + String(topHealth.owner).split("@")[0] : "") + "\uFF08" + (topHealth.status === "offline" ? "\u79BB\u7EBF" : "\u672A\u6388\u6743") + "\uFF09" : "\u672C\u5730" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { style: { background: getApiTarget() ? "#4ade80" : topHealth.status === "offline" || topHealth.status === "denied" ? "#ef4444" : "#9ca3af" } }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-label", children: (() => {
+                        const target = String(getApiTarget() || "");
+                        const who = String(topHealth.owner || cloudConn.owner || "").split("@")[0] || "";
+                        if (target) return "\u4E91\u7AEF" + (who ? " " + who : "");
+                        if (topHealth.status === "offline" || topHealth.status === "denied") {
+                          return "\u4E91\u7AEF" + (who ? " " + who : "") + "\uFF08" + (topHealth.status === "offline" ? "\u79BB\u7EBF" : "\u672A\u6388\u6743") + "\uFF09";
+                        }
+                        if (topHealth.status === "ok") return "\u672C\u5730\uFF08\u4E91\u7AEF\u53EF\u5207\u6362\uFF09";
+                        return "\u672C\u5730";
+                      })() }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-caret", children: cloudOpen ? "\u25B4" : "\u25BE" })
                     ]
                   }
@@ -18837,11 +18850,11 @@ ${COMPONENTS_CSS}
               ] })
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-main", ref: mainRef, children: [
-              overview && overview.db && overview.db.writable === false ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { margin: "8px 10px 0", padding: "8px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.7, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.35)", color: "#b91c1c" }, children: [
+              overview2 && overview2.db && overview2.db.writable === false ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { margin: "8px 10px 0", padding: "8px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.7, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.35)", color: "#b91c1c" }, children: [
                 "\u26A0\uFE0F ",
                 t("dbReadonlyTitle"),
                 "\uFF1A",
-                overview.db.error || "\u2014",
+                overview2.db.error || "\u2014",
                 " \u2014\u2014 ",
                 t("dbReadonlyBody"),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { opacity: 0.85, marginTop: 2 }, children: t("dbReadonlyFix") })
@@ -19013,24 +19026,24 @@ ${COMPONENTS_CSS}
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: t("memoryHint") }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-v5-pagehead-stats", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: overview?.total ?? "\u2014" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: overview2?.total ?? "\u2014" }),
                       " ",
                       t("cardsUnit")
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
                       t("recent"),
                       " +",
-                      overview?.recent ?? 0
+                      overview2?.recent ?? 0
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
                       t("pending"),
                       " ",
-                      overview?.quarantine?.pending ?? overview?.status?.pending ?? 0
+                      overview2?.quarantine?.pending ?? overview2?.status?.pending ?? 0
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
                       t("rejected"),
                       " ",
-                      overview?.quarantine?.rejected ?? overview?.status?.rejected ?? 0
+                      overview2?.quarantine?.rejected ?? overview2?.status?.rejected ?? 0
                     ] })
                   ] })
                 ] }),
@@ -19076,7 +19089,7 @@ ${COMPONENTS_CSS}
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-chip-group-label", children: t("chipGroupKind") }),
                   (showAllKinds ? KIND_IDS : KIND_PRIMARY).map((k) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: `mc-chip${kind === k ? " active" : ""}`, onClick: () => onKind(k), children: [
                     k === "all" ? t("all") : t(KIND_LABELS[k]),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-chip-n", children: k === "all" ? overview?.total ?? 0 : overview?.byKind?.[k] ?? 0 })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-chip-n", children: k === "all" ? overview2?.total ?? 0 : overview2?.byKind?.[k] ?? 0 })
                   ] }, k)),
                   KIND_IDS.length > KIND_PRIMARY.length && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: "mc-chip mc-chip--more", onClick: () => setShowAllKinds((v) => !v), title: t("moreKindsHint"), children: [
                     showAllKinds ? t("collapseMore") + "\u25B4" : t("moreKinds") + "\u25BE",
@@ -21514,7 +21527,7 @@ ${t("quoteHint")}`,
       if (cloudTab === "cloud" && String(cloudForm.token || "").trim()) loadCloudPlan();
     }, [cloudTab, cloudForm.token]);
     const isConnected = isCloudUsable(cloudConn) || String(cloudConn.token || "").trim() && cloudConn.mode === "cloud" && !String(cloudConn.lastError || "").trim();
-    const cloudDataActive = cloudConn.mode === "cloud" && cloudConn.active !== false && !!(String(cloudConn.token || "").trim() || String(cloudForm.token || "").trim()) || health && health.status === "ok" && !!String(cloudConn.token || cloudForm.token || "").trim();
+    const cloudDataActive = !!getApiTarget() && !!String(cloudConn.token || cloudForm.token || "").trim();
     const currentVaultKey = cloudDataActive ? "cloud::" + String(cloudVault || "default") : String(((vaultList || []).find((v) => v.isCurrent) || {}).path || "");
     const vaultPickChoices = /* @__PURE__ */ __name(() => {
       const out = [];
@@ -21983,7 +21996,7 @@ ${t("quoteHint")}`,
               notify2("\u2601\uFE0F \u4E91\u7AEF\u62D2\u7EDD\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
             } catch {
             }
-            commitCloudConn({ ...conn, mode: "cloud", active: false, lastError: why });
+            commitCloudConn({ ...conn, active: false, lastError: why });
             setCloudConn(readCloudConn());
             return;
           }
@@ -21995,7 +22008,7 @@ ${t("quoteHint")}`,
             notify2("\u2601\uFE0F \u8FDE\u4E0D\u4E0A\u4E91\u7AEF\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
           } catch {
           }
-          commitCloudConn({ ...conn, mode: "cloud", active: false, lastError: why });
+          commitCloudConn({ ...conn, active: false, lastError: why });
           setCloudConn(readCloudConn());
           return;
         }
@@ -23533,9 +23546,9 @@ ${t("quoteHint")}`,
                       pairErr ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Status, { tone: "bad", text: pairErr }) : null
                     ] }) })
                   ] }),
-                  isConnected && localVault ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "9px 11px", background: "var(--me-c-surface)" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.6, marginBottom: 3 }, children: isCloudInstance ? t("cloudVaultLabel") : t("localVaultLabel") }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5, wordBreak: "break-all" }, children: localVault.full })
+                  isConnected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 8, padding: "9px 11px", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, opacity: 0.6, marginBottom: 3 }, children: cloudDataActive ? "\u8BB0\u5FC6\u5E93\u4F4D\u7F6E\uFF08\u4E91\u7AEF\uFF09" : isCloudInstance ? t("cloudVaultLabel") : t("localVaultLabel") }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5, wordBreak: "break-all" }, children: cloudDataActive ? String(getApiTarget()).replace(/^https?:\/\//, "").replace(/\/.*$/, "") + " \xB7 " + String(cloudVault || "default") + "\uFF08" + (overview && overview.cards != null ? Number(overview.cards) : "?") + " \u5F20\uFF09" : localVault ? localVault.full : "\uFF08\u672A\u53D6\u5230\uFF09" })
                   ] }) : null,
                   isConnected && vaultList && vaultList.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 10, background: "var(--me-c-surface)", overflow: "hidden", marginTop: 10 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 12px", display: "flex", flexDirection: "column", gap: 9 }, children: [
                     isCloudInstance ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 10, padding: "9px 11px", borderRadius: 8, border: "1px dashed var(--me-c-border)", fontSize: 11, lineHeight: 1.75, opacity: 0.75 }, children: t("cloudDataLocationNote") }) : null,
