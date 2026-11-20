@@ -7786,6 +7786,18 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     }
   }, [kind, query, statusFilter, sort, tagPick])
 
+  // 服务端同步（syncConnFromServer）可能在首屏加载**之后**才把数据源切到云端。
+  // 那时已经发出去的 /overview 走的是本机前缀 —— 界面就停在本地那 10479 张，
+  // 顶部却写着"云端 mengbot996"（用户反馈的强误导）。
+  // 所以监听它，同步一旦改变了数据源，就整体重拉一次。
+  // loadAll 定义在下面，用 ref 避免"定义前引用"（const 不提升）
+  const loadAllRef = React.useRef(null)
+  useEffect(() => {
+    const onResync = () => { try { const f = loadAllRef.current; if (f) f() } catch { /* 忽略 */ } }
+    try { window.addEventListener('me-cloud-resynced', onResync) } catch { /* 忽略 */ }
+    return () => { try { window.removeEventListener('me-cloud-resynced', onResync) } catch { /* 忽略 */ } }
+  }, [])
+
   const loadAll = useCallback(async () => {
     try {
       // 只拉轻量数据（<1KB）：概览 + 沉淀健康状态。
