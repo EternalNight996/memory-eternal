@@ -365,6 +365,18 @@ async function probeCloud(form) {
   }
 }
 
+/**
+ * 云端是否**真的**可用（模块级）
+ * 光有 token 不算：订阅过期/取消后 token 还在，但服务端每个请求都 403。
+ * 启动时会用 /cloud/connect 校验，失败会写 lastError 并把 mode 降级 —— 这里据此判断。
+ * ⚠ 必须放模块级：vaultChoices / vaultPickChoices 在 ConfigPanel 里，
+ *    而 cloudUsable 当初定义在另一个组件的 const 里 → ReferenceError（实测踩到）。
+ */
+function isCloudUsable(conn) {
+  const c = conn || {}
+  return !!(c.mode === 'cloud' && c.active !== false && !String(c.lastError || '').trim() && String(c.token || '').trim())
+}
+
 /** 落盘并应用云端连接（不 reload，调用方决定）。**失败不删配置**。 */
 function persistCloud(form) {
   const prev = readCloudConn()
@@ -7153,9 +7165,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   }, [])
   // 顶栏头像的三个值：OIDC 登录有 profile.name/avatar，key 登录只有 owner → 用首字母兜底。
   // 放在这里（而不是 JSX 里套 IIFE）是因为 JSX 里写 (() => {...})() 反复把括号写错。
-  // 云端是否**真的**可用：光有 token 不算（订阅过期/取消后 token 还在）。
-  // 启动时已用 /cloud/connect 校验过，失败会写 lastError 并降级 —— 这里据此决定要不要显示「云端库」。
-  const cloudUsable = !!(cloudConn && cloudConn.mode === 'cloud' && cloudConn.active !== false && !cloudConn.lastError && String(cloudConn.token || '').trim())
+  const cloudUsable = isCloudUsable(cloudConn)
   const avatarWho = String((cloudConn && cloudConn.profile && (cloudConn.profile.name || cloudConn.profile.displayName)) || (cloudConn && cloudConn.owner) || '')
   const avatarUrl = String((cloudConn && cloudConn.profile && (cloudConn.profile.avatar || cloudConn.profile.picture)) || '')
   const avatarInitial = avatarWho ? avatarWho.trim().charAt(0).toUpperCase() : '?'
@@ -10556,7 +10566,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     const out = []
     // 只有**授权有效**时才列云端库：光有 token 不算（以前这里只看 token，
     // 没订阅的账号也会显示「☁ 云端库 · xxx」，看着像连上了但每个请求都 403）。
-    if (cloudUsable) {
+    if (isCloudUsable(cloudConn)) {
       out.push({
         value: 'cloud',
         label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (cloudDataActive ? ' ' + t('vaultCurrent') : ''),
@@ -11033,7 +11043,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const vaultChoices = () => {
     const out = []
     // 授权有效才给「云端库」选项（有 token 但没有订阅权限的不算）
-    if (cloudUsable) {
+    if (isCloudUsable(cloudConn)) {
       const n = cloudVaultList && cloudVaultList.length ? Number(cloudVaultList[0].cards) || 0 : null
       out.push({ value: 'cloud', label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (n === null ? '' : '（' + n + ' ' + t('cardsUnit') + '）') })
     }
