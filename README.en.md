@@ -12,7 +12,7 @@
 
 **English** · [简体中文（默认）](README.md)
 
-## ☁️ Cloud memory (the v0.49.10 headline)
+## ☁️ Cloud memory
 
 **Your vault follows you, not the machine.** The local vault still works offline; sign in to your cloud instance
 and the same cards are readable from every device and every agent — no migration on a new laptop, no re-feeding
@@ -48,6 +48,37 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 > shipped with this open-source package; those endpoints are still moving fast and may shift. Ignore the cloud
 > entirely and everything behaves exactly as before — see [docs/CLOUD.md](docs/CLOUD.md) and [docs/PRIVATE.md](docs/PRIVATE.md).
 
+## 💳 Subscriptions & multi-vault (cloud edition)
+
+Cloud instances ship **plan-based quotas**. Three paid tiers, effective immediately after payment.
+
+| Tier | Cards | Vaults | Rate |
+|---|---|---|---|
+| Free | 500 | 1 | 60/min |
+| **Personal** | 20,000 | 1 | 150/min |
+| **Team** | 100,000 | 3 | 300/min |
+| **Flagship** | 1,000,000 | 10 | 1000/min |
+
+| Capability | Detail |
+|---|---|
+| **Multi-vault** | Several vaults per account (up to plan limit), each an isolated SQLite; rename independently, issue per-vault pair codes |
+| **Rename the default vault** | Personal has only one vault, so the default one is renameable (server moves the tenant root into `vaults/<name>/`) |
+| **Server-enforced quota** | Vault creation and card writes are checked server-side; over-limit returns `quota_exceeded` with used/limit |
+| **Self-service console** | `/api/console` shows subscription, manages vaults, issues pair codes, renames vaults — every action has toast feedback |
+| **Payment** | WeChat / Alipay QR (manual confirm) or XORPay callback; all tiers orderable, renewals extend the expiry |
+
+> Quotas were revised: personal used to be 2,000 cards, which hit existing users with 10k+ cards immediately. Now 20,000.
+> See `PLAN_QUOTA` in `lib/quota.js` and `PLANS` in `lib/pay.js` (must stay in sync).
+
+```bash
+# start a cloud instance (off by default; without it you are purely local)
+MEMORY_CLOUD=1 node lib/web.js --port 7999
+
+# API-only mode: no vault UI, / redirects to the console
+MEMORY_CLOUD=1 MEMORY_CLOUD_NO_UI=1 node lib/web.js --port 7999
+```
+
+---
 ## 📊 How it compares — measured, not advertised
 
 > Data date **2026-11-18**: stars come from the GitHub API (raw integers); public scores are transcribed from each
@@ -498,7 +529,7 @@ node scripts/reindex-fts.mjs --force  # rebuild (writes cards_fts / _fts_rows on
 | Vault file corrupted | Daily backups + auto-restore | Rolls back to the newest usable backup at boot |
 
 
-## 🔗 MEM Pair: pair two vaults, exchange cards (v0.49.10)
+## 🔗 MEM Pair: pair two vaults, exchange cards
 
 You often run several memory-eternal instances side by side: the ops vault (7999), an isolated mem-purge (7989),
 and a cloud instance. Each has its own SQLite, so they **must not share one vault** — yet you do want them to feed
