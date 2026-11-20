@@ -1037,6 +1037,10 @@ export const ZH = {
   cloudUrlLabel: '云端实例地址',
   cloudUrlHint: 'memory-eternal-cloud 实例地址，如 {host}',
   cloudTokenLabel: '访问密钥',
+  cloudNeedToken: '切换云端前请先填写访问密钥（me_… 或匹配码 pc_…），或点「扫码登录」自动获取',
+  cloudTokenBad: '访问密钥格式不对：应为 me_…（访问密钥）或 pc_…（库匹配码）',
+  cloudGranted: '云端验证通过（{plan}），已切换到云端模式',
+  cloudDenied: '无法连接云端：{reason}',
   cloudTokenHint: '登录可留空；直连他人实例才填',
   cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
   cloudOauthIgnored: '已自动忽略 MengBot 的客户端密钥（mbo_）—— 它不是访问密钥，请用「用 MengBot 账号登录」',
@@ -2571,6 +2575,10 @@ export const EN = {
   cloudUrlLabel: 'Cloud instance URL',
   cloudUrlHint: 'The memory-eternal-cloud server address (e.g. {host}) — NOT the MengBot identity host {accounts}',
   cloudTokenLabel: 'Access key (optional)',
+  cloudNeedToken: 'Add an access key (me_… or matching code pc_…) before switching to cloud, or use QR sign-in',
+  cloudTokenBad: 'Access key looks wrong: expected me_… (key) or pc_… (vault matching code)',
+  cloudGranted: 'Cloud verified ({plan}); switched to cloud mode',
+  cloudDenied: 'Cannot connect to cloud: {reason}',
   cloudTokenHint: 'Leave empty if you sign in with MengBot; only needed when connecting to someone else instance',
   cloudTokenPeek: 'Current token: {peek} ({len} chars)',
   cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) — it is not an access key. Use "Sign in with MengBot" instead',
@@ -7815,7 +7823,51 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                       key={m}
                       type="button"
                       className={`mc-cloud-mode${cloudForm.mode === m ? ' active' : ''}`}
-                      onClick={() => setCloudForm((f) => ({ ...f, mode: m }))}
+                      onClick={() => {
+                        // 切到云端前必须有凭据（访问密钥 me_/pc_ 或请求头里的其它令牌）。
+                        // 没有就直接切模式 = 用户以为连上了、实际每个请求都 401，体验极差。
+                        if (m === 'cloud') {
+                          // 切云端前让**服务端**验证：身份 → 账号 → 套餐 → 许可。
+                          // 客户端本地只看"有没有填 token"是不够的：没订阅也该被拦。
+                          const base = String((cloudForm && cloudForm.url) || '').trim().replace(/\/+$/, '')
+                          const tok = String((cloudForm && cloudForm.token) || '').trim()
+                          if (!base) {
+                            try { notify(t('cloudUrlRequired'), false) } catch { /* 忽略 */ }
+                            setCloudOpen(true)
+                            return
+                          }
+                          ;(async () => {
+                            let denied = ''
+                            try {
+                              const r = await fetch(base + '/api/cloud/connect', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  ...(tok ? { Authorization: 'Bearer ' + tok } : {}),
+                                },
+                                body: '{}',
+                                credentials: 'include',
+                              })
+                              const d = await r.json().catch(() => ({}))
+                              if (!r.ok || !d.granted) {
+                                denied = String(d.error || ('HTTP ' + r.status))
+                              } else {
+                                // 拿到许可：服务端已下发 cookie，本地记录套餐信息
+                                try { notify(t('cloudGranted').replace('{plan}', String((d.connect && d.connect.plan) || '')), true) } catch { /* 忽略 */ }
+                                setCloudForm((f) => ({ ...f, mode: m }))
+                              }
+                            } catch (e) {
+                              denied = String((e && e.message) || e)
+                            }
+                            if (denied) {
+                              try { notify(t('cloudDenied').replace('{reason}', denied), false) } catch { /* 忽略 */ }
+                              setCloudOpen(true)
+                            }
+                          })()
+                          return
+                        }
+                        setCloudForm((f) => ({ ...f, mode: m }))
+                      }}
                     >
                       <b>{label}</b>
                       <span>{hint}</span>
