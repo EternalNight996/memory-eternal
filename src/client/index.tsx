@@ -434,7 +434,12 @@ function persistCloud(form) {
     // 切本地时也不清空：用户可能只是临时回本地，地址还留着方便切回去
     url: wantCloud ? url : (url || prev.url || ''),
     token: wantCloud ? token : (token || prev.token || ''),
-    active: false,             // 先不激活，等调用方验证通过再置 true
+    // **保留原来的 active**，不要无条件清零。
+    // 以前写死 false（"先不激活，等调用方验证通过再置 true"），
+    // 但登录路径 persistCloud 之后**根本不会**再调 activateCloud ——
+    // 于是登录一次就把 active 打成 false，bootstrapCloudMode 看到 false 直接 return，
+    // 前缀永远不切云端（用户实测：切不过去、主面板一直是本机数据）。
+    active: prev && prev.active !== undefined ? prev.active : true,
     lastError: '',             // 换了配置就必须清掉历史失败记录，否则界面一直显示旧错误
     lastCheckAt: new Date().toISOString(),
   }
@@ -482,7 +487,11 @@ function saveCloudCredentials({ url, token, owner, profile } = {}) {
     profile: profile || prev.profile || null,
     lastError: '',
     lastCheckAt: Date.now(),
-    // mode / active **保持原值**：登录不等于切换数据源
+    // mode 保持原值（登录不等于切换数据源）；
+    // 但 active **不能被登录顺手打成 false** —— 否则登录完永远切不过去。
+    // 登录意味着"用户要用云端"，所以这里直接置 true；
+    // 真不可用由 /cloud/connect 验证 + 健康检查再去降级。
+    active: true,
   }
   saveCloudConn(merged)
   try { syncCloudConnToServer(merged) } catch { /* 网络失败不影响本地 */ }
@@ -501,7 +510,10 @@ function bootstrapCloudMode() {
     const cfg = readCloudConn()
     if (cfg.mode !== 'cloud') return
     if (!String(cfg.url || '').trim() || !String(cfg.token || '').trim()) return
-    if (cfg.active === false) return
+    // active 只反映"上次是否成功激活"，**不是"用户想不想用云端"**。
+    // 之前这里是 `if (cfg.active === false) return`，于是任何一次临时失败都会让
+    // 后续所有启动都不再激活云端，除非用户手动再切一次（而这正是他切不动的地方）。
+    // 现在：有 url + token 就尝试激活，失败由请求层的 401/健康检查兜底。
     activateCloud(cfg)   // 启动恢复：只应用前缀，绝不写服务端
   } catch { /* 读不到就当本地 */ }
 }
@@ -13020,6 +13032,14 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                       以前恒定显示本机路径，用户看到上面写着"云端 default 9894 张"、
                       下面却是 C:\...\memory-vault-mem-purge\memory-eternal.db（182 张），
                       完全不知道该信哪个。 */}
+                  {/* **诊断块**：切换出问题时，用户能一眼看到卡在哪一步。
+                      没有这些数字，只能靠猜（这次就猜了三轮）。 */}
+                  <div style={{ border: '1px dashed var(--me-c-border)', borderRadius: 8, padding: '8px 11px', marginBottom: 8, background: 'var(--me-c-surface)', fontSize: 10.5, opacity: 0.75, fontFamily: 'ui-monospace,Consolas,monospace', lineHeight: 1.7 }}>
+                    <div>请求前缀: {getApiTarget() ? getApiTarget() : '(空 → 走本机)'}</div>
+                    <div>cloudConn: mode={String(cloudConn.mode || '')} active={String(cloudConn.active)} token={String(cloudConn.token || '').trim() ? '有(' + String(cloudConn.token).length + '字符)' : '无'}</div>
+                    <div>健康探测: status={String(health && health.status)} plan={String((health && health.plan) || '-')} err={String((health && health.lastError) || '-').slice(0, 40)}</div>
+                    <div>本机库: {String((((vaultList || []).find((v) => v.isCurrent)) || {}).path || '-').split(/[\\/]/).pop()} · {String(((vaultList || []).find((v) => v.isCurrent) || {}).cards ?? '-')} 张</div>
+                  </div>
                   {isConnected ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)' }}>
                       <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>
