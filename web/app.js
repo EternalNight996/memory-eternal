@@ -11149,16 +11149,6 @@
   bootstrapCloudMode();
   (/* @__PURE__ */ __name(function syncConnFromServer() {
     if (typeof window === "undefined" || typeof fetch !== "function") return;
-    try {
-      if (document.readyState === "complete") sessionStorage.removeItem("me-cloud-resync-done");
-      else window.addEventListener("load", () => {
-        try {
-          sessionStorage.removeItem("me-cloud-resync-done");
-        } catch {
-        }
-      }, { once: true });
-    } catch {
-    }
     const run = /* @__PURE__ */ __name(async () => {
       try {
         const local = readCloudConn();
@@ -11186,15 +11176,8 @@
         const sourceChanged = local.mode !== merged.mode || local.active !== merged.active;
         if (sourceChanged) {
           try {
-            if (!sessionStorage.getItem("me-cloud-resync-done")) {
-              sessionStorage.setItem("me-cloud-resync-done", "1");
-              setTimeout(() => {
-                try {
-                  location.reload();
-                } catch {
-                }
-              }, 80);
-            }
+            window.__meCloudResynced = true;
+            window.dispatchEvent(new CustomEvent("me-cloud-resynced", { detail: { mode: merged.mode } }));
           } catch {
           }
         }
@@ -17163,7 +17146,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.51.1" : "";
+  var CLIENT_VERSION = true ? "0.51.2" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17444,7 +17427,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T22:20:25+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T22:30:00+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
