@@ -17146,7 +17146,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.3" : "";
+  var CLIENT_VERSION = true ? "0.52.4" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17427,7 +17427,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T23:25:00+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T23:40:02+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18165,6 +18165,26 @@ ${COMPONENTS_CSS}
         else setLoading(false);
       }
     }, [kind, query, statusFilter, sort, tagPick]);
+    const loadAllRef = import_react2.default.useRef(null);
+    (0, import_react2.useEffect)(() => {
+      const onResync = /* @__PURE__ */ __name(() => {
+        try {
+          const f = loadAllRef.current;
+          if (f) f();
+        } catch {
+        }
+      }, "onResync");
+      try {
+        window.addEventListener("me-cloud-resynced", onResync);
+      } catch {
+      }
+      return () => {
+        try {
+          window.removeEventListener("me-cloud-resynced", onResync);
+        } catch {
+        }
+      };
+    }, []);
     const loadAll = (0, import_react2.useCallback)(async () => {
       try {
         const [ov, capRes, cfgRes, newsRes] = await Promise.all([
