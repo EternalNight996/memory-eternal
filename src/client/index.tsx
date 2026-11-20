@@ -833,11 +833,16 @@ try {
       '/restart-self',    // 重启本机宿主
       '/logs',            // 本机日志文件
       '/open-in-folder',  // 本机资源管理器
+      // 语义召回（可选）全是**本机能力**：Ollama 服务、模型文件、embedding 缓存都在这台机器上。
+      // 漏了这一项 → 云端模式下客户端把 /embedding/install-ollama 发到服务器
+      // → 服务器上尝试装 Ollama / 拉模型（实测：云端一次都没装成，但任务被打断、白耗流量）。
+      '/embedding',
     ]
     // 反向兜底：**任何**带 mcp / setup / host 语义的路径都留在本机。
     // 白名单漏一项就会出现"MCP 部分请求打到云端、显示服务器路径"，
     // 这类漏项比误拦更难发现，所以再加一道关键词兜底。
-    const LOCAL_HINTS = /\/(mcp|setup|host|agent)s?(\/|\?|$)/
+    // 关键词兜底也带上 embedding / ollama：任何路径语义里出现它们都属于本机能力
+    const LOCAL_HINTS = /\/(mcp|setup|host|agent|embedding|ollama)s?(\/|\?|$)/
     const isLocalOnly = (u) => {
       if (typeof u !== 'string') return false
       for (const p of LOCAL_ONLY) if (u.startsWith(LOCAL_PREFIX + p)) return true
