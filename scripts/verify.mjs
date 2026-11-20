@@ -163,7 +163,19 @@ const smoke = await (async () => {
     const ssr = await fetch(B + '/setup-status', { signal: AbortSignal.timeout(8000) })
     const cc2 = String(ssr.headers.get('cache-control') || '')
     if (!/no-store/.test(cc2)) errs.push('/setup-status 缺 Cache-Control: no-store（实际 "' + cc2 + '"）')
-    // 6) /cloud/conn 的 token 不许是脱敏占位符
+    // 6) 客户端必须能"从本地恢复成云端"：
+    //    这条链上有三个必经环节，缺一个就会出现「切云端后一刷新又回本地」。
+    const cli = readFileSync(path.join(ROOT, 'src/client/index.tsx'), 'utf8')
+    const needSync = [
+      [/bootstrapCloudMode\(\)/, '模块加载时的 bootstrapCloudMode'],
+      [/syncConnFromServer/, '从服务端同步的 syncConnFromServer'],
+      [/sourceChanged[\s\S]{0,200}location\.reload/, '数据源变化后 reload'],
+      [/commitCloudConn\(next\)[\s\S]{0,1600}location\.reload/, '切换成功后 reload'],
+    ]
+    for (const [re, what] of needSync) {
+      if (!re.test(cli)) errs.push('缺「' + what + '」—— 会导致切云端后刷新回本地')
+    }
+    // 7) /cloud/conn 的 token 不许是脱敏占位符
     const cc = await get('/cloud/conn')
     const tok = cc.body && cc.body.conn && cc.body.conn.token
     if (tok && /^\*+$/.test(String(tok))) errs.push('/cloud/conn 返回了脱敏令牌 ***')

@@ -489,6 +489,12 @@ bootstrapCloudMode()
  */
 ;(function syncConnFromServer() {
   if (typeof window === 'undefined' || typeof fetch !== 'function') return
+  // 页面真正加载完成后清掉「已重载」标记：它只用于防止
+  // reload → 同步 → reload 的当场死循环，不该污染后续的合法切换。
+  try {
+    if (document.readyState === 'complete') sessionStorage.removeItem('me-cloud-resync-done')
+    else window.addEventListener('load', () => { try { sessionStorage.removeItem('me-cloud-resync-done') } catch { /* 忽略 */ } }, { once: true })
+  } catch { /* 忽略 */ }
   const run = async () => {
     try {
       const local = readCloudConn()
@@ -518,6 +524,20 @@ bootstrapCloudMode()
       }
       saveCloudConn(merged)
       applyCloudConn(merged, { noSync: true })   // 本来就是从服务端来的，不需要再写回去
+      // **关键**：如果这次同步把数据源从「本地」改成「云端」，
+      // 页面**已经用本地前缀把首屏加载完了** —— 光改 API_TARGET_URL 不会重跑已发出的请求，
+      // 用户看到的仍然是本地库，刷新一次又回到本地，形成"切了又回来"的循环。
+      // 所以数据源变化时必须 reload 一次，让所有请求走新前缀。
+      // 用 sessionStorage 打标，避免 reload → 同步 → reload 的死循环。
+      const sourceChanged = local.mode !== merged.mode || local.active !== merged.active
+      if (sourceChanged) {
+        try {
+          if (!sessionStorage.getItem('me-cloud-resync-done')) {
+            sessionStorage.setItem('me-cloud-resync-done', '1')
+            setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 80)
+          }
+        } catch { /* 隐私模式：不 reload 也不会更糟 */ }
+      }
     } catch { /* 服务端没起来就保持现状 */ }
   }
   run()
@@ -11186,6 +11206,14 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
         })
       notifyAcrossRemount(kind === 'cloud' ? t('switchToCloudDone') : t('switchToLocalDone'), true)
       window.dispatchEvent(new CustomEvent(VAULT_SWITCH_EVT, { detail: { kind } }))
+      // **必须整页重载**。API_TARGET_URL 是模块级变量，各组件的数据（vaultList / cards /
+      // stats / ov）是已挂载的 state —— 改前缀不会让它们重新请求。
+      // 只 dispatch 事件的话：界面显示"已切到云端"，但卡片还是本地那 10225 张，
+      // 用户以为没切成功；下次刷新若 localStorage 没写对，又回到本地 ——
+      // 就是反馈里的「切云端后一刷新又恢复本地」。
+      try {
+        setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 260)
+      } catch { /* 忽略 */ }
     } catch (e) {
       try { notify(String((e && e.message) || e), false) } catch { /* 忽略 */ }
     } finally { setSwitching('') }
