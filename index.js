@@ -8,7 +8,7 @@
 //    追加更新记录）。零人工干预。
 // 3. 注入 systemPrompt 分段：告知 Agent 它有一块记忆核心、可随时
 //    memory_recall 召回历史上下文；并注册 `memory_recall` 工具。
-// 4. 注册 `/memory-eternal/api/*` JSON 路由：供客户端设置页渲染统计 / 卡片 /
+// 4. 注册 `/api/*` JSON 路由：供客户端设置页渲染统计 / 卡片 /
 //    知识图谱 / 检索。
 //
 // 存储全部落在本地 Markdown Vault（默认 $DSH_HOME/memory-vault），不依赖
@@ -321,7 +321,7 @@ export function humanizeDistillFailure(failure) {
     '或改用其它蒸馏模型，或关闭「蒸馏知识卡」只存原文卡（内容不会丢）'
 }
 
-const API_PREFIX = '/memory-eternal/api'
+const API_PREFIX = '/api'
 
 // DSH 宿主自动沉淀卡的署名：用可读名而非 agent 会话 id，便于在智能体筛选中归组。
 const DSH_AGENT = 'deepseek-harness'
@@ -584,7 +584,7 @@ export function apply(ctx, config) {
   // 同一个 settings.update：从插件**回调**里调必然被 activation 守卫拒（HMR transactions cannot be
   // nested，一个字节都不提交）；从插件**HTTP 请求处理器**里调则真的提交（实测 revision 4→6）。
   // 所以宿主把「自己的监听端口 + 一次性令牌」写进心跳，独立端保存后就地叫醒宿主：
-  // POST /memory-eternal/api/drain-pending（见下面的路由 + lib/config-sync.js 的 triggerHostDrain）。
+  // POST /api/drain-pending（见下面的路由 + lib/config-sync.js 的 triggerHostDrain）。
   const hostDrainToken = randomBytes(16).toString('hex')
   let hostDrainPort = 0
   const beatHostMarker = () => {
@@ -1278,12 +1278,12 @@ export function apply(ctx, config) {
         '1. 每轮对话结束后，值得长期复用的内容会被自动沉淀成知识卡，你无需询问用户、也无需手动保存。',
         '2. 当任务需要项目背景、历史决策、之前讨论过的方案或领域知识时，先调用 memory_recall 检索相关卡片，再作答。',
         '3. 若检索结果为空，就诚实说明当前记忆库没有相关内容，不要编造。',
-        '4. 知识卡存储在 SQLite 数据库中（memory-eternal.db），**禁止**用文件工具直接读写 vault 目录下的任何文件。沉淀记忆必须通过 memory_recall 工具或 /memory-eternal/api/write API。',
+        '4. 知识卡存储在 SQLite 数据库中（memory-eternal.db），**禁止**用文件工具直接读写 vault 目录下的任何文件。沉淀记忆必须通过 memory_recall 工具或 /api/write API。',
         '5. 若下方出现「自动沉淀异常」，必须在本次回复的第一句用中文转述该异常并提醒用户处理，不要自行猜测或尝试修复。',
         '6. 已批准的技能卡（kind=skill）记录本机实际可用的技能；需要某技能时先 memory_recall 查询「技能名/技能用途」，再用 skill 工具加载同名技能。技能卡只是索引与说明，不替代 skill 工具，也不代表技能已启用。',
         // 审核红线（主上 2026-09-12 强制要求）：只在审核真正生效时注入。
         ...((cfg.auditMode ?? 'all') === 'none' ? [] : [
-          '7. **审核红线（强制）**：写卡一律停在 pending，由用户在「审核中心」审批。**禁止**调用 /memory-eternal/api/audit/approve 或 /audit/reject 代替用户审批，也不得用任何等价方式绕过审核；用户说「记录一下 / 增加记忆」不等于允许免审入库。需要立刻可用时，写卡后明确告知用户「已进审核中心，待批准」。',
+          '7. **审核红线（强制）**：写卡一律停在 pending，由用户在「审核中心」审批。**禁止**调用 /api/audit/approve 或 /audit/reject 代替用户审批，也不得用任何等价方式绕过审核；用户说「记录一下 / 增加记忆」不等于允许免审入库。需要立刻可用时，写卡后明确告知用户「已进审核中心，待批准」。',
         ]),
         // 凭证取用提示（用户自己填的整句，见 Config.secretHint）：只在填了非空值时注入。
         // 为什么走 systemPrompt 而不是「往卡里写值」：密钥的**值**入库会被每次召回带进模型
@@ -1724,7 +1724,7 @@ export function apply(ctx, config) {
   }
 
   // webServer 是「可能晚到」的服务：apply 执行时它常常尚未挂载，同步 ctx.get()
-  // 拿不到就整段跳过、且不留任何日志 —— 表现是 /memory-eternal/api/* 恒 404、
+  // 拿不到就整段跳过、且不留任何日志 —— 表现是 /api/* 恒 404、
   // 客户端设置页永远停在「加载中…」。改用 ctx.inject() 等服务就绪后再注册：
   // 没有该服务的 profile（如 TUI）里子 fiber 保持 pending，主插件照常激活。
   // （DSH 自身的 dsh-client-modules 也是这么写的：ctx.inject(['webServer'], …)）
@@ -2006,7 +2006,7 @@ export function apply(ctx, config) {
     const webServer = child.get('webServer')
     if (webServer === undefined) return
     registerApiRoutes(webServer)
-    logCapture('system', 'boot', '记忆 API 路由已注册（/memory-eternal/api）')
+    logCapture('system', 'boot', '记忆 API 路由已注册（/api）')
   })
 
   // -- 4. 多宿主常驻：MCP 挂载 + web server 保活（按设置项分层） -----------------
