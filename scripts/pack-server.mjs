@@ -9,9 +9,13 @@
 //   · 所以：同一份源码，两个产物。本脚本产出只含服务端所需文件的 tgz。
 //
 // 用法：
-//   node scripts/pack-server.mjs             打包（API-only，不含网页 UI）
+//   node scripts/pack-server.mjs             打包（**默认带网页 UI**）
+//   node scripts/pack-server.mjs --no-web    不要网页 UI（纯 API，省 2 MB）
 //   node scripts/pack-server.mjs --dry-run   只列清单
-//   node scripts/pack-server.mjs --with-web  额外带上网页 UI
+//
+// 为什么默认带 UI：lib/web.js 是唯一入口，登录后 "/" 直接返回 web/index.html。
+// 以前默认不带、要手加 --with-web，结果**反复漏**——云端 UI 一直停在 0.49.22，
+// 而本地已经 0.52.x（用户实测：线上打开记忆库，右上角写着 v0.49.22）。
 import { readdirSync, mkdirSync, copyFileSync, writeFileSync, rmSync, statSync, existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -25,7 +29,7 @@ try {
   const cp = JSON.parse(readFileSync(path.join(ROOT, 'private/memory-eternal-cloud/package.json'), 'utf8'))
   if (cp && cp.version) serverVersion = String(cp.version)
 } catch { /* 私有包不在（开源检出）→ 退回插件版本 */ }
-const withWeb = process.argv.includes('--with-web')
+const withWeb = !process.argv.includes('--no-web')
 const dry = process.argv.includes('--dry-run')
 
 const CLIENT_ONLY = new Set(['client.js'])
