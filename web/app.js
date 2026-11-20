@@ -10806,7 +10806,7 @@
 
   // src/client/index.tsx
   var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
-  var API = "/memory-eternal/api";
+  var API = "/api";
   var VIEW_VAULT_COOKIE = "me_view_vault";
   var getViewVaultCookie = /* @__PURE__ */ __name(() => {
     try {
@@ -16907,7 +16907,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.25-alpha.1" : "";
+  var CLIENT_VERSION = true ? "0.49.26-alpha.1" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17188,7 +17188,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-19T23:16:18+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T07:16:42+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17347,7 +17347,7 @@ ${COMPONENTS_CSS}
   var CLOUD_DOMAINS_FALLBACK = { memUrl: "https://mem.mengbot.com.cn", accountsUrl: "https://accounts.mengbot.com.cn" };
   var cloudDomainsRef = { ...CLOUD_DOMAINS_FALLBACK };
   function MemoryLibraryInner({ t, inModal, onClose }) {
-    const inHost = typeof window !== "undefined" && (!!window.__DSH_BOOT__ || String(location.pathname || "").includes("/memory-eternal/api/ui/app"));
+    const inHost = typeof window !== "undefined" && (!!window.__DSH_BOOT__ || String(location.pathname || "").includes("/api/ui/app") || String(location.pathname || "").includes("/memory-eternal/api/ui/app"));
     const [overview, setOverview] = (0, import_react2.useState)(null);
     const [uiScale, setUiScale] = (0, import_react2.useState)(() => {
       try {
