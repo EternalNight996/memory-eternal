@@ -11085,6 +11085,18 @@
     return merged;
   }
   __name(activateCloud, "activateCloud");
+  function bootstrapCloudMode() {
+    try {
+      const cfg = readCloudConn();
+      if (cfg.mode !== "cloud") return;
+      if (!String(cfg.url || "").trim() || !String(cfg.token || "").trim()) return;
+      if (cfg.active === false) return;
+      activateCloud(cfg);
+    } catch {
+    }
+  }
+  __name(bootstrapCloudMode, "bootstrapCloudMode");
+  bootstrapCloudMode();
   function markCloudFailed(next, reason) {
     const merged = { ...readCloudConn(), ...next, mode: "cloud", active: false, lastError: String(reason || "\u8FDE\u63A5\u5931\u8D25") };
     saveCloudConn(merged);
@@ -16943,7 +16955,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.34" : "";
+  var CLIENT_VERSION = true ? "0.49.35" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17224,7 +17236,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T14:26:00+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T15:14:11+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -23055,7 +23067,7 @@ ${t("quoteHint")}`,
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.5 }, children: "\u2197" })
                       ] }),
                       (() => {
-                        const others = readAccounts().filter((a) => a.owner && a.owner !== (cloudIdentity.owner || ""));
+                        const others = [];
                         if (!others.length) return null;
                         return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { borderTop: "1px solid var(--me-c-border)", padding: "10px 15px" }, children: [
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.5, letterSpacing: 0.3, marginBottom: 6 }, children: t("otherAccounts") }),

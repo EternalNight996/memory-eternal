@@ -410,6 +410,24 @@ function activateCloud(next) {
   return merged
 }
 
+/**
+ * 页面加载时激活云端前缀。
+ *
+ * **必须有**：activateCloud 只在用户主动登录/切换/保存时被调用过。
+ * 页面刷新后没人调它 → API_TARGET_URL 一直是空 → 所有请求打本机 →
+ * 明明 mode=cloud、明明有订阅，面板却显示本地库、云端数据看不到。
+ */
+function bootstrapCloudMode() {
+  try {
+    const cfg = readCloudConn()
+    if (cfg.mode !== 'cloud') return
+    if (!String(cfg.url || '').trim() || !String(cfg.token || '').trim()) return
+    if (cfg.active === false) return
+    activateCloud(cfg)
+  } catch { /* 读不到就当本地 */ }
+}
+bootstrapCloudMode()
+
 /** 验证失败：**保留配置**，只标记 active=false 并记录原因。 */
 function markCloudFailed(next, reason) {
   const merged = { ...readCloudConn(), ...next, mode: 'cloud', active: false, lastError: String(reason || '连接失败') }
@@ -12407,9 +12425,10 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                 <button type="button" onClick={() => { const u = consoleUrl(); if (!u) { notify(t('cloudUrlRequired'), false); return } openExternal(u) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 15px', textAlign: 'left', background: 'transparent', border: 'none', borderTop: '1px solid var(--me-c-border)', cursor: 'pointer', color: 'var(--me-c-accent, #2563eb)', font: 'inherit', fontSize: 12.5 }}>
                             <span>{t('managePlan')}</span><span style={{ opacity: 0.5 }}>↗</span>
                           </button>
-                          {/* 其他账号：台账里除当前账号外的，点一下直接切（不用重新扫码） */}
+                          {/* 「其他账号」列表已移除：它只是本地台账，容易被误读成"多出一个账号"。
+                              同一时刻只保留一个云端账号；换账号请走下面的「切换账号」。 */}
                           {(() => {
-                            const others = readAccounts().filter((a) => a.owner && a.owner !== (cloudIdentity.owner || ''))
+                            const others = []
                             if (!others.length) return null
                             return (
                               <div style={{ borderTop: '1px solid var(--me-c-border)', padding: '10px 15px' }}>
