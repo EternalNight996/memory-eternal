@@ -16943,7 +16943,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.31" : "";
+  var CLIENT_VERSION = true ? "0.49.32" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17224,7 +17224,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T13:39:31+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T13:47:10+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -20609,6 +20609,12 @@ ${t("quoteHint")}`,
                 notify2(t("cloudLoginDone").replace("{owner}", d.owner || "-"), true);
               } catch {
               }
+              setTimeout(() => {
+                try {
+                  location.reload();
+                } catch {
+                }
+              }, 320);
             }
             return;
           }
@@ -20697,6 +20703,12 @@ ${t("quoteHint")}`,
                 notify2(t("deviceDone"), true);
               } catch {
               }
+              setTimeout(() => {
+                try {
+                  location.reload();
+                } catch {
+                }
+              }, 320);
             }
             return;
           }
@@ -21824,14 +21836,15 @@ ${t("quoteHint")}`,
       setCloudTest({ ok: true, authenticated: true, owner: acc.owner, profile: acc.profile || null });
       setAcctOpen(false);
       try {
-        void loadCloudDomains();
-        loadCloudPlan();
-      } catch {
-      }
-      try {
         notify2(t("switchedTo").replace("{who}", acc.owner), true);
       } catch {
       }
+      setTimeout(() => {
+        try {
+          location.reload();
+        } catch {
+        }
+      }, 260);
     }, "useAccount");
     const disconnectCloud = /* @__PURE__ */ __name(() => {
       const cur = readCloudConn();

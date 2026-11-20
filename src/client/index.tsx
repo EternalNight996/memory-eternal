@@ -10055,6 +10055,9 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
             setCloudTest({ ok: true, authenticated: true, owner: d.owner || '', profile: d.profile || null })
             setPollAuth(null)
             try { notify(t('cloudLoginDone').replace('{owner}', d.owner || '-'), true) } catch { /* 忽略 */ }
+            // 登录后必须整页重载：模块级的 API_TARGET_URL/cloudToken 与各组件 state
+            // 还停留在未登录时的样子，不 reload 会看到「已连接但套餐是 — / 库还是旧的」。
+            setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 320)
           }
           return
         }
@@ -10123,6 +10126,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
             setCloudTest({ ok: true, authenticated: true, owner: d.owner || '', profile: d.profile || null })
             setDeviceAuth(null)
             try { notify(t('deviceDone'), true) } catch { /* 忽略 */ }
+            setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 320)
           }
           return
         }
@@ -11232,8 +11236,11 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     setCloudForm((f) => ({ ...f, mode: 'cloud', url, token: acc.token }))
     setCloudTest({ ok: true, authenticated: true, owner: acc.owner, profile: acc.profile || null })
     setAcctOpen(false)
-    try { void loadCloudDomains(); loadCloudPlan() } catch { /* 忽略 */ }
     try { notify(t('switchedTo').replace('{who}', acc.owner), true) } catch { /* 忽略 */ }
+    // **必须整页重载**：API_TARGET_URL / cloudToken 是模块级变量，vaultList / ov / cards
+    // 全是组件 state。只 setState 不 reload 的话，界面还挂着上一个账号的库和统计，
+    // 用户看到的就是「切了但没生效」。之前这里只重拉 domains/plan，实测不够。
+    setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 260)
   }
 
   const disconnectCloud = () => {
