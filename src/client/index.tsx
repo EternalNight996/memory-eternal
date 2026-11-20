@@ -43,7 +43,8 @@ import { mergeLocalOverlay } from './config-merge.js'
 import { makeQrMatrix } from './qr.js'
 
 const NS = 'memory-eternal'
-const API = '/api'
+// 本地宿主 API：插件自己注册的命名空间，**不能**用 /api（与 DSH 宿主冲突）
+const API = '/memory-eternal/api'
 // issue #67：面板「查看库」作用域。值只放配置里的 profile 名，用 cookie 传给服务端，
 // 这样所有面板请求（待审/卡片/日志/健康/图谱）自动跟随，不用改 200 多处 fetch。
 // 作用域只影响数据面，不改默认库、不改 activeVault、不影响 Agent 写入。
@@ -7108,8 +7109,53 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [cloudConn, setCloudConn] = useState(() => readCloudConn())
   const [cloudForm, setCloudForm] = useState(() => readCloudConn())
   const [cloudOpen, setCloudOpen] = useState(false)
+
+  // 启动校验：localStorage 里存着 mode=cloud 不代表现在还有权限（订阅可能已过期/被取消）。
+  // 以前这里不校验，导致「没订阅的账号也显示云端库」，看着像连上了，实际每个请求都 403。
+  useEffect(() => {
+    const cfg = readCloudConn()
+    if (cfg.mode !== 'cloud') return
+    const base = String(cfg.url || '').trim().replace(/\/+$/, '')
+    const tok = String(cfg.token || '').trim()
+    if (!base) return
+    let alive = true
+    ;(async () => {
+      try {
+        const r = await fetch(base + '/api/cloud/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) },
+          body: '{}',
+          credentials: 'include',
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!alive) return
+        if (r.ok && d.granted) {
+          // 仍有效：刷新 owner / 套餐信息
+          persistCloud({ ...cfg, active: true, lastError: '', lastCheckAt: Date.now(), owner: String((d.connect && d.connect.owner) || cfg.owner || '') })
+          setCloudConn(readCloudConn())
+          return
+        }
+        // 授权丢了（多半是订阅过期/取消）→ 立即降级到本地，并把原因写下来给 UI 显示
+        const reason = String(d.error || ('HTTP ' + r.status))
+        persistCloud({ ...cfg, mode: 'local', active: false, lastError: reason, lastCheckAt: Date.now() })
+        setCloudConn(readCloudConn())
+        setCloudForm(readCloudConn())
+        try { notify('☁️ 云端授权已失效：' + reason + '，已切回本地模式', false) } catch { /* 忽略 */ }
+      } catch (e) {
+        if (!alive) return
+        persistCloud({ ...cfg, mode: 'local', active: false, lastError: String((e && e.message) || e), lastCheckAt: Date.now() })
+        setCloudConn(readCloudConn())
+        setCloudForm(readCloudConn())
+        try { notify('☁️ 连不上云端（' + String((e && e.message) || e) + '），已切回本地模式', false) } catch { /* 忽略 */ }
+      }
+    })()
+    return () => { alive = false }
+  }, [])
   // 顶栏头像的三个值：OIDC 登录有 profile.name/avatar，key 登录只有 owner → 用首字母兜底。
   // 放在这里（而不是 JSX 里套 IIFE）是因为 JSX 里写 (() => {...})() 反复把括号写错。
+  // 云端是否**真的**可用：光有 token 不算（订阅过期/取消后 token 还在）。
+  // 启动时已用 /cloud/connect 校验过，失败会写 lastError 并降级 —— 这里据此决定要不要显示「云端库」。
+  const cloudUsable = !!(cloudConn && cloudConn.mode === 'cloud' && cloudConn.active !== false && !cloudConn.lastError && String(cloudConn.token || '').trim())
   const avatarWho = String((cloudConn && cloudConn.profile && (cloudConn.profile.name || cloudConn.profile.displayName)) || (cloudConn && cloudConn.owner) || '')
   const avatarUrl = String((cloudConn && cloudConn.profile && (cloudConn.profile.avatar || cloudConn.profile.picture)) || '')
   const avatarInitial = avatarWho ? avatarWho.trim().charAt(0).toUpperCase() : '?'
@@ -10508,7 +10554,9 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    */
   const vaultPickChoices = () => {
     const out = []
-    if (String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim()) {
+    // 只有**授权有效**时才列云端库：光有 token 不算（以前这里只看 token，
+    // 没订阅的账号也会显示「☁ 云端库 · xxx」，看着像连上了但每个请求都 403）。
+    if (cloudUsable) {
       out.push({
         value: 'cloud',
         label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (cloudDataActive ? ' ' + t('vaultCurrent') : ''),
@@ -10984,8 +11032,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    */
   const vaultChoices = () => {
     const out = []
-    // 有令牌就给出「云端库」这个选项（不再看运行模式：登录了就是云端）
-    if (String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim()) {
+    // 授权有效才给「云端库」选项（有 token 但没有订阅权限的不算）
+    if (cloudUsable) {
       const n = cloudVaultList && cloudVaultList.length ? Number(cloudVaultList[0].cards) || 0 : null
       out.push({ value: 'cloud', label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (n === null ? '' : '（' + n + ' ' + t('cardsUnit') + '）') })
     }
@@ -12817,8 +12865,23 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                   {/* 未连接才显示表单：已连接时只保留上面的身份卡片，界面才有主次 */}
                   {/* 未连接：**极简** —— 二维码 + 已在浏览器打开的主按钮。
       地址/密钥收进折叠区，默认根本不需要看见它。 */}
-                  {cloudConn.mode === 'cloud' && cloudConn.active === false && (
-                    <Status tone="bad" text={t('cloudKeptButInactive').replace('{err}', cloudConn.lastError || '—')} />
+                  {/* 授权失效（订阅过期/取消）：把服务端原文原因摆出来，并给一条去订阅的路 */}
+                  {!!String(cloudConn.lastError || '').trim() && (
+                    <div style={{ border: '1px solid var(--me-c-bad, #f85149)', background: 'rgba(248,81,73,.08)', borderRadius: 10, padding: '11px 13px', fontSize: 12, lineHeight: 1.7 }}>
+                      <b>☁️ 云端未授权</b>
+                      <div style={{ marginTop: 4, opacity: 0.85 }}>{cloudConn.lastError}</div>
+                      <div style={{ marginTop: 6, opacity: 0.75 }}>
+                        本地库仍然可用。需要云端请先订阅，订阅后再回到这里「扫码登录」或填访问密钥。
+                      </div>
+                      {String(cloudConn.url || '').trim() ? (
+                        <a
+                          href={String(cloudConn.url).replace(/\/+$/, '') + '/api/pay'}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ display: 'inline-block', marginTop: 8, fontSize: 12.5, color: 'inherit', textDecoration: 'underline' }}
+                        >去订阅 →</a>
+                      ) : null}
+                    </div>
                   )}
                   {cloudTest && cloudTest.authenticated === false && cloudTest.ok && (
                     <Status tone="ok" text={cloudTest.message || t('cloudTestReachable').replace('{version}', cloudTest.version || '')} />
