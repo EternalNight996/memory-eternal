@@ -10964,7 +10964,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           const cards = cv && cv.cards != null ? Number(cv.cards) : null
           out.push({
             value: 'cloud::' + nm,
-            label: '☁ ' + ownerShort + '（' + nm + '）' + (cards == null ? '' : ' · ' + cards + ' ' + t('cardsUnit'))
+            // 格式：云端 库名（账号名）· N 张卡 —— 库名在前，一眼看出是哪个库
+            label: '☁ ' + nm + '（' + ownerShort + '）' + (cards == null ? '' : ' · ' + cards + ' ' + t('cardsUnit'))
               + (noSub ? '（需订阅）' : '')
               + (cloudDataActive && String(cloudVault || 'default') === nm ? ' ' + t('vaultCurrent') : ''),
             disabled: noSub,
@@ -11227,12 +11228,20 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     if ((String(cloudConn.token || '').trim() || cloudForm.mode === 'cloud') && String(cloudForm.url || '').trim()) {
       try {
         // 必须带 token：云端 /vaults 要鉴权，漏了就是 401（第一次写的时候漏了，列表一直是空的）
-        const cr = await fetch(cloudApi('/vaults'), {
-          headers: cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {},
+        // **用 /cloud/connect 而不是 /vaults**：
+        //   /vaults 返回的是**目录名**（mengbot996_163.com），给下拉显示很乱；
+        //   /cloud/connect 返回的是**库名**（default / 用户命名的库），
+        //   且带 cards 与 caps，下拉与配额一处取齐。
+        const tk = String(cloudForm.token || '').trim()
+        const cr = await fetch(cloudApi('/cloud/connect'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: 'Bearer ' + tk } : {}) },
+          body: '{}',
         }).then((x) => x.json()).catch(() => null)
-        if (cr && cr.ok) {
-          setCloudVaultList(cr.vaults || [])
-          setCloudVaultQuota(cr.quota || null)
+        if (cr && cr.granted && cr.connect) {
+          setCloudVaultList(cr.connect.vaults || [])
+          const c = cr.connect.caps || {}
+          setCloudVaultQuota(c.vaults != null ? { used: (cr.connect.vaults || []).length, limit: Number(c.vaults), limited: (cr.connect.vaults || []).length >= Number(c.vaults) } : null)
         } else setCloudVaultList(null)
       } catch { setCloudVaultList(null) }
     } else {
