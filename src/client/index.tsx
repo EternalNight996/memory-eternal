@@ -8175,6 +8175,32 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                   </b>
                   <button type="button" className="mc-cloud-pop-x" onClick={() => setCloudOpen(false)} aria-label={t('close')}>✕</button>
                 </div>
+                {/* 需求：**已连接且授权有效**时只显示简洁状态，不铺开整套表单。
+                    只有未连接 / 断开后才需要看地址、密钥、模式选择这些配置项。 */}
+                {topHealth.status === 'ok' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 2px 2px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px', borderRadius: 10, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)' }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#22c55e', flex: 'none' }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <b style={{ fontSize: 13, display: 'block' }}>已连接</b>
+                        <span style={{ fontSize: 11, opacity: 0.6, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {(topHealth.owner ? topHealth.owner.split('@')[0] : '云端') + ' · ' + String(cloudConn.url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '')}
+                          {topHealth.plan ? ' · ' + topHealth.plan : ''}
+                          {topHealth.daysLeft != null ? ' · 剩 ' + topHealth.daysLeft + ' 天' : ''}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setCloudOpen(false); disconnectCloud() }}
+                        style={{ flex: 'none', fontSize: 11.5, padding: '5px 11px', borderRadius: 8, border: '1px solid var(--me-c-border)', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                      >断开连接</button>
+                    </div>
+                    <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>
+                      已连接状态下不会自动改你的数据源；要换账号或改地址请先断开。
+                    </div>
+                  </div>
+                ) : (
+                <>
                 <div className="mc-cloud-modes">
                   {[['local', t('cloudModeLocal'), t('cloudModeLocalHint')], ['cloud', t('cloudModeCloud'), t('cloudModeCloudHint')]].map(([m, label, hint]) => (
                     <button
@@ -8262,6 +8288,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                       守卫 ui-rules 按组件统计 primary 数量，这里再加一颗会被判「一屏两颗主按钮」。 */}
                   <Btn variant="secondary" size="sm" disabled={cloudBusy} onClick={saveCloud}>{t('cloudSave')}</Btn>
                 </div>
+                </>
+                )}
               </div>
             )}
           </div>
@@ -10552,7 +10580,13 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const [vaultList, setVaultList] = useState(null)
   // 云端实例上的库（与本地库分开存：两边的 isCurrent 各算各的，混在一起会打架）
   const [cloudVaultList, setCloudVaultList] = useState(null)
+  // 当前选中的云端**库名**（一个账号下可能多个库，切换要带上名字）
+  const [cloudVault, setCloudVault] = useState(() => {
+    try { return String(localStorage.getItem('me-cloud-vault') || 'default') } catch { return 'default' }
+  })
   const [cloudVaultQuota, setCloudVaultQuota] = useState(null)
+  // 建库/改名失败的红条提示（配额超限、未订阅等）
+  const [vaultQuotaError, setVaultQuotaError] = useState('')
   const [vaultSel, setVaultSel] = useState('')
   const [dupMode, setDupMode] = useState('skip')
   const [xfer, setXfer] = useState(null)
@@ -10912,20 +10946,31 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     const out = []
     // 有凭据就列出云端库（附状态）。点它时由 switchDataSource 去问服务端，
     // 没订阅会被拒绝并保持本地 —— 而不是让用户以为"云端不见了"。
+    // 云端库按「账号（库名）」列出，一个库一项 —— 多库时要能直接看出有哪几个。
     if (hasCloudCred(cloudConn)) {
-      // 需求：没订阅时云端选项**禁止选择**，并在标签上写明原因；
-      // 状态取自统一的健康探测（CLOUD_HEALTH），不各自猜。
       const noSub = CLOUD_HEALTH.status === 'denied'
-      const st = cloudDataActive
-        ? ''
-        : noSub
-          ? '（需订阅）'
-          : (CLOUD_HEALTH.status === 'offline' ? '（连不上）' : (String(cloudConn.lastError || '').trim() ? '（未授权）' : '（未切换）'))
-      out.push({
-        value: 'cloud',
-        label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + st + (cloudDataActive ? ' ' + t('vaultCurrent') : ''),
-        disabled: noSub && !cloudDataActive,
-      })
+      const owner = String((CLOUD_HEALTH.owner || cloudConn.owner || '').trim())
+      const ownerShort = owner ? owner.split('@')[0] : '云端'
+      const cvs = Array.isArray(cloudVaultList) ? cloudVaultList : []
+      if (cvs.length) {
+        for (const cv of cvs) {
+          const nm = String((cv && cv.name) || 'default')
+          const cards = cv && cv.cards != null ? Number(cv.cards) : null
+          out.push({
+            value: 'cloud::' + nm,
+            label: '☁ ' + ownerShort + '（' + nm + '）' + (cards == null ? '' : ' · ' + cards + ' ' + t('cardsUnit'))
+              + (noSub ? '（需订阅）' : '')
+              + (cloudDataActive && String(cloudVault || 'default') === nm ? ' ' + t('vaultCurrent') : ''),
+            disabled: noSub,
+          })
+        }
+      } else {
+        out.push({
+          value: 'cloud',
+          label: '☁ ' + ownerShort + (noSub ? '（需订阅）' : '') + (cloudDataActive ? ' ' + t('vaultCurrent') : ''),
+          disabled: noSub && !cloudDataActive,
+        })
+      }
     }
     for (const v of (vaultList || [])) {
       out.push({
@@ -11137,6 +11182,21 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       const r = await fetchLocal('/vaults/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.ok) {
+        // 配额超限要**明确告诉用户上限是多少、怎么升级**，不能只说"失败"。
+        // 服务端返回 { code:'quota_exceeded', limit, used, error }
+        if (d && d.code === 'quota_exceeded') {
+          const msg = '库数量已达本套餐上限（' + (d.used != null ? d.used : '?') + ' / ' + (d.limit != null ? d.limit : '?') + '）'
+            + ' —— 升级套餐可增加上限'
+          try { notify(msg, false) } catch { /* 忽略 */ }
+          try { setVaultQuotaError(msg) } catch { /* 忽略 */ }
+          return
+        }
+        if (d && d.code === 'subscription_required') {
+          const msg = '需要先订阅才能创建云端库'
+          try { notify(msg, false) } catch { /* 忽略 */ }
+          try { setVaultQuotaError(msg) } catch { /* 忽略 */ }
+          return
+        }
         try { notify((d && d.message) || (d && d.error) || t('createVaultFail'), false) } catch { /* 忽略 */ }
         return
       }
@@ -11398,7 +11458,12 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       try { notify(t('switchAlready'), true) } catch { /* 忽略 */ }
       return
     }
-    if (target === 'cloud') { switchDataSource('cloud'); return }
+    if (String(target).startsWith('cloud')) {
+      const nm = String(target).includes('::') ? String(target).split('::')[1] : 'default'
+      try { setCloudVault(nm); localStorage.setItem('me-cloud-vault', nm) } catch { /* 忽略 */ }
+      switchDataSource('cloud')
+      return
+    }
     await switchLocalVault(target)
   }
 
@@ -12882,7 +12947,10 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                       </div>
                     ) : null}
                     {/* 云端实例上的库（多库时才有意义，单库会显得啰嗦） */}
-                        {cloudVaultList && cloudVaultList.length > 1 ? (
+                        {/* 云端库列表区块已移除：多库信息合并进下方的「库下拉」，
+                            一行一个「账号（库名）」，这里再列一遍属于重复。
+                            新建库入口保留在控制台 /api/console。 */}
+                        {false ? (
                           <div style={{ borderTop: '1px solid var(--me-c-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, opacity: 0.55 }}>
                               <span>{t('cloudVaultListLabel')} · {cloudVaultList.length}</span>
@@ -12963,8 +13031,14 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                             ))}
                           </select>
                           <Btn variant="ghost" size="sm" onClick={loadVaults} title={t('refresh')}>⟳</Btn>
-                          {/* 云端状态灯：绿=连得上且有权限 / 红=连不上或无权限 / 灰=本地。
-                              任何操作都要有状态反馈 —— 这里常驻显示当前到底通不通。 */}
+                          {/* 建库/改名失败的红条（配额超限、未订阅）—— 常驻一会，用户能看到原因 */}
+                          {vaultQuotaError ? (
+                            <div style={{ flexBasis: '100%', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, border: '1px solid #ef4444', background: 'rgba(239,68,68,.1)', fontSize: 11.5, color: '#ef4444' }}>
+                              <span style={{ flex: 1 }}>⚠ {vaultQuotaError}</span>
+                              <button type="button" onClick={() => setVaultQuotaError('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 13 }}>✕</button>
+                            </div>
+                          ) : null}
+                          {/* 云端状态灯：绿=连得上且有权限 / 红=连不上或无权限 / 灰=本地。 */}
                           <span
                             title={healthDot.text + (health.lastCheckAt ? '（' + new Date(health.lastCheckAt).toLocaleTimeString('zh-CN') + ' 检测）' : '')}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, opacity: 0.85, whiteSpace: 'nowrap' }}
