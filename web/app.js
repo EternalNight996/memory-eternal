@@ -11190,8 +11190,31 @@
     }
     if (_fetch && !globalThis.__meFetchPatched) {
       globalThis.__meFetchPatched = true;
+      const LOCAL_ONLY = [
+        "/mcp/action",
+        // 挂载 / 卸载 MCP
+        "/setup-status",
+        // 本机装了哪些 Agent 宿主
+        "/mcp/detect",
+        // 探测（如果以后加）
+        "/vault-path",
+        // 本机库路径
+        "/open-path",
+        // 用本机资源管理器打开目录
+        "/drain-pending",
+        // 本机宿主的待办排空
+        "/web-info",
+        // 本机端口 / 令牌
+        "/events"
+        // 本机 SSE
+      ];
+      const isLocalOnly = /* @__PURE__ */ __name((u) => {
+        if (typeof u !== "string") return false;
+        for (const p of LOCAL_ONLY) if (u.startsWith(LOCAL_PREFIX + p)) return true;
+        return false;
+      }, "isLocalOnly");
       globalThis.fetch = (input, init) => {
-        if (API_TARGET_URL && typeof input === "string" && input.startsWith(LOCAL_PREFIX)) {
+        if (API_TARGET_URL && typeof input === "string" && input.startsWith(LOCAL_PREFIX) && !isLocalOnly(input)) {
           return modeReady.then(() => {
             if (!API_TARGET_URL) return _fetch(input, init);
             const headers = { ...init && init.headers || {} };
@@ -16920,7 +16943,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.29" : "";
+  var CLIENT_VERSION = true ? "0.49.30" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17201,7 +17224,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T13:28:15+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T13:34:32+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
