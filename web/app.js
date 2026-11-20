@@ -10967,10 +10967,12 @@
     }
   }
   __name(syncCloudConnToServer, "syncCloudConnToServer");
-  function applyCloudConn(c) {
-    try {
-      syncCloudConnToServer(c || {});
-    } catch {
+  function applyCloudConn(c, opts) {
+    if (!(opts && opts.noSync)) {
+      try {
+        syncCloudConnToServer(c || {});
+      } catch {
+      }
     }
     const url = String(c && c.url || "").replace(/\/+$/, "");
     const wantCloud = c && c.mode === "cloud" && c.active !== false && /^https?:\/\//i.test(url);
@@ -11083,10 +11085,19 @@
     return { ok: true, next, ignoredOauth };
   }
   __name(persistCloud, "persistCloud");
-  function activateCloud(next) {
-    const merged = { ...readCloudConn(), ...next, mode: "cloud", active: true, lastError: "" };
+  function activateCloud(next, opts) {
+    const prev = readCloudConn();
+    const merged = {
+      ...prev,
+      ...next,
+      mode: "cloud",
+      active: true,
+      lastError: "",
+      // owner 不拿空值覆盖已有的（启动恢复时客户端常常没有 owner）
+      owner: String(next && next.owner || prev.owner || "")
+    };
     saveCloudConn(merged);
-    applyCloudConn(merged);
+    applyCloudConn(merged, opts);
     return merged;
   }
   __name(activateCloud, "activateCloud");
@@ -11096,7 +11107,7 @@
       if (cfg.mode !== "cloud") return;
       if (!String(cfg.url || "").trim() || !String(cfg.token || "").trim()) return;
       if (cfg.active === false) return;
-      activateCloud(cfg);
+      activateCloud(cfg, { noSync: true });
     } catch {
     }
   }
@@ -11114,7 +11125,8 @@
         if (!s || !String(s.token || "").trim() || !String(s.url || "").trim()) return;
         const localLacks = !String(local.token || "").trim() || !String(local.url || "").trim();
         const serverWantsCloud = s.mode === "cloud" && s.active !== false;
-        if (!localLacks && !(serverWantsCloud && local.mode !== "cloud")) return;
+        const localWronglyInactive = s.active !== false && local.mode === "cloud" && local.active === false;
+        if (!localLacks && !(serverWantsCloud && local.mode !== "cloud") && !localWronglyInactive) return;
         const merged = {
           mode: s.mode === "cloud" ? "cloud" : "local",
           url: String(s.url || ""),
@@ -11126,7 +11138,7 @@
           profile: s.profile || null
         };
         saveCloudConn(merged);
-        applyCloudConn(merged);
+        applyCloudConn(merged, { noSync: true });
       } catch {
       }
     }, "run");
@@ -16990,7 +17002,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.38" : "";
+  var CLIENT_VERSION = true ? "0.49.42" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17271,7 +17283,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T15:40:21+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T15:44:11+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
