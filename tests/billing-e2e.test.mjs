@@ -55,9 +55,11 @@ test('支付闭环：登录 → 拿 subscribe 深链 → webhook 回推 → 套�
     body: JSON.stringify({ plan: 'pro', source: 'memory-eternal' }),
   })).json()
   assert.equal(co.ok, true, JSON.stringify(co))
-  // 默认基座是备案域 mengbot.com.cn；切到 mengbot.vip 由 MEMORY_MENGBOT_DOMAIN 或云端连接推导（见 domains.test.mjs）
-  assert.equal(co.url, 'https://pay.mengbot.com.cn/subscribe?merchant=memory-eternal&sku=sub-pro&source=memory-eternal')
+  // 支付已自建：checkout 不再生成 MengBot 深链，而是指向本站 /pay（带 sku 预选）。
+  // 这一条随「支付自建」变更是**有意的**：用户不再被跳去 pay.mengbot.vip。
+  assert.ok(String(co.url || '').includes('/api/pay'), 'checkout 应指向自建支付页，实际 ' + co.url)
   assert.equal(co.sku, 'sub-pro')
+  assert.equal(co.via, 'self-hosted')
 
   // ③ 支付成功 → MengBot 推 webhook
   const payload = JSON.stringify({

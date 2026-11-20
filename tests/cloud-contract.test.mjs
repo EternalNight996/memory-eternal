@@ -37,11 +37,17 @@ test('服务端不引用客户端 UI 代码（剥离干净）', () => {
   assert.doesNotMatch(src, /web\/app\.js|web\/index\.html/, '不允许引用客户端静态资源')
   // 云端只依赖服务端模块（不含客户端源码 / 静态资源）；云端内部拆出的模块也算服务端
   const deps = [...src.matchAll(/from '\.\/([\w.-]+\.js)'/g)].map((m) => m[1])
-  assert.deepEqual(deps.sort(), [
-    'accounts.js', 'api.js', 'billing.js', 'cloud-admin-ui.js', 'cloud-auth.js', 'cloud-console-client.js',
-    'cloud-console.js', 'cloud-login-client.js', 'cloud-user-login.js', 'cloud-vaults.js', 'db.js',
-    'entitlement.js', 'license.js', 'oidc.js', 'quota.js', 'server-db.js', 'vault.js', 'webhook.js',
-  ], '云端模块只应依赖服务端模块（api / cloud-auth / license / entitlement / oidc / webhook / billing / quota / db + 云端内部拆分模块）')
+  // 允许清单随服务端拆分演进：新增的 admin-shell / admin-pages / pay / notify /
+  // orders-page 都是**服务端模块**（不含客户端源码或静态资源），加进来即可。
+  const ALLOWED = [
+    'accounts.js', 'admin-pages.js', 'admin-shell.js', 'api.js', 'billing.js',
+    'cloud-admin-ui.js', 'cloud-auth.js', 'cloud-console-client.js', 'cloud-console.js',
+    'cloud-login-client.js', 'cloud-user-login.js', 'cloud-vaults.js', 'db.js',
+    'entitlement.js', 'license.js', 'notify.js', 'oidc.js', 'orders-page.js',
+    'pay-client.js', 'pay-page.js', 'pay.js', 'quota.js', 'server-db.js', 'vault.js', 'webhook.js',
+  ]
+  const extra = deps.filter((d) => !ALLOWED.includes(d))
+  assert.deepEqual(extra, [], '出现未登记的服务端依赖，请确认它不是客户端代码后再加进 ALLOWED：' + extra.join(', '))
 })
 
 test('版本统一：没传 version 时读 package.json（客户端兼容判断要用）', () => {
