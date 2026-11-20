@@ -17146,7 +17146,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.0" : "";
+  var CLIENT_VERSION = true ? "0.52.1" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17427,7 +17427,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T22:56:57+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T23:15:41+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18488,8 +18488,8 @@ ${COMPONENTS_CSS}
                     "aria-haspopup": "dialog",
                     "aria-expanded": cloudOpen,
                     children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", {}),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-label", children: topHealth.status === "ok" || topHealth.status === "offline" || topHealth.status === "denied" ? String(cloudConn.url || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || t("cloudModeCloud") : t("cloudModeLocal") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { style: { background: topHealth.status === "ok" ? "#4ade80" : topHealth.status === "offline" || topHealth.status === "denied" ? "#ef4444" : "#9ca3af" } }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-label", children: topHealth.status === "ok" ? "\u4E91\u7AEF " + (String(topHealth.owner || cloudConn.owner || "").split("@")[0] || "") : topHealth.status === "offline" || topHealth.status === "denied" ? "\u4E91\u7AEF" + (topHealth.owner ? " " + String(topHealth.owner).split("@")[0] : "") + "\uFF08" + (topHealth.status === "offline" ? "\u79BB\u7EBF" : "\u672A\u6388\u6743") + "\uFF09" : "\u672C\u5730" }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-v5-sys-caret", children: cloudOpen ? "\u25B4" : "\u25BE" })
                     ]
                   }

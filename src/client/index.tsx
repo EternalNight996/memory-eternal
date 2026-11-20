@@ -8134,13 +8134,19 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 aria-haspopup="dialog"
                 aria-expanded={cloudOpen}
               >
-                <i />
+                {/* 状态点：绿=云端已连 / 红=离线或未授权 / 灰=本地 */}
+                <i style={{ background: topHealth.status === 'ok' ? '#4ade80' : (topHealth.status === 'offline' || topHealth.status === 'denied') ? '#ef4444' : '#9ca3af' }} />
                 {/* 徽章按**实时健康状态**显示，不读 localStorage。
                     localStorage 可能还是换账号前的 mode=local，而服务端已是 cloud ——
                     用户看到「本地私有」但实际连的是云端（反馈：云端连上了但状态不同步）。 */}
-                <span className="mc-v5-sys-label">{(topHealth.status === 'ok' || topHealth.status === 'offline' || topHealth.status === 'denied')
-                  ? (String(cloudConn.url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || t('cloudModeCloud'))
-                  : t('cloudModeLocal')}</span>
+                {/* 徽章格式：**（本地/云端）账号名**
+                    云端已连 → 「云端 mengbot996」；云端离线/未授权 → 「云端（离线）」
+                    本地 → 「本地」。比原来的裸域名更能说明"我现在是谁、在哪"。 */}
+                <span className="mc-v5-sys-label">{(topHealth.status === 'ok')
+                  ? ('云端 ' + (String(topHealth.owner || cloudConn.owner || '').split('@')[0] || ''))
+                  : (topHealth.status === 'offline' || topHealth.status === 'denied')
+                    ? ('云端' + (topHealth.owner ? ' ' + String(topHealth.owner).split('@')[0] : '') + '（' + (topHealth.status === 'offline' ? '离线' : '未授权') + '）')
+                    : '本地'}</span>
                 <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
               </button>
               {/* 版本号：只是文本，不是按钮（放在主体按钮外，点它天然不会开云端弹层） */}
