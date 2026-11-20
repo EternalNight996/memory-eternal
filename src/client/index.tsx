@@ -377,6 +377,16 @@ function isCloudUsable(conn) {
   return !!(c.mode === 'cloud' && c.active !== false && !String(c.lastError || '').trim() && String(c.token || '').trim())
 }
 
+/**
+ * 有云端**凭据**（不等于有权限）。
+ * 下拉里应该能看到云端库并点击 —— 点的时候由 switchDataSource 去问服务端，
+ * 没订阅就拒绝并保持本地。以前下拉直接把它藏起来，用户以为"云端没了"。
+ */
+function hasCloudCred(conn) {
+  const c = conn || {}
+  return !!(String(c.token || '').trim() && String(c.url || '').trim())
+}
+
 /** 落盘并应用云端连接（不 reload，调用方决定）。**失败不删配置**。 */
 function persistCloud(form) {
   const prev = readCloudConn()
@@ -10624,12 +10634,13 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    */
   const vaultPickChoices = () => {
     const out = []
-    // 只有**授权有效**时才列云端库：光有 token 不算（以前这里只看 token，
-    // 没订阅的账号也会显示「☁ 云端库 · xxx」，看着像连上了但每个请求都 403）。
-    if (isCloudUsable(cloudConn)) {
+    // 有凭据就列出云端库（附状态）。点它时由 switchDataSource 去问服务端，
+    // 没订阅会被拒绝并保持本地 —— 而不是让用户以为"云端不见了"。
+    if (hasCloudCred(cloudConn)) {
+      const st = cloudDataActive ? '' : (String(cloudConn.lastError || '').trim() ? '（未授权）' : '（未切换）')
       out.push({
         value: 'cloud',
-        label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (cloudDataActive ? ' ' + t('vaultCurrent') : ''),
+        label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + st + (cloudDataActive ? ' ' + t('vaultCurrent') : ''),
       })
     }
     for (const v of (vaultList || [])) {
@@ -11014,7 +11025,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    * 现在只改两块：① 前端请求前缀（applyCloudConn）② 本机服务端的 cloud/conn 记录
    * （决定自动沉淀写哪里），然后广播事件让界面按新数据源重拉。
    */
-  const switchDataSource = (kind) => {
+  const switchDataSource = async (kind) => {
     if (switching) return
     const conn = readCloudConn()
     const url = String(conn.url || cloudForm.url || '').trim()
@@ -11022,6 +11033,40 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     if (kind === 'cloud' && (!url || !token)) {
       try { notify(t('switchNeedLogin'), false) } catch { /* 忽略 */ }
       return
+    }
+    // 切云端前**必须让服务端验证**（身份/账号/套餐/许可）。
+    // 以前只看本地有没有 token：没订阅也照样切过去，然后每个请求 403，
+    // 界面停在半死状态。服务端拒绝时**保持本地**，并说清原因。
+    if (kind === 'cloud') {
+      setSwitching(kind)
+      try {
+        const r = await fetch(url.replace(/\/+$/, '') + '/api/cloud/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: '{}',
+          credentials: 'include',
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok || !d.granted) {
+          setSwitching('')
+          const why = String(d.error || ('HTTP ' + r.status))
+          try { notify('☁️ 云端拒绝：' + why + '，保持本地模式', false) } catch { /* 忽略 */ }
+          saveCloudConn({ ...conn, mode: 'cloud', active: false, lastError: why })
+          setCloudConn(readCloudConn())
+          return
+        }
+        // 通过：把服务端给的 owner/套餐记下来
+        try {
+          saveCloudConn({ ...conn, mode: 'cloud', active: true, lastError: '', owner: String((d.connect && d.connect.owner) || conn.owner || '') })
+        } catch { /* 忽略 */ }
+      } catch (e) {
+        setSwitching('')
+        const why = String((e && e.message) || e).slice(0, 80)
+        try { notify('☁️ 连不上云端：' + why + '，保持本地模式', false) } catch { /* 忽略 */ }
+        saveCloudConn({ ...conn, mode: 'cloud', active: false, lastError: why })
+        setCloudConn(readCloudConn())
+        return
+      }
     }
     setSwitching(kind)
     const next = kind === 'cloud'
@@ -11102,8 +11147,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    */
   const vaultChoices = () => {
     const out = []
-    // 授权有效才给「云端库」选项（有 token 但没有订阅权限的不算）
-    if (isCloudUsable(cloudConn)) {
+    // 有凭据就给「云端库」选项（状态标注由 switchDataSource 验证后再定）
+    if (hasCloudCred(cloudConn)) {
       const n = cloudVaultList && cloudVaultList.length ? Number(cloudVaultList[0].cards) || 0 : null
       out.push({ value: 'cloud', label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (n === null ? '' : '（' + n + ' ' + t('cardsUnit') + '）') })
     }
