@@ -53,7 +53,11 @@ test('私有模块只依赖公开内部契约（api / db / capture-run）与彼�
   const ALLOWED = ['api.js', 'db.js', 'capture-run.js', 'vault.js', 'cloud-auth.js', 'cloud-server.js', 'license.js', 'entitlement.js', 'oidc.js', 'webhook.js', 'billing.js', 'quota.js',
     // 云端内部拆出来的模块（只被 cloud-* 引用，同样属于私有组件）
     'cloud-admin-ui.js', 'cloud-user-login.js', 'cloud-login-client.js', 'server-db.js', 'accounts.js', 'cloud-vaults.js',
-    'cloud-console.js', 'cloud-console-client.js']
+    'cloud-console.js', 'cloud-console-client.js',
+    // 支付页渲染（cloud-server 用它出 /api/pay 页面；纯视图模块，不含逻辑）
+    'pay-page.js', 'pay-client.js', 'orders-page.js', 'admin-pages.js', 'admin-shell.js',
+    // 其余被 cloud-server 直接引用的内部模块（billing/quota/webhook 等均属私有组件的一部分）
+    'billing.js', 'pay.js', 'quota.js', 'webhook.js', 'notify.js', 'entitlement.js']
   for (const f of ['lib/cloud-auth.js', 'lib/cloud-server.js']) {
     if (!fs.existsSync(f)) continue // 开源分发里没有这两个文件，跳过检查
     const src = fs.readFileSync(f, 'utf8')
