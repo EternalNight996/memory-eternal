@@ -7450,7 +7450,22 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   // 顶栏头像的三个值：OIDC 登录有 profile.name/avatar，key 登录只有 owner → 用首字母兜底。
   // 放在这里（而不是 JSX 里套 IIFE）是因为 JSX 里写 (() => {...})() 反复把括号写错。
   const cloudUsable = isCloudUsable(cloudConn)
-  const avatarWho = String((cloudConn && cloudConn.profile && (cloudConn.profile.name || cloudConn.profile.displayName)) || (cloudConn && cloudConn.owner) || '')
+  // 顶栏也要订阅健康状态：它和配置面板是两个组件，
+  // 只订阅在面板里的话，换账号后顶栏头像还显示旧账号（实测反馈）。
+  const [topHealth, setTopHealth] = useState(() => ({ ...CLOUD_HEALTH }))
+  useEffect(() => {
+    const onHealth = (e) => setTopHealth({ ...(e && e.detail ? e.detail : CLOUD_HEALTH) })
+    try { window.addEventListener(CLOUD_HEALTH_EVT, onHealth) } catch { /* 忽略 */ }
+    startCloudHealthLoop()
+    setTopHealth({ ...CLOUD_HEALTH })
+    return () => { try { window.removeEventListener(CLOUD_HEALTH_EVT, onHealth) } catch { /* 忽略 */ } }
+  }, [])
+  const avatarWho = String(
+    String((topHealth && topHealth.owner) || '').trim()      // ① 服务端返回的真实归属
+    || (cloudConn && cloudConn.profile && (cloudConn.profile.name || cloudConn.profile.displayName))
+    || (cloudConn && cloudConn.owner)                         // ② 回落 localStorage
+    || '',
+  )
   const avatarUrl = String((cloudConn && cloudConn.profile && (cloudConn.profile.avatar || cloudConn.profile.picture)) || '')
   const avatarInitial = avatarWho ? avatarWho.trim().charAt(0).toUpperCase() : '?'
   const [cloudBusy, setCloudBusy] = useState(false)
@@ -8120,7 +8135,10 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 aria-expanded={cloudOpen}
               >
                 <i />
-                <span className="mc-v5-sys-label">{cloudConn.mode === 'cloud' && cloudConn.active !== false
+                {/* 徽章按**实时健康状态**显示，不读 localStorage。
+                    localStorage 可能还是换账号前的 mode=local，而服务端已是 cloud ——
+                    用户看到「本地私有」但实际连的是云端（反馈：云端连上了但状态不同步）。 */}
+                <span className="mc-v5-sys-label">{(health.status === 'ok' || health.status === 'offline' || health.status === 'denied')
                   ? (String(cloudConn.url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || t('cloudModeCloud'))
                   : t('cloudModeLocal')}</span>
                 <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
@@ -11550,10 +11568,21 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   }
   const cancelImport = () => { importCancelRef.current = true }
 
-  /** 已连接时的身份展示（probe 结果优先，回落 localStorage）。 */
-  const cloudIdentity = (cloudTest && cloudTest.authenticated)
-    ? { owner: cloudTest.owner || '', profile: cloudTest.profile || null }
-    : { owner: (cloudConn && cloudConn.owner) || '', profile: (cloudConn && cloudConn.profile) || null }
+  /**
+   * 已连接时的身份展示。优先级：
+   *   ① CLOUD_HEALTH.owner —— /cloud/connect 返回的**真实**归属（唯一真相源）
+   *   ② cloudTest —— 手动「测试连接」的结果
+   *   ③ localStorage —— 可能是换账号前的旧值
+   *
+   * 之前只认 ②③，换了账号后 token 变了、localStorage 里的 owner 还是旧的，
+   * 界面就一直显示上一个账号（用户反馈：云端连上了但账号不同步）。
+   */
+  const cloudIdentity = (() => {
+    const real = String((health && health.owner) || '').trim()
+    if (real) return { owner: real, profile: (cloudConn && cloudConn.profile) || null }
+    if (cloudTest && cloudTest.authenticated) return { owner: cloudTest.owner || '', profile: cloudTest.profile || null }
+    return { owner: (cloudConn && cloudConn.owner) || '', profile: (cloudConn && cloudConn.profile) || null }
+  })()
 
   /** 断开：切回本地、清令牌，但**保留地址**方便一键重连。 */
   /**
