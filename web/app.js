@@ -17146,7 +17146,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.1" : "";
+  var CLIENT_VERSION = true ? "0.52.2" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17427,7 +17427,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T23:15:41+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T23:20:56+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21509,7 +21509,8 @@ ${t("quoteHint")}`,
             const cards = cv && cv.cards != null ? Number(cv.cards) : null;
             out.push({
               value: "cloud::" + nm,
-              label: "\u2601 " + ownerShort + "\uFF08" + nm + "\uFF09" + (cards == null ? "" : " \xB7 " + cards + " " + t("cardsUnit")) + (noSub ? "\uFF08\u9700\u8BA2\u9605\uFF09" : "") + (cloudDataActive && String(cloudVault || "default") === nm ? " " + t("vaultCurrent") : ""),
+              // 格式：云端 库名（账号名）· N 张卡 —— 库名在前，一眼看出是哪个库
+              label: "\u2601 " + nm + "\uFF08" + ownerShort + "\uFF09" + (cards == null ? "" : " \xB7 " + cards + " " + t("cardsUnit")) + (noSub ? "\uFF08\u9700\u8BA2\u9605\uFF09" : "") + (cloudDataActive && String(cloudVault || "default") === nm ? " " + t("vaultCurrent") : ""),
               disabled: noSub
             });
           }
@@ -21764,12 +21765,16 @@ ${t("quoteHint")}`,
     const loadVaults = /* @__PURE__ */ __name(async () => {
       if ((String(cloudConn.token || "").trim() || cloudForm.mode === "cloud") && String(cloudForm.url || "").trim()) {
         try {
-          const cr = await fetch(cloudApi2("/vaults"), {
-            headers: cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {}
+          const tk = String(cloudForm.token || "").trim();
+          const cr = await fetch(cloudApi2("/cloud/connect"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...tk ? { Authorization: "Bearer " + tk } : {} },
+            body: "{}"
           }).then((x) => x.json()).catch(() => null);
-          if (cr && cr.ok) {
-            setCloudVaultList(cr.vaults || []);
-            setCloudVaultQuota(cr.quota || null);
+          if (cr && cr.granted && cr.connect) {
+            setCloudVaultList(cr.connect.vaults || []);
+            const c = cr.connect.caps || {};
+            setCloudVaultQuota(c.vaults != null ? { used: (cr.connect.vaults || []).length, limit: Number(c.vaults), limited: (cr.connect.vaults || []).length >= Number(c.vaults) } : null);
           } else setCloudVaultList(null);
         } catch {
           setCloudVaultList(null);
