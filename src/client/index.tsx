@@ -462,6 +462,30 @@ function activateCloud(next, opts) {
 }
 
 /**
+ * 登录成功后**只保存凭据**，不改数据源。
+ *
+ * 需求：首次登录时不切云端数据库。
+ * 原因：切数据源要换 API 前缀 + 重载页面，登录瞬间做这件事会让首屏闪一下甚至白屏；
+ * 而且用户可能只想先看看本地库。所以登录只负责"记住我是谁"，切不切由用户手动决定。
+ */
+function saveCloudCredentials({ url, token, owner, profile } = {}) {
+  const prev = readCloudConn()
+  const merged = {
+    ...prev,
+    url: String(url || prev.url || '').trim().replace(/\/+$/, ''),
+    token: String(token || prev.token || '').trim(),
+    owner: String(owner || prev.owner || ''),
+    profile: profile || prev.profile || null,
+    lastError: '',
+    lastCheckAt: Date.now(),
+    // mode / active **保持原值**：登录不等于切换数据源
+  }
+  saveCloudConn(merged)
+  try { syncCloudConnToServer(merged) } catch { /* 网络失败不影响本地 */ }
+  return merged
+}
+
+/**
  * 页面加载时激活云端前缀。
  *
  * **必须有**：activateCloud 只在用户主动登录/切换/保存时被调用过。
@@ -542,6 +566,93 @@ bootstrapCloudMode()
   }
   run()
 })()
+
+/**
+ * 云端健康状态（模块级，全组件共享）
+ *
+ * status:
+ *   'unknown'  还没测过
+ *   'ok'       连得上且授权有效（绿）
+ *   'offline'  网络/服务器不通（红）
+ *   'denied'   连得上但没权限（没订阅/账号被封）—— 也算红
+ *   'local'    当前是本地模式（灰，不报警）
+ *
+ * 为什么要全局：顶栏、连接页、配置面板三个组件各有一份 cloudConn，
+ * 各自测各自的话会一会儿绿一会儿红。统一测一次、广播出去。
+ */
+const CLOUD_HEALTH = { status: 'unknown', lastCheckAt: 0, lastError: '', plan: '', owner: '', daysLeft: null }
+const CLOUD_HEALTH_EVT = 'me-cloud-health'
+let cloudHealthTimer = null
+
+function emitCloudHealth() {
+  try { window.dispatchEvent(new CustomEvent(CLOUD_HEALTH_EVT, { detail: { ...CLOUD_HEALTH } })) } catch { /* 忽略 */ }
+}
+
+/** 探测一次云端（健康 + 授权）。失败不抛，只更新状态。 */
+async function probeCloudHealth() {
+  const cfg = readCloudConn()
+  if (cfg.mode !== 'cloud' || !String(cfg.url || '').trim() || !String(cfg.token || '').trim()) {
+    CLOUD_HEALTH.status = 'local'
+    CLOUD_HEALTH.lastError = ''
+    CLOUD_HEALTH.lastCheckAt = Date.now()
+    emitCloudHealth()
+    return CLOUD_HEALTH
+  }
+  const base = String(cfg.url).replace(/\/+$/, '')
+  const token = String(cfg.token || '').trim()
+  // ① 连通性：/cloud/health 是公开的，不需要令牌
+  try {
+    const h = await fetch(base + '/api/cloud/health', { signal: AbortSignal.timeout?.(6000) })
+    if (!h.ok) throw new Error('HTTP ' + h.status)
+  } catch (e) {
+    CLOUD_HEALTH.status = 'offline'
+    CLOUD_HEALTH.lastError = '连不上服务器：' + String((e && e.message) || e).slice(0, 80)
+    CLOUD_HEALTH.lastCheckAt = Date.now()
+    emitCloudHealth()
+    return CLOUD_HEALTH
+  }
+  // ② 授权：/cloud/connect 校验身份/账号/套餐/许可
+  try {
+    const r = await fetch(base + '/api/cloud/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: '{}',
+      signal: AbortSignal.timeout?.(8000),
+    })
+    const d = await r.json().catch(() => ({}))
+    CLOUD_HEALTH.lastCheckAt = Date.now()
+    if (r.ok && d.granted) {
+      CLOUD_HEALTH.status = 'ok'
+      CLOUD_HEALTH.lastError = ''
+      CLOUD_HEALTH.plan = String((d.connect && d.connect.plan) || '')
+      CLOUD_HEALTH.owner = String((d.connect && d.connect.owner) || '')
+      const exp = d.connect && d.connect.expiresAt ? Date.parse(d.connect.expiresAt) : 0
+      CLOUD_HEALTH.daysLeft = exp ? Math.max(0, Math.ceil((exp - Date.now()) / 86400000)) : null
+    } else {
+      CLOUD_HEALTH.status = 'denied'
+      CLOUD_HEALTH.lastError = String(d.error || ('HTTP ' + r.status))
+      CLOUD_HEALTH.plan = String((d.checks || []).find((x) => x.name === 'plan')?.plan || '')
+    }
+  } catch (e) {
+    CLOUD_HEALTH.status = 'offline'
+    CLOUD_HEALTH.lastError = '连不上服务器：' + String((e && e.message) || e).slice(0, 80)
+    CLOUD_HEALTH.lastCheckAt = Date.now()
+  }
+  emitCloudHealth()
+  return CLOUD_HEALTH
+}
+
+/** 启动周期探测（30 秒一次；页面隐藏时不跑，省流量省电）。 */
+function startCloudHealthLoop() {
+  try {
+    if (cloudHealthTimer) return
+    void probeCloudHealth()
+    cloudHealthTimer = setInterval(() => {
+      try { if (typeof document !== 'undefined' && document.hidden) return } catch { /* 忽略 */ }
+      void probeCloudHealth()
+    }, 30000)
+  } catch { /* 忽略 */ }
+}
 
 /** 验证失败：**保留配置**，只标记 active=false 并记录原因。 */
 function markCloudFailed(next, reason) {
@@ -9977,6 +10088,26 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const [resume, setResume] = useState(() => readXferResume())
   /** 正在切换的库（'' / 'cloud' / 本机库路径）：切换期间按钮禁用，避免连点来回切。 */
   const [switching, setSwitching] = useState('')
+  // 云端连通状态：统一由模块级 probeCloudHealth 探测，这里只订阅结果。
+  // 绿=连得上且有权限 / 红=连不上或没权限 / 灰=本地模式
+  const [health, setHealth] = useState(() => ({ ...CLOUD_HEALTH }))
+  const healthDot = (() => {
+    const st = health.status
+    const color = st === 'ok' ? '#22c55e' : (st === 'offline' || st === 'denied') ? '#ef4444' : '#9ca3af'
+    const text = st === 'ok'
+      ? ('已连接' + (health.plan ? ' · ' + health.plan : '') + (health.daysLeft != null ? ' · 剩 ' + health.daysLeft + ' 天' : ''))
+      : st === 'offline' ? ('连不上：' + (health.lastError || '服务器无响应'))
+        : st === 'denied' ? ('无权限：' + (health.lastError || '需要订阅'))
+          : st === 'local' ? '本地模式' : '未检测'
+    return { color, text }
+  })()
+  useEffect(() => {
+    const onHealth = (e) => setHealth({ ...(e && e.detail ? e.detail : CLOUD_HEALTH) })
+    try { window.addEventListener(CLOUD_HEALTH_EVT, onHealth) } catch { /* 忽略 */ }
+    startCloudHealthLoop()
+    setHealth({ ...CLOUD_HEALTH })
+    return () => { try { window.removeEventListener(CLOUD_HEALTH_EVT, onHealth) } catch { /* 忽略 */ } }
+  }, [])
   /**
    * 下拉里「选中」的库（待切换目标）。
    * 下拉不再直接切库：它只负责选，真正切换要按「立即切换」并在弹窗里确认 ——
@@ -10155,7 +10286,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       const prepared = persistCloud({ mode: 'cloud', url: base, token: code })
       if (!prepared.ok) { setPairErr(t('cloudUrlInvalid')); return }
       const next = prepared.next
-      activateCloud({ ...next, token: code }, { commit: true })
+      saveCloudCredentials({ url: base, token: code })
       // 尽力取 owner（pc_ 不保证 whoami 可读；失败不影响「已连接」）
       try {
         const w = await fetch(base + '/api/cloud/whoami', {
@@ -10191,8 +10322,9 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
         if (d.ok && d.token) {
           const next = persistCloud({ mode: 'cloud', url: cloudForm.url, token: d.token })
           if (next.ok) {
-            activateCloud({ ...next.next, token: d.token }, { commit: true })
-            try { saveCloudConn({ ...readCloudConn(), mode: 'cloud', token: d.token, active: true, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
+            // 登录只保存凭据，**不改数据源**（首次登录不切云端，避免首屏闪/白屏）
+            saveCloudCredentials({ url: cloudForm.url, token: d.token, owner: d.owner || '', profile: d.profile || null })
+            try { saveCloudConn({ ...readCloudConn(), token: d.token, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
             try { rememberAccount({ owner: d.owner, token: d.token, url: cloudForm.url, profile: d.profile }) } catch { /* 忽略 */ }
             setCloudConn(readCloudConn())
             setCloudForm((f) => ({ ...f, mode: 'cloud', token: d.token }))
@@ -10262,10 +10394,10 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           // 拿到令牌 → 落盘并激活（与手动填密钥完全同一条路径）
           const next = persistCloud({ mode: 'cloud', url: cloudForm.url, token: d.token })
           if (next.ok) {
-            activateCloud({ ...next.next, token: d.token }, { commit: true })
+            // 同上：登录只存凭据
+            saveCloudCredentials({ url: cloudForm.url, token: d.token, owner: d.owner || '', profile: d.profile || null })
             setCloudConn(readCloudConn())
-            // owner/profile 落盘：重开面板仍能显示是谁（readCloudConn 会读回来）
-            try { saveCloudConn({ ...readCloudConn(), mode: 'cloud', token: d.token, active: true, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
+            try { saveCloudConn({ ...readCloudConn(), token: d.token, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
             setCloudForm((f) => ({ ...f, mode: 'cloud', token: d.token }))
             setCloudTest({ ok: true, authenticated: true, owner: d.owner || '', profile: d.profile || null })
             setDeviceAuth(null)
@@ -10753,10 +10885,18 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     // 有凭据就列出云端库（附状态）。点它时由 switchDataSource 去问服务端，
     // 没订阅会被拒绝并保持本地 —— 而不是让用户以为"云端不见了"。
     if (hasCloudCred(cloudConn)) {
-      const st = cloudDataActive ? '' : (String(cloudConn.lastError || '').trim() ? '（未授权）' : '（未切换）')
+      // 需求：没订阅时云端选项**禁止选择**，并在标签上写明原因；
+      // 状态取自统一的健康探测（CLOUD_HEALTH），不各自猜。
+      const noSub = CLOUD_HEALTH.status === 'denied'
+      const st = cloudDataActive
+        ? ''
+        : noSub
+          ? '（需订阅）'
+          : (CLOUD_HEALTH.status === 'offline' ? '（连不上）' : (String(cloudConn.lastError || '').trim() ? '（未授权）' : '（未切换）'))
       out.push({
         value: 'cloud',
         label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + st + (cloudDataActive ? ' ' + t('vaultCurrent') : ''),
+        disabled: noSub && !cloudDataActive,
       })
     }
     for (const v of (vaultList || [])) {
@@ -11271,7 +11411,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     // 有凭据就给「云端库」选项（状态标注由 switchDataSource 验证后再定）
     if (hasCloudCred(cloudConn)) {
       const n = cloudVaultList && cloudVaultList.length ? Number(cloudVaultList[0].cards) || 0 : null
-      out.push({ value: 'cloud', label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (n === null ? '' : '（' + n + ' ' + t('cardsUnit') + '）') })
+      const noSub = CLOUD_HEALTH.status === 'denied'
+      out.push({ value: 'cloud', disabled: noSub && !cloudDataActive, label: '☁ ' + t('cloudVaultEntry') + (cloudConn.owner ? ' · ' + cloudConn.owner : '') + (noSub && !cloudDataActive ? '（需订阅）' : '') + (n === null ? '' : '（' + n + ' ' + t('cardsUnit') + '）') })
     }
     for (const v of (vaultList || [])) {
       out.push({ value: v.path, label: (v.name || v.path) + (v.owner ? ' · ' + v.owner : '') + (v.isCurrent ? ' ' + t('vaultCurrent') : '') + '（' + v.cards + ' ' + t('cardsUnit') + '）' })
@@ -12779,10 +12920,29 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                             style={{ fontSize: 11.5, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', maxWidth: 260 }}
                           >
                             {vaultPickChoices().map((o) => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
+                              <option key={o.value} value={o.value} disabled={!!o.disabled}>{o.label}</option>
                             ))}
                           </select>
                           <Btn variant="ghost" size="sm" onClick={loadVaults} title={t('refresh')}>⟳</Btn>
+                          {/* 云端状态灯：绿=连得上且有权限 / 红=连不上或无权限 / 灰=本地。
+                              任何操作都要有状态反馈 —— 这里常驻显示当前到底通不通。 */}
+                          <span
+                            title={healthDot.text + (health.lastCheckAt ? '（' + new Date(health.lastCheckAt).toLocaleTimeString('zh-CN') + ' 检测）' : '')}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, opacity: 0.85, whiteSpace: 'nowrap' }}
+                          >
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: healthDot.color, flex: 'none' }} />
+                            {health.status === 'ok' ? '已连接' : health.status === 'offline' ? '离线' : health.status === 'denied' ? '未授权' : health.status === 'local' ? '本地' : '…'}
+                          </span>
+                          {/* 未订阅时给一个直达订阅页的按钮 —— 光把选项禁掉，用户不知道下一步该做什么 */}
+                          {CLOUD_HEALTH.status === 'denied' && !cloudDataActive && String(cloudConn.url || '').trim() ? (
+                            <a
+                              href={String(cloudConn.url).replace(/\/+$/, '') + '/api/pay'}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--me-c-border)', background: 'var(--me-c-accent-soft, rgba(37,99,235,.1))', color: 'inherit', textDecoration: 'none' }}
+                              title={CLOUD_HEALTH.lastError || '需要订阅才能使用云端库'}
+                            >去订阅 →</a>
+                          ) : null}
                           {/* 进度条 + 状态：传输中实时同步（并且可以取消）；空闲/成功/失败都有提示，任何状态不留空白 */}
                           <div style={{ flexBasis: '100%', marginTop: 2 }}>
                             {importJob && importJob.importing ? (
