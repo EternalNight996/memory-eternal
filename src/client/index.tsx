@@ -314,6 +314,9 @@ function applyCloudConn(c, opts) {
 }
 let API_TARGET_URL = ''
 
+/** 当前请求**实际**打到哪：空 = 本机，否则是云端基址。 */
+function getApiTarget() { return String(API_TARGET_URL || '') }
+
 /**
  * 测试云端连接（模块级，**顶栏切换器与设置页共用**）。
  *
@@ -8147,18 +8150,26 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 aria-expanded={cloudOpen}
               >
                 {/* 状态点：绿=云端已连 / 红=离线或未授权 / 灰=本地 */}
-                <i style={{ background: topHealth.status === 'ok' ? '#4ade80' : (topHealth.status === 'offline' || topHealth.status === 'denied') ? '#ef4444' : '#9ca3af' }} />
+                <i style={{ background: getApiTarget() ? '#4ade80' : (topHealth.status === 'offline' || topHealth.status === 'denied') ? '#ef4444' : '#9ca3af' }} />
                 {/* 徽章按**实时健康状态**显示，不读 localStorage。
                     localStorage 可能还是换账号前的 mode=local，而服务端已是 cloud ——
                     用户看到「本地私有」但实际连的是云端（反馈：云端连上了但状态不同步）。 */}
                 {/* 徽章格式：**（本地/云端）账号名**
                     云端已连 → 「云端 mengbot996」；云端离线/未授权 → 「云端（离线）」
                     本地 → 「本地」。比原来的裸域名更能说明"我现在是谁、在哪"。 */}
-                <span className="mc-v5-sys-label">{(topHealth.status === 'ok')
-                  ? ('云端 ' + (String(topHealth.owner || cloudConn.owner || '').split('@')[0] || ''))
-                  : (topHealth.status === 'offline' || topHealth.status === 'denied')
-                    ? ('云端' + (topHealth.owner ? ' ' + String(topHealth.owner).split('@')[0] : '') + '（' + (topHealth.status === 'offline' ? '离线' : '未授权') + '）')
-                    : '本地'}</span>
+                {/* 徽章必须反映**实际数据源**，不能只看"云端可达"。
+                    实测：配置 active=false（之前切换失败写进去的），云端连通正常，
+                    徽章却显示「云端 13048770337」，而主面板读的是本机 182 张。 */}
+                <span className="mc-v5-sys-label">{(() => {
+                  const target = String(getApiTarget() || '')
+                  const who = String(topHealth.owner || cloudConn.owner || '').split('@')[0] || ''
+                  if (target) return '云端' + (who ? ' ' + who : '')   // 请求真的走云端
+                  if (topHealth.status === 'offline' || topHealth.status === 'denied') {
+                    return '云端' + (who ? ' ' + who : '') + '（' + (topHealth.status === 'offline' ? '离线' : '未授权') + '）'
+                  }
+                  if (topHealth.status === 'ok') return '本地（云端可切换）'   // 连得上但没启用
+                  return '本地'
+                })()}</span>
                 <span className="mc-v5-sys-caret">{cloudOpen ? '▴' : '▾'}</span>
               </button>
               {/* 版本号：只是文本，不是按钮（放在主体按钮外，点它天然不会开云端弹层） */}
@@ -10957,11 +10968,19 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    * 所以：**localStorage 说 cloud** 或者 **健康检查确认云端已连（status==='ok'）**，
    * 两者任一成立就算云端在用。
    */
-  const cloudDataActive = (
-    cloudConn.mode === 'cloud'
-    && cloudConn.active !== false
-    && !!(String(cloudConn.token || '').trim() || String(cloudForm.token || '').trim())
-  ) || (health && health.status === 'ok' && !!(String(cloudConn.token || cloudForm.token || '').trim()))
+  /**
+   * 云端数据源是否**真的在生效**。
+   *
+   * 唯一判据：**请求前缀真的指向云端**（getApiTarget() 非空）。
+   *
+   * 不能只看 localStorage.mode，也不能只看 health.status：
+   *   · localStorage 可能是旧值
+   *   · health.status='ok' 只说明"云端连得上"，不代表"请求已经改道云端"
+   * 实测踩到：健康检查通过 → 界面把下拉标成「云端 default 9894 张（当前）」，
+   * 但 API_TARGET_URL 还是空 → 实际请求全打本机 → 主面板显示本地 182 张。
+   * 用户看到的就是"下拉说 9894，页面说 182"。
+   */
+  const cloudDataActive = !!getApiTarget() && !!(String(cloudConn.token || cloudForm.token || '').trim())
 
   /**
    * 当前**真正在读**的库：'cloud::<库名>' 或本机库路径。
@@ -11448,7 +11467,10 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           setSwitching('')
           const why = String(d.error || ('HTTP ' + r.status))
           try { notify('☁️ 云端拒绝：' + why + '，保持本地模式', false) } catch { /* 忽略 */ }
-          commitCloudConn({ ...conn, mode: 'cloud', active: false, lastError: why })
+          // **不要写 mode:'cloud'**：那会让界面显示"云端"、前缀却还是本机，
+          // 用户看到的就是"下拉说云端 9894 张，页面说本地 182 张"。
+          // 切失败 = 依然是你原来那个数据源，只把原因记下来。
+          commitCloudConn({ ...conn, active: false, lastError: why })
           setCloudConn(readCloudConn())
           return
         }
@@ -11458,7 +11480,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
         setSwitching('')
         const why = String((e && e.message) || e).slice(0, 80)
         try { notify('☁️ 连不上云端：' + why + '，保持本地模式', false) } catch { /* 忽略 */ }
-        commitCloudConn({ ...conn, mode: 'cloud', active: false, lastError: why })
+        commitCloudConn({ ...conn, active: false, lastError: why })
         setCloudConn(readCloudConn())
         return
       }
@@ -12982,10 +13004,21 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                   )}
                   {/* 登录之后才显示下面这些（账号卡/库位置/传输区）：没登录时这里只有登录入口，
                       免得用户对着"没有库"的空面板发呆。 */}
-                  {isConnected && localVault ? (
+                  {/* 库位置：**跟着实际数据源走**。
+                      云端生效时显示"云端实例 · <库名>"，不显示本机 db 路径 ——
+                      以前恒定显示本机路径，用户看到上面写着"云端 default 9894 张"、
+                      下面却是 C:\...\memory-vault-mem-purge\memory-eternal.db（182 张），
+                      完全不知道该信哪个。 */}
+                  {isConnected ? (
                     <div style={{ border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '9px 11px', background: 'var(--me-c-surface)' }}>
-                      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{isCloudInstance ? t('cloudVaultLabel') : t('localVaultLabel')}</div>
-                      <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11.5, wordBreak: 'break-all' }}>{localVault.full}</div>
+                      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>
+                        {cloudDataActive ? '记忆库位置（云端）' : (isCloudInstance ? t('cloudVaultLabel') : t('localVaultLabel'))}
+                      </div>
+                      <div style={{ fontFamily: 'ui-monospace,Consolas,monospace', fontSize: 11.5, wordBreak: 'break-all' }}>
+                        {cloudDataActive
+                          ? (String(getApiTarget()).replace(/^https?:\/\//, '').replace(/\/.*$/, '') + ' · ' + String(cloudVault || 'default') + '（' + (overview && overview.cards != null ? Number(overview.cards) : '?') + ' 张）')
+                          : (localVault ? localVault.full : '（未取到）')}
+                      </div>
                     </div>
                   ) : null}
                   {/* 传输区（上传/下载/切换库）：登录态下才有意义 */}
