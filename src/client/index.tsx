@@ -265,6 +265,21 @@ function saveCloudConn(c) {
 //   别删这个括号。
 
 /**
+ * **唯一**写服务端的入口 —— 只在用户明确动作时调用：
+ *   登录成功 / 切换数据源 / 断开 / 保存连接设置。
+ *
+ * 启动恢复、状态刷新、探测结果**一律不许**用它，那些只用 saveCloudConn（纯本地缓存）。
+ * 否则两边互相覆盖：服务端有正确值，客户端拿自己的空值回写，一次就抹掉。
+ */
+function commitCloudConn(c, extra) {
+  const merged = { ...readCloudConn(), ...c }
+  saveCloudConn(merged)
+  try { syncCloudConnToServer(merged) } catch { /* 网络失败不影响本地 */ }
+  applyCloudConn(merged, { noSync: true })   // 前缀已经应用过，别再回写
+  return merged
+}
+
+/**
  * 把云端连接同步到**服务端**（$DSH_HOME/memory-eternal-cloud-conn.json）。
  *
  * 为什么要两边存：localStorage 只有浏览器读得到，而 agent 自动沉淀跑在 Node 侧。
@@ -282,12 +297,11 @@ function syncCloudConnToServer(conn) {
 }
 /** 应用连接配置：改 API 前缀 + 记下令牌（fetch 包装据此注入头）。**只有 active 才切到云端**。 */
 function applyCloudConn(c, opts) {
-  // 启动恢复时**不回写**服务端：那时客户端的 active/owner 可能是空的，
-  // 一回写就把服务端已有的状态（active=true、owner=邮箱）抹掉 ——
-  // 表现就是「已连接但认不出是谁」「明明是 personal 却显示未激活」。
-  if (!(opts && opts.noSync)) {
-    try { syncCloudConnToServer(c || {}) } catch { /* 忽略 */ }
-  }
+  // **永不回写服务端**。这是「服务端为唯一真相源」的核心：
+  // 应用配置只影响本进程的 API 前缀与令牌，不产生任何写操作。
+  // 以前这里会 syncCloudConnToServer，导致启动恢复时拿客户端的空值
+  // 覆盖服务端正确值（active/owner/token 全被抹），云端整条链路 401。
+  void opts
   const url = String((c && c.url) || '').replace(/\/+$/, '')
   const wantCloud = c && c.mode === 'cloud' && c.active !== false && /^https?:\/\//i.test(url)
   if (wantCloud) {
@@ -438,7 +452,12 @@ function activateCloud(next, opts) {
     owner: String((next && next.owner) || prev.owner || ''),
   }
   saveCloudConn(merged)
-  applyCloudConn(merged, opts)
+  applyCloudConn(merged, { noSync: true })   // 只改本进程前缀，不写服务端
+  // commit=true：用户**明确**登录/切换时才把状态写回服务端（唯一真相源）。
+  // 启动恢复、服务端同步一律不传，避免互相覆盖。
+  if (opts && opts.commit) {
+    try { syncCloudConnToServer(merged) } catch { /* 网络失败不影响本地 */ }
+  }
   return merged
 }
 
@@ -455,7 +474,7 @@ function bootstrapCloudMode() {
     if (cfg.mode !== 'cloud') return
     if (!String(cfg.url || '').trim() || !String(cfg.token || '').trim()) return
     if (cfg.active === false) return
-    activateCloud(cfg, { noSync: true })   // 启动恢复不回写服务端
+    activateCloud(cfg)   // 启动恢复：只应用前缀，绝不写服务端
   } catch { /* 读不到就当本地 */ }
 }
 bootstrapCloudMode()
@@ -7329,7 +7348,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null })
       return
     }
-    activateCloud(prepared.next)
+    activateCloud(prepared.next, { commit: true })
     setCloudConn(readCloudConn())
     setCloudOpen(false)
     try { location.reload() } catch { /* 忽略 */ }
@@ -10105,7 +10124,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       const prepared = persistCloud({ mode: 'cloud', url: base, token: code })
       if (!prepared.ok) { setPairErr(t('cloudUrlInvalid')); return }
       const next = prepared.next
-      activateCloud({ ...next, token: code })
+      activateCloud({ ...next, token: code }, { commit: true })
       // 尽力取 owner（pc_ 不保证 whoami 可读；失败不影响「已连接」）
       try {
         const w = await fetch(base + '/api/cloud/whoami', {
@@ -10141,7 +10160,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
         if (d.ok && d.token) {
           const next = persistCloud({ mode: 'cloud', url: cloudForm.url, token: d.token })
           if (next.ok) {
-            activateCloud({ ...next.next, token: d.token })
+            activateCloud({ ...next.next, token: d.token }, { commit: true })
             try { saveCloudConn({ ...readCloudConn(), mode: 'cloud', token: d.token, active: true, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
             try { rememberAccount({ owner: d.owner, token: d.token, url: cloudForm.url, profile: d.profile }) } catch { /* 忽略 */ }
             setCloudConn(readCloudConn())
@@ -10212,7 +10231,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           // 拿到令牌 → 落盘并激活（与手动填密钥完全同一条路径）
           const next = persistCloud({ mode: 'cloud', url: cloudForm.url, token: d.token })
           if (next.ok) {
-            activateCloud({ ...next.next, token: d.token })
+            activateCloud({ ...next.next, token: d.token }, { commit: true })
             setCloudConn(readCloudConn())
             // owner/profile 落盘：重开面板仍能显示是谁（readCloudConn 会读回来）
             try { saveCloudConn({ ...readCloudConn(), mode: 'cloud', token: d.token, active: true, lastError: '', owner: d.owner || '', profile: d.profile || null }) } catch { /* 忽略 */ }
@@ -10557,7 +10576,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null })
       return
     }
-    const saved = activateCloud(prepared.next)
+    const saved = activateCloud(prepared.next, { commit: true })
     setCloudConn(saved)
     try { location.reload() } catch { /* 忽略 */ }
   }
@@ -11117,19 +11136,17 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           setSwitching('')
           const why = String(d.error || ('HTTP ' + r.status))
           try { notify('☁️ 云端拒绝：' + why + '，保持本地模式', false) } catch { /* 忽略 */ }
-          saveCloudConn({ ...conn, mode: 'cloud', active: false, lastError: why })
+          commitCloudConn({ ...conn, mode: 'cloud', active: false, lastError: why })
           setCloudConn(readCloudConn())
           return
         }
-        // 通过：把服务端给的 owner/套餐记下来
-        try {
-          saveCloudConn({ ...conn, mode: 'cloud', active: true, lastError: '', owner: String((d.connect && d.connect.owner) || conn.owner || '') })
-        } catch { /* 忽略 */ }
+        // 通过：把服务端给的 owner/套餐记下来（明确动作 → 写服务端）
+        commitCloudConn({ ...conn, mode: 'cloud', active: true, lastError: '', owner: String((d.connect && d.connect.owner) || conn.owner || '') })
       } catch (e) {
         setSwitching('')
         const why = String((e && e.message) || e).slice(0, 80)
         try { notify('☁️ 连不上云端：' + why + '，保持本地模式', false) } catch { /* 忽略 */ }
-        saveCloudConn({ ...conn, mode: 'cloud', active: false, lastError: why })
+        commitCloudConn({ ...conn, mode: 'cloud', active: false, lastError: why })
         setCloudConn(readCloudConn())
         return
       }
@@ -11139,9 +11156,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       ? { ...conn, mode: 'cloud', active: true, url, token, owner: conn.owner || '' }
       : { ...conn, mode: 'local', active: false }
     try {
-      saveCloudConn(next)
-      applyCloudConn(next)
-      setCloudConn(next)
+      commitCloudConn(next)   // 明确切换 → 写服务端（唯一真相源）
+      setCloudConn(readCloudConn())
       // 本机服务端也要知道：自动沉淀 / 召回该写哪个库。
       // **必须等它落盘并回读校验**：2026-11-17 现场 —— 前端显示已切「本地」，但这次的 POST 静默失败，
       // 插件侧 conn 仍是 cloud，于是自动沉淀继续往云端写、云端证书又握手失败，用户只看到「写卡失败：未知原因」。
@@ -11371,7 +11387,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const useAccount = (acc) => {
     if (!acc || !acc.token) return
     const url = String(acc.url || cloudForm.url || '').trim().replace(/\/+$/, '')
-    activateCloud({ mode: 'cloud', url, token: acc.token, active: true, owner: acc.owner, profile: acc.profile || null })
+    activateCloud({ mode: 'cloud', url, token: acc.token, active: true, owner: acc.owner, profile: acc.profile || null }, { commit: true })
     // 置顶 + 记 plan 以备展示
     rememberAccount({ ...acc, url, lastUsed: Date.now() })
     setCloudConn(readCloudConn())
@@ -11405,8 +11421,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       lastError: '',
       lastCheckAt: new Date().toISOString(),
     }
-    saveCloudConn(cleared)
-    applyCloudConn(cleared)          // 前缀回本地
+    commitCloudConn(cleared)         // 明确断开 → 写服务端（mode=local 会把令牌清掉）
     setCloudForm((f) => ({ ...f, mode: 'local', token: '' }))
     setCloudConn(readCloudConn())
     setCloudTab('local')

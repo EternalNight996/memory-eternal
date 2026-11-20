@@ -10957,6 +10957,17 @@
     }
   }
   __name(saveCloudConn, "saveCloudConn");
+  function commitCloudConn(c, extra) {
+    const merged = { ...readCloudConn(), ...c };
+    saveCloudConn(merged);
+    try {
+      syncCloudConnToServer(merged);
+    } catch {
+    }
+    applyCloudConn(merged, { noSync: true });
+    return merged;
+  }
+  __name(commitCloudConn, "commitCloudConn");
   function syncCloudConnToServer(conn) {
     try {
       fetch(API + "/cloud/conn", {
@@ -10970,12 +10981,6 @@
   }
   __name(syncCloudConnToServer, "syncCloudConnToServer");
   function applyCloudConn(c, opts) {
-    if (!(opts && opts.noSync)) {
-      try {
-        syncCloudConnToServer(c || {});
-      } catch {
-      }
-    }
     const url = String(c && c.url || "").replace(/\/+$/, "");
     const wantCloud = c && c.mode === "cloud" && c.active !== false && /^https?:\/\//i.test(url);
     if (wantCloud) {
@@ -11099,7 +11104,13 @@
       owner: String(next && next.owner || prev.owner || "")
     };
     saveCloudConn(merged);
-    applyCloudConn(merged, opts);
+    applyCloudConn(merged, { noSync: true });
+    if (opts && opts.commit) {
+      try {
+        syncCloudConnToServer(merged);
+      } catch {
+      }
+    }
     return merged;
   }
   __name(activateCloud, "activateCloud");
@@ -11109,7 +11120,7 @@
       if (cfg.mode !== "cloud") return;
       if (!String(cfg.url || "").trim() || !String(cfg.token || "").trim()) return;
       if (cfg.active === false) return;
-      activateCloud(cfg, { noSync: true });
+      activateCloud(cfg);
     } catch {
     }
   }
@@ -17004,7 +17015,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.43" : "";
+  var CLIENT_VERSION = true ? "0.49.44" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17285,7 +17296,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T15:48:27+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T15:55:51+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17747,7 +17758,7 @@ ${COMPONENTS_CSS}
         setCloudTest({ ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : r.error, diag: r.diag || null });
         return;
       }
-      activateCloud(prepared.next);
+      activateCloud(prepared.next, { commit: true });
       setCloudConn(readCloudConn());
       setCloudOpen(false);
       try {
@@ -20607,7 +20618,7 @@ ${t("quoteHint")}`,
           return;
         }
         const next = prepared.next;
-        activateCloud({ ...next, token: code });
+        activateCloud({ ...next, token: code }, { commit: true });
         try {
           const w = await fetch(base + "/api/cloud/whoami", {
             headers: { Authorization: "Bearer " + code },
@@ -20653,7 +20664,7 @@ ${t("quoteHint")}`,
           if (d.ok && d.token) {
             const next = persistCloud({ mode: "cloud", url: cloudForm.url, token: d.token });
             if (next.ok) {
-              activateCloud({ ...next.next, token: d.token });
+              activateCloud({ ...next.next, token: d.token }, { commit: true });
               try {
                 saveCloudConn({ ...readCloudConn(), mode: "cloud", token: d.token, active: true, lastError: "", owner: d.owner || "", profile: d.profile || null });
               } catch {
@@ -20751,7 +20762,7 @@ ${t("quoteHint")}`,
           if (d.ok && d.token) {
             const next = persistCloud({ mode: "cloud", url: cloudForm.url, token: d.token });
             if (next.ok) {
-              activateCloud({ ...next.next, token: d.token });
+              activateCloud({ ...next.next, token: d.token }, { commit: true });
               setCloudConn(readCloudConn());
               try {
                 saveCloudConn({ ...readCloudConn(), mode: "cloud", token: d.token, active: true, lastError: "", owner: d.owner || "", profile: d.profile || null });
@@ -21155,7 +21166,7 @@ ${t("quoteHint")}`,
         setCloudTest({ ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : r.error, diag: r.diag || null });
         return;
       }
-      const saved2 = activateCloud(prepared.next);
+      const saved2 = activateCloud(prepared.next, { commit: true });
       setCloudConn(saved2);
       try {
         location.reload();
@@ -21695,14 +21706,11 @@ ${t("quoteHint")}`,
               notify2("\u2601\uFE0F \u4E91\u7AEF\u62D2\u7EDD\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
             } catch {
             }
-            saveCloudConn({ ...conn, mode: "cloud", active: false, lastError: why });
+            commitCloudConn({ ...conn, mode: "cloud", active: false, lastError: why });
             setCloudConn(readCloudConn());
             return;
           }
-          try {
-            saveCloudConn({ ...conn, mode: "cloud", active: true, lastError: "", owner: String(d.connect && d.connect.owner || conn.owner || "") });
-          } catch {
-          }
+          commitCloudConn({ ...conn, mode: "cloud", active: true, lastError: "", owner: String(d.connect && d.connect.owner || conn.owner || "") });
         } catch (e) {
           setSwitching("");
           const why = String(e && e.message || e).slice(0, 80);
@@ -21710,7 +21718,7 @@ ${t("quoteHint")}`,
             notify2("\u2601\uFE0F \u8FDE\u4E0D\u4E0A\u4E91\u7AEF\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
           } catch {
           }
-          saveCloudConn({ ...conn, mode: "cloud", active: false, lastError: why });
+          commitCloudConn({ ...conn, mode: "cloud", active: false, lastError: why });
           setCloudConn(readCloudConn());
           return;
         }
@@ -21718,9 +21726,8 @@ ${t("quoteHint")}`,
       setSwitching(kind);
       const next = kind === "cloud" ? { ...conn, mode: "cloud", active: true, url, token, owner: conn.owner || "" } : { ...conn, mode: "local", active: false };
       try {
-        saveCloudConn(next);
-        applyCloudConn(next);
-        setCloudConn(next);
+        commitCloudConn(next);
+        setCloudConn(readCloudConn());
         fetchLocal("/cloud/conn", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -21941,7 +21948,7 @@ ${t("quoteHint")}`,
     const useAccount = /* @__PURE__ */ __name((acc) => {
       if (!acc || !acc.token) return;
       const url = String(acc.url || cloudForm.url || "").trim().replace(/\/+$/, "");
-      activateCloud({ mode: "cloud", url, token: acc.token, active: true, owner: acc.owner, profile: acc.profile || null });
+      activateCloud({ mode: "cloud", url, token: acc.token, active: true, owner: acc.owner, profile: acc.profile || null }, { commit: true });
       rememberAccount({ ...acc, url, lastUsed: Date.now() });
       setCloudConn(readCloudConn());
       setCloudForm((f) => ({ ...f, mode: "cloud", url, token: acc.token }));
@@ -21976,8 +21983,7 @@ ${t("quoteHint")}`,
         lastError: "",
         lastCheckAt: (/* @__PURE__ */ new Date()).toISOString()
       };
-      saveCloudConn(cleared);
-      applyCloudConn(cleared);
+      commitCloudConn(cleared);
       setCloudForm((f) => ({ ...f, mode: "local", token: "" }));
       setCloudConn(readCloudConn());
       setCloudTab("local");
