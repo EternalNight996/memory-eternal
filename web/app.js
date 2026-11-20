@@ -10953,20 +10953,20 @@
       localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(c));
     } catch {
     }
-    function syncCloudConnToServer2(conn) {
-      try {
-        fetch(API + "/cloud/conn", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || "" } })
-        }).catch(() => {
-        });
-      } catch {
-      }
-    }
-    __name(syncCloudConnToServer2, "syncCloudConnToServer");
   }
   __name(saveCloudConn, "saveCloudConn");
+  function syncCloudConnToServer(conn) {
+    try {
+      fetch(API + "/cloud/conn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || "" } })
+      }).catch(() => {
+      });
+    } catch {
+    }
+  }
+  __name(syncCloudConnToServer, "syncCloudConnToServer");
   function applyCloudConn(c) {
     try {
       syncCloudConnToServer(c || {});
@@ -11102,6 +11102,36 @@
   }
   __name(bootstrapCloudMode, "bootstrapCloudMode");
   bootstrapCloudMode();
+  (/* @__PURE__ */ __name(function syncConnFromServer() {
+    if (typeof window === "undefined" || typeof fetch !== "function") return;
+    const run = /* @__PURE__ */ __name(async () => {
+      try {
+        const local = readCloudConn();
+        const r = await fetch("/memory-eternal/api/cloud/conn", { signal: AbortSignal.timeout?.(4e3) });
+        if (!r.ok) return;
+        const d = await r.json().catch(() => null);
+        const s = d && d.conn;
+        if (!s || !String(s.token || "").trim() || !String(s.url || "").trim()) return;
+        const localLacks = !String(local.token || "").trim() || !String(local.url || "").trim();
+        const serverWantsCloud = s.mode === "cloud" && s.active !== false;
+        if (!localLacks && !(serverWantsCloud && local.mode !== "cloud")) return;
+        const merged = {
+          mode: s.mode === "cloud" ? "cloud" : "local",
+          url: String(s.url || ""),
+          token: String(s.token || ""),
+          active: s.active !== false,
+          lastError: "",
+          lastCheckAt: Date.now(),
+          owner: String(s.owner || ""),
+          profile: s.profile || null
+        };
+        saveCloudConn(merged);
+        applyCloudConn(merged);
+      } catch {
+      }
+    }, "run");
+    run();
+  }, "syncConnFromServer"))();
   function markCloudFailed(next, reason) {
     const merged = { ...readCloudConn(), ...next, mode: "cloud", active: false, lastError: String(reason || "\u8FDE\u63A5\u5931\u8D25") };
     saveCloudConn(merged);
@@ -16960,7 +16990,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.49.36" : "";
+  var CLIENT_VERSION = true ? "0.49.38" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17241,7 +17271,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-20T15:17:38+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-20T15:40:21+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
