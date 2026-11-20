@@ -236,11 +236,15 @@ function readCloudConn() {
   try {
     const raw = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || '{}')
     const mode = raw.mode === 'cloud' ? 'cloud' : 'local'
+    // '***' 是历史脱敏造成的脏值：一旦留在 localStorage，所有请求都会 401，
+    // 而且会被同步回服务端。这里直接当"没有令牌"处理，交给 syncConnFromServer 修复。
+    let tok = String(raw.token || '')
+    if (/^\*+$/.test(tok.trim())) tok = ''
     return {
       mode,
       url: String(raw.url || ''),
-      token: String(raw.token || ''),
-      active: mode === 'cloud' ? raw.active !== false : false,
+      token: tok,
+      active: mode === 'cloud' && tok ? raw.active !== false : false,
       lastError: String(raw.lastError || ''),
       lastCheckAt: raw.lastCheckAt || null,
       // owner / profile 也要持久化：重开面板要能直接显示「谁连着」，
@@ -277,8 +281,13 @@ function syncCloudConnToServer(conn) {
   } catch { /* 忽略 */ }
 }
 /** 应用连接配置：改 API 前缀 + 记下令牌（fetch 包装据此注入头）。**只有 active 才切到云端**。 */
-function applyCloudConn(c) {
-  try { syncCloudConnToServer(c || {}) } catch { /* 忽略 */ }
+function applyCloudConn(c, opts) {
+  // 启动恢复时**不回写**服务端：那时客户端的 active/owner 可能是空的，
+  // 一回写就把服务端已有的状态（active=true、owner=邮箱）抹掉 ——
+  // 表现就是「已连接但认不出是谁」「明明是 personal 却显示未激活」。
+  if (!(opts && opts.noSync)) {
+    try { syncCloudConnToServer(c || {}) } catch { /* 忽略 */ }
+  }
   const url = String((c && c.url) || '').replace(/\/+$/, '')
   const wantCloud = c && c.mode === 'cloud' && c.active !== false && /^https?:\/\//i.test(url)
   if (wantCloud) {
@@ -417,10 +426,19 @@ function persistCloud(form) {
 }
 
 /** 验证通过后正式启用云端（这一步才真正切前缀）。 */
-function activateCloud(next) {
-  const merged = { ...readCloudConn(), ...next, mode: 'cloud', active: true, lastError: '' }
+function activateCloud(next, opts) {
+  const prev = readCloudConn()
+  const merged = {
+    ...prev,
+    ...next,
+    mode: 'cloud',
+    active: true,
+    lastError: '',
+    // owner 不拿空值覆盖已有的（启动恢复时客户端常常没有 owner）
+    owner: String((next && next.owner) || prev.owner || ''),
+  }
   saveCloudConn(merged)
-  applyCloudConn(merged)
+  applyCloudConn(merged, opts)
   return merged
 }
 
@@ -437,7 +455,7 @@ function bootstrapCloudMode() {
     if (cfg.mode !== 'cloud') return
     if (!String(cfg.url || '').trim() || !String(cfg.token || '').trim()) return
     if (cfg.active === false) return
-    activateCloud(cfg)
+    activateCloud(cfg, { noSync: true })   // 启动恢复不回写服务端
   } catch { /* 读不到就当本地 */ }
 }
 bootstrapCloudMode()
@@ -460,10 +478,15 @@ bootstrapCloudMode()
       const d = await r.json().catch(() => null)
       const s = d && d.conn
       if (!s || !String(s.token || '').trim() || !String(s.url || '').trim()) return
-      // 本地缺失，或服务端是 cloud 而本地不是 → 采用服务端
+      // 采用服务端的三种情形（任一成立就同步）：
+      //   ① 本地缺凭据（换了浏览器 / 清了数据）
+      //   ② 服务端是 cloud 而本地不是
+      //   ③ 服务端 active=true 而本地 active=false（本地被某个旧标签页写成失效）
+      // 本地是脏值（***）时 readCloudConn 已经把 token 清成空 → localLacks 为 true → 自动恢复
       const localLacks = !String(local.token || '').trim() || !String(local.url || '').trim()
       const serverWantsCloud = s.mode === 'cloud' && s.active !== false
-      if (!localLacks && !(serverWantsCloud && local.mode !== 'cloud')) return
+      const localWronglyInactive = s.active !== false && local.mode === 'cloud' && local.active === false
+      if (!localLacks && !(serverWantsCloud && local.mode !== 'cloud') && !localWronglyInactive) return
       const merged = {
         mode: s.mode === 'cloud' ? 'cloud' : 'local',
         url: String(s.url || ''),
@@ -475,7 +498,7 @@ bootstrapCloudMode()
         profile: s.profile || null,
       }
       saveCloudConn(merged)
-      applyCloudConn(merged)
+      applyCloudConn(merged, { noSync: true })   // 本来就是从服务端来的，不需要再写回去
     } catch { /* 服务端没起来就保持现状 */ }
   }
   run()
