@@ -8234,9 +8234,13 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                   </b>
                   <button type="button" className="mc-cloud-pop-x" onClick={() => setCloudOpen(false)} aria-label={t('close')}>✕</button>
                 </div>
-                {/* 需求：**已连接且授权有效**时只显示简洁状态，不铺开整套表单。
-                    只有未连接 / 断开后才需要看地址、密钥、模式选择这些配置项。 */}
-                {topHealth.status === 'ok' ? (
+                {/* 弹层分三种态，判据是**请求前缀**而不是"云端可达"：
+                      ① 前缀指向云端   → 已连接（断开连接）
+                      ② 云端可达未启用 → 未启用（切到云端）  ← 以前这里错标成"已连接"
+                      ③ 云不可达/无凭据 → 完整表单
+                    实测问题：顶栏写着「本地（云端可切换）」，弹层却说「已连接」，
+                    点「断开连接」当然没反应 —— 本来就没连着。 */}
+                {getApiTarget() ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 2px 2px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px', borderRadius: 10, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)' }}>
                       <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#22c55e', flex: 'none' }} />
@@ -8256,6 +8260,29 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                     </div>
                     <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>
                       已连接状态下不会自动改你的数据源；要换账号或改地址请先断开。
+                    </div>
+                  </div>
+                ) : (topHealth.status === 'ok') ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 2px 2px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px', borderRadius: 10, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)' }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#f59e0b', flex: 'none' }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <b style={{ fontSize: 13, display: 'block' }}>云端可达，尚未启用</b>
+                        <span style={{ fontSize: 11, opacity: 0.6, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {(topHealth.owner ? String(topHealth.owner).split('@')[0] : '云端') + ' · ' + String(cloudConn.url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '')}
+                          {topHealth.plan ? ' · ' + topHealth.plan : ''}
+                          {topHealth.daysLeft != null ? ' · 剩 ' + topHealth.daysLeft + ' 天' : ''}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!!switching}
+                        onClick={() => { setCloudOpen(false); switchDataSource('cloud') }}
+                        style={{ flex: 'none', fontSize: 11.5, padding: '5px 11px', borderRadius: 8, border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent, #2563eb)', color: '#fff', cursor: 'pointer' }}
+                      >{switching ? '切换中…' : '切到云端'}</button>
+                    </div>
+                    <div style={{ fontSize: 10.5, opacity: 0.55, lineHeight: 1.7 }}>
+                      现用数据源是<b>本地</b>。点「切到云端」才会真正把请求改到云端库。
                     </div>
                   </div>
                 ) : (

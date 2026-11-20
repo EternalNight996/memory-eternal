@@ -17173,7 +17173,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.10" : "";
+  var CLIENT_VERSION = true ? "0.52.11" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17454,7 +17454,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-21T01:09:16+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-21T01:11:48+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18597,7 +18597,7 @@ ${COMPONENTS_CSS}
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-cloud-pop-x", onClick: () => setCloudOpen(false), "aria-label": t("close"), children: "\u2715" })
                 ] }),
-                topHealth.status === "ok" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 2px 2px" }, children: [
+                getApiTarget() ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 2px 2px" }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "11px 13px", borderRadius: 10, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)" }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 9, height: 9, borderRadius: "50%", background: "#22c55e", flex: "none" } }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { flex: 1, minWidth: 0 }, children: [
@@ -18622,6 +18622,36 @@ ${COMPONENTS_CSS}
                     )
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }, children: "\u5DF2\u8FDE\u63A5\u72B6\u6001\u4E0B\u4E0D\u4F1A\u81EA\u52A8\u6539\u4F60\u7684\u6570\u636E\u6E90\uFF1B\u8981\u6362\u8D26\u53F7\u6216\u6539\u5730\u5740\u8BF7\u5148\u65AD\u5F00\u3002" })
+                ] }) : topHealth.status === "ok" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10, padding: "4px 2px 2px" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 9, padding: "11px 13px", borderRadius: 10, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 9, height: 9, borderRadius: "50%", background: "#f59e0b", flex: "none" } }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { flex: 1, minWidth: 0 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { fontSize: 13, display: "block" }, children: "\u4E91\u7AEF\u53EF\u8FBE\uFF0C\u5C1A\u672A\u542F\u7528" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 11, opacity: 0.6, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
+                        (topHealth.owner ? String(topHealth.owner).split("@")[0] : "\u4E91\u7AEF") + " \xB7 " + String(cloudConn.url || "").replace(/^https?:\/\//, "").replace(/\/.*$/, ""),
+                        topHealth.plan ? " \xB7 " + topHealth.plan : "",
+                        topHealth.daysLeft != null ? " \xB7 \u5269 " + topHealth.daysLeft + " \u5929" : ""
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "button",
+                      {
+                        type: "button",
+                        disabled: !!switching,
+                        onClick: () => {
+                          setCloudOpen(false);
+                          switchDataSource("cloud");
+                        },
+                        style: { flex: "none", fontSize: 11.5, padding: "5px 11px", borderRadius: 8, border: "1px solid var(--me-c-accent, #2563eb)", background: "var(--me-c-accent, #2563eb)", color: "#fff", cursor: "pointer" },
+                        children: switching ? "\u5207\u6362\u4E2D\u2026" : "\u5207\u5230\u4E91\u7AEF"
+                      }
+                    )
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.55, lineHeight: 1.7 }, children: [
+                    "\u73B0\u7528\u6570\u636E\u6E90\u662F",
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: "\u672C\u5730" }),
+                    "\u3002\u70B9\u300C\u5207\u5230\u4E91\u7AEF\u300D\u624D\u4F1A\u771F\u6B63\u628A\u8BF7\u6C42\u6539\u5230\u4E91\u7AEF\u5E93\u3002"
+                  ] })
                 ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mc-cloud-modes", children: [["local", t("cloudModeLocal"), t("cloudModeLocalHint")], ["cloud", t("cloudModeCloud"), t("cloudModeCloudHint")]].map(([m, label, hint]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
                     "button",
@@ -20688,7 +20718,7 @@ ${t("quoteHint")}`,
     const [importJob, setImportJob] = (0, import_react2.useState)(null);
     const importCancelRef = (0, import_react2.useRef)(false);
     const [resume, setResume] = (0, import_react2.useState)(() => readXferResume());
-    const [switching, setSwitching] = (0, import_react2.useState)("");
+    const [switching2, setSwitching] = (0, import_react2.useState)("");
     const [health, setHealth] = (0, import_react2.useState)(() => ({ ...CLOUD_HEALTH }));
     const healthDot = (() => {
       const st = health.status;
@@ -21940,7 +21970,7 @@ ${t("quoteHint")}`,
       return { ok: true, hot: !!(cd && cd.ok) };
     }, "switchLocalVaultLegacy");
     const switchLocalVault = /* @__PURE__ */ __name(async (path2) => {
-      if (!path2 || switching) return;
+      if (!path2 || switching2) return;
       setSwitching(path2);
       try {
         const r = await fetchLocal("/vaults/switch", {
@@ -21996,8 +22026,8 @@ ${t("quoteHint")}`,
         setSwitching("");
       }
     }, "switchLocalVault");
-    const switchDataSource = /* @__PURE__ */ __name(async (kind) => {
-      if (switching) return;
+    const switchDataSource2 = /* @__PURE__ */ __name(async (kind) => {
+      if (switching2) return;
       const conn = readCloudConn();
       const url = String(conn.url || cloudForm.url || "").trim();
       const token = String(cloudForm.token || conn.token || "").trim();
@@ -22084,7 +22114,7 @@ ${t("quoteHint")}`,
       }
     }, "switchDataSource");
     const switchToLibrary = /* @__PURE__ */ __name(async (target) => {
-      if (!target || switching) return;
+      if (!target || switching2) return;
       setSwitchConfirm(null);
       if (target === currentVaultKey) {
         try {
@@ -22100,7 +22130,7 @@ ${t("quoteHint")}`,
           localStorage.setItem("me-cloud-vault", nm);
         } catch {
         }
-        switchDataSource("cloud");
+        switchDataSource2("cloud");
         return;
       }
       await switchLocalVault(target);
@@ -23652,7 +23682,7 @@ ${t("quoteHint")}`,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, lineHeight: 1.7 }, children: t("xferResumeBanner").replace("{n}", String(resume.srcName || String(resume.src || "").split(/[\\/]/).filter(Boolean).pop() || "")).replace("{d}", String(resume.done)).replace("{t}", String(resume.total)) }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 6, borderRadius: 999, background: "rgba(0,0,0,.12)", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: "100%", width: Math.max(2, Math.round(resume.done / Math.max(1, resume.total) * 100)) + "%", background: "var(--me-c-warn)", transition: "width .3s ease" } }) }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !!switching, onClick: () => uploadVaultToCloud(resume.src), children: t("xferResumeGo") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !!switching2, onClick: () => uploadVaultToCloud(resume.src), children: t("xferResumeGo") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: dropResume, children: t("xferResumeDrop") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 10.5, opacity: 0.6 }, children: [
@@ -23667,10 +23697,10 @@ ${t("quoteHint")}`,
                         {
                           variant: "primary",
                           size: "sm",
-                          disabled: !!switching || !!(importJob && importJob.importing) || !vaultPick || vaultPick === currentVaultKey,
+                          disabled: !!switching2 || !!(importJob && importJob.importing) || !vaultPick || vaultPick === currentVaultKey,
                           onClick: () => setSwitchConfirm({ from: currentVaultKey, to: vaultPick }),
-                          title: switching ? t("switchingVault") : importJob && importJob.importing ? "\u6B63\u5728\u4F20\u8F93\u4E2D\uFF0C\u7B49\u5B83\u7ED3\u675F\u518D\u5207" : !vaultPick ? "\u5148\u5728\u4E0B\u62C9\u91CC\u9009\u4E00\u4E2A\u5E93" : vaultPick === currentVaultKey ? "\u5DF2\u7ECF\u662F\u5F53\u524D\u5E93\u4E86\uFF08\u60F3\u5207\u6362\u8BF7\u5148\u5728\u4E0B\u62C9\u91CC\u9009**\u53E6\u4E00\u4E2A**\uFF09" : t("switchNowHint"),
-                          children: switching ? t("switchingVault") : t("switchNowBtn")
+                          title: switching2 ? t("switchingVault") : importJob && importJob.importing ? "\u6B63\u5728\u4F20\u8F93\u4E2D\uFF0C\u7B49\u5B83\u7ED3\u675F\u518D\u5207" : !vaultPick ? "\u5148\u5728\u4E0B\u62C9\u91CC\u9009\u4E00\u4E2A\u5E93" : vaultPick === currentVaultKey ? "\u5DF2\u7ECF\u662F\u5F53\u524D\u5E93\u4E86\uFF08\u60F3\u5207\u6362\u8BF7\u5148\u5728\u4E0B\u62C9\u91CC\u9009**\u53E6\u4E00\u4E2A**\uFF09" : t("switchNowHint"),
+                          children: switching2 ? t("switchingVault") : t("switchNowBtn")
                         }
                       ),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -23699,7 +23729,7 @@ ${t("quoteHint")}`,
                         "select",
                         {
                           value: vaultPick || currentVaultKey || "",
-                          disabled: !!switching || !!(importJob && importJob.importing),
+                          disabled: !!switching2 || !!(importJob && importJob.importing),
                           onChange: (e) => setVaultPick(e.target.value),
                           title: t("switchVaultHint"),
                           style: { fontSize: 11.5, padding: "4px 6px", borderRadius: 8, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", maxWidth: 260 },
@@ -23808,7 +23838,7 @@ ${t("quoteHint")}`,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.72, lineHeight: 1.75 }, children: t("switchConfirmBody") }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => setSwitchConfirm(null), children: t("cancel") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !!switching, onClick: () => switchToLibrary(switchConfirm.to), children: t("switchConfirmOk") })
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !!switching2, onClick: () => switchToLibrary(switchConfirm.to), children: t("switchConfirmOk") })
                     ] })
                   ] }) }) : null,
                   cloudConn.mode === "cloud" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, background: "var(--me-c-surface)", overflow: "hidden" }, children: [
