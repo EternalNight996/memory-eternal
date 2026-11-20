@@ -169,13 +169,22 @@ const smoke = await (async () => {
     const needSync = [
       [/bootstrapCloudMode\(\)/, '模块加载时的 bootstrapCloudMode'],
       [/syncConnFromServer/, '从服务端同步的 syncConnFromServer'],
-      [/sourceChanged[\s\S]{0,200}location\.reload/, '数据源变化后 reload'],
+      // 注意：**不再要求** sourceChanged 后 reload —— 那会造成无限刷新闪屏。
+      // 数据源变化由 applyCloudConn 就地生效 + 界面提示，用户手动刷新即可。
       [/commitCloudConn\(next\)[\s\S]{0,1600}location\.reload/, '切换成功后 reload'],
     ]
     for (const [re, what] of needSync) {
       if (!re.test(cli)) errs.push('缺「' + what + '」—— 会导致切云端后刷新回本地')
     }
-    // 7) /cloud/conn 的 token 不许是脱敏占位符
+    // 7) **模块加载路径不许 reload** —— 会导致无限刷新闪屏
+    //    取 syncConnFromServer 函数体，里面出现 location.reload 就是死循环隐患
+    {
+      const m = cli.match(/function syncConnFromServer\(\)[\s\S]*?\n\}\)\(\)/)
+      if (m && /location\.reload/.test(m[0])) {
+        errs.push('syncConnFromServer 里有 location.reload —— 会造成无限刷新（实测过）')
+      }
+    }
+    // 8) /cloud/conn 的 token 不许是脱敏占位符
     const cc = await get('/cloud/conn')
     const tok = cc.body && cc.body.conn && cc.body.conn.token
     if (tok && /^\*+$/.test(String(tok))) errs.push('/cloud/conn 返回了脱敏令牌 ***')

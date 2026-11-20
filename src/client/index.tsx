@@ -514,12 +514,7 @@ bootstrapCloudMode()
  */
 ;(function syncConnFromServer() {
   if (typeof window === 'undefined' || typeof fetch !== 'function') return
-  // 页面真正加载完成后清掉「已重载」标记：它只用于防止
-  // reload → 同步 → reload 的当场死循环，不该污染后续的合法切换。
-  try {
-    if (document.readyState === 'complete') sessionStorage.removeItem('me-cloud-resync-done')
-    else window.addEventListener('load', () => { try { sessionStorage.removeItem('me-cloud-resync-done') } catch { /* 忽略 */ } }, { once: true })
-  } catch { /* 忽略 */ }
+  // （已不需要 sessionStorage 防循环标记：自动 reload 已移除）
   const run = async () => {
     try {
       const local = readCloudConn()
@@ -554,14 +549,16 @@ bootstrapCloudMode()
       // 用户看到的仍然是本地库，刷新一次又回到本地，形成"切了又回来"的循环。
       // 所以数据源变化时必须 reload 一次，让所有请求走新前缀。
       // 用 sessionStorage 打标，避免 reload → 同步 → reload 的死循环。
+      // **绝不自动 reload**：这里跑在模块加载阶段，reload 会让模块重新执行、
+      // 再次进入这里 → 无限刷新闪屏（用户实测：打开面板一直闪）。
+      // 数据源已被 applyCloudConn 切好，新发出的请求都走云端；
+      // 已经渲染的组件数据是旧的，由界面提示用户手动刷新（或下次打开自然就好）。
       const sourceChanged = local.mode !== merged.mode || local.active !== merged.active
       if (sourceChanged) {
         try {
-          if (!sessionStorage.getItem('me-cloud-resync-done')) {
-            sessionStorage.setItem('me-cloud-resync-done', '1')
-            setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 80)
-          }
-        } catch { /* 隐私模式：不 reload 也不会更糟 */ }
+          window.__meCloudResynced = true   // 供 UI 显示"建议刷新"横幅
+          window.dispatchEvent(new CustomEvent('me-cloud-resynced', { detail: { mode: merged.mode } }))
+        } catch { /* 忽略 */ }
       }
     } catch { /* 服务端没起来就保持现状 */ }
   }
