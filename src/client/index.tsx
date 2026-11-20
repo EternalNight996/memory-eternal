@@ -254,6 +254,11 @@ function readCloudConn() {
 }
 function saveCloudConn(c) {
   try { localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(c)) } catch { /* 隐私模式 */ }
+}
+// ⚠ 这里曾经少了上面这个闭合括号，导致下面的 syncCloudConnToServer 被**嵌进**
+//   saveCloudConn 内部，而外层的 applyCloudConn 又去调它 —— 每次切云端都抛
+//   ReferenceError，API_TARGET_URL 永远改不掉，表现就是「已经是个人版却切换不了」。
+//   别删这个括号。
 
 /**
  * 把云端连接同步到**服务端**（$DSH_HOME/memory-eternal-cloud-conn.json）。
@@ -270,7 +275,6 @@ function syncCloudConnToServer(conn) {
       body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || '' } }),
     }).catch(() => { /* 同步失败不影响本地使用 */ })
   } catch { /* 忽略 */ }
-}
 }
 /** 应用连接配置：改 API 前缀 + 记下令牌（fetch 包装据此注入头）。**只有 active 才切到云端**。 */
 function applyCloudConn(c) {
@@ -437,6 +441,45 @@ function bootstrapCloudMode() {
   } catch { /* 读不到就当本地 */ }
 }
 bootstrapCloudMode()
+
+/**
+ * 从**服务端副本**恢复连接状态。
+ *
+ * localStorage 和服务端各存一份，两者会漂移：清了浏览器数据、换了浏览器、
+ * 或服务端被单独设置过 —— 这时客户端只认 localStorage，就会出现
+ * 「服务端明明是 cloud/active，界面却显示本地、切换按钮还点不动」。
+ * 所以启动时问一次本机服务端，服务端有凭据而本地没有 → 以服务端为准。
+ */
+;(function syncConnFromServer() {
+  if (typeof window === 'undefined' || typeof fetch !== 'function') return
+  const run = async () => {
+    try {
+      const local = readCloudConn()
+      const r = await fetch('/memory-eternal/api/cloud/conn', { signal: AbortSignal.timeout?.(4000) })
+      if (!r.ok) return
+      const d = await r.json().catch(() => null)
+      const s = d && d.conn
+      if (!s || !String(s.token || '').trim() || !String(s.url || '').trim()) return
+      // 本地缺失，或服务端是 cloud 而本地不是 → 采用服务端
+      const localLacks = !String(local.token || '').trim() || !String(local.url || '').trim()
+      const serverWantsCloud = s.mode === 'cloud' && s.active !== false
+      if (!localLacks && !(serverWantsCloud && local.mode !== 'cloud')) return
+      const merged = {
+        mode: s.mode === 'cloud' ? 'cloud' : 'local',
+        url: String(s.url || ''),
+        token: String(s.token || ''),
+        active: s.active !== false,
+        lastError: '',
+        lastCheckAt: Date.now(),
+        owner: String(s.owner || ''),
+        profile: s.profile || null,
+      }
+      saveCloudConn(merged)
+      applyCloudConn(merged)
+    } catch { /* 服务端没起来就保持现状 */ }
+  }
+  run()
+})()
 
 /** 验证失败：**保留配置**，只标记 active=false 并记录原因。 */
 function markCloudFailed(next, reason) {
