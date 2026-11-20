@@ -7772,8 +7772,12 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const sentinelRef = useRef(null)
   const mainRef = useRef(null)
 
+  // 卡片列表同样要序号守卫：切库/切数据源时会有多次并发请求，
+  // 先发后到的旧结果会把新库的列表覆盖掉（表现：切了云端，列表还是本地那批卡）。
+  const cardsSeqRef = useRef(0)
   const loadCards = useCallback(async (nextKind = kind, nextQuery = query, nextStatus = statusFilter, opts = {}) => {
     const append = opts.append === true
+    const seq = ++cardsSeqRef.current
     try {
       if (append) setLoadingMore(true)
       else { setLoading(true); setError('') }
@@ -7789,6 +7793,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       if (sort === 'title') qs.set('sort', 'title')
       const res = await fetch(`${API}/cards?${qs.toString()}`)
       const data = await res.json()
+      if (seq !== cardsSeqRef.current) return   // 已被更新的一次取代，丢弃
       if (data && data.ok) {
         const list = data.cards || []
         setCards((prev) => (append ? [...prev, ...list.filter((c) => !prev.some((p) => p.path === c.path))] : list))
@@ -7819,7 +7824,12 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     return () => { try { window.removeEventListener('me-cloud-resynced', onResync) } catch { /* 忽略 */ } }
   }, [])
 
+  // **请求序号守卫**：loadAll 会被调多次（首屏 + 数据源变化后重拉 + 用户点刷新）。
+  // 没有序号的话，先发出去但后返回的那次会覆盖最新结果 ——
+  // 实测就是"切了云端，云端数据到了，本机的慢响应随后把它盖回去"。
+  const loadSeqRef = React.useRef(0)
   const loadAll = useCallback(async () => {
+    const seq = ++loadSeqRef.current
     try {
       // 只拉轻量数据（<1KB）：概览 + 沉淀健康状态。
       // 卡片列表（250KB）/ 图谱（890KB）改由各自视图按需拉取——设置页不该付这份代价。
@@ -7829,6 +7839,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         fetch(`${API}/config`).then((r) => r.json()).catch(() => null),
         fetch(`${API}/news?unread=1&limit=1`).then((r) => r.json()).catch(() => null),
       ])
+      // 已被更新的一次调用取代 → 丢弃这次结果，不要覆盖
+      if (seq !== loadSeqRef.current) return
       if (ov.ok) setOverview(ov)
       if (newsRes && newsRes.ok) setNewsUnread(Number((newsRes.counts || {}).unread) || 0)
       const nextScale = cfgRes && cfgRes.ok && cfgRes.config && cfgRes.config.uiScale

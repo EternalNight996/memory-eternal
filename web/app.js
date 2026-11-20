@@ -17173,7 +17173,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.9" : "";
+  var CLIENT_VERSION = true ? "0.52.10" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17454,7 +17454,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-21T01:01:52+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-21T01:09:16+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18158,8 +18158,10 @@ ${COMPONENTS_CSS}
     const [loadingMore, setLoadingMore] = (0, import_react2.useState)(false);
     const sentinelRef = (0, import_react2.useRef)(null);
     const mainRef = (0, import_react2.useRef)(null);
+    const cardsSeqRef = (0, import_react2.useRef)(0);
     const loadCards = (0, import_react2.useCallback)(async (nextKind = kind, nextQuery = query, nextStatus = statusFilter, opts = {}) => {
       const append = opts.append === true;
+      const seq = ++cardsSeqRef.current;
       try {
         if (append) setLoadingMore(true);
         else {
@@ -18177,6 +18179,7 @@ ${COMPONENTS_CSS}
         if (sort === "title") qs.set("sort", "title");
         const res = await fetch(`${API}/cards?${qs.toString()}`);
         const data = await res.json();
+        if (seq !== cardsSeqRef.current) return;
         if (data && data.ok) {
           const list = data.cards || [];
           setCards((prev) => append ? [...prev, ...list.filter((c) => !prev.some((p) => p.path === c.path))] : list);
@@ -18212,7 +18215,9 @@ ${COMPONENTS_CSS}
         }
       };
     }, []);
+    const loadSeqRef = import_react2.default.useRef(0);
     const loadAll = (0, import_react2.useCallback)(async () => {
+      const seq = ++loadSeqRef.current;
       try {
         const [ov, capRes, cfgRes, newsRes] = await Promise.all([
           fetch(`${API}/overview`).then((r) => r.json()),
@@ -18220,6 +18225,7 @@ ${COMPONENTS_CSS}
           fetch(`${API}/config`).then((r) => r.json()).catch(() => null),
           fetch(`${API}/news?unread=1&limit=1`).then((r) => r.json()).catch(() => null)
         ]);
+        if (seq !== loadSeqRef.current) return;
         if (ov.ok) setOverview(ov);
         if (newsRes && newsRes.ok) setNewsUnread(Number((newsRes.counts || {}).unread) || 0);
         const nextScale = cfgRes && cfgRes.ok && cfgRes.config && cfgRes.config.uiScale;
