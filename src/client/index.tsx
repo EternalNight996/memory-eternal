@@ -724,6 +724,27 @@ function hardDisconnectCloud() {
   return cleared
 }
 
+/**
+ * **模块级**「切到云端数据源」+ 刷新。
+ *
+ * 顶栏「运行位置」弹层里那个「切到云端」按钮在 MemoryLibraryInner 内（8341 行），
+ * 而 switchDataSource / switching 都定义在配置面板组件里（10294 / 11574）——
+ * 跨组件引用，一渲染就抛 ReferenceError: switching is not defined，整个记忆面板白屏。
+ * （这是第 5 次同类作用域问题，所以这次把动作整体提到模块级，组件只负责按按钮。）
+ */
+function switchToCloudSource() {
+  const cur = readCloudConn()
+  if (!cur || !String(cur.url || '').trim() || !String(cur.token || '').trim()) {
+    return { ok: false, error: 'no_credentials' }
+  }
+  const next = { ...cur, mode: 'cloud', active: true, lastError: '', lastCheckAt: new Date().toISOString() }
+  saveCloudConn(next)
+  try { applyCloudConn(next) } catch { /* 忽略 */ }
+  // 前缀是模块级变量，改完必须整页重载，否则已挂载的组件还拿着旧数据
+  try { setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 300) } catch { /* 忽略 */ }
+  return { ok: true, next }
+}
+
 /** 验证失败：**保留配置**，只标记 active=false 并记录原因。 */
 function markCloudFailed(next, reason) {
   const merged = { ...readCloudConn(), ...next, mode: 'cloud', active: false, lastError: String(reason || '连接失败') }
@@ -7297,6 +7318,8 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     || String(location.pathname || '').includes('/api/ui/app')
     || String(location.pathname || '').includes('/memory-eternal/api/ui/app'))
   const [overview, setOverview] = useState(null)
+  // 顶栏弹层里的「切到云端」按钮需要它（以前引用了配置面板的 switching → ReferenceError 白屏）
+  const [switching, setSwitching] = useState('')
   // 布局大小：宿主配置 uiScale + 本地即时事件；默认 standard
   const [uiScale, setUiScale] = useState(() => {
     try {
@@ -8339,7 +8362,15 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                       <button
                         type="button"
                         disabled={!!switching}
-                        onClick={() => { setCloudOpen(false); switchDataSource('cloud') }}
+                        onClick={() => {
+                          setCloudOpen(false)
+                          setSwitching('cloud')
+                          const r = switchToCloudSource()   // 模块级，跨组件安全
+                          if (!r.ok) {
+                            setSwitching('')
+                            try { notify(r.error === 'no_credentials' ? '云端凭据不完整，请重新登录' : String(r.error), false) } catch { /* 忽略 */ }
+                          }
+                        }}
                         style={{ flex: 'none', fontSize: 11.5, padding: '5px 11px', borderRadius: 8, border: '1px solid var(--me-c-accent, #2563eb)', background: 'var(--me-c-accent, #2563eb)', color: '#fff', cursor: 'pointer' }}
                       >{switching ? '切换中…' : '切到云端'}</button>
                     </div>

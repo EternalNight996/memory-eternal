@@ -97,6 +97,16 @@ step('关键函数作用域校验', () => {
   return mustModuleLevel.length + ' 个函数均为模块级'
 })
 
+// ── 4b. 跨作用域引用（组件内引用了别的组件的 state → ReferenceError 白屏）──
+// 已经踩过 5 次：cloudUsable / health / readPkgVersion / disconnectCloud / switching。
+// 静态语法合法、构建通过，只有真正渲染那一个分支时才炸。
+step('跨作用域引用', () => {
+  const r = sh(process.execPath, ['scripts/check-scope.mjs'])
+  const out = ((r.stdout || '') + (r.stderr || '')).trim()
+  if (r.status !== 0) throw new Error(out.slice(-400))
+  return out.split('\n').pop() || 'clean'
+})
+
 // ── 5. 测试套件 ────────────────────────────────────────────
 if (!quick) {
   step('测试套件', () => {
