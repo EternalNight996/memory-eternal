@@ -699,22 +699,20 @@ function startCloudHealthLoop() {
  */
 function hardDisconnectCloud() {
   const cur = readCloudConn()
-  // 通知服务端注销（cookie 会话）；网络失败也照常清本地令牌
-  try {
-    const base = String((cur && cur.url) || '').trim().replace(/\/+$/, '')
-    if (base) fetch(base + '/api/signout', { method: 'POST', credentials: 'include' }).catch(() => {})
-  } catch { /* 忽略 */ }
+  // **保留云端账号信息**：url / token / owner / profile 全部留着，
+  // 只把 mode 切回 local、active 置 false —— 语义是「先不用云端库」，
+  // 不是「退出登录」。下次打开面板仍能看到是谁、一键切回云端。
+  //
+  // 想真正退出登录/换账号，走的是「切换账号」或「退出登录」那条路径，
+  // 那里才会清 token 并 POST /api/signout。
   const cleared = {
     ...cur,
     mode: 'local',
     active: false,
-    token: '',
-    owner: '',
-    profile: null,
     lastError: '',
     lastCheckAt: new Date().toISOString(),
   }
-  commitCloudConn(cleared)   // 明确断开 → 写服务端
+  commitCloudConn(cleared)   // 明确动作 → 写服务端
   return cleared
 }
 
@@ -11207,7 +11205,11 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       const cards = Array.isArray(data.cards) ? data.cards : []
       if (!cards.length) { setImportJob({ importing: false, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, failed: 0, err: t('importEmpty') }); return }
 
-      const CHUNK = 200
+      // 分片大小：200 → 50。
+      // 200 张卡带正文可能有几 MB，跨境链路上单请求容易超时/被中间设备截断，
+      // 表现出来就是「部分分片失败」却没有原因。50 张一片，单片几百 KB，
+      // 重试代价小、断点粒度也更细。
+      const CHUNK = 50
       const srcName = String(src).split(/[\\/]/).filter(Boolean).pop() || src
       // 断点续传：上次传到第几张就接上去（对齐到分片边界，避免重复消耗）
       let startOff = 0
@@ -11215,6 +11217,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       if (rs && rs.src === src && rs.total === cards.length) startOff = Math.floor(rs.done / CHUNK) * CHUNK
 
       let imported = 0, duplicate = 0, failed = 0
+      // 每个失败分片的原因都记下来，收尾时一起显示 —— 只报「部分分片失败」等于没报
+      const failReasons = []
       setImportJob({ importing: true, dir: 'up', done: startOff, total: cards.length, imported: 0, duplicate: 0, failed: 0, err: '' })
 
       for (let off = startOff; off < cards.length; off += CHUNK) {
@@ -11248,14 +11252,19 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
             if (attempt < 3) await new Promise((res) => setTimeout(res, 1000 * attempt))
           }
         }
-        if (!ok) failed += slice.length
+        if (!ok) {
+          failed += slice.length
+          if (lastErr) failReasons.push('第 ' + (off + 1) + '-' + Math.min(off + CHUNK, cards.length) + ' 张：' + lastErr)
+        }
         saveXferResume({ src, srcName, total: cards.length, done: Math.min(off + slice.length, cards.length) })
         setImportJob({ importing: true, dir: 'up', done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, failed, err: failed ? lastErr : '' })
       }
 
       const done = failed === 0
       if (done) clearXferResume()
-      setImportJob({ importing: false, dir: 'up', done: cards.length, total: cards.length, imported, duplicate, failed, err: done ? '' : t('xferPartial') })
+      // 把真实原因拼进提示（最多两条，避免横幅撑爆）
+      const failDetail = failReasons.length ? '（' + failReasons.slice(0, 2).join('；') + (failReasons.length > 2 ? ' 等 ' + failReasons.length + ' 处' : '') + '）' : ''
+      setImportJob({ importing: false, dir: 'up', done: cards.length, total: cards.length, imported, duplicate, failed, err: done ? '' : t('xferPartial') + failDetail })
       refreshResume()
       try { loadVaults() } catch { /* 忽略 */ }
       try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
