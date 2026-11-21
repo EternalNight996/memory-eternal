@@ -11296,6 +11296,28 @@
     }
   }
   __name(startCloudHealthLoop, "startCloudHealthLoop");
+  function hardDisconnectCloud() {
+    const cur = readCloudConn();
+    try {
+      const base = String(cur && cur.url || "").trim().replace(/\/+$/, "");
+      if (base) fetch(base + "/api/signout", { method: "POST", credentials: "include" }).catch(() => {
+      });
+    } catch {
+    }
+    const cleared = {
+      ...cur,
+      mode: "local",
+      active: false,
+      token: "",
+      owner: "",
+      profile: null,
+      lastError: "",
+      lastCheckAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    commitCloudConn(cleared);
+    return cleared;
+  }
+  __name(hardDisconnectCloud, "hardDisconnectCloud");
   function markCloudFailed(next, reason) {
     const merged = { ...readCloudConn(), ...next, mode: "cloud", active: false, lastError: String(reason || "\u8FDE\u63A5\u5931\u8D25") };
     saveCloudConn(merged);
@@ -17196,7 +17218,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.1" : "";
+  var CLIENT_VERSION = true ? "0.52.2" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17477,7 +17499,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-21T05:44:31+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-21T14:14:57+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -18637,7 +18659,18 @@ ${COMPONENTS_CSS}
                         type: "button",
                         onClick: () => {
                           setCloudOpen(false);
-                          disconnectCloud();
+                          hardDisconnectCloud();
+                          setCloudConn(readCloudConn());
+                          try {
+                            notify("\u5DF2\u65AD\u5F00\u4E91\u7AEF\u8FDE\u63A5", true);
+                          } catch {
+                          }
+                          setTimeout(() => {
+                            try {
+                              location.reload();
+                            } catch {
+                            }
+                          }, 400);
                         },
                         style: { flex: "none", fontSize: 11.5, padding: "5px 11px", borderRadius: 8, border: "1px solid var(--me-c-border)", background: "transparent", color: "inherit", cursor: "pointer" },
                         children: "\u65AD\u5F00\u8FDE\u63A5"
@@ -22358,25 +22391,8 @@ ${t("quoteHint")}`,
         }
       }, 260);
     }, "useAccount");
-    const disconnectCloud2 = /* @__PURE__ */ __name(() => {
-      const cur = readCloudConn();
-      try {
-        const base = String(cur && cur.url || cloudForm.url || "").trim().replace(/\/+$/, "");
-        if (base) fetch(base + "/api/signout", { method: "POST", credentials: "include" }).catch(() => {
-        });
-      } catch {
-      }
-      const cleared = {
-        ...cur,
-        mode: "local",
-        active: false,
-        token: "",
-        owner: "",
-        profile: null,
-        lastError: "",
-        lastCheckAt: (/* @__PURE__ */ new Date()).toISOString()
-      };
-      commitCloudConn(cleared);
+    const disconnectCloud = /* @__PURE__ */ __name(() => {
+      const cleared = hardDisconnectCloud();
       setCloudForm((f) => ({ ...f, mode: "local", token: "" }));
       setCloudConn(readCloudConn());
       setCloudTab("local");
@@ -23588,7 +23604,7 @@ ${t("quoteHint")}`,
                       }, style: { display: "block", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "inherit", font: "inherit", fontSize: 12.5 }, children: t("cloudSwitchAccount") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
                         setAcctOpen(false);
-                        disconnectCloud2();
+                        disconnectCloud();
                       }, style: { display: "block", width: "100%", padding: "11px 15px", textAlign: "left", background: "transparent", border: "none", borderTop: "1px solid var(--me-c-border)", cursor: "pointer", color: "var(--me-c-danger, #dc2626)", font: "inherit", fontSize: 12.5 }, children: t("cloudSignOut") })
                     ] }) : null
                   ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
