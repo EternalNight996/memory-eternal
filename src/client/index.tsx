@@ -686,6 +686,38 @@ function startCloudHealthLoop() {
   } catch { /* 忽略 */ }
 }
 
+/**
+ * **模块级**断开云端连接。
+ *
+ * 为什么必须放在模块级：顶栏「运行位置」弹层里的「断开连接」按钮在 8200 行左右，
+ * 而 disconnectCloud 原本定义在配置面板组件里（11838 行）——
+ * 跨组件引用 → 点击直接 ReferenceError: disconnectCloud is not defined，
+ * 用户看到的就是「点了没反应」（实测第 4 次踩这个坑）。
+ *
+ * 这里只做**数据层**的事：注销会话、清配置、切回本机前缀。
+ * UI state（弹层开关、表单、tab）留给调用方各自的组件去更新。
+ */
+function hardDisconnectCloud() {
+  const cur = readCloudConn()
+  // 通知服务端注销（cookie 会话）；网络失败也照常清本地令牌
+  try {
+    const base = String((cur && cur.url) || '').trim().replace(/\/+$/, '')
+    if (base) fetch(base + '/api/signout', { method: 'POST', credentials: 'include' }).catch(() => {})
+  } catch { /* 忽略 */ }
+  const cleared = {
+    ...cur,
+    mode: 'local',
+    active: false,
+    token: '',
+    owner: '',
+    profile: null,
+    lastError: '',
+    lastCheckAt: new Date().toISOString(),
+  }
+  commitCloudConn(cleared)   // 明确断开 → 写服务端
+  return cleared
+}
+
 /** 验证失败：**保留配置**，只标记 active=false 并记录原因。 */
 function markCloudFailed(next, reason) {
   const merged = { ...readCloudConn(), ...next, mode: 'cloud', active: false, lastError: String(reason || '连接失败') }
@@ -8272,7 +8304,13 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                       </span>
                       <button
                         type="button"
-                        onClick={() => { setCloudOpen(false); disconnectCloud() }}
+                        onClick={() => {
+                          setCloudOpen(false)
+                          hardDisconnectCloud()      // 模块级：清配置 + 注销会话，跨组件安全
+                          setCloudConn(readCloudConn())
+                          try { notify('已断开云端连接', true) } catch { /* 忽略 */ }
+                          setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 400)
+                        }}
                         style={{ flex: 'none', fontSize: 11.5, padding: '5px 11px', borderRadius: 8, border: '1px solid var(--me-c-border)', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
                       >断开连接</button>
                     </div>
@@ -11839,23 +11877,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     // **不能用 persistCloud**：它在切本地时故意保留上次的 token
     //（"临时回本地、之后还能切回云端"）。而「切换账号」的语义是**真断开**，
     // 必须把令牌彻底清掉，否则重开面板又变回已登录（用户实测踩到）。
-    const cur = readCloudConn()
-    // R3：通知服务端注销（cookie 会话）；网络失败也照常清本地令牌
-    try {
-      const base = String((cur && cur.url) || cloudForm.url || '').trim().replace(/\/+$/, '')
-      if (base) fetch(base + '/api/signout', { method: 'POST', credentials: 'include' }).catch(() => {})
-    } catch { /* 忽略 */ }
-    const cleared = {
-      ...cur,
-      mode: 'local',
-      active: false,
-      token: '',
-      owner: '',
-      profile: null,
-      lastError: '',
-      lastCheckAt: new Date().toISOString(),
-    }
-    commitCloudConn(cleared)         // 明确断开 → 写服务端（mode=local 会把令牌清掉）
+    const cleared = hardDisconnectCloud()   // 模块级：注销会话 + 清配置（见上方注释）
     setCloudForm((f) => ({ ...f, mode: 'local', token: '' }))
     setCloudConn(readCloudConn())
     setCloudTab('local')
