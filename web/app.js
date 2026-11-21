@@ -11317,6 +11317,29 @@
     return cleared;
   }
   __name(hardDisconnectCloud, "hardDisconnectCloud");
+  function switchToCloudSource() {
+    const cur = readCloudConn();
+    if (!cur || !String(cur.url || "").trim() || !String(cur.token || "").trim()) {
+      return { ok: false, error: "no_credentials" };
+    }
+    const next = { ...cur, mode: "cloud", active: true, lastError: "", lastCheckAt: (/* @__PURE__ */ new Date()).toISOString() };
+    saveCloudConn(next);
+    try {
+      applyCloudConn(next);
+    } catch {
+    }
+    try {
+      setTimeout(() => {
+        try {
+          location.reload();
+        } catch {
+        }
+      }, 300);
+    } catch {
+    }
+    return { ok: true, next };
+  }
+  __name(switchToCloudSource, "switchToCloudSource");
   function markCloudFailed(next, reason) {
     const merged = { ...readCloudConn(), ...next, mode: "cloud", active: false, lastError: String(reason || "\u8FDE\u63A5\u5931\u8D25") };
     saveCloudConn(merged);
@@ -17498,7 +17521,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-21T14:57:28+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-21T15:14:31+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17659,6 +17682,7 @@ ${COMPONENTS_CSS}
   function MemoryLibraryInner({ t, inModal, onClose }) {
     const inHost = typeof window !== "undefined" && (!!window.__DSH_BOOT__ || String(location.pathname || "").includes("/api/ui/app") || String(location.pathname || "").includes("/memory-eternal/api/ui/app"));
     const [overview, setOverview] = (0, import_react2.useState)(null);
+    const [switching, setSwitching] = (0, import_react2.useState)("");
     const [uiScale, setUiScale] = (0, import_react2.useState)(() => {
       try {
         const v = localStorage.getItem("me-ui-scale");
@@ -18695,7 +18719,15 @@ ${COMPONENTS_CSS}
                         disabled: !!switching,
                         onClick: () => {
                           setCloudOpen(false);
-                          switchDataSource("cloud");
+                          setSwitching("cloud");
+                          const r = switchToCloudSource();
+                          if (!r.ok) {
+                            setSwitching("");
+                            try {
+                              notify(r.error === "no_credentials" ? "\u4E91\u7AEF\u51ED\u636E\u4E0D\u5B8C\u6574\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55" : String(r.error), false);
+                            } catch {
+                            }
+                          }
                         },
                         style: { flex: "none", fontSize: 11.5, padding: "5px 11px", borderRadius: 8, border: "1px solid var(--me-c-accent, #2563eb)", background: "var(--me-c-accent, #2563eb)", color: "#fff", cursor: "pointer" },
                         children: switching ? "\u5207\u6362\u4E2D\u2026" : "\u5207\u5230\u4E91\u7AEF"
@@ -20773,7 +20805,7 @@ ${t("quoteHint")}`,
     const [importJob, setImportJob] = (0, import_react2.useState)(null);
     const importCancelRef = (0, import_react2.useRef)(false);
     const [resume, setResume] = (0, import_react2.useState)(() => readXferResume());
-    const [switching2, setSwitching] = (0, import_react2.useState)("");
+    const [switching, setSwitching] = (0, import_react2.useState)("");
     const [health, setHealth] = (0, import_react2.useState)(() => ({ ...CLOUD_HEALTH }));
     const healthDot = (() => {
       const st = health.status;
@@ -22030,7 +22062,7 @@ ${t("quoteHint")}`,
       return { ok: true, hot: !!(cd && cd.ok) };
     }, "switchLocalVaultLegacy");
     const switchLocalVault = /* @__PURE__ */ __name(async (path2) => {
-      if (!path2 || switching2) return;
+      if (!path2 || switching) return;
       setSwitching(path2);
       try {
         const r = await fetchLocal("/vaults/switch", {
@@ -22086,8 +22118,8 @@ ${t("quoteHint")}`,
         setSwitching("");
       }
     }, "switchLocalVault");
-    const switchDataSource2 = /* @__PURE__ */ __name(async (kind) => {
-      if (switching2) return;
+    const switchDataSource = /* @__PURE__ */ __name(async (kind) => {
+      if (switching) return;
       const conn = readCloudConn();
       const url = String(conn.url || cloudForm.url || "").trim();
       const token = String(cloudForm.token || conn.token || "").trim();
@@ -22174,7 +22206,7 @@ ${t("quoteHint")}`,
       }
     }, "switchDataSource");
     const switchToLibrary = /* @__PURE__ */ __name(async (target) => {
-      if (!target || switching2) return;
+      if (!target || switching) return;
       setSwitchConfirm(null);
       if (target === currentVaultKey) {
         try {
@@ -22209,7 +22241,7 @@ ${t("quoteHint")}`,
           localStorage.setItem("me-cloud-vault", nm);
         } catch {
         }
-        switchDataSource2("cloud");
+        switchDataSource("cloud");
         return;
       }
       await switchLocalVault(target);
@@ -23744,7 +23776,7 @@ ${t("quoteHint")}`,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, lineHeight: 1.7 }, children: t("xferResumeBanner").replace("{n}", String(resume.srcName || String(resume.src || "").split(/[\\/]/).filter(Boolean).pop() || "")).replace("{d}", String(resume.done)).replace("{t}", String(resume.total)) }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 6, borderRadius: 999, background: "rgba(0,0,0,.12)", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: "100%", width: Math.max(2, Math.round(resume.done / Math.max(1, resume.total) * 100)) + "%", background: "var(--me-c-warn)", transition: "width .3s ease" } }) }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !!switching2, onClick: () => uploadVaultToCloud(resume.src), children: t("xferResumeGo") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !!switching, onClick: () => uploadVaultToCloud(resume.src), children: t("xferResumeGo") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: dropResume, children: t("xferResumeDrop") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 10.5, opacity: 0.6 }, children: [
@@ -23759,10 +23791,10 @@ ${t("quoteHint")}`,
                         {
                           variant: "primary",
                           size: "sm",
-                          disabled: !!switching2 || !!(importJob && importJob.importing) || !vaultPick || vaultPick === currentVaultKey,
+                          disabled: !!switching || !!(importJob && importJob.importing) || !vaultPick || vaultPick === currentVaultKey,
                           onClick: () => setSwitchConfirm({ from: currentVaultKey, to: vaultPick }),
-                          title: switching2 ? t("switchingVault") : importJob && importJob.importing ? "\u6B63\u5728\u4F20\u8F93\u4E2D\uFF0C\u7B49\u5B83\u7ED3\u675F\u518D\u5207" : !vaultPick ? "\u5148\u5728\u4E0B\u62C9\u91CC\u9009\u4E00\u4E2A\u5E93" : vaultPick === currentVaultKey ? "\u5DF2\u7ECF\u662F\u5F53\u524D\u5E93\u4E86\uFF08\u60F3\u5207\u6362\u8BF7\u5148\u5728\u4E0B\u62C9\u91CC\u9009**\u53E6\u4E00\u4E2A**\uFF09" : t("switchNowHint"),
-                          children: switching2 ? t("switchingVault") : t("switchNowBtn")
+                          title: switching ? t("switchingVault") : importJob && importJob.importing ? "\u6B63\u5728\u4F20\u8F93\u4E2D\uFF0C\u7B49\u5B83\u7ED3\u675F\u518D\u5207" : !vaultPick ? "\u5148\u5728\u4E0B\u62C9\u91CC\u9009\u4E00\u4E2A\u5E93" : vaultPick === currentVaultKey ? "\u5DF2\u7ECF\u662F\u5F53\u524D\u5E93\u4E86\uFF08\u60F3\u5207\u6362\u8BF7\u5148\u5728\u4E0B\u62C9\u91CC\u9009**\u53E6\u4E00\u4E2A**\uFF09" : t("switchNowHint"),
+                          children: switching ? t("switchingVault") : t("switchNowBtn")
                         }
                       ),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -23791,7 +23823,7 @@ ${t("quoteHint")}`,
                         "select",
                         {
                           value: vaultPick || currentVaultKey || "",
-                          disabled: !!switching2 || !!(importJob && importJob.importing),
+                          disabled: !!switching || !!(importJob && importJob.importing),
                           onChange: (e) => setVaultPick(e.target.value),
                           title: t("switchVaultHint"),
                           style: { fontSize: 11.5, padding: "4px 6px", borderRadius: 8, border: "1px solid var(--me-c-border)", background: "var(--me-c-surface)", maxWidth: 260 },
@@ -23900,7 +23932,7 @@ ${t("quoteHint")}`,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.72, lineHeight: 1.75 }, children: t("switchConfirmBody") }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", onClick: () => setSwitchConfirm(null), children: t("cancel") }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !!switching2, onClick: () => switchToLibrary(switchConfirm.to), children: t("switchConfirmOk") })
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "primary", size: "sm", disabled: !!switching, onClick: () => switchToLibrary(switchConfirm.to), children: t("switchConfirmOk") })
                     ] })
                   ] }) }) : null,
                   cloudConn.mode === "cloud" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-border)", borderRadius: 12, background: "var(--me-c-surface)", overflow: "hidden" }, children: [
