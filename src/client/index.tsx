@@ -442,6 +442,14 @@ function persistCloud(form) {
     active: prev && prev.active !== undefined ? prev.active : true,
     lastError: '',             // 换了配置就必须清掉历史失败记录，否则界面一直显示旧错误
     lastCheckAt: new Date().toISOString(),
+    // ★ owner / profile 必须带过来。
+    //
+    // saveCloudConn 是**全量覆盖**：next 里没有的字段就从文件里消失了。
+    // 之前这里只写了 mode/url/token/active，于是「切回本地」之后 owner 被抹成空，
+    // 用户再打开面板看不到自己是谁、也看不到套餐 —— 而语义本应只是「先不用云端库」。
+    // 账号信息的来源：form 显式给了就用 form 的，否则继承 prev。
+    owner: String((form && form.owner) || (prev && prev.owner) || ''),
+    profile: (form && form.profile) || (prev && prev.profile) || null,
   }
   saveCloudConn(next)
   return { ok: true, next, ignoredOauth }
