@@ -607,7 +607,7 @@ bootstrapCloudMode()
  * 为什么要全局：顶栏、连接页、配置面板三个组件各有一份 cloudConn，
  * 各自测各自的话会一会儿绿一会儿红。统一测一次、广播出去。
  */
-const CLOUD_HEALTH = { status: 'unknown', lastCheckAt: 0, lastError: '', plan: '', owner: '', daysLeft: null }
+const CLOUD_HEALTH = { status: 'unknown', lastCheckAt: 0, lastError: '', plan: '', owner: '', daysLeft: null, activeVault: '' }
 const CLOUD_HEALTH_EVT = 'me-cloud-health'
 let cloudHealthTimer = null
 
@@ -11665,6 +11665,27 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     }
     if (String(target).startsWith('cloud')) {
       const nm = String(target).includes('::') ? String(target).split('::')[1] : 'default'
+      // ★ 必须真的让服务端切库。
+      //
+      //   以前这里只 setCloudVault + switchDataSource('cloud')，服务端的激活库**一步没动**：
+      //   切到 default 后顶部统计变成 1（那是新库），但卡片列表还是 mengbot 的 9987 张。
+      //   正确顺序：先 POST /vaults/switch { path }，成功再切数据源。
+      const hitVault = (Array.isArray(cloudVaultList) ? cloudVaultList : []).find((v) => v.name === nm)
+      const targetPath = hitVault && hitVault.root ? String(hitVault.root) : ''
+      if (targetPath) {
+        try {
+          const r = await fetch(cloudApi('/vaults/switch'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) },
+            body: JSON.stringify({ path: targetPath }),
+          })
+          const d = await r.json().catch(() => ({}))
+          if (!r.ok || !d.ok) throw new Error(d.error || d.hint || ('HTTP ' + r.status))
+        } catch (e) {
+          try { notify(t('switchVaultFail') + '：' + String((e && e.message) || e), false) } catch { /* 忽略 */ }
+          return
+        }
+      }
       try { setCloudVault(nm); localStorage.setItem('me-cloud-vault', nm) } catch { /* 忽略 */ }
       switchDataSource('cloud')
       return
