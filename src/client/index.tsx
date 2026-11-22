@@ -12581,6 +12581,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                     {[
                       ['duplicate', t('junkDuplicate'), t('junkDuplicateHint'), 'delete', true],
       ['sameSource', t('junkSameSource'), t('junkSameSourceHint'), 'delete', true],
+      ['nearDuplicate', t('junkNearDuplicate'), t('junkNearDuplicateHint'), 'delete', true],
                       ['tooShort', t('junkTooShort'), t('junkTooShortHint'), 'reject', false],
                       ['neverRecalled', t('junkNeverRecalled'), t('junkNeverRecalledHint'), 'archive', false],
                       ['stale', t('junkStale'), t('junkStaleHint'), 'archive', false],
