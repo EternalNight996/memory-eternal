@@ -11221,6 +11221,18 @@
     }, "run");
     run();
   }, "syncConnFromServer"))();
+  var DEVICE_ID = function() {
+    try {
+      const KEY = "me-device-id";
+      const old = String(localStorage.getItem(KEY) || "").trim();
+      if (old && old.length >= 8) return old;
+      const id = globalThis.crypto && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "").slice(0, 16) : "dev" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem(KEY, id);
+      return id;
+    } catch {
+      return "unknown-device";
+    }
+  }();
   var CLOUD_HEALTH = { status: "unknown", lastCheckAt: 0, lastError: "", plan: "", owner: "", daysLeft: null, activeVault: "" };
   var CLOUD_HEALTH_EVT = "me-cloud-health";
   var cloudHealthTimer = null;
@@ -17521,7 +17533,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-22T00:40:11+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-22T23:52:31+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
