@@ -671,6 +671,8 @@ async function probeCloudHealth() {
     if (r.ok && d.granted) {
       CLOUD_HEALTH.status = 'ok'
       CLOUD_HEALTH.lastError = ''
+      // 云端恢复了：清掉「失败重载」的一次性标记，下一次真失败还能正常重载一次
+      try { sessionStorage.removeItem('me-cloud-fallback-reload') } catch { /* 忽略 */ }
       CLOUD_HEALTH.plan = String((d.connect && d.connect.plan) || '')
       const realOwner = String((d.connect && d.connect.owner) || '')
       CLOUD_HEALTH.owner = realOwner
@@ -7575,10 +7577,18 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [sort, setSort] = useState('recent') // 'recent' | 'title' | 'hot'
   const [libToast, setLibToast] = useState(null)
   // 云端熔断回退：lib 里 fallbackToLocal() 会发这个事件，这里给出可见提示并重载到本地模式。
+  //
+  // ⚠ 必须只重载一次：如果云端持续失败（token 过期 → 401、CORS、断网），
+  // 重载后会重新探活再失败、再发事件 —— 没有闸门就是**无限刷新**（用户只看到页面一直闪）。
+  // 用 sessionStorage 打标；云端恢复（health ok）时清标，下一次真失败仍能正常重载一次。
   useEffect(() => {
     const onFallback = (e) => {
       const reason = (e && e.detail && e.detail.reason) || '云端不可达'
       try { notify('☁️ 云端不可达（' + reason + '），已切回本地模式', false) } catch { /* 忽略 */ }
+      let already = false
+      try { already = !!sessionStorage.getItem('me-cloud-fallback-reload') } catch { /* 隐私模式 */ }
+      if (already) return
+      try { sessionStorage.setItem('me-cloud-fallback-reload', '1') } catch { /* 忽略 */ }
       // 1.2 秒后重载：此时 API 前缀已切回本地，页面会正常加载本地库
       setTimeout(() => { try { location.reload() } catch { /* 忽略 */ } }, 1200)
     }

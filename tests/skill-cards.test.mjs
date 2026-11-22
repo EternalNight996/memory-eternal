@@ -338,7 +338,17 @@ test('memory_recall 命中技能卡时标注技能，并提示用 skill 工具�
   await syncSkillCards(root, { skills: fakeRegistry(), includeFilesystem: false })
   const [card] = await listCards(root, { status: ['pending'], kind: 'skill' })
   await setCardStatus(root, card.path, 'approved')
-  const out = await callTool('memory_recall', { query: 'alpha' }, root)
+  // 隔离 DSH_HOME：callTool 的数据源由 resolveDataSource() 决定 —— 本机面板一旦切到云端模式，
+  // 它会去读云端，这里「召回本机临时库」的断言就依赖用户当前环境（实测：云端模式下必红）。
+  const prevHome = process.env.DSH_HOME
+  process.env.DSH_HOME = makeRoot()
+  let out
+  try {
+    out = await callTool('memory_recall', { query: 'alpha' }, root)
+  } finally {
+    if (prevHome === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = prevHome
+  }
   const text = out.content[0].text
   assert.match(text, /技能卡/, '召回结果要标注这是技能卡')
   assert.match(text, /skill 工具加载同名技能/, '要告诉 Agent 用 skill 工具加载，而不是直接执行卡内正文')
