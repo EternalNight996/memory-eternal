@@ -745,6 +745,40 @@ function hardDisconnectCloud() {
 }
 
 /**
+ * **模块级**「退出登录」：通知服务端注销 + 本地令牌彻底清掉（只保留地址，方便重新登录）。
+ *
+ * 与 hardDisconnectCloud 严格区分：那个的语义是「先不用云端库」，令牌要留着；
+ * 这个的语义是「退出这个账号」，不通知服务端 + 不清令牌的话，重开面板又变回已登录
+ * （R3 契约测试抓到的就是这条）。注销请求 best-effort：网络失败也要把本地清干净。
+ */
+function signOutCloud() {
+  const cur = readCloudConn()
+  const base = String(cur.url || '').replace(/\/+$/, '')
+  const token = String(cur.token || '').trim()
+  if (base && token) {
+    try {
+      fetch(base + '/api/signout', {
+        method: 'POST',
+        headers: { authorization: 'Bearer ' + token },
+        keepalive: true,   // 页面随后会 reload，别让请求被掐掉
+      }).catch(() => {})
+    } catch { /* 忽略 */ }
+  }
+  const cleared = {
+    ...cur,
+    mode: 'local',
+    active: false,
+    token: '',
+    owner: '',
+    profile: null,
+    lastError: '',
+    lastCheckAt: new Date().toISOString(),
+  }
+  commitCloudConn(cleared)
+  return cleared
+}
+
+/**
  * **模块级**「切到云端数据源」+ 刷新。
  *
  * 顶栏「运行位置」弹层里那个「切到云端」按钮在 MemoryLibraryInner 内（8341 行），
@@ -11998,9 +12032,9 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
 
   const disconnectCloud = () => {
     // **不能用 persistCloud**：它在切本地时故意保留上次的 token
-    //（"临时回本地、之后还能切回云端"）。而「切换账号」的语义是**真断开**，
-    // 必须把令牌彻底清掉，否则重开面板又变回已登录（用户实测踩到）。
-    const cleared = hardDisconnectCloud()   // 模块级：注销会话 + 清配置（见上方注释）
+    //（"临时回本地、之后还能切回云端"）。而「退出登录」的语义是**真退出**：
+    // 必须通知服务端注销并把令牌彻底清掉，否则重开面板又变回已登录（用户实测踩到）。
+    const cleared = signOutCloud()   // 模块级：POST /api/signout + 清令牌
     setCloudForm((f) => ({ ...f, mode: 'local', token: '' }))
     setCloudConn(readCloudConn())
     setCloudTab('local')

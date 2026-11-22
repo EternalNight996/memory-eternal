@@ -132,7 +132,7 @@ test('client 注册条目形状符合 node-oidc-provider', () => {
   assert.deepEqual(c.grant_types, ['authorization_code', 'refresh_token'])
   assert.deepEqual(c.response_types, ['code'])
   assert.equal(c.token_endpoint_auth_method, 'client_secret_basic')
-  assert.ok(c.redirect_uris.some((u) => u.endsWith('/memory-eternal/api/cloud/auth/callback')))
+  assert.ok(c.redirect_uris.some((u) => u.endsWith('/api/cloud/auth/callback')))
 })
 
 test('mbt_ 校验：打 /api/v1/me，200 有效 / 401 无效', () => withHome(async (env) => {

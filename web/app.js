@@ -11329,6 +11329,36 @@
     return cleared;
   }
   __name(hardDisconnectCloud, "hardDisconnectCloud");
+  function signOutCloud() {
+    const cur = readCloudConn();
+    const base = String(cur.url || "").replace(/\/+$/, "");
+    const token = String(cur.token || "").trim();
+    if (base && token) {
+      try {
+        fetch(base + "/api/signout", {
+          method: "POST",
+          headers: { authorization: "Bearer " + token },
+          keepalive: true
+          // 页面随后会 reload，别让请求被掐掉
+        }).catch(() => {
+        });
+      } catch {
+      }
+    }
+    const cleared = {
+      ...cur,
+      mode: "local",
+      active: false,
+      token: "",
+      owner: "",
+      profile: null,
+      lastError: "",
+      lastCheckAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    commitCloudConn(cleared);
+    return cleared;
+  }
+  __name(signOutCloud, "signOutCloud");
   function switchToCloudSource() {
     const cur = readCloudConn();
     if (!cur || !String(cur.url || "").trim() || !String(cur.token || "").trim()) {
@@ -17262,7 +17292,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.0" : "";
+  var CLIENT_VERSION = true ? "0.52.1" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17543,7 +17573,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-23T02:11:42+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-23T02:29:56+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -22490,7 +22520,7 @@ ${t("quoteHint")}`,
       }, 260);
     }, "useAccount");
     const disconnectCloud = /* @__PURE__ */ __name(() => {
-      const cleared = hardDisconnectCloud();
+      const cleared = signOutCloud();
       setCloudForm((f) => ({ ...f, mode: "local", token: "" }));
       setCloudConn(readCloudConn());
       setCloudTab("local");

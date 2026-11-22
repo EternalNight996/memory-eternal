@@ -37,7 +37,7 @@ test('① 决策：/overview 非 200 但 TCP 可连 → 视为存活（绝不自
 test('② 版本探测优先 /version-check（不碰库），拿不到才回落 /overview', async () => {
   // 只能"库不可用"的实例：/version-check 正常、/overview 500
   const brokenDb = await serve((req, res) => {
-    if (req.url.startsWith('/memory-eternal/api/version-check')) {
+    if (req.url.includes('/api/version-check')) {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: true, loaded: '9.9.9', onDisk: '9.9.9' }))
       return
@@ -47,7 +47,7 @@ test('② 版本探测优先 /version-check（不碰库），拿不到才回落 
   })
   // 旧版实例：没有 /version-check 路由，只有 /overview
   const oldOnly = await serve((req, res) => {
-    if (req.url.startsWith('/memory-eternal/api/overview')) {
+    if (req.url.includes('/api/overview')) {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: true, version: '0.9.9', vaultDir: '/tmp/vault' }))
       return
@@ -70,8 +70,8 @@ test('#30 第五轮：单发版本探测必须能扛住瞬时失败（否则 sta
     hits += 1
     // 前两次（含 /version-check 与 /overview 各一次）故意失败：模拟重启窗口/瞬时拒绝
     if (hits <= 2) { res.writeHead(503); res.end('busy'); return }
-    if (req.url.startsWith('/memory-eternal/api/version-check')) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, loaded: '0.10.32' })); return }
-    if (req.url.startsWith('/memory-eternal/api/overview')) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, vaultDir: '/v', version: '0.10.32' })); return }
+    if (req.url.includes('/api/version-check')) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, loaded: '0.10.32' })); return }
+    if (req.url.includes('/api/overview')) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, vaultDir: '/v', version: '0.10.32' })); return }
     res.writeHead(404); res.end('')
   })
   try {

@@ -102,6 +102,6 @@ test('客户端：iframe 走同源壳，只有旧宿主才回落常驻实例地�
   const client = read('src/client/index.tsx')
   assert.match(client, /useState\(API \+ '\/ui\/app'\)/, 'iframe 默认地址应是同源壳')
   assert.match(client, /fetch\(API \+ '\/ui\/app', \{ method: 'HEAD' \}\)/, '要先探同源壳是否可用')
-  assert.match(client, /const fallback = \(\) => fetch\('\/memory-eternal\/api\/web-info'\)/, '旧宿主（404）才回落 web-info')
+  assert.match(client, /const fallback = \(\) => fetch\('\/api\/web-info'\)/, '旧宿主（404）才回落 web-info（前缀 0.50 起归一成 /api）')
   assert.match(client, /root\.endsWith\('\/ui\/app'\) \? '\?' : '\/\?'/, '同源壳与独立实例的 ?tab= 拼接都要正确')
 })
