@@ -111,6 +111,20 @@ test('两台设备各切各的库，互不覆盖；无 device 的请求读全局
     assert.equal(cb.body.vaultDir, defaultRoot, 'B 应保持自己选的库，不被 A 的切换影响（原 bug）')
     assert.equal(c0.body.vaultDir, defaultRoot, '无 device 的请求读全局兜底快照（最后一次切换）')
 
+    // 自动沉淀推送：带设备头 → 必须落进该设备的活跃库（v2），不能影响 B 的库
+    const countOf = (o) => (Number(o && o.total) || 0) + Number((o && o.quarantine && o.quarantine.pending) || 0)
+    const beforeA = await call(base, '/overview', { token, device: 'devA' })
+    const beforeB = await call(base, '/overview', { token, device: 'devB' })
+    const imp = await call(base, '/import/chunk', {
+      method: 'POST', token, device: 'devA',
+      body: { cards: [{ title: '推送到 A 的库', kind: 'knowledge', body: '一段足够长的推送测试正文。', text: '---\ntitle: 推送到 A 的库\nkind: knowledge\n---\n\n一段足够长的推送测试正文。', source: 'capture' }], offset: 0, total: 1 },
+    })
+    assert.equal(imp.body.ok, true, '推送要成功：' + JSON.stringify(imp.body).slice(0, 160))
+    const afterA = await call(base, '/overview', { token, device: 'devA' })
+    const afterB = await call(base, '/overview', { token, device: 'devB' })
+    assert.ok(countOf(afterA.body) > countOf(beforeA.body), '带设备头推送应落到 A 自己的库')
+    assert.equal(countOf(afterB.body), countOf(beforeB.body), '不能影响 B 的库（全局活跃库的坑）')
+
     // 标记文件落盘：A 有专属标记，全局兜底也在
     const marks = []
     const walk = (d) => {

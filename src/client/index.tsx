@@ -291,7 +291,7 @@ function syncCloudConnToServer(conn) {
     fetch(API + '/cloud/conn', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || '' } }),
+      body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || '', deviceId: DEVICE_ID } }),
     }).catch(() => { /* 同步失败不影响本地使用 */ })
   } catch { /* 忽略 */ }
 }
