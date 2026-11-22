@@ -870,9 +870,23 @@ function fallbackToLocal(reason) {
   } catch { /* 忽略 */ }
 }
 
-/** 请求算不算「云端失败」（网络错误也算）。 */
+/** 请求算不算是「云端失败」（网络错误也算）。 */
 function cloudFailureStatus(status) {
   return status === 0 || status === 401 || status === 403 || status >= 500
+}
+
+/**
+ * 云端底层报错 → 人话（t 由调用方传入）。
+ * 用户之前只看到「连不上服务器: Failed to fetch」，分不清是断网、跨域还是服务端挂了。
+ */
+function friendlyCloudError(msg, t) {
+  const s = String(msg || '').trim()
+  const tr = (k, fallback) => { try { return t ? t(k) : fallback } catch { return fallback } }
+  if (!s) return tr('cloudErrNetwork', 'network unreachable')
+  if (/failed to fetch|networkerror|load failed|fetch failed|econnrefused|etimedout|network request failed/i.test(s)) {
+    return tr('cloudErrNetwork', 'network unreachable or blocked by CORS (Failed to fetch)')
+  }
+  return s
 }
 
 // 首屏闸门：**所有 API 请求先等探活结果**，避免「先失败一片、再回退重载」的糟糕首屏。
@@ -1503,6 +1517,13 @@ export const ZH = {
   cloudTokenBad: '访问密钥格式不对：应为 me_…（访问密钥）或 pc_…（库匹配码）',
   cloudGranted: '云端验证通过（{plan}），已切换到云端模式',
   cloudDenied: '无法连接云端：{reason}',
+  cloudHealthOffline: '云端连接异常：{reason}',
+  cloudHealthDenied: '云端授权异常：{reason}',
+  cloudHealthOk: '云端连接已恢复',
+  cloudConnecting: '正在连接云端…',
+  cloudConnOk: '已连接云端：{who}',
+  cloudConnFailed: '连接云端失败：{reason}',
+  cloudErrNetwork: '网络不通或被跨域拦截（Failed to fetch）',
   cloudTokenHint: '登录可留空；直连他人实例才填',
   cloudTokenPeek: '当前令牌：{peek}（共 {len} 字符）',
   cloudOauthIgnored: '已自动忽略 MengBot 的客户端密钥（mbo_）—— 它不是访问密钥，请用「用 MengBot 账号登录」',
@@ -3036,6 +3057,13 @@ export const EN = {
   cloudTokenBad: 'Access key looks wrong: expected me_… (key) or pc_… (vault matching code)',
   cloudGranted: 'Cloud verified ({plan}); switched to cloud mode',
   cloudDenied: 'Cannot connect to cloud: {reason}',
+  cloudHealthOffline: 'Cloud connection problem: {reason}',
+  cloudHealthDenied: 'Cloud authorization problem: {reason}',
+  cloudHealthOk: 'Cloud connection restored',
+  cloudConnecting: 'Connecting to cloud…',
+  cloudConnOk: 'Connected to cloud: {who}',
+  cloudConnFailed: 'Cloud connection failed: {reason}',
+  cloudErrNetwork: 'Network unreachable or blocked by CORS (Failed to fetch)',
   cloudTokenHint: 'Leave empty if you sign in with MengBot; only needed when connecting to someone else instance',
   cloudTokenPeek: 'Current token: {peek} ({len} chars)',
   cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) — it is not an access key. Use "Sign in with MengBot" instead',
@@ -7576,6 +7604,20 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   }, [goView])
   const [sort, setSort] = useState('recent') // 'recent' | 'title' | 'hot'
   const [libToast, setLibToast] = useState(null)
+  /**
+   * 组件级通知：把状态变化告诉用户（用户的知情权要求）。
+   *
+   * 为什么要补这个：本组件里多处调用 `notify(...)`（云端熔断回退 / 授权失效 / 网络失败），
+   * 但**从来没有定义过 notify** —— 每次都被外面那层 try/catch 静默吞掉（ReferenceError），
+   * 用户什么都看不到，只知道「点了没反应 / 一直转」。
+   */
+  const notify = useCallback((msg, ok = true) => {
+    try {
+      if (libToastTimer.current) clearTimeout(libToastTimer.current)
+      setLibToast({ ok: ok !== false, msg: String(msg || '') })
+      libToastTimer.current = setTimeout(() => { try { setLibToast(null) } catch { /* 卸载后忽略 */ } }, 4200)
+    } catch { /* 忽略 */ }
+  }, [])
   // 云端熔断回退：lib 里 fallbackToLocal() 会发这个事件，这里给出可见提示并重载到本地模式。
   //
   // ⚠ 必须只重载一次：如果云端持续失败（token 过期 → 401、CORS、断网），
@@ -7647,8 +7689,25 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   // 顶栏也要订阅健康状态：它和配置面板是两个组件，
   // 只订阅在面板里的话，换账号后顶栏头像还显示旧账号（实测反馈）。
   const [topHealth, setTopHealth] = useState(() => ({ ...CLOUD_HEALTH }))
+  // 健康状态变化要**说出来**（知情权）：原先只在顶栏标个「离线」，用户不知道为什么、
+  // 该等还是该改配置。这里在状态切换的那一次弹一次通知，恢复也弹一次。
+  const lastHealthStatus = useRef('')
   useEffect(() => {
-    const onHealth = (e) => setTopHealth({ ...(e && e.detail ? e.detail : CLOUD_HEALTH) })
+    const onHealth = (e) => {
+      const h = { ...(e && e.detail ? e.detail : CLOUD_HEALTH) }
+      setTopHealth(h)
+      const prev = lastHealthStatus.current
+      lastHealthStatus.current = h.status
+      if (!prev || prev === h.status) return
+      if (h.status === 'offline' || h.status === 'denied') {
+        const reason = friendlyCloudError(h.lastError, t)
+        try {
+          notify((h.status === 'denied' ? t('cloudHealthDenied') : t('cloudHealthOffline')).replace('{reason}', reason), false)
+        } catch { /* 忽略 */ }
+      } else if (h.status === 'ok' && (prev === 'offline' || prev === 'denied')) {
+        try { notify(t('cloudHealthOk'), true) } catch { /* 忽略 */ }
+      }
+    }
     try { window.addEventListener(CLOUD_HEALTH_EVT, onHealth) } catch { /* 忽略 */ }
     startCloudHealthLoop()
     setTopHealth({ ...CLOUD_HEALTH })
@@ -7673,7 +7732,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
         ? (r.authenticated === false
           ? { ok: true, authenticated: false, version: r.version || '', message: r.message || '', diag: r.diag || null }
           : { ok: true, authenticated: true, owner: r.owner || '', profile: r.profile || null, diag: r.diag || null })
-        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null },
+        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : friendlyCloudError(r.error, t), diag: r.diag || null },
     )
     setCloudBusy(false)
   }
@@ -7704,9 +7763,9 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
     setCloudBusy(false)
     if (!r.ok) {
       // 失败：保留配置、标记失败、**不切换**
-      markCloudFailed(prepared.next, r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error)
+      markCloudFailed(prepared.next, r.error === 'url-invalid' ? t('cloudUrlInvalid') : friendlyCloudError(r.error, t))
       setCloudConn(readCloudConn())
-      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null })
+      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : friendlyCloudError(r.error, t), diag: r.diag || null })
       return
     }
     activateCloud(prepared.next, { commit: true })
@@ -8348,7 +8407,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 type="button"
                 className="mc-v5-sys--btn"
                 onClick={() => { setCloudOpen((v) => !v); setCloudTest(null) }}
-                title={t('cloudSwitchHint') + ' · ' + t('paneExperimental')}
+                title={t('cloudSwitchHint') + ' · ' + t('paneExperimental') + ((topHealth.status === 'offline' || topHealth.status === 'denied') ? ' · ' + friendlyCloudError(topHealth.lastError, t) : '')}
                 aria-haspopup="dialog"
                 aria-expanded={cloudOpen}
               >
@@ -11067,7 +11126,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
         ? (r.authenticated === false
           ? { ok: true, authenticated: false, version: r.version || '', message: r.message || '', diag: r.diag || null }
           : { ok: true, authenticated: true, owner: r.owner || '', profile: r.profile || null, diag: r.diag || null })
-        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null },
+        : { ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : friendlyCloudError(r.error, t), diag: r.diag || null },
     )
     setCloudBusy(false)
   }
@@ -11090,16 +11149,21 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       return
     }
     setCloudBusy(true); setCloudTest(null)
+    // 连接是个多步过程（探测 → 授权 → 拉库列表），以前只有一个忙碌态，用户不知道卡在哪一步。
+    try { notify(t('cloudConnecting'), true) } catch { /* 忽略 */ }
     const r = await probeCloud(cloudForm)
     setCloudBusy(false)
     if (!r.ok) {
-      const saved = markCloudFailed(prepared.next, r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error)
+      const errText = r.error === 'url-invalid' ? t('cloudUrlInvalid') : friendlyCloudError(r.error, t)
+      const saved = markCloudFailed(prepared.next, errText)
       setCloudConn(saved)          // 状态行立刻反映「配置已保留、未切换」
-      setCloudTest({ ok: false, error: r.error === 'url-invalid' ? t('cloudUrlInvalid') : r.error, diag: r.diag || null })
+      setCloudTest({ ok: false, error: errText, diag: r.diag || null })
+      try { notify(t('cloudConnFailed').replace('{reason}', errText), false) } catch { /* 忽略 */ }
       return
     }
     const saved = activateCloud(prepared.next, { commit: true })
     setCloudConn(saved)
+    try { notify(t('cloudConnOk').replace('{who}', String(r.owner || saved.owner || '').trim() || '-'), true) } catch { /* 忽略 */ }
     try { location.reload() } catch { /* 忽略 */ }
   }
   /** 跳转登录：到云端实例的 /cloud/auth/start，登录完自动回跳（令牌走 fragment） */
