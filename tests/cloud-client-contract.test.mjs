@@ -21,7 +21,9 @@ test('R2 轮询处理三种结果：pending / token / needAuthorize', () => {
 })
 
 test('R3 退出登录：POST /signout 并清本地 token', () => {
-  assert.match(src, /\/memory-eternal\/api\/signout/, '退出要通知服务端注销')
+  // 0.50 起 API 前缀归一成 /api（/memory-eternal/api 由服务端 legacy 归一化，两者都通），
+  // 所以断言按规范路径写，不再要求字面量带旧前缀。
+  assert.match(src, /\/api\/signout/, '退出要通知服务端注销')
   assert.match(src, /const cleared = \{[\s\S]{0,200}token: ''/, '本地 token 必须清掉')
 })
 
@@ -33,11 +35,11 @@ test('R4 库匹配码：独立输入框 + pc_ 校验 + 直接当 Bearer', () => 
 })
 
 test('R5 图标：使用服务端 /memory-eternal/api/icon.png', () => {
-  assert.match(src, /\/memory-eternal\/api\/icon\.png/, '图标要指向服务端官方图标')
+  assert.match(src, /\/api\/icon\.png/, '图标要指向服务端官方图标')
   assert.match(src, /cloudInstanceIconUrl\(/, '要有统一的图标 URL 构造')
 })
 
 test('R6 升级/续费：打开服务端控制台，不自己拼订阅深链', () => {
-  assert.match(src, /\/memory-eternal\/api\/console/, '升级入口要开 /console')
+  assert.match(src, /\/api\/console/, '升级入口要开 /console')
   assert.doesNotMatch(src, /\/subscribe\?/, '客户端不得再自己拼 subscribe 深链（缺 merchant 会落空白页）')
 })

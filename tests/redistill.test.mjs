@@ -5,7 +5,7 @@ import http from 'node:http'
 import { promises as fsp } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ensureVault, writeCard, auditQueue } from '../lib/vault.js'
+import { ensureVault, writeCard, auditQueue, readCard } from '../lib/vault.js'
 import { closeAllDb } from '../lib/db.js'
 import { createApi } from '../lib/api.js'
 
@@ -121,14 +121,22 @@ test('模型判定 append_to：返回「应并入已有卡」，不再误报 422
   llmPayload = JSON.stringify({ append_to: '03-Knowledge/已有卡.md', update: '补充：这条应追加到已有卡，而不是新建。' })
   try {
     const r = await post('/audit/redistill', { path: w.path })
-    assert.equal(r.ok, false, JSON.stringify(r))
+    // 目标不存在时的当前语义是**降级保留**（不是 422）：把 update 写进本卡正文 + 打标记，
+    // 让用户还能看到模型想并到哪、并了什么；issue #64 要防的是「误报未产出可保存」。
+    assert.equal(r.ok, true, JSON.stringify(r))
+    assert.equal(r.mode, 'target-missing', JSON.stringify(r))
     assert.equal(r.appendTo, '03-Knowledge/已有卡.md', JSON.stringify(r))
-    assert.match(r.error, /并入已有卡/, JSON.stringify(r))
-    // 原卡内容不能被改（只是提示，不是写入）
+    assert.match(r.note, /目标不存在/, JSON.stringify(r))
+    assert.doesNotMatch(String(r.error || ''), /未产出可保存/, '不得再退回「模型未产出可保存」的误报')
     const q = await auditQueue(root)
     const card = q.pending.find((c) => c.path === w.path)
     assert.ok(card, '原文卡应仍在待审队列')
     assert.equal(card.title, '待并入的原文卡')
+    // listCards 出于性能不带 body（0.52 起），正文要用 readCard 读
+    const full = await readCard(root, w.path, { allowUnapproved: true })
+    assert.match(String(full.text || ''), /补充：这条应追加到已有卡/, 'update 内容要落到本卡正文，不能丢')
+    assert.match(String(card.summary || ''), /补充：这条应追加到已有卡/, '摘要也要带上，审核中心才有可读预览')
+    assert.ok((card.tags || []).includes('append-target-missing'), '降级要留标记，审核中心能看出来')
   } finally {
     llmPayload = CARD
   }

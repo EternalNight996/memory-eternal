@@ -20,7 +20,7 @@ test('独立页（无 llm）→ /llm-routes 代理给宿主，并标记 proxied'
     currentPkgVersion: () => '0.10.49',
     getLlm: () => null,
     proxyHost: async (route) => {
-      assert.equal(route, '/memory-eternal/api/llm-routes')
+      assert.equal(route, '/api/llm-routes')
       return { ok: true, proxied: true, providers: [{ id: 'stepfun', label: 'StepFun', models: [{ id: 'step-5-preview', label: 'step-5-preview' }] }], current: {} }
     },
   })
@@ -63,8 +63,8 @@ test('接线守卫：代理只走 127.0.0.1 + 心跳过期即放弃 + 面板显�
   assert.match(api, /readHostMarker\(process\.env\)/)
   assert.match(api, /Date\.now\(\) - marker\.at > 120000/, '心跳过期（宿主退出）就不代理')
   assert.match(api, /'http:\/\/127\.0\.0\.1:' \+ marker\.port/, '只连本机')
-  assert.match(api, /proxyHost\('\/memory-eternal\/api\/llm-routes'\)/)
-  assert.match(api, /proxyHost\('\/memory-eternal\/api\/llm-test', \{ method: 'POST'/, '测试按钮也要能代理')
+  assert.match(api, /proxyHost\('\/api\/llm-routes'\)/)
+  assert.match(api, /proxyHost\('\/api\/llm-test', \{ method: 'POST'/, '测试按钮也要能代理')
   const client = read('src/client/index.tsx')
   assert.match(client, /routes\.ok === false/, '面板要显示取不到列表的原因')
   assert.equal((client.match(/routeListFail:/g) || []).length, 2, '中英各一条')
