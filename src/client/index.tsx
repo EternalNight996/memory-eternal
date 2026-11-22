@@ -1909,6 +1909,10 @@ export const ZH = {
   junkScanned: '已扫描 {total} 张卡',
   junkDuplicate: '完全重复',
   junkDuplicateHint: '内容与另一张卡完全相同，保留最早的那张',
+  junkSameSource: '同一技能多份',
+  junkSameSourceHint: '同一个来源（source）导入出多份副本，保留正式位置那张',
+  junkNearDuplicate: '近似重复',
+  junkNearDuplicateHint: '同标题且正文高度相似（Jaccard ≥ 0.9），多因自动沉淀重复写入，保留优先级最高的一张',
   junkTooShort: '正文过短',
   junkTooShortHint: '不足 20 字，多半是碎片或噪音',
   junkNeverRecalled: '从未被召回',
@@ -1924,6 +1928,7 @@ export const ZH = {
   junkActionReject: '驳回',
   junkCandidateList: '查看候选明细（{n} 条）',
   junkMore: '还有 {n} 条未显示',
+  junkTruncated: '候选明细只列前 {n} 条；按类别批量处置不受影响',
   junkBulkDone: '已完成 {action}：{n} 条',
   junkFailed: '{n} 条失败',
   junkCleanHint: '归档 = 从日常检索里藏起来，数据完整保留，随时可在「回收中心」恢复；删除 = 进回收站，30 天后自动清理',
@@ -3421,6 +3426,10 @@ export const EN = {
   junkScanned: 'Scanned {total} cards',
   junkDuplicate: 'Exact duplicates',
   junkDuplicateHint: 'Identical to another card; the earliest one is kept',
+  junkSameSource: 'Duplicate copies of a skill',
+  junkSameSourceHint: 'Same source imported more than once; the official copy is kept',
+  junkNearDuplicate: 'Near duplicates',
+  junkNearDuplicateHint: 'Same title and highly similar body (Jaccard ≥ 0.9), usually captured twice; the highest-priority copy is kept',
   junkTooShort: 'Body too short',
   junkTooShortHint: 'Under 20 chars — usually fragments or noise',
   junkNeverRecalled: 'Never recalled',
@@ -3436,6 +3445,7 @@ export const EN = {
   junkActionReject: 'Reject',
   junkCandidateList: 'Show candidates ({n})',
   junkMore: '{n} more not shown',
+  junkTruncated: 'Only the first {n} candidates are listed; bulk actions by category are not limited',
   junkBulkDone: 'Done — {action}: {n}',
   junkFailed: '{n} failed',
   junkCleanHint: 'Archive = hidden from daily search, data fully kept, restorable from Recycle; Delete = moves to Recycle and is purged after 30 days',
@@ -10430,13 +10440,21 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       const d = await r.json().catch(() => ({}))
       if (!r.ok || !d.ok) { setJunkErr((d && d.error) || ('HTTP ' + r.status)); return }
       setJunk(d)
-      const cand = d.candidates || []
-      const recycle = cand.filter((c) => ['duplicate', 'tooShort', 'quarantineStale'].includes(c.reason)).map((c) => c.path)
-      const archive = cand.filter((c) => ['neverRecalled', 'stale'].includes(c.reason)).map((c) => c.path)
-      if (!recycle.length && !archive.length) { notify(t('junkNothingToClean'), false); return }
+      const cnt = (k) => Number((d.summary && d.summary[k]) || 0)
+      const recycleCount = cnt('duplicate') + cnt('tooShort') + cnt('quarantineStale')
+      const archiveCount = cnt('neverRecalled') + cnt('stale')
+      if (!recycleCount && !archiveCount) { notify(t('junkNothingToClean'), false); return }
+      // 走 filter（服务端 pickByFilter 按类别全量取），不依赖上面那次扫描的 500 条候选列表
+      // —— 否则重复卡超过 500 张时只会清掉列表里的那点。
+      // 刻意**不**并入 nearDuplicate / sameSource：一次软删近万张影响面太大，
+      // 这两类走分类行上单独的「清理到回收站」按钮（同样有二次确认 + 可恢复）。
       const steps = []
-      if (archive.length) steps.push({ action: 'archive', paths: archive, reason: 'neverRecalled/stale' })
-      if (recycle.length) steps.push({ action: 'delete', paths: recycle, reason: 'duplicate/tooShort/quarantineStale' })
+      if (archiveCount) {
+        steps.push({ action: 'archive', filter: { reasons: ['neverRecalled', 'stale'], limit: 20000 }, reason: 'neverRecalled/stale', count: archiveCount })
+      }
+      if (recycleCount) {
+        steps.push({ action: 'delete', filter: { reasons: ['duplicate', 'tooShort', 'quarantineStale'], limit: 20000 }, reason: 'duplicate/tooShort/quarantineStale', count: recycleCount })
+      }
       setJunkConfirm({ steps })
     } catch (e) { setJunkErr(String((e && e.message) || e)) }
     finally { setJunkBusy(false) }
@@ -10726,11 +10744,23 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       setJunkErr(String((e && e.message) || e))
     } finally { setJunkBusy(false) }
   }
+  /** 分类 → 文案。新增分类必须在这里登记，否则弹窗显示原始 key（近重复/同源就漏过）。 */
+  const junkReasonLabel = (reason) => {
+    const map = {
+      duplicate: 'junkDuplicate', sameSource: 'junkSameSource', nearDuplicate: 'junkNearDuplicate',
+      tooShort: 'junkTooShort', neverRecalled: 'junkNeverRecalled', stale: 'junkStale',
+      blankTitle: 'junkBlankTitle', quarantineStale: 'junkQuarantineStale',
+    }
+    const key = map[reason]
+    return key ? t(key) : reason
+  }
   /** 点「批量处置」：先弹确认（dryRun 由后端默认把关，这里是二次确认 UI） */
   const askJunkAction = (action, reason) => {
-    const list = (junk && junk.candidates) ? junk.candidates.filter((c) => c.reason === reason).map((c) => c.path) : []
-    if (!list.length) return
-    setJunkConfirm({ steps: [{ action, paths: list, reason }] })
+    const n = Number((junk && junk.summary && junk.summary[reason]) || 0)
+    if (!n) return
+    // 传 filter 而不是把候选列表的 path 全传过去：候选列表按 limit 截断过（默认 200），
+    // 直接传 paths 只会处置窗口里那点 —— 9k 条近重复得点几十次，用户看到的就是「点了只清一点」。
+    setJunkConfirm({ steps: [{ action, filter: { reason, limit: 20000 }, reason, count: n }] })
   }
   /**
    * 真执行（已经过弹窗确认）。支持多步（「立即清理」会同时归档一批 + 清理一批到回收站）。
@@ -10744,10 +10774,14 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     const summary = []
     try {
       for (const st of steps) {
+        // 两种选法：显式 paths（归档恢复等），或 filter（按垃圾分类全量取，服务端 pickByFilter）
+        const payload = { action: st.action, dryRun: false }
+        if (st.filter) payload.filter = st.filter
+        else payload.paths = st.paths
         const r = await fetch(API + '/cards/bulk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: st.action, paths: st.paths, dryRun: false }),
+          body: JSON.stringify(payload),
         })
         const d = await r.json().catch(() => ({}))
         if (!r.ok || !d.ok) { setJunkErr((d && d.error) || ('HTTP ' + r.status)); continue }
@@ -12621,6 +12655,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                     <details style={{ marginTop: 10 }}>
                       <summary style={{ cursor: 'pointer', fontSize: 12.5, opacity: 0.85 }}>
                         {t('junkCandidateList').replace('{n}', String(junk.candidates.length))}
+                        {junk.truncated ? ' · ' + t('junkTruncated').replace('{n}', String(junk.candidates.length)) : ''}
                       </summary>
                       <div style={{ marginTop: 8, maxHeight: 260, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {junk.candidates.slice(0, 20).map((c, i) => (
@@ -12760,16 +12795,10 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                           : st.action === 'archive' ? t('junkActionArchive')
                             : st.action === 'reject' ? t('junkActionReject')
                               : t('junkActionRestore')
-                        const reasonLabel = st.reason === 'duplicate' ? t('junkDuplicate')
-                          : st.reason === 'tooShort' ? t('junkTooShort')
-                            : st.reason === 'neverRecalled' ? t('junkNeverRecalled')
-                              : st.reason === 'stale' ? t('junkStale')
-                                : st.reason === 'blankTitle' ? t('junkBlankTitle')
-                                  : st.reason === 'quarantineStale' ? t('junkQuarantineStale')
-                                    : st.reason
+                        const reasonLabel = String(st.reason || '').split('/').map((x) => junkReasonLabel(x.trim())).join(' / ')
                         return (
                           <div key={si}>
-                            · <b>{actLabel}</b> {st.paths.length} 张 <span style={{ opacity: 0.7 }}>（{reasonLabel}）</span>
+                            · <b>{actLabel}</b> {st.paths ? st.paths.length : (Number(st.count) || 0)} 张 <span style={{ opacity: 0.7 }}>（{reasonLabel}）</span>
                           </div>
                         )
                       })}

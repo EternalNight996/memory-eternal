@@ -12475,6 +12475,10 @@
     junkScanned: "\u5DF2\u626B\u63CF {total} \u5F20\u5361",
     junkDuplicate: "\u5B8C\u5168\u91CD\u590D",
     junkDuplicateHint: "\u5185\u5BB9\u4E0E\u53E6\u4E00\u5F20\u5361\u5B8C\u5168\u76F8\u540C\uFF0C\u4FDD\u7559\u6700\u65E9\u7684\u90A3\u5F20",
+    junkSameSource: "\u540C\u4E00\u6280\u80FD\u591A\u4EFD",
+    junkSameSourceHint: "\u540C\u4E00\u4E2A\u6765\u6E90\uFF08source\uFF09\u5BFC\u5165\u51FA\u591A\u4EFD\u526F\u672C\uFF0C\u4FDD\u7559\u6B63\u5F0F\u4F4D\u7F6E\u90A3\u5F20",
+    junkNearDuplicate: "\u8FD1\u4F3C\u91CD\u590D",
+    junkNearDuplicateHint: "\u540C\u6807\u9898\u4E14\u6B63\u6587\u9AD8\u5EA6\u76F8\u4F3C\uFF08Jaccard \u2265 0.9\uFF09\uFF0C\u591A\u56E0\u81EA\u52A8\u6C89\u6DC0\u91CD\u590D\u5199\u5165\uFF0C\u4FDD\u7559\u4F18\u5148\u7EA7\u6700\u9AD8\u7684\u4E00\u5F20",
     junkTooShort: "\u6B63\u6587\u8FC7\u77ED",
     junkTooShortHint: "\u4E0D\u8DB3 20 \u5B57\uFF0C\u591A\u534A\u662F\u788E\u7247\u6216\u566A\u97F3",
     junkNeverRecalled: "\u4ECE\u672A\u88AB\u53EC\u56DE",
@@ -12490,6 +12494,7 @@
     junkActionReject: "\u9A73\u56DE",
     junkCandidateList: "\u67E5\u770B\u5019\u9009\u660E\u7EC6\uFF08{n} \u6761\uFF09",
     junkMore: "\u8FD8\u6709 {n} \u6761\u672A\u663E\u793A",
+    junkTruncated: "\u5019\u9009\u660E\u7EC6\u53EA\u5217\u524D {n} \u6761\uFF1B\u6309\u7C7B\u522B\u6279\u91CF\u5904\u7F6E\u4E0D\u53D7\u5F71\u54CD",
     junkBulkDone: "\u5DF2\u5B8C\u6210 {action}\uFF1A{n} \u6761",
     junkFailed: "{n} \u6761\u5931\u8D25",
     junkCleanHint: "\u5F52\u6863 = \u4ECE\u65E5\u5E38\u68C0\u7D22\u91CC\u85CF\u8D77\u6765\uFF0C\u6570\u636E\u5B8C\u6574\u4FDD\u7559\uFF0C\u968F\u65F6\u53EF\u5728\u300C\u56DE\u6536\u4E2D\u5FC3\u300D\u6062\u590D\uFF1B\u5220\u9664 = \u8FDB\u56DE\u6536\u7AD9\uFF0C30 \u5929\u540E\u81EA\u52A8\u6E05\u7406",
@@ -13985,6 +13990,10 @@
     junkScanned: "Scanned {total} cards",
     junkDuplicate: "Exact duplicates",
     junkDuplicateHint: "Identical to another card; the earliest one is kept",
+    junkSameSource: "Duplicate copies of a skill",
+    junkSameSourceHint: "Same source imported more than once; the official copy is kept",
+    junkNearDuplicate: "Near duplicates",
+    junkNearDuplicateHint: "Same title and highly similar body (Jaccard \u2265 0.9), usually captured twice; the highest-priority copy is kept",
     junkTooShort: "Body too short",
     junkTooShortHint: "Under 20 chars \u2014 usually fragments or noise",
     junkNeverRecalled: "Never recalled",
@@ -14000,6 +14009,7 @@
     junkActionReject: "Reject",
     junkCandidateList: "Show candidates ({n})",
     junkMore: "{n} more not shown",
+    junkTruncated: "Only the first {n} candidates are listed; bulk actions by category are not limited",
     junkBulkDone: "Done \u2014 {action}: {n}",
     junkFailed: "{n} failed",
     junkCleanHint: "Archive = hidden from daily search, data fully kept, restorable from Recycle; Delete = moves to Recycle and is purged after 30 days",
@@ -17533,7 +17543,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-23T01:25:55+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-23T01:38:00+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -20889,16 +20899,20 @@ ${t("quoteHint")}`,
           return;
         }
         setJunk(d);
-        const cand = d.candidates || [];
-        const recycle = cand.filter((c) => ["duplicate", "tooShort", "quarantineStale"].includes(c.reason)).map((c) => c.path);
-        const archive = cand.filter((c) => ["neverRecalled", "stale"].includes(c.reason)).map((c) => c.path);
-        if (!recycle.length && !archive.length) {
+        const cnt = /* @__PURE__ */ __name((k) => Number(d.summary && d.summary[k] || 0), "cnt");
+        const recycleCount = cnt("duplicate") + cnt("tooShort") + cnt("quarantineStale");
+        const archiveCount = cnt("neverRecalled") + cnt("stale");
+        if (!recycleCount && !archiveCount) {
           notify2(t("junkNothingToClean"), false);
           return;
         }
         const steps = [];
-        if (archive.length) steps.push({ action: "archive", paths: archive, reason: "neverRecalled/stale" });
-        if (recycle.length) steps.push({ action: "delete", paths: recycle, reason: "duplicate/tooShort/quarantineStale" });
+        if (archiveCount) {
+          steps.push({ action: "archive", filter: { reasons: ["neverRecalled", "stale"], limit: 2e4 }, reason: "neverRecalled/stale", count: archiveCount });
+        }
+        if (recycleCount) {
+          steps.push({ action: "delete", filter: { reasons: ["duplicate", "tooShort", "quarantineStale"], limit: 2e4 }, reason: "duplicate/tooShort/quarantineStale", count: recycleCount });
+        }
         setJunkConfirm({ steps });
       } catch (e) {
         setJunkErr(String(e && e.message || e));
@@ -21260,10 +21274,24 @@ ${t("quoteHint")}`,
         setJunkBusy(false);
       }
     }, "scanJunkNow");
+    const junkReasonLabel = /* @__PURE__ */ __name((reason) => {
+      const map = {
+        duplicate: "junkDuplicate",
+        sameSource: "junkSameSource",
+        nearDuplicate: "junkNearDuplicate",
+        tooShort: "junkTooShort",
+        neverRecalled: "junkNeverRecalled",
+        stale: "junkStale",
+        blankTitle: "junkBlankTitle",
+        quarantineStale: "junkQuarantineStale"
+      };
+      const key = map[reason];
+      return key ? t(key) : reason;
+    }, "junkReasonLabel");
     const askJunkAction = /* @__PURE__ */ __name((action, reason) => {
-      const list = junk && junk.candidates ? junk.candidates.filter((c) => c.reason === reason).map((c) => c.path) : [];
-      if (!list.length) return;
-      setJunkConfirm({ steps: [{ action, paths: list, reason }] });
+      const n = Number(junk && junk.summary && junk.summary[reason] || 0);
+      if (!n) return;
+      setJunkConfirm({ steps: [{ action, filter: { reason, limit: 2e4 }, reason, count: n }] });
     }, "askJunkAction");
     const runJunkAction = /* @__PURE__ */ __name(async () => {
       const c = junkConfirm;
@@ -21275,10 +21303,13 @@ ${t("quoteHint")}`,
       const summary = [];
       try {
         for (const st of steps) {
+          const payload = { action: st.action, dryRun: false };
+          if (st.filter) payload.filter = st.filter;
+          else payload.paths = st.paths;
           const r = await fetch(API + "/cards/bulk", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: st.action, paths: st.paths, dryRun: false })
+            body: JSON.stringify(payload)
           });
           const d = await r.json().catch(() => ({}));
           if (!r.ok || !d.ok) {
@@ -23169,7 +23200,10 @@ ${t("quoteHint")}`,
                     );
                   }) }),
                   junk.candidates.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("details", { style: { marginTop: 10 }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("summary", { style: { cursor: "pointer", fontSize: 12.5, opacity: 0.85 }, children: t("junkCandidateList").replace("{n}", String(junk.candidates.length)) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("summary", { style: { cursor: "pointer", fontSize: 12.5, opacity: 0.85 }, children: [
+                      t("junkCandidateList").replace("{n}", String(junk.candidates.length)),
+                      junk.truncated ? " \xB7 " + t("junkTruncated").replace("{n}", String(junk.candidates.length)) : ""
+                    ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 8, maxHeight: 260, overflow: "auto", display: "flex", flexDirection: "column", gap: 4 }, children: [
                       junk.candidates.slice(0, 20).map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, lineHeight: 1.6, opacity: 0.85 }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { opacity: 0.6 }, children: [
@@ -23294,12 +23328,12 @@ ${t("quoteHint")}`,
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { fontSize: 13 }, children: t("junkConfirmTitle") }),
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12.5, lineHeight: 1.7, display: "flex", flexDirection: "column", gap: 4 }, children: (junkConfirm.steps || [{ action: junkConfirm.action, paths: junkConfirm.paths, reason: junkConfirm.reason }]).map((st, si) => {
                             const actLabel = st.action === "delete" ? t("junkActionDelete") : st.action === "archive" ? t("junkActionArchive") : st.action === "reject" ? t("junkActionReject") : t("junkActionRestore");
-                            const reasonLabel = st.reason === "duplicate" ? t("junkDuplicate") : st.reason === "tooShort" ? t("junkTooShort") : st.reason === "neverRecalled" ? t("junkNeverRecalled") : st.reason === "stale" ? t("junkStale") : st.reason === "blankTitle" ? t("junkBlankTitle") : st.reason === "quarantineStale" ? t("junkQuarantineStale") : st.reason;
+                            const reasonLabel = String(st.reason || "").split("/").map((x) => junkReasonLabel(x.trim())).join(" / ");
                             return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                               "\xB7 ",
                               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: actLabel }),
                               " ",
-                              st.paths.length,
+                              st.paths ? st.paths.length : Number(st.count) || 0,
                               " \u5F20 ",
                               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { opacity: 0.7 }, children: [
                                 "\uFF08",

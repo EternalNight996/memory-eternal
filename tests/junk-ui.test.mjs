@@ -31,6 +31,7 @@ test('新增的 junk* i18n key 不与既有 key 撞名', () => {
   const mine = new Set([
     'junkSection', 'junkSectionSub', 'junkScanBtn', 'junkScanned',
     'junkDuplicate', 'junkDuplicateHint', 'junkTooShort', 'junkTooShortHint',
+    'junkSameSource', 'junkSameSourceHint', 'junkNearDuplicate', 'junkNearDuplicateHint', 'junkTruncated',
     'junkNeverRecalled', 'junkNeverRecalledHint', 'junkStale', 'junkStaleHint',
     'junkBlankTitle', 'junkBlankTitleHint', 'junkQuarantineStale', 'junkQuarantineStaleHint',
     'junkActionDelete', 'junkActionArchive', 'junkActionReject',
@@ -109,6 +110,7 @@ test('「清理到回收站」文案正确（delete 是软删，不是永久删�
 test('有「立即清理」按钮（一键扫+清，不是只能一类一类点）', () => {
   assert.match(src, /junkCleanNow/, '要有「立即清理」文案')
   assert.match(src, /const cleanNow = async/, '要有 cleanNow 实现')
-  // 清理动作必须是 delete（进回收站）而不是永久删
-  assert.match(src, /action: 'delete', paths: recycle/, '可回收类走 delete（软删）')
+  // 批量动作必须是 delete（进回收站）而不是永久删；且走 filter 按类别全量取，
+  // 不能只把扫描窗口（limit 500）里的 paths 传过去 —— 否则重复卡超过 500 张只清一半。
+  assert.match(src, /action: 'delete', filter: \{/, '可回收类走 delete（软删）+ filter 全量取')
 })
