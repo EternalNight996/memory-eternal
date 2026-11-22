@@ -10973,7 +10973,7 @@
       fetch(API + "/cloud/conn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || "" } })
+        body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || "", deviceId: DEVICE_ID } })
       }).catch(() => {
       });
     } catch {
@@ -17349,7 +17349,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.6" : "";
+  var CLIENT_VERSION = true ? "0.53.0" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17630,7 +17630,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-23T05:02:02+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-23T05:46:23+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
