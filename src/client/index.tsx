@@ -1099,7 +1099,6 @@ export const ZH = {
   newsSearch: '搜索标题 / 正文 / 标签…',
   newsUnreadOnly: '只看未读',
   newsEmpty: '还没有新闻。写第一条发布、决策或团队简报。',
-  newsNoMatch: '没有匹配的新闻',
   newsPinned: '置顶',
   newsRead: '已读',
   newsUnread: '未读',
@@ -1276,7 +1275,6 @@ export const ZH = {
   focusNeighbors: '凸显关联',
   copyName: '复制名称',
   noMatch: '没有匹配的记忆',
-  clearFilter: '清除过滤',
   filterLabel: '筛选',
   sortRecent: '最近',
   sortTitle: '标题',
@@ -1289,11 +1287,9 @@ export const ZH = {
   done: '完成',
   downloaded: '已开始下载',
   openedTab: '已在新标签打开',
-  copied: '已复制',
   exportedSel: '个节点已导出',
   fullscreen: '全屏',
   exitFull: '退出全屏',
-  copyFail: '复制失败',
   timeDim: '时间维',
   graphWarming: '正在布局 {n} 个节点…',
   // 星球分层（按层请求）
@@ -1710,7 +1706,6 @@ export const ZH = {
   dynNoRestart: '两项都即时生效：库名会重开连接，端口会先回包再切换监听（约 0.3 秒）。',
   mcpSection: 'Agent MCP 挂载',
   mcpSectionSub: '装成 DSH 插件时默认挂到 DSH；Claude Code、Codex、Cursor、Windsurf 需要你手动挂 —— 一个仓库里不该让多个 Agent 读到不同的库',
-  mcpRefresh: '刷新',
   mcpSelfTest: '自检',
   mcpSelfTestHint: '真正拉起一次 MCP 进程做握手，路径不对会立刻暴露',
   mcpSelfTestOk: '握手成功，宿主可识别',
@@ -1723,15 +1718,8 @@ export const ZH = {
   mcpOtherServers: '其它 MCP',
   mcpEntry: '启动命令',
   mcpRestartHint: '挂载或卸载后，重启一次宿主才会生效。',
-  mcpMountAll: '全部挂载',
-  mcpMountAllHint: '一次写入所有已安装的宿主',
-  mcpHostMatrix: '各宿主挂载状态',
   mcpAutoMountLabel: '装成 DSH 插件时自动挂载',
   mcpAutoMountHint: '默认开启，装好即用。关掉后只能在本页手动挂载。',
-  mcpAutoMountLabel: '装成 DSH 插件时自动挂载',
-  mcpAutoMountHint: '默认开启，装好即用。关掉后只能在本页手动挂载。',
-  mcpHostAbsent: '未安装',
-  mcpDrift: '配置已过期',
   mcpMountAll: '全部挂载',
   mcpMountAllHint: '一次写入所有已安装的宿主',
   mcpHostMatrix: '各宿主挂载状态',
@@ -1815,7 +1803,6 @@ export const ZH = {
   pollWaiting: '已在浏览器打开授权页，完成后这里会自动登录（无需回来操作）',
   useDeviceCode: '改用手机验证码登录',
   pollExpired: '授权超时，请重新发起登录',
-  pollReopen: '重新打开授权页',
   pollCancel: '取消',
   deviceNotAllowed: '总部（MengBot）已支持设备码登录，但还没为我们的应用开启这项权限。请先用下方的访问密钥登录。',
   deviceFallbackHint: '这条不影响使用：把访问密钥填进下面的输入框即可，效果完全一样（只是没有头像）。',
@@ -1844,7 +1831,7 @@ export const ZH = {
   xferPartial: '部分分片失败：成功的已写入，再点一次上传会重试剩余部分',
   xferReadLocalFail: '读取本地库失败（HTTP {s}）',
   xferResume: '上次传到 {d} / {t} 张，点上传接着传',
-  xferDone: '完成 · 新增 {in} · 重复 {dup} · 失败 {fail}',
+  xferDoneDetail: '完成 · 新增 {in} · 重复 {dup} · 失败 {fail}',
   xferIdle: '就绪：点「上传 / 下载」先选两端库再传；换库在下拉里选，再点「立即切换」',
   switchVaultBtn: '切换库',
   switchNowBtn: '立即切换',
@@ -2614,6 +2601,9 @@ export const ZH = {
   tplBugBody: '# 踩坑记录：[标题]\n\n## 现象\n- 发生了什么\n\n## 根因\n\n## 解决方案\n\n## 教训\n- 如何避免下次',
   tplMeetingBody: '# 会议纪要：[标题]\n\n**日期**：\n**参会人**：\n\n## 议题\n1. \n\n## 结论\n\n## 待办\n- [ ] ',
   tplWeeklyBody: '# 周报 [YYYY-MM-DD]\n\n## 本周完成\n- \n\n## 下周计划\n- \n\n## 风险/阻塞\n- ',
+  // —— 补齐：只有英文定义的键（中文 UI 之前显示原始 key） ——
+  saveInvalid: '部分字段值不合法，未提交',
+  invalidField: '「{field}」必须是 {min} 到 {max} 之间的数字（当前：{value}）',
 }
 
 export const EN = {
@@ -2645,7 +2635,6 @@ export const EN = {
   newsSearch: 'Search title / body / tags…',
   newsUnreadOnly: 'Unread only',
   newsEmpty: 'No news yet. Write the first update, decision or team brief here.',
-  newsNoMatch: 'No matching news',
   newsPinned: 'Pinned',
   newsRead: 'Read',
   newsUnread: 'Unread',
@@ -2844,7 +2833,6 @@ export const EN = {
   focusNeighbors: 'Highlight links',
   copyName: 'Copy name',
   noMatch: 'No matching memory',
-  clearFilter: 'Clear filter',
   filterLabel: 'Filter',
   sortRecent: 'Recent',
   sortTitle: 'Title',
@@ -2857,11 +2845,9 @@ export const EN = {
   done: 'Done',
   downloaded: 'Download started',
   openedTab: 'Opened in new tab',
-  copied: 'Copied',
   exportedSel: ' nodes exported',
   fullscreen: 'Fullscreen',
   exitFull: 'Exit fullscreen',
-  copyFail: 'Copy failed',
   timeDim: 'Time',
   timeNew: '≤3 days',
   timeRecent: '≤2 weeks',
@@ -3258,7 +3244,6 @@ export const EN = {
   dynNoRestart: 'Both take effect immediately: the db reopens, the port replies first then switches listeners (~0.3s).',
   mcpSection: 'Agent MCP mount',
   mcpSectionSub: 'Mounted to DSH by default when installed as a DSH plugin; Claude Code, Codex, Cursor and Windsurf need an explicit mount — one repo should never have agents reading different vaults',
-  mcpRefresh: 'Refresh',
   mcpSelfTest: 'Self-test',
   mcpSelfTestHint: 'Actually spawns the MCP entry and performs a handshake — path problems show up immediately',
   mcpSelfTestOk: 'Handshake OK — host can use it',
@@ -3332,7 +3317,6 @@ export const EN = {
   pollWaiting: 'Approval page opened in your browser — this will finish automatically',
   useDeviceCode: 'Use a device code instead',
   pollExpired: 'Authorization timed out — please start again',
-  pollReopen: 'Reopen approval page',
   pollCancel: 'Cancel',
   deviceNotAllowed: 'MengBot supports device sign-in but has not enabled it for this app yet. Use the access key below for now.',
   deviceFallbackHint: 'This does not block you — paste the access key below and everything works the same (just no avatar).',
@@ -3362,7 +3346,7 @@ export const EN = {
   xferPartial: 'Some chunks failed — successes are saved; click Upload again to retry the rest',
   xferReadLocalFail: 'Failed to read the local vault (HTTP {s})',
   xferResume: 'Last run reached {d} / {t} — Upload continues from there',
-  xferDone: 'Done · {in} added · {dup} duplicates · {fail} failed',
+  xferDoneDetail: 'Done · {in} added · {dup} duplicates · {fail} failed',
   xferIdle: 'Ready: Upload/Download pick both vaults first; pick a vault and press “Switch now” to swap',
   switchVaultBtn: 'Swap vault',
   switchNowBtn: 'Switch now',
@@ -4133,6 +4117,27 @@ export const EN = {
   tplBugBody: '# Pitfall: [title]\n\n## Symptom\n- What happened\n\n## Root cause\n\n## Fix\n\n## Lesson\n- How to avoid it next time',
   tplMeetingBody: '# Meeting notes: [title]\n\n**Date**:\n**Attendees**:\n\n## Topics\n1. \n\n## Conclusions\n\n## Action items\n- [ ] ',
   tplWeeklyBody: '# Weekly report [YYYY-MM-DD]\n\n## Done this week\n- \n\n## Next week\n- \n\n## Risks/blockers\n- ',
+  // —— 补齐：只有中文定义的键（英文 UI 之前显示原始 key） ——
+  cloudManualConfig: 'Manual setup (URL / key)',
+  deviceStarting: 'Fetching QR code…',
+  deviceIdleHint: 'Tap the button below to get a sign-in QR code',
+  deviceScanHint: 'Scan with your phone, or open the link in a browser and approve',
+  deviceCopied: 'Verification code copied',
+  scanLogin: 'Sign in with QR',
+  mcpAutoMountLabel: 'Auto-mount when installed as a DSH plugin',
+  mcpAutoMountHint: 'On by default — install and go. Off means you must mount manually on this page.',
+  mcpMountAll: 'Mount all',
+  mcpMountAllHint: 'Write all installed hosts in one go',
+  mcpHostMatrix: 'Per-host mount status',
+  mcpHostAbsent: 'Not installed',
+  mcpDrift: 'Config out of date',
+  otherAccounts: 'Other accounts',
+  switchedTo: 'Switched to {who}',
+  managePlan: 'Upgrade / renew',
+  perMinute: '/min',
+  cloudPlanRpm: 'Request rate',
+  expired: 'Expired',
+  daysLeft: '{n} days left',
 }
 
 const KIND_IDS = ['all', 'core', 'project', 'knowledge', 'skill', 'content', 'prompt', 'business', 'tool', 'mistake']
@@ -13436,7 +13441,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                             ) : importJob && importJob.err ? (
                               <Status tone="bad" text={importJob.err} />
                             ) : importJob && importJob.total > 0 ? (
-                              <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.7 }}>{t('xferDone').replace('{in}', String(importJob.imported || 0)).replace('{dup}', String(importJob.duplicate || 0)).replace('{fail}', String(importJob.failed || 0))}</div>
+                              <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.7 }}>{t('xferDoneDetail').replace('{in}', String(importJob.imported || 0)).replace('{dup}', String(importJob.duplicate || 0)).replace('{fail}', String(importJob.failed || 0))}</div>
                             ) : (
                               <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>{!cloudForm.token ? t('xferNeedLogin') : t('xferIdle')}</div>
                             )}
