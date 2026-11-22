@@ -11276,6 +11276,10 @@
       if (r.ok && d.granted) {
         CLOUD_HEALTH.status = "ok";
         CLOUD_HEALTH.lastError = "";
+        try {
+          sessionStorage.removeItem("me-cloud-fallback-reload");
+        } catch {
+        }
         CLOUD_HEALTH.plan = String(d.connect && d.connect.plan || "");
         const realOwner = String(d.connect && d.connect.owner || "");
         CLOUD_HEALTH.owner = realOwner;
@@ -17315,7 +17319,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.4" : "";
+  var CLIENT_VERSION = true ? "0.52.5" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17596,7 +17600,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-23T03:54:41+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-23T04:11:19+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17943,6 +17947,16 @@ ${COMPONENTS_CSS}
         const reason = e && e.detail && e.detail.reason || "\u4E91\u7AEF\u4E0D\u53EF\u8FBE";
         try {
           notify("\u2601\uFE0F \u4E91\u7AEF\u4E0D\u53EF\u8FBE\uFF08" + reason + "\uFF09\uFF0C\u5DF2\u5207\u56DE\u672C\u5730\u6A21\u5F0F", false);
+        } catch {
+        }
+        let already = false;
+        try {
+          already = !!sessionStorage.getItem("me-cloud-fallback-reload");
+        } catch {
+        }
+        if (already) return;
+        try {
+          sessionStorage.setItem("me-cloud-fallback-reload", "1");
         } catch {
         }
         setTimeout(() => {

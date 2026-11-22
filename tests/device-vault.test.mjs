@@ -126,6 +126,14 @@ test('两台设备各切各的库，互不覆盖；无 device 的请求读全局
   })
 })
 
+test('源码守卫：云端熔断回退只重载一次（防 401 无限刷新）', () => {
+  const src = fs.readFileSync(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
+  // 没有闸门时：重载 → 探活又失败 → 再发事件 → 再重载，页面一直闪。
+  assert.match(src, /me-cloud-fallback-reload/, '要有一次性重载标记')
+  assert.match(src, /if \(already\) return/, '已经重载过就不再重载')
+  assert.match(src, /removeItem\('me-cloud-fallback-reload'\)/, '云端恢复后要清标，下次真失败还能重载一次')
+})
+
 test('源码守卫：客户端必须真的把 X-Device-Id 发出去', () => {
   const src = fs.readFileSync(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
   assert.match(src, /const DEVICE_ID = \(function/, '要有设备标识（localStorage 持久化）')
