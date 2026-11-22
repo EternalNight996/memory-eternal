@@ -128,10 +128,10 @@ test('管理面不受配额影响（超限后还能看套餐/登录）', () => w
 
 test('配额 source 能区分「显式 caps」与「seats 兜底」（判断 B1 何时可收口）', () => {
   const quiet = { MEMORY_QUOTA_QUIET: '1' }
-  // 只有 seats → 走兜底
+  // 只有 seats → 走兜底（取 max(套餐默认, 席位换算)：pro 默认已经高于 seats×1000）
   const fb = quotaFor({ plan: 'pro', caps: { seats: 10, apps: 5 } }, quiet)
   assert.equal(fb.source, 'plan+seats-fallback')
-  assert.equal(fb.cards, 10000, 'seats × 1000')
+  assert.equal(fb.cards, Math.max(PLAN_QUOTA.pro.cards, 10000), 'max(套餐默认, seats × 1000)')
   // 有显式 cards → 不再兜底
   const ex = quotaFor({ plan: 'pro', caps: { seats: 10, cards: 8000 } }, quiet)
   assert.equal(ex.source, 'caps')
@@ -153,14 +153,14 @@ test('**free 绝不参与 seats 兜底**（否则 free 用户从 500 张被放�
   const q = quotaFor({ plan: 'free', caps: { seats: 10, apps: 5 } }, { MEMORY_QUOTA_QUIET: '1' })
   assert.equal(q.cards, 500, 'free 必须保持 500 张')
   assert.equal(q.source, 'plan', 'source 不该声称用了兜底')
-  // 对照：付费套餐才兜底
-  assert.equal(quotaFor({ plan: 'pro', caps: { seats: 10 } }, { MEMORY_QUOTA_QUIET: '1' }).cards, 10000)
+  // 对照：付费套餐才兜底（同样取 max(套餐默认, seats×1000)）
+  assert.equal(quotaFor({ plan: 'pro', caps: { seats: 10 } }, { MEMORY_QUOTA_QUIET: '1' }).cards, Math.max(PLAN_QUOTA.pro.cards, 10000))
 })
 
 test('兜底取 max(套餐默认, 席位换算)，且日志文案与数值一致', () => {
-  // enterprise 默认 200000 > 席位换算 10000 → 应取 200000（不是 10000）
+  // enterprise 默认（200 万）远高于席位换算 1 万 → 应取套餐默认
   const q = quotaFor({ plan: 'enterprise', caps: { seats: 10 } }, { MEMORY_QUOTA_QUIET: '1' })
-  assert.equal(q.cards, 200000)
+  assert.equal(q.cards, Math.max(PLAN_QUOTA.enterprise.cards, 10000))
   // 日志必须把两个数都写出来（MengBot 侧曾看到 "seats(10) × 1000 = 200000"，算式对不上）
   const orig = console.error
   let line = ''

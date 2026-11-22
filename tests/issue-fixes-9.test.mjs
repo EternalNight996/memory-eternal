@@ -143,9 +143,12 @@ test('撞锁用「应用层异步重试」而不是 busy_timeout（评审：同�
 
 test('刻意不做的那两件：不许偷偷加 busy_timeout / WAL 自动降级（评审结论已记录）', () => {
   const db = read('lib/db.js')
-  // 只禁「真的去设 PRAGMA busy_timeout」（注释里可以提它 —— 新代码正是靠注释解释为什么不用它）
-  // 只禁「真的去执行/设置 busy_timeout」（注释里解释"为什么不用它"是允许且必要的）
-  assert.doesNotMatch(db, /exec\([^)]*busy_timeout|PRAGMA\s+busy_timeout\s*=|busy_timeout\s*=\s*\d/i, 'DatabaseSync 是同步 API，busy_timeout 忙等会阻塞事件循环 → 未经实测不得加')
+  // 只禁「真的去执行/设置 busy_timeout」（注释里解释"为什么不用它"是允许且必要的 ——
+  // 0.52.0 的并发提交正是靠注释记录「实测会卡死事件循环」，不能把注释当违规）。
+  const code = db
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').map((line) => line.replace(/(^|[^:'"])\/\/.*$/, '$1')).join('\n')
+  assert.doesNotMatch(code, /exec\([^)]*busy_timeout|PRAGMA\s+busy_timeout\s*=|busy_timeout\s*=\s*\d/i, 'DatabaseSync 是同步 API，busy_timeout 忙等会阻塞事件循环 → 未经实测不得加')
   assert.match(db, /withDbRetry/, '撞锁要走应用层异步重试')
-  assert.doesNotMatch(db, /journal_mode=DELETE|journal_mode = DELETE/, '不得自动把库降级成 rollback journal（会永久改库模式且并发更差）')
+  assert.doesNotMatch(code, /journal_mode=DELETE|journal_mode = DELETE/, '不得自动把库降级成 rollback journal（会永久改库模式且并发更差）')
 })
