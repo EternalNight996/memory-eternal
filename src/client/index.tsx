@@ -982,6 +982,9 @@ try {
           if (!API_TARGET_URL) return _fetch(input, init)
           const headers = { ...((init && init.headers) || {}) }
           if (cloudToken && !headers.Authorization && !headers.authorization) headers.Authorization = 'Bearer ' + cloudToken
+          // 多设备：带上本机的 device id。云端据此读写 `.active.<deviceId>` 而不是全局 `.active`，
+          // 否则两台设备切不同库会互相覆盖（服务端 351c9ef 已支持，缺的就是这一个头）。
+          if (!headers['X-Device-Id'] && !headers['x-device-id']) headers['X-Device-Id'] = DEVICE_ID
           const target = API_TARGET_URL + input
           return _fetch(target, { ...(init || {}), headers }).then((r) => {
             if (cloudFailureStatus(r.status)) {
@@ -998,11 +1001,23 @@ try {
           })
         })
       }
+      // 绝对地址的云端调用（cloudApi(...) 拼出来的，如 POST /vaults/switch）也要带设备头：
+      // 只改写相对路径的拦截器管不到它们 —— 「切云端库」那一步就靠它写 `.active.<deviceId>`，
+      // 漏了就只有全局 `.active`，多设备照样互相覆盖。
+      if (API_TARGET_URL && typeof input === 'string') {
+        try {
+          const origin = (() => { try { return new URL(API_TARGET_URL).origin } catch { return '' } })()
+          if (origin && new URL(input).origin === origin) {
+            const headers = { ...((init && init.headers) || {}) }
+            if (!headers['X-Device-Id'] && !headers['x-device-id']) headers['X-Device-Id'] = DEVICE_ID
+            return _fetch(input, { ...(init || {}), headers })
+          }
+        } catch { /* 相对地址 / 非法 URL：原样放行 */ }
+      }
       return _fetch(input, init)
     }
   }
-} catch { /* 非浏览器环境 */ }
-// 启动时应用已保存的连接（首次运行没有配置 = 本地模式，行为与之前完全一致）
+} catch { /* 非浏览器环境 */ }// 启动时应用已保存的连接（首次运行没有配置 = 本地模式，行为与之前完全一致）
 applyCloudConn(readCloudConn())
 // 跳转登录刚回来：从 #fragment 里取令牌（读完立刻清地址栏）
 const cloudFromHash = typeof location !== 'undefined' && location.hash ? consumeCloudTokenFromHash() : null

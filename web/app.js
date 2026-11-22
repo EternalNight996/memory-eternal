@@ -11558,6 +11558,7 @@
             if (!API_TARGET_URL) return _fetch(input, init);
             const headers = { ...init && init.headers || {} };
             if (cloudToken && !headers.Authorization && !headers.authorization) headers.Authorization = "Bearer " + cloudToken;
+            if (!headers["X-Device-Id"] && !headers["x-device-id"]) headers["X-Device-Id"] = DEVICE_ID;
             const target = API_TARGET_URL + input;
             return _fetch(target, { ...init || {}, headers }).then((r) => {
               if (cloudFailureStatus(r.status)) {
@@ -11573,6 +11574,23 @@
               throw err;
             });
           });
+        }
+        if (API_TARGET_URL && typeof input === "string") {
+          try {
+            const origin = (() => {
+              try {
+                return new URL(API_TARGET_URL).origin;
+              } catch {
+                return "";
+              }
+            })();
+            if (origin && new URL(input).origin === origin) {
+              const headers = { ...init && init.headers || {} };
+              if (!headers["X-Device-Id"] && !headers["x-device-id"]) headers["X-Device-Id"] = DEVICE_ID;
+              return _fetch(input, { ...init || {}, headers });
+            }
+          } catch {
+          }
         }
         return _fetch(input, init);
       };
@@ -17297,7 +17315,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.3" : "";
+  var CLIENT_VERSION = true ? "0.52.4" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17578,7 +17596,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-23T03:28:55+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-23T03:54:41+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
