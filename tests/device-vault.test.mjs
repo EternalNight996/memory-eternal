@@ -11,7 +11,7 @@ import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { createCloudServer } from '../lib/cloud-server.js'
+import { createCloudServer, applyCors } from '../lib/cloud-server.js'
 import crypto from 'node:crypto'
 
 const WEBHOOK_SECRET = 'whsec_dev_multi'
@@ -142,4 +142,23 @@ test('源码守卫：客户端必须真的把 X-Device-Id 发出去', () => {
   // 相对路径改写和「绝对地址的 cloudApi 调用」两条路都要覆盖：
   // 云端切库走的是 fetch(cloudApi('/vaults/switch'))，只改相对路径的拦截器管不到它。
   assert.match(src, /new URL\(input\)\.origin === origin/, '绝对地址的云端调用也要带设备头')
+})
+
+test('CORS 预检必须放行 X-Device-Id（否则云端全挂：Failed to fetch）', () => {
+  // 0.52.4 起每个云端请求都带 X-Device-Id；漏在 CORS 允许头里 → 浏览器预检失败 →
+  // 连接/库列表/切库全部不可用，页面还因熔断回退不停刷新（2026-11-23 线上实测）。
+  const headers = {}
+  const res = { setHeader: (k, v) => { headers[String(k).toLowerCase()] = String(v) } }
+  const allow = applyCors({ method: 'OPTIONS', headers: { origin: 'dsh-app://app', 'access-control-request-headers': 'authorization,x-device-id' } }, res)
+  assert.equal(allow, 'dsh-app://app', 'DSH 桌面壳的 origin 必须在白名单里')
+  assert.match(headers['access-control-allow-headers'] || '', /x-device-id/i, 'Access-Control-Allow-Headers 必须含 X-Device-Id')
+})
+test('异常要有通知：组件级 notify 必须存在（否则回退提示被 try/catch 吞掉）', () => {
+  const src = fs.readFileSync(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
+  // 历史上 MemoryLibraryInner 里调用 notify(...) 但从未定义 —— 每次都被 try/catch 静默吞掉，
+  // 用户看不到任何异常提示（只看到「点了没反应」）。
+  assert.match(src, /const notify = useCallback\(\(msg, ok = true\)/, '组件级 notify 必须真的定义')
+  assert.match(src, /cloudHealthOffline/, '健康状态异常要有可读通知')
+  assert.match(src, /cloudHealthOk/, '恢复也要通知')
+  assert.match(src, /friendlyCloudError/, '底层报错要翻译成人话')
 })

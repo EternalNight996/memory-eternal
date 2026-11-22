@@ -40,7 +40,7 @@ test('activateCloud 只在验证通过后调用', () => {
   assert.match(src, /function activateCloud\(next, opts\)/, '要有 activateCloud')
   assert.match(src, /active: true,\s*lastError: ''/, '激活时清掉错误')
   // 保存流程：probeCloud 成功才 activate
-  const saveBlocks = src.match(/const saveCloud = async \(\) => \{[\s\S]{0,1400}?\n  \}/g) || []
+  const saveBlocks = src.match(/const saveCloud = async \(\) => \{[\s\S]{0,2600}?\n  \}/g) || []
   assert.ok(saveBlocks.length >= 2, '两处 saveCloud（顶栏 + 设置页）都要有')
   for (const b of saveBlocks) {
     const idxProbe = b.indexOf('probeCloud(')

@@ -11444,6 +11444,22 @@
     return status === 0 || status === 401 || status === 403 || status >= 500;
   }
   __name(cloudFailureStatus, "cloudFailureStatus");
+  function friendlyCloudError(msg, t) {
+    const s = String(msg || "").trim();
+    const tr = /* @__PURE__ */ __name((k, fallback) => {
+      try {
+        return t ? t(k) : fallback;
+      } catch {
+        return fallback;
+      }
+    }, "tr");
+    if (!s) return tr("cloudErrNetwork", "network unreachable");
+    if (/failed to fetch|networkerror|load failed|fetch failed|econnrefused|etimedout|network request failed/i.test(s)) {
+      return tr("cloudErrNetwork", "network unreachable or blocked by CORS (Failed to fetch)");
+    }
+    return s;
+  }
+  __name(friendlyCloudError, "friendlyCloudError");
   var modeReadyResolve;
   var modeReady = new Promise((r) => {
     modeReadyResolve = r;
@@ -12071,6 +12087,13 @@
     cloudTokenBad: "\u8BBF\u95EE\u5BC6\u94A5\u683C\u5F0F\u4E0D\u5BF9\uFF1A\u5E94\u4E3A me_\u2026\uFF08\u8BBF\u95EE\u5BC6\u94A5\uFF09\u6216 pc_\u2026\uFF08\u5E93\u5339\u914D\u7801\uFF09",
     cloudGranted: "\u4E91\u7AEF\u9A8C\u8BC1\u901A\u8FC7\uFF08{plan}\uFF09\uFF0C\u5DF2\u5207\u6362\u5230\u4E91\u7AEF\u6A21\u5F0F",
     cloudDenied: "\u65E0\u6CD5\u8FDE\u63A5\u4E91\u7AEF\uFF1A{reason}",
+    cloudHealthOffline: "\u4E91\u7AEF\u8FDE\u63A5\u5F02\u5E38\uFF1A{reason}",
+    cloudHealthDenied: "\u4E91\u7AEF\u6388\u6743\u5F02\u5E38\uFF1A{reason}",
+    cloudHealthOk: "\u4E91\u7AEF\u8FDE\u63A5\u5DF2\u6062\u590D",
+    cloudConnecting: "\u6B63\u5728\u8FDE\u63A5\u4E91\u7AEF\u2026",
+    cloudConnOk: "\u5DF2\u8FDE\u63A5\u4E91\u7AEF\uFF1A{who}",
+    cloudConnFailed: "\u8FDE\u63A5\u4E91\u7AEF\u5931\u8D25\uFF1A{reason}",
+    cloudErrNetwork: "\u7F51\u7EDC\u4E0D\u901A\u6216\u88AB\u8DE8\u57DF\u62E6\u622A\uFF08Failed to fetch\uFF09",
     cloudTokenHint: "\u767B\u5F55\u53EF\u7559\u7A7A\uFF1B\u76F4\u8FDE\u4ED6\u4EBA\u5B9E\u4F8B\u624D\u586B",
     cloudTokenPeek: "\u5F53\u524D\u4EE4\u724C\uFF1A{peek}\uFF08\u5171 {len} \u5B57\u7B26\uFF09",
     cloudOauthIgnored: "\u5DF2\u81EA\u52A8\u5FFD\u7565 MengBot \u7684\u5BA2\u6237\u7AEF\u5BC6\u94A5\uFF08mbo_\uFF09\u2014\u2014 \u5B83\u4E0D\u662F\u8BBF\u95EE\u5BC6\u94A5\uFF0C\u8BF7\u7528\u300C\u7528 MengBot \u8D26\u53F7\u767B\u5F55\u300D",
@@ -13602,6 +13625,13 @@
     cloudTokenBad: "Access key looks wrong: expected me_\u2026 (key) or pc_\u2026 (vault matching code)",
     cloudGranted: "Cloud verified ({plan}); switched to cloud mode",
     cloudDenied: "Cannot connect to cloud: {reason}",
+    cloudHealthOffline: "Cloud connection problem: {reason}",
+    cloudHealthDenied: "Cloud authorization problem: {reason}",
+    cloudHealthOk: "Cloud connection restored",
+    cloudConnecting: "Connecting to cloud\u2026",
+    cloudConnOk: "Connected to cloud: {who}",
+    cloudConnFailed: "Cloud connection failed: {reason}",
+    cloudErrNetwork: "Network unreachable or blocked by CORS (Failed to fetch)",
     cloudTokenHint: "Leave empty if you sign in with MengBot; only needed when connecting to someone else instance",
     cloudTokenPeek: "Current token: {peek} ({len} chars)",
     cloudOauthIgnored: 'Ignored the MengBot OAuth token (mbo_) \u2014 it is not an access key. Use "Sign in with MengBot" instead',
@@ -17319,7 +17349,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.52.5" : "";
+  var CLIENT_VERSION = true ? "0.52.6" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17493,7 +17523,7 @@ ${COMPONENTS_CSS}
       ] });
     }
   };
-  function WorkingNoteCard({ t, notify: notify2, onPromoted }) {
+  function WorkingNoteCard({ t, notify, onPromoted }) {
     const [open, setOpen] = (0, import_react2.useState)(false);
     const [text, setText] = (0, import_react2.useState)("");
     const [meta, setMeta] = (0, import_react2.useState)(null);
@@ -17526,9 +17556,9 @@ ${COMPONENTS_CSS}
       const j = await post("/working", { text, mode: "replace" });
       setBusy("");
       if (j && j.ok) {
-        notify2(true, t("workSaved"));
+        notify(true, t("workSaved"));
         await load();
-      } else notify2(false, j && j.error || "save failed");
+      } else notify(false, j && j.error || "save failed");
     }, "save");
     const clear = /* @__PURE__ */ __name(async () => {
       if (!window.confirm(t("workClearConfirm"))) return;
@@ -17537,24 +17567,24 @@ ${COMPONENTS_CSS}
       setBusy("");
       if (j && j.ok) {
         setText("");
-        notify2(true, t("workCleared"));
+        notify(true, t("workCleared"));
         await load();
-      } else notify2(false, j && j.error || "clear failed");
+      } else notify(false, j && j.error || "clear failed");
     }, "clear");
     const promote = /* @__PURE__ */ __name(async () => {
       const ta = taRef.current;
       const picked = ta && ta.selectionEnd > ta.selectionStart ? ta.value.slice(ta.selectionStart, ta.selectionEnd) : text;
       if (!String(picked || "").trim()) {
-        notify2(false, t("workPromoteEmpty"));
+        notify(false, t("workPromoteEmpty"));
         return;
       }
       setBusy("promote");
       const j = await post("/working/promote", { text: picked });
       setBusy("");
       if (j && j.ok) {
-        notify2(true, t("workPromoted"));
+        notify(true, t("workPromoted"));
         if (onPromoted) onPromoted();
-      } else notify2(false, j && j.error || "promote failed");
+      } else notify(false, j && j.error || "promote failed");
     }, "promote");
     const lines = text ? text.split("\n").length : 0;
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-card", style: { margin: "0 0 10px", padding: "10px 12px" }, children: [
@@ -17600,7 +17630,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-23T04:58:04+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-23T05:02:02+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -17942,6 +17972,19 @@ ${COMPONENTS_CSS}
     }, [goView]);
     const [sort, setSort] = (0, import_react2.useState)("recent");
     const [libToast, setLibToast] = (0, import_react2.useState)(null);
+    const notify = (0, import_react2.useCallback)((msg, ok = true) => {
+      try {
+        if (libToastTimer.current) clearTimeout(libToastTimer.current);
+        setLibToast({ ok: ok !== false, msg: String(msg || "") });
+        libToastTimer.current = setTimeout(() => {
+          try {
+            setLibToast(null);
+          } catch {
+          }
+        }, 4200);
+      } catch {
+      }
+    }, []);
     (0, import_react2.useEffect)(() => {
       const onFallback = /* @__PURE__ */ __name((e) => {
         const reason = e && e.detail && e.detail.reason || "\u4E91\u7AEF\u4E0D\u53EF\u8FBE";
@@ -18027,8 +18070,27 @@ ${COMPONENTS_CSS}
     }, []);
     const cloudUsable = isCloudUsable(cloudConn);
     const [topHealth, setTopHealth] = (0, import_react2.useState)(() => ({ ...CLOUD_HEALTH }));
+    const lastHealthStatus = (0, import_react2.useRef)("");
     (0, import_react2.useEffect)(() => {
-      const onHealth = /* @__PURE__ */ __name((e) => setTopHealth({ ...e && e.detail ? e.detail : CLOUD_HEALTH }), "onHealth");
+      const onHealth = /* @__PURE__ */ __name((e) => {
+        const h = { ...e && e.detail ? e.detail : CLOUD_HEALTH };
+        setTopHealth(h);
+        const prev = lastHealthStatus.current;
+        lastHealthStatus.current = h.status;
+        if (!prev || prev === h.status) return;
+        if (h.status === "offline" || h.status === "denied") {
+          const reason = friendlyCloudError(h.lastError, t);
+          try {
+            notify((h.status === "denied" ? t("cloudHealthDenied") : t("cloudHealthOffline")).replace("{reason}", reason), false);
+          } catch {
+          }
+        } else if (h.status === "ok" && (prev === "offline" || prev === "denied")) {
+          try {
+            notify(t("cloudHealthOk"), true);
+          } catch {
+          }
+        }
+      }, "onHealth");
       try {
         window.addEventListener(CLOUD_HEALTH_EVT, onHealth);
       } catch {
@@ -18054,7 +18116,7 @@ ${COMPONENTS_CSS}
       setCloudTest(null);
       const r = await probeCloud(cloudForm);
       setCloudTest(
-        r.ok ? r.authenticated === false ? { ok: true, authenticated: false, version: r.version || "", message: r.message || "", diag: r.diag || null } : { ok: true, authenticated: true, owner: r.owner || "", profile: r.profile || null, diag: r.diag || null } : { ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : r.error, diag: r.diag || null }
+        r.ok ? r.authenticated === false ? { ok: true, authenticated: false, version: r.version || "", message: r.message || "", diag: r.diag || null } : { ok: true, authenticated: true, owner: r.owner || "", profile: r.profile || null, diag: r.diag || null } : { ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : friendlyCloudError(r.error, t), diag: r.diag || null }
       );
       setCloudBusy(false);
     }, "testCloud");
@@ -18086,9 +18148,9 @@ ${COMPONENTS_CSS}
       const r = await probeCloud(cloudForm);
       setCloudBusy(false);
       if (!r.ok) {
-        markCloudFailed(prepared.next, r.error === "url-invalid" ? t("cloudUrlInvalid") : r.error);
+        markCloudFailed(prepared.next, r.error === "url-invalid" ? t("cloudUrlInvalid") : friendlyCloudError(r.error, t));
         setCloudConn(readCloudConn());
-        setCloudTest({ ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : r.error, diag: r.diag || null });
+        setCloudTest({ ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : friendlyCloudError(r.error, t), diag: r.diag || null });
         return;
       }
       activateCloud(prepared.next, { commit: true });
@@ -18694,7 +18756,7 @@ ${COMPONENTS_CSS}
                       setCloudOpen((v) => !v);
                       setCloudTest(null);
                     },
-                    title: t("cloudSwitchHint") + " \xB7 " + t("paneExperimental"),
+                    title: t("cloudSwitchHint") + " \xB7 " + t("paneExperimental") + (topHealth.status === "offline" || topHealth.status === "denied" ? " \xB7 " + friendlyCloudError(topHealth.lastError, t) : ""),
                     "aria-haspopup": "dialog",
                     "aria-expanded": cloudOpen,
                     children: [
@@ -20970,7 +21032,7 @@ ${t("quoteHint")}`,
         const recycleCount = cnt("duplicate") + cnt("tooShort") + cnt("quarantineStale");
         const archiveCount = cnt("neverRecalled") + cnt("stale");
         if (!recycleCount && !archiveCount) {
-          notify2(t("junkNothingToClean"), false);
+          notify(t("junkNothingToClean"), false);
           return;
         }
         const steps = [];
@@ -21100,7 +21162,7 @@ ${t("quoteHint")}`,
         setCloudForm((f) => ({ ...f, mode: "cloud", token: code, url: base }));
         setCloudConn(readCloudConn());
         try {
-          notify2(t("pairConnected"), true);
+          notify(t("pairConnected"), true);
         } catch {
         }
         setTimeout(() => {
@@ -21148,7 +21210,7 @@ ${t("quoteHint")}`,
               setCloudTest({ ok: true, authenticated: true, owner: d.owner || "", profile: d.profile || null });
               setPollAuth(null);
               try {
-                notify2(t("cloudLoginDone").replace("{owner}", d.owner || "-"), true);
+                notify(t("cloudLoginDone").replace("{owner}", d.owner || "-"), true);
               } catch {
               }
               setTimeout(() => {
@@ -21242,7 +21304,7 @@ ${t("quoteHint")}`,
               setCloudTest({ ok: true, authenticated: true, owner: d.owner || "", profile: d.profile || null });
               setDeviceAuth(null);
               try {
-                notify2(t("deviceDone"), true);
+                notify(t("deviceDone"), true);
               } catch {
               }
               setTimeout(() => {
@@ -21289,15 +21351,15 @@ ${t("quoteHint")}`,
         });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.ok) {
-          notify2(d && d.error || "\u4FDD\u5B58\u5931\u8D25", false);
+          notify(d && d.error || "\u4FDD\u5B58\u5931\u8D25", false);
           setJunkBusy(false);
           return;
         }
         setAutoCfg(d.config || aCfg);
         await reloadAutoState();
-        notify2(t("junkAutoSaved"), true);
+        notify(t("junkAutoSaved"), true);
       } catch (e) {
-        notify2(String(e && e.message || e), false);
+        notify(String(e && e.message || e), false);
       }
       setJunkBusy(false);
     }, "saveAutoConfig");
@@ -21625,7 +21687,7 @@ ${t("quoteHint")}`,
       setCloudTest(null);
       const r = await probeCloud(cloudForm);
       setCloudTest(
-        r.ok ? r.authenticated === false ? { ok: true, authenticated: false, version: r.version || "", message: r.message || "", diag: r.diag || null } : { ok: true, authenticated: true, owner: r.owner || "", profile: r.profile || null, diag: r.diag || null } : { ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : r.error, diag: r.diag || null }
+        r.ok ? r.authenticated === false ? { ok: true, authenticated: false, version: r.version || "", message: r.message || "", diag: r.diag || null } : { ok: true, authenticated: true, owner: r.owner || "", profile: r.profile || null, diag: r.diag || null } : { ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : friendlyCloudError(r.error, t), diag: r.diag || null }
       );
       setCloudBusy(false);
     }, "testCloud");
@@ -21638,7 +21700,7 @@ ${t("quoteHint")}`,
       }
       if (prepared.ignoredOauth) {
         try {
-          notify2(t("cloudOauthIgnored"), false);
+          notify(t("cloudOauthIgnored"), false);
         } catch {
         }
         setCloudForm((f) => ({ ...f, token: "" }));
@@ -21653,16 +21715,29 @@ ${t("quoteHint")}`,
       }
       setCloudBusy(true);
       setCloudTest(null);
+      try {
+        notify(t("cloudConnecting"), true);
+      } catch {
+      }
       const r = await probeCloud(cloudForm);
       setCloudBusy(false);
       if (!r.ok) {
-        const saved3 = markCloudFailed(prepared.next, r.error === "url-invalid" ? t("cloudUrlInvalid") : r.error);
+        const errText = r.error === "url-invalid" ? t("cloudUrlInvalid") : friendlyCloudError(r.error, t);
+        const saved3 = markCloudFailed(prepared.next, errText);
         setCloudConn(saved3);
-        setCloudTest({ ok: false, error: r.error === "url-invalid" ? t("cloudUrlInvalid") : r.error, diag: r.diag || null });
+        setCloudTest({ ok: false, error: errText, diag: r.diag || null });
+        try {
+          notify(t("cloudConnFailed").replace("{reason}", errText), false);
+        } catch {
+        }
         return;
       }
       const saved2 = activateCloud(prepared.next, { commit: true });
       setCloudConn(saved2);
+      try {
+        notify(t("cloudConnOk").replace("{who}", String(r.owner || saved2.owner || "").trim() || "-"), true);
+      } catch {
+      }
       try {
         location.reload();
       } catch {
@@ -21753,10 +21828,10 @@ ${t("quoteHint")}`,
         const d = await fetch(API + "/version-check" + (force ? "?force=1" : "")).then((r) => r.json());
         if (d && d.ok) {
           setVc(d);
-          if (force) notify2(d.updateAvailable ? t("vcLatest") + " v" + d.latest : t("vcUpToDate"));
-        } else if (force) notify2(t("vcCheckFail"), false);
+          if (force) notify(d.updateAvailable ? t("vcLatest") + " v" + d.latest : t("vcUpToDate"));
+        } else if (force) notify(t("vcCheckFail"), false);
       } catch {
-        if (force) notify2(t("vcCheckFail"), false);
+        if (force) notify(t("vcCheckFail"), false);
       } finally {
         if (!silent) setBusy("");
       }
@@ -21909,7 +21984,7 @@ ${t("quoteHint")}`,
         } catch {
         }
         try {
-          notify2(t("importDone").replace("{n}", String(imported)), true);
+          notify(t("importDone").replace("{n}", String(imported)), true);
         } catch {
         }
       } catch (e) {
@@ -21951,7 +22026,7 @@ ${t("quoteHint")}`,
         } catch {
         }
         try {
-          notify2(t("importDone").replace("{n}", String(d.imported || 0)), true);
+          notify(t("importDone").replace("{n}", String(d.imported || 0)), true);
         } catch {
         }
       } catch (e) {
@@ -22002,7 +22077,7 @@ ${t("quoteHint")}`,
         } catch {
         }
         try {
-          notify2(t("resetDoneMsg"), true);
+          notify(t("resetDoneMsg"), true);
         } catch {
         }
       } catch (e) {
@@ -22019,7 +22094,7 @@ ${t("quoteHint")}`,
           if (d && d.code === "quota_exceeded") {
             const msg = "\u5E93\u6570\u91CF\u5DF2\u8FBE\u672C\u5957\u9910\u4E0A\u9650\uFF08" + (d.used != null ? d.used : "?") + " / " + (d.limit != null ? d.limit : "?") + "\uFF09 \u2014\u2014 \u5347\u7EA7\u5957\u9910\u53EF\u589E\u52A0\u4E0A\u9650";
             try {
-              notify2(msg, false);
+              notify(msg, false);
             } catch {
             }
             try {
@@ -22031,7 +22106,7 @@ ${t("quoteHint")}`,
           if (d && d.code === "subscription_required") {
             const msg = "\u9700\u8981\u5148\u8BA2\u9605\u624D\u80FD\u521B\u5EFA\u4E91\u7AEF\u5E93";
             try {
-              notify2(msg, false);
+              notify(msg, false);
             } catch {
             }
             try {
@@ -22041,13 +22116,13 @@ ${t("quoteHint")}`,
             return;
           }
           try {
-            notify2(d && d.message || d && d.error || t("createVaultFail"), false);
+            notify(d && d.message || d && d.error || t("createVaultFail"), false);
           } catch {
           }
           return;
         }
         try {
-          notify2(d.created ? t("createVaultDone").replace("{n}", d.name) : t("createVaultExists").replace("{n}", d.name), true);
+          notify(d.created ? t("createVaultDone").replace("{n}", d.name) : t("createVaultExists").replace("{n}", d.name), true);
         } catch {
         }
         try {
@@ -22056,7 +22131,7 @@ ${t("quoteHint")}`,
         }
       } catch (e) {
         try {
-          notify2(String(e && e.message || e), false);
+          notify(String(e && e.message || e), false);
         } catch {
         }
       }
@@ -22129,7 +22204,7 @@ ${t("quoteHint")}`,
         } catch {
         }
         try {
-          notify2(t("xferDone").replace("{n}", String(done.imported)).replace("{m}", String(done.overwritten)), true);
+          notify(t("xferDone").replace("{n}", String(done.imported)).replace("{m}", String(done.overwritten)), true);
         } catch {
         }
       } catch (e) {
@@ -22153,7 +22228,7 @@ ${t("quoteHint")}`,
       const ad = a ? await a.json().catch(() => ({})) : null;
       if (a && !a.ok) {
         try {
-          notify2(ad && ad.error || t("switchVaultFail"), false);
+          notify(ad && ad.error || t("switchVaultFail"), false);
         } catch {
         }
         return { ok: false, hot: false };
@@ -22192,7 +22267,7 @@ ${t("quoteHint")}`,
           hot = !!d.hot;
         } else {
           try {
-            notify2(d && d.error || t("switchVaultFail"), false);
+            notify(d && d.error || t("switchVaultFail"), false);
           } catch {
           }
           return;
@@ -22221,7 +22296,7 @@ ${t("quoteHint")}`,
         }
       } catch (e) {
         try {
-          notify2(String(e && e.message || e), false);
+          notify(String(e && e.message || e), false);
         } catch {
         }
       } finally {
@@ -22235,7 +22310,7 @@ ${t("quoteHint")}`,
       const token = String(cloudForm.token || conn.token || "").trim();
       if (kind === "cloud" && (!url || !token)) {
         try {
-          notify2(t("switchNeedLogin"), false);
+          notify(t("switchNeedLogin"), false);
         } catch {
         }
         return;
@@ -22254,7 +22329,7 @@ ${t("quoteHint")}`,
             setSwitching("");
             const why = String(d.error || "HTTP " + r.status);
             try {
-              notify2("\u2601\uFE0F \u4E91\u7AEF\u62D2\u7EDD\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
+              notify("\u2601\uFE0F \u4E91\u7AEF\u62D2\u7EDD\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
             } catch {
             }
             commitCloudConn({ ...conn, active: false, lastError: why });
@@ -22266,7 +22341,7 @@ ${t("quoteHint")}`,
           setSwitching("");
           const why = String(e && e.message || e).slice(0, 80);
           try {
-            notify2("\u2601\uFE0F \u8FDE\u4E0D\u4E0A\u4E91\u7AEF\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
+            notify("\u2601\uFE0F \u8FDE\u4E0D\u4E0A\u4E91\u7AEF\uFF1A" + why + "\uFF0C\u4FDD\u6301\u672C\u5730\u6A21\u5F0F", false);
           } catch {
           }
           commitCloudConn({ ...conn, active: false, lastError: why });
@@ -22286,12 +22361,12 @@ ${t("quoteHint")}`,
         }).then((r) => r.json().catch(() => null)).then((j) => {
           if (j && j.ok) return;
           try {
-            notify2(`${kind === "cloud" ? t("switchToCloudDone") : t("switchToLocalDone")}\uFF08\u672C\u673A\u670D\u52A1\u7AEF\u672A\u540C\u6B65\uFF1A${j && j.error || "no-ok"}\uFF09`, false);
+            notify(`${kind === "cloud" ? t("switchToCloudDone") : t("switchToLocalDone")}\uFF08\u672C\u673A\u670D\u52A1\u7AEF\u672A\u540C\u6B65\uFF1A${j && j.error || "no-ok"}\uFF09`, false);
           } catch {
           }
         }).catch((e) => {
           try {
-            notify2(`${kind === "cloud" ? t("switchToCloudDone") : t("switchToLocalDone")}\uFF08\u672C\u673A\u670D\u52A1\u7AEF\u672A\u540C\u6B65\uFF1A${String(e && e.message || e).slice(0, 80)}\uFF09`, false);
+            notify(`${kind === "cloud" ? t("switchToCloudDone") : t("switchToLocalDone")}\uFF08\u672C\u673A\u670D\u52A1\u7AEF\u672A\u540C\u6B65\uFF1A${String(e && e.message || e).slice(0, 80)}\uFF09`, false);
           } catch {
           }
         });
@@ -22308,7 +22383,7 @@ ${t("quoteHint")}`,
         }
       } catch (e) {
         try {
-          notify2(String(e && e.message || e), false);
+          notify(String(e && e.message || e), false);
         } catch {
         }
       } finally {
@@ -22320,7 +22395,7 @@ ${t("quoteHint")}`,
       setSwitchConfirm(null);
       if (target === currentVaultKey) {
         try {
-          notify2(t("switchAlready"), true);
+          notify(t("switchAlready"), true);
         } catch {
         }
         return;
@@ -22340,7 +22415,7 @@ ${t("quoteHint")}`,
             if (!r.ok || !d.ok) throw new Error(d.error || d.hint || "HTTP " + r.status);
           } catch (e) {
             try {
-              notify2(t("switchVaultFail") + "\uFF1A" + String(e && e.message || e), false);
+              notify(t("switchVaultFail") + "\uFF1A" + String(e && e.message || e), false);
             } catch {
             }
             return;
@@ -22368,14 +22443,14 @@ ${t("quoteHint")}`,
       const d = xferDlg;
       if (!d || !d.from || !d.to) {
         try {
-          notify2(t("xferPickBoth"), false);
+          notify(t("xferPickBoth"), false);
         } catch {
         }
         return;
       }
       if (d.from === d.to) {
         try {
-          notify2(t("xferSameVault"), false);
+          notify(t("xferSameVault"), false);
         } catch {
         }
         return;
@@ -22421,7 +22496,7 @@ ${t("quoteHint")}`,
         } catch {
         }
         try {
-          notify2(t("xferDone").replace("{n}", String(d.imported || 0)).replace("{m}", String(d.overwritten || 0)), true);
+          notify(t("xferDone").replace("{n}", String(d.imported || 0)).replace("{m}", String(d.overwritten || 0)), true);
         } catch {
         }
       } catch (e) {
@@ -22509,7 +22584,7 @@ ${t("quoteHint")}`,
         }
         setImportJob({ importing: false, dir: "up", done: cards.length, total: cards.length, imported, duplicate, err: "" });
         try {
-          notify2(t("importDone").replace("{n}", String(imported)), true);
+          notify(t("importDone").replace("{n}", String(imported)), true);
         } catch {
         }
       } catch (e) {
@@ -22546,7 +22621,7 @@ ${t("quoteHint")}`,
       setCloudTest({ ok: true, authenticated: true, owner: acc.owner, profile: acc.profile || null });
       setAcctOpen(false);
       try {
-        notify2(t("switchedTo").replace("{who}", acc.owner), true);
+        notify(t("switchedTo").replace("{who}", acc.owner), true);
       } catch {
       }
       setTimeout(() => {
@@ -22565,7 +22640,7 @@ ${t("quoteHint")}`,
       setCloudPlan(null);
       setCloudTest(null);
       try {
-        notify2(t("cloudDisconnected"), true);
+        notify(t("cloudDisconnected"), true);
       } catch {
       }
       try {
@@ -22589,7 +22664,7 @@ ${t("quoteHint")}`,
       if (Math.abs(el.scrollTop - scrollTopRef.current) > 1) el.scrollTop = scrollTopRef.current;
     });
     const toastTimer = (0, import_react2.useRef)(null);
-    const notify2 = /* @__PURE__ */ __name((msg, ok = true) => {
+    const notify = /* @__PURE__ */ __name((msg, ok = true) => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
       setToast({ msg, ok });
       toastTimer.current = setTimeout(() => setToast(null), 1900);
@@ -22597,7 +22672,7 @@ ${t("quoteHint")}`,
     const notifyAcrossRemount = /* @__PURE__ */ __name((msg, ok = true) => {
       PENDING_TOAST = { msg, ok };
       try {
-        notify2(msg, ok);
+        notify(msg, ok);
       } catch {
       }
     }, "notifyAcrossRemount");
@@ -22605,7 +22680,7 @@ ${t("quoteHint")}`,
       if (!PENDING_TOAST) return;
       const p = PENDING_TOAST;
       PENDING_TOAST = null;
-      notify2(p.msg, p.ok);
+      notify(p.msg, p.ok);
     }, []);
     const restartResident = /* @__PURE__ */ __name(async () => {
       if (busy) return;
@@ -22613,28 +22688,28 @@ ${t("quoteHint")}`,
       try {
         const raw = await fetch(API + "/restart-self", { method: "POST" });
         if (raw.status === 404 || raw.status === 405) {
-          notify2(tf("vcRestartNoRoute", { cmd: vc && vc.restartCommand || "dsh-memory restart --port 7999" }), false);
+          notify(tf("vcRestartNoRoute", { cmd: vc && vc.restartCommand || "dsh-memory restart --port 7999" }), false);
           return;
         }
         const d = await raw.json().catch(() => null);
         if (!d) {
-          notify2(t("vcRestartFail") + "\uFF08HTTP " + raw.status + "\uFF09", false);
+          notify(t("vcRestartFail") + "\uFF08HTTP " + raw.status + "\uFF09", false);
           return;
         }
         if (!d.ok) {
-          notify2(d.error || t("vcRestartFail"), false);
+          notify(d.error || t("vcRestartFail"), false);
           return;
         }
         if (d.alreadyCurrent) {
-          notify2(d.note || t("vcRestartCurrent"));
+          notify(d.note || t("vcRestartCurrent"));
           return;
         }
-        notify2(d.note || t("vcRestartSent"));
+        notify(d.note || t("vcRestartSent"));
         if (!d.alreadyRunning) setTimeout(() => {
           checkVersion(true);
         }, 6e3);
       } catch (e) {
-        notify2(t("vcRestartFail") + "\uFF1A" + String(e && e.message || e), false);
+        notify(t("vcRestartFail") + "\uFF1A" + String(e && e.message || e), false);
       } finally {
         setBusy("");
       }
@@ -22750,7 +22825,7 @@ ${t("quoteHint")}`,
     const save = /* @__PURE__ */ __name(async () => {
       if (!form) return;
       if (readonly) {
-        notify2(t("editInSetting"), false);
+        notify(t("editInSetting"), false);
         return;
       }
       const NUM_RANGE = {
@@ -22782,7 +22857,7 @@ ${t("quoteHint")}`,
       if (badFields.length) {
         const msg = t("saveInvalid") + "\uFF1A" + badFields.join("\uFF1B");
         setErr(msg);
-        notify2(msg, false);
+        notify(msg, false);
         return;
       }
       setBusy("save");
@@ -22825,16 +22900,16 @@ ${t("quoteHint")}`,
             setDirty(false);
             setSaved(msg);
           } else setErr(msg);
-          notify2(msg, okStyle);
+          notify(msg, okStyle);
           await load();
         } else {
           const msg = r.status === 409 ? t("conflictRefresh") : d?.error || t("saveFail");
           setErr(msg);
-          notify2(msg, false);
+          notify(msg, false);
         }
       } catch {
         setErr(t("saveFail"));
-        notify2(t("saveFail"), false);
+        notify(t("saveFail"), false);
       } finally {
         setBusy("");
       }
@@ -22860,7 +22935,7 @@ ${t("quoteHint")}`,
       } catch {
       }
       setSaved(t("themeApplied"));
-      notify2(t("themeApplied"), true);
+      notify(t("themeApplied"), true);
       if (readonly) return;
       fetch(`${API}/config`, {
         method: "POST",
@@ -22911,7 +22986,7 @@ ${t("quoteHint")}`,
       dirtyRef.current = true;
       setDirty(true);
       setAppliedPlan(key);
-      notify2(tf("planApplied", { plan: plan.label }));
+      notify(tf("planApplied", { plan: plan.label }));
     }, "applyPlan");
     const refreshSetup = /* @__PURE__ */ __name(async () => {
       try {
@@ -22925,15 +23000,15 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(`${API}/mcp/action`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agent, action }) });
         const d = await r.json();
-        if (d && d.ok) notify2(tf(action === "install" ? "mcpInstalled" : "mcpUninstalled", { agent }));
-        else notify2(tf("mcpActionFail", { agent, error: d?.error || "" }), false);
+        if (d && d.ok) notify(tf(action === "install" ? "mcpInstalled" : "mcpUninstalled", { agent }));
+        else notify(tf("mcpActionFail", { agent, error: d?.error || "" }), false);
         try {
           const s = await fetch(`${API}/setup-status`, { cache: "no-store" }).then((x) => x.json());
           if (s && s.ok) setSetupStatus(s);
         } catch {
         }
       } catch {
-        notify2(t("mergeFail"), false);
+        notify(t("mergeFail"), false);
       } finally {
         setBusy("");
       }
@@ -23207,16 +23282,16 @@ ${t("quoteHint")}`,
                         } catch {
                         }
                       }
-                      notify2(t("skillsSyncDone") + "\uFF1A" + t("skillsScanned") + " " + (r.total || 0) + " \xB7 " + t("skillsCreated") + " " + (r.created || 0) + " \xB7 " + t("skillsUpdated") + " " + (r.updated || 0) + " \xB7 " + t("skillsPendingUpdates") + " " + (r.pendingUpdates || 0) + (r.refreshed ? " \xB7 " + t("skillsRefreshed") + " " + r.refreshed : "") + (r.pendingUpdates || r.updated ? " \xB7 " + t("skillUpdatesNeedReview") : ""));
-                    } else notify2(r && r.error || t("skillsSyncFail"), false);
+                      notify(t("skillsSyncDone") + "\uFF1A" + t("skillsScanned") + " " + (r.total || 0) + " \xB7 " + t("skillsCreated") + " " + (r.created || 0) + " \xB7 " + t("skillsUpdated") + " " + (r.updated || 0) + " \xB7 " + t("skillsPendingUpdates") + " " + (r.pendingUpdates || 0) + (r.refreshed ? " \xB7 " + t("skillsRefreshed") + " " + r.refreshed : "") + (r.pendingUpdates || r.updated ? " \xB7 " + t("skillUpdatesNeedReview") : ""));
+                    } else notify(r && r.error || t("skillsSyncFail"), false);
                   } catch (e) {
-                    notify2(t("skillsSyncFail"), false);
+                    notify(t("skillsSyncFail"), false);
                   } finally {
                     setBusy("");
                   }
                 }, children: busy === "skills" ? t("syncingSkills") : t("syncSkills") }) })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-backup"), id: "sec-backup", icon: "\u{1F9EF}", title: t("backupSection"), sub: t("backupSectionSub"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BackupCard, { t, notify: notify2 }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CfgSection, { ...secProps("sec-backup"), id: "sec-backup", icon: "\u{1F9EF}", title: t("backupSection"), sub: t("backupSectionSub"), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BackupCard, { t, notify }) }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CfgSection, { ...secProps("sec-junk"), id: "sec-junk", icon: "\u{1F9F9}", title: t("junkSection"), sub: t("junkSectionSub"), children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mc-cloud-actions", style: { marginBottom: 10 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: junkBusy, onClick: scanJunkNow, children: junkBusy ? t("loading") : t("junkScanBtn") }),
@@ -23441,10 +23516,10 @@ ${t("quoteHint")}`,
                       const r = await fetch(API + "/news/digest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then((x) => x.json()).catch(() => null);
                       if (r && r.ok) {
                         setDigestPreview(r.text || "");
-                        notify2(r.digest && r.digest.items && r.digest.items.length ? t("newsDigestDone") : t("newsDigestEmpty"), true);
-                      } else notify2(r && r.error || t("newsDigestFail"), false);
+                        notify(r.digest && r.digest.items && r.digest.items.length ? t("newsDigestDone") : t("newsDigestEmpty"), true);
+                      } else notify(r && r.error || t("newsDigestFail"), false);
                     } catch (e) {
-                      notify2(t("newsDigestFail"), false);
+                      notify(t("newsDigestFail"), false);
                     } finally {
                       setBusy("");
                     }
@@ -23565,10 +23640,10 @@ ${t("quoteHint")}`,
                   setBusy("llmtest");
                   try {
                     const r = await fetch(API + "/llm-test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: form.captureProvider || "", model: form.captureModel || "", firstOnly: form.captureFirstOnly === true }) }).then((x) => x.json());
-                    if (r && r.ok) notify2(t("llmTestOk") + "\uFF1A" + r.route.provider + (r.route.model ? "/" + r.route.model : "") + " \xB7 " + r.ms + "ms \xB7 " + t("llmCandidates") + " " + r.candidates);
-                    else notify2(t("llmTestFail") + "\uFF1A" + (r && (r.failure ? r.failure.code + " " + r.failure.message : r.error) || "?"), false);
+                    if (r && r.ok) notify(t("llmTestOk") + "\uFF1A" + r.route.provider + (r.route.model ? "/" + r.route.model : "") + " \xB7 " + r.ms + "ms \xB7 " + t("llmCandidates") + " " + r.candidates);
+                    else notify(t("llmTestFail") + "\uFF1A" + (r && (r.failure ? r.failure.code + " " + r.failure.message : r.error) || "?"), false);
                   } catch (e) {
-                    notify2(t("llmTestFail") + "\uFF1A" + String(e && e.message || e), false);
+                    notify(t("llmTestFail") + "\uFF1A" + String(e && e.message || e), false);
                   } finally {
                     setBusy("");
                   }
@@ -23739,7 +23814,7 @@ ${t("quoteHint")}`,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", onClick: () => {
                         const u = consoleUrl();
                         if (!u) {
-                          notify2(t("cloudUrlRequired"), false);
+                          notify(t("cloudUrlRequired"), false);
                           return;
                         }
                         openExternal(u);
@@ -24160,7 +24235,7 @@ ${t("quoteHint")}`,
                               onClick: () => {
                                 try {
                                   navigator.clipboard.writeText(admSecret);
-                                  notify2(t("cloudAdminCopied"), true);
+                                  notify(t("cloudAdminCopied"), true);
                                 } catch {
                                 }
                               },
@@ -24397,7 +24472,7 @@ ${t("quoteHint")}`,
                 {
                   type: "button",
                   className: "mc-btn me-on",
-                  onClick: readonly ? () => notify2(t("readonlyTitle") + "\uFF1A" + t("readonlyBody"), false) : save,
+                  onClick: readonly ? () => notify(t("readonlyTitle") + "\uFF1A" + t("readonlyBody"), false) : save,
                   disabled: busy === "save",
                   title: readonly ? t("readonlyBody") : t("saveConfig"),
                   children: busy === "save" ? t("saving") : readonly ? t("readonlyBtn") : t("saveConfig")
@@ -24423,7 +24498,7 @@ ${t("quoteHint")}`,
     const [toast, setToast] = (0, import_react2.useState)(null);
     const [tab, setTab] = (0, import_react2.useState)("pending");
     const [loadErr, setLoadErr] = (0, import_react2.useState)("");
-    const notify2 = /* @__PURE__ */ __name((msg, ok = true) => {
+    const notify = /* @__PURE__ */ __name((msg, ok = true) => {
       setToast({ msg, ok });
       setTimeout(() => setToast(null), 3e3);
     }, "notify");
@@ -24483,7 +24558,7 @@ ${t("quoteHint")}`,
     const applyStatus = /* @__PURE__ */ __name(async (status, paths, opts = {}) => {
       const list = paths || [...sel];
       if (!list.length) {
-        notify2(t("noSelection"), false);
+        notify(t("noSelection"), false);
         return;
       }
       setBusy("apply");
@@ -24506,10 +24581,10 @@ ${t("quoteHint")}`,
         }
         await load();
         if (onReload) onReload();
-        if (failed) notify2(t("toastFailed") + "\uFF08" + failed + "/" + list.length + "\uFF09", false);
-        else notify2(verb + " " + list.length + " \u5F20");
+        if (failed) notify(t("toastFailed") + "\uFF08" + failed + "/" + list.length + "\uFF09", false);
+        else notify(verb + " " + list.length + " \u5F20");
       } catch (e) {
-        notify2(t("toastFailed") + ": " + String(e && e.message || e), false);
+        notify(t("toastFailed") + ": " + String(e && e.message || e), false);
       } finally {
         setBusy("");
       }
@@ -24555,12 +24630,12 @@ ${t("quoteHint")}`,
       setBusy("reclassify");
       try {
         const r = await fetch(API + "/reclassify").then((x) => x.json());
-        if (r && r.ok) notify2(t("reclassify") + "\uFF1A" + r.changed + " / " + r.scanned);
-        else notify2(t("toastFailed") + ": " + (r && r.error || "HTTP"), false);
+        if (r && r.ok) notify(t("reclassify") + "\uFF1A" + r.changed + " / " + r.scanned);
+        else notify(t("toastFailed") + ": " + (r && r.error || "HTTP"), false);
         await load();
         if (onReload) onReload();
       } catch (e) {
-        notify2(t("toastFailed") + ": " + String(e && e.message || e), false);
+        notify(t("toastFailed") + ": " + String(e && e.message || e), false);
       } finally {
         setBusy("");
       }
@@ -24576,17 +24651,17 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(API + "/audit/redistill", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) }).then((x) => x.json());
         if (r && r.ok) {
-          notify2(t("redistillOk") + (r.title ? "\uFF1A" + r.title : ""));
+          notify(t("redistillOk") + (r.title ? "\uFF1A" + r.title : ""));
           setBodies((b) => {
             const n = { ...b };
             delete n[path];
             return n;
           });
-        } else notify2(t("redistillFail") + ": " + (r && r.error || "HTTP"), false);
+        } else notify(t("redistillFail") + ": " + (r && r.error || "HTTP"), false);
         await load();
         if (onReload) onReload();
       } catch (e) {
-        notify2(t("redistillFail") + ": " + String(e && e.message || e), false);
+        notify(t("redistillFail") + ": " + String(e && e.message || e), false);
       } finally {
         setBusy("");
       }
@@ -25083,7 +25158,7 @@ ${t("quoteHint")}`,
     const [followDraft, setFollowDraft] = (0, import_react2.useState)(null);
     const [followBusy, setFollowBusy] = (0, import_react2.useState)(false);
     const [followFilter, setFollowFilter] = (0, import_react2.useState)("");
-    const notify2 = /* @__PURE__ */ __name((msg, ok = true) => {
+    const notify = /* @__PURE__ */ __name((msg, ok = true) => {
       setToast({ msg, ok });
       setTimeout(() => setToast(null), 3200);
     }, "notify");
@@ -25129,7 +25204,7 @@ ${t("quoteHint")}`,
       } catch (e) {
         const msg = e && e.message || t("newsFeedError");
         setFeedError(msg);
-        notify2(msg, false);
+        notify(msg, false);
       } finally {
         setLoading(false);
       }
@@ -25156,11 +25231,11 @@ ${t("quoteHint")}`,
         const r = await fetch(API + "/news/feed/refresh", { method: "POST" }).then((x) => x.json());
         if (!r || !r.ok) throw new Error(r && r.error || t("newsFeedError"));
         await load();
-        notify2(t("newsUpdatedAt") + " " + (/* @__PURE__ */ new Date()).toLocaleTimeString());
+        notify(t("newsUpdatedAt") + " " + (/* @__PURE__ */ new Date()).toLocaleTimeString());
       } catch (e) {
         const msg = e && e.message || t("newsFeedError");
         setFeedError(msg);
-        notify2(msg, false);
+        notify(msg, false);
         setLoading(false);
       }
     }, "refresh");
@@ -25236,7 +25311,7 @@ ${t("quoteHint")}`,
     const previewFollow = /* @__PURE__ */ __name(async () => {
       const text = query.trim();
       if (!text) {
-        notify2(t("newsFollowNoQuery"), false);
+        notify(t("newsFollowNoQuery"), false);
         return;
       }
       setFollowBusy(true);
@@ -25250,7 +25325,7 @@ ${t("quoteHint")}`,
         setDomainEnum(r.domainsEnum || domainEnum);
         setFollowDraft({ text, query: r.parsed.query, label: r.parsed.label, domains: r.parsed.domains, sourceIds: r.parsed.sourceIds || [], notes: r.parsed.notes || [] });
       } catch (e) {
-        notify2(String(e && e.message || e), false);
+        notify(String(e && e.message || e), false);
       } finally {
         setFollowBusy(false);
       }
@@ -25274,11 +25349,11 @@ ${t("quoteHint")}`,
         if (!r || !r.ok) throw new Error(r && r.error || t("newsFollowFail"));
         const label = followDraft.label;
         setFollowDraft(null);
-        notify2((r.duplicate ? t("newsFollowExists") : t("newsFollowAdded")) + "\uFF1A" + label);
+        notify((r.duplicate ? t("newsFollowExists") : t("newsFollowAdded")) + "\uFF1A" + label);
         await loadFollows();
         await load();
       } catch (e) {
-        notify2(String(e && e.message || e), false);
+        notify(String(e && e.message || e), false);
       } finally {
         setFollowBusy(false);
       }
@@ -25288,11 +25363,11 @@ ${t("quoteHint")}`,
         const r = await fetch(API + "/news/follows?id=" + encodeURIComponent(id), { method: "DELETE" }).then((x) => x.json());
         if (!r || !r.ok) throw new Error(r && r.error || t("newsFollowFail"));
         if (followFilter === id) setFollowFilter("");
-        notify2(t("newsFollowRemoved"));
+        notify(t("newsFollowRemoved"));
         await loadFollows();
         await load();
       } catch (e) {
-        notify2(String(e && e.message || e), false);
+        notify(String(e && e.message || e), false);
       }
     }, "dropFollow");
     const renderTile = /* @__PURE__ */ __name((item, index) => {
@@ -25553,7 +25628,7 @@ ${t("quoteHint")}`,
     const [preview, setPreview] = (0, import_react2.useState)(false);
     const [busy, setBusy] = (0, import_react2.useState)("");
     const [toast, setToast] = (0, import_react2.useState)(null);
-    const notify2 = /* @__PURE__ */ __name((msg, ok = true) => {
+    const notify = /* @__PURE__ */ __name((msg, ok = true) => {
       setToast({ msg, ok });
       setTimeout(() => setToast(null), 2600);
     }, "notify");
@@ -25574,7 +25649,7 @@ ${t("quoteHint")}`,
         setCounts(r.counts || { all: 0, unread: 0 });
         if (onUnreadChange) onUnreadChange(Number((r.counts || {}).unread) || 0);
       } catch {
-        notify2(t("newsSaveFail"), false);
+        notify(t("newsSaveFail"), false);
       }
     }, [q, category, unreadOnly, onUnreadChange, t]);
     (0, import_react2.useEffect)(() => {
@@ -25588,7 +25663,7 @@ ${t("quoteHint")}`,
         setDetail(r.item);
         if (!r.item.read) await setRead(item.id, true);
       } catch {
-        notify2(t("newsSaveFail"), false);
+        notify(t("newsSaveFail"), false);
       }
     }, "openNews");
     const setRead = /* @__PURE__ */ __name(async (id, read) => {
@@ -25598,7 +25673,7 @@ ${t("quoteHint")}`,
         setDetail((d) => d && d.id === id ? { ...d, read: !!read } : d);
         await load();
       } catch {
-        notify2(t("newsSaveFail"), false);
+        notify(t("newsSaveFail"), false);
       }
     }, "setRead");
     const openEditor = /* @__PURE__ */ __name(async (item) => {
@@ -25631,7 +25706,7 @@ ${t("quoteHint")}`,
     const saveEditor = /* @__PURE__ */ __name(async () => {
       if (!editor) return;
       if (!String(editor.title || "").trim() || !String(editor.body || "").trim()) {
-        notify2(t("newsSaveFail"), false);
+        notify(t("newsSaveFail"), false);
         return;
       }
       setBusy("save");
@@ -25654,9 +25729,9 @@ ${t("quoteHint")}`,
         setSelectedId(r.item.id);
         setDetail(r.item);
         await load();
-        notify2(t("newsSaved"));
+        notify(t("newsSaved"));
       } catch (e) {
-        notify2(e && e.message || t("newsSaveFail"), false);
+        notify(e && e.message || t("newsSaveFail"), false);
       } finally {
         setBusy("");
       }
@@ -25672,9 +25747,9 @@ ${t("quoteHint")}`,
           setDetail(null);
         }
         await load();
-        notify2(t("newsDeleted"));
+        notify(t("newsDeleted"));
       } catch {
-        notify2(t("newsSaveFail"), false);
+        notify(t("newsSaveFail"), false);
       } finally {
         setBusy("");
       }
@@ -25823,7 +25898,7 @@ ${t("quoteHint")}`,
     const [busy, setBusy] = (0, import_react2.useState)("");
     const [loadErr, setLoadErr] = (0, import_react2.useState)("");
     const [toast, setToast] = (0, import_react2.useState)(null);
-    const notify2 = /* @__PURE__ */ __name((msg, ok = true) => {
+    const notify = /* @__PURE__ */ __name((msg, ok = true) => {
       setToast({ msg, ok });
       setTimeout(() => setToast(null), 3200);
     }, "notify");
@@ -25850,10 +25925,10 @@ ${t("quoteHint")}`,
         const d = await r.json().catch(() => null);
         await load();
         if (onReload) onReload();
-        if (r.ok && (!d || d.ok !== false)) notify2((act === "restore" ? t("toastRestored") : t("toastPurged")) + "\uFF1A" + title);
-        else notify2(t("toastFailed") + "\uFF1A" + (d && d.error || "HTTP " + r.status), false);
+        if (r.ok && (!d || d.ok !== false)) notify((act === "restore" ? t("toastRestored") : t("toastPurged")) + "\uFF1A" + title);
+        else notify(t("toastFailed") + "\uFF1A" + (d && d.error || "HTTP " + r.status), false);
       } catch (e) {
-        notify2(t("toastFailed") + "\uFF1A" + String(e && e.message || e), false);
+        notify(t("toastFailed") + "\uFF1A" + String(e && e.message || e), false);
       } finally {
         setBusy("");
       }
@@ -25878,10 +25953,10 @@ ${t("quoteHint")}`,
               const d = await r.json().catch(() => null);
               await load();
               if (onReload) onReload();
-              if (r.ok && (!d || d.ok !== false)) notify2(t("toastPurgeAll").split("{n}").join(String(d && d.purged != null ? d.purged : items.length)), true);
-              else notify2(t("toastFailed") + "\uFF1A" + (d && d.error || "HTTP " + r.status), false);
+              if (r.ok && (!d || d.ok !== false)) notify(t("toastPurgeAll").split("{n}").join(String(d && d.purged != null ? d.purged : items.length)), true);
+              else notify(t("toastFailed") + "\uFF1A" + (d && d.error || "HTTP " + r.status), false);
             } catch (e) {
-              notify2(t("toastFailed") + "\uFF1A" + String(e && e.message || e), false);
+              notify(t("toastFailed") + "\uFF1A" + String(e && e.message || e), false);
             } finally {
               setBusy("");
             }
@@ -26105,7 +26180,7 @@ ${t("quoteHint")}`,
       ] })
     ] });
   }, "CardRow");
-  function BackupCard({ t, notify: notify2 }) {
+  function BackupCard({ t, notify }) {
     const [status, setStatus] = (0, import_react2.useState)(null);
     const [err, setErr] = (0, import_react2.useState)("");
     const [busy, setBusy] = (0, import_react2.useState)("");
@@ -26147,11 +26222,11 @@ ${t("quoteHint")}`,
           body: JSON.stringify(patch || {})
         }).then((x) => x.json());
         if (r && r.ok) {
-          notify2(t("backupSaved"));
+          notify(t("backupSaved"));
           await load();
-        } else notify2(r && r.error || t("backupSaveFail"), false);
+        } else notify(r && r.error || t("backupSaveFail"), false);
       } catch {
-        notify2(t("backupSaveFail"), false);
+        notify(t("backupSaveFail"), false);
       } finally {
         setBusy("");
       }
@@ -26163,7 +26238,7 @@ ${t("quoteHint")}`,
       const d = Number(keepDays);
       if (Number.isFinite(d) && d > 0) patch.keepDays = d;
       if (!Object.keys(patch).length) {
-        notify2(t("backupSaveFail"), false);
+        notify(t("backupSaveFail"), false);
         return;
       }
       saveConfig(patch);
@@ -26177,11 +26252,11 @@ ${t("quoteHint")}`,
           body: "{}"
         }).then((x) => x.json());
         if (r && r.ok) {
-          notify2(t("backupDone").replace("{cards}", String(r.cards || 0)).replace("{pruned}", String(r.pruned || 0)));
+          notify(t("backupDone").replace("{cards}", String(r.cards || 0)).replace("{pruned}", String(r.pruned || 0)));
           await load();
-        } else notify2(r && r.error || t("backupFail"), false);
+        } else notify(r && r.error || t("backupFail"), false);
       } catch {
-        notify2(t("backupFail"), false);
+        notify(t("backupFail"), false);
       } finally {
         setBusy("");
       }
@@ -26195,10 +26270,10 @@ ${t("quoteHint")}`,
         document.body.appendChild(a);
         a.click();
         a.remove();
-        notify2(t("backupExport") + " \xB7 " + t("backupDone").replace("{cards}", "\u2014").replace("{pruned}", "\u2014"));
+        notify(t("backupExport") + " \xB7 " + t("backupDone").replace("{cards}", "\u2014").replace("{pruned}", "\u2014"));
         await load();
       } catch {
-        notify2(t("backupExportFail"), false);
+        notify(t("backupExportFail"), false);
       } finally {
         setBusy("");
       }
@@ -26212,11 +26287,11 @@ ${t("quoteHint")}`,
         const buf = await file.arrayBuffer();
         const head = new TextDecoder("latin1").decode(new Uint8Array(buf.slice(0, 15)));
         if (head !== "SQLite format 3") {
-          notify2(t("backupImportFail") + "\uFF1A\u4E0D\u662F SQLite \u6570\u636E\u5E93", false);
+          notify(t("backupImportFail") + "\uFF1A\u4E0D\u662F SQLite \u6570\u636E\u5E93", false);
           return;
         }
         if (buf.byteLength > 200 * 1024 * 1024) {
-          notify2(t("backupImportFail") + "\uFF1A\u6587\u4EF6\u8D85\u8FC7 200MB", false);
+          notify(t("backupImportFail") + "\uFF1A\u6587\u4EF6\u8D85\u8FC7 200MB", false);
           return;
         }
         let bin = "";
@@ -26230,7 +26305,7 @@ ${t("quoteHint")}`,
           body: JSON.stringify({ data, name: file.name })
         }).then((x) => x.json()).catch(() => null);
         if (r && r.ok) {
-          notify2(t("backupImportDone").replace("{cards}", String(r.imported && r.imported.cards || 0)));
+          notify(t("backupImportDone").replace("{cards}", String(r.imported && r.imported.cards || 0)));
           await load();
           setTimeout(() => {
             try {
@@ -26238,9 +26313,9 @@ ${t("quoteHint")}`,
             } catch {
             }
           }, 1200);
-        } else notify2(t("backupImportFail") + "\uFF1A" + (r && r.error || "\u672A\u77E5\u9519\u8BEF"), false);
+        } else notify(t("backupImportFail") + "\uFF1A" + (r && r.error || "\u672A\u77E5\u9519\u8BEF"), false);
       } catch (err2) {
-        notify2(t("backupImportFail") + "\uFF1A" + String(err2 && err2.message || err2), false);
+        notify(t("backupImportFail") + "\uFF1A" + String(err2 && err2.message || err2), false);
       } finally {
         setBusy("");
       }
@@ -26315,7 +26390,7 @@ ${t("quoteHint")}`,
     const [err, setErr] = (0, import_react2.useState)("");
     const [toast, setToast] = (0, import_react2.useState)(null);
     const toastTimer = (0, import_react2.useRef)(null);
-    const notify2 = /* @__PURE__ */ __name((msg, ok = true) => {
+    const notify = /* @__PURE__ */ __name((msg, ok = true) => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
       setToast({ msg, ok });
       toastTimer.current = setTimeout(() => setToast(null), 3200);
@@ -26341,9 +26416,9 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(API + "/align").then((x) => x.json());
         if (r && r.findings) setAlign(r);
-        else notify2(t("alignFail"), false);
+        else notify(t("alignFail"), false);
       } catch {
-        notify2(t("alignFail"), false);
+        notify(t("alignFail"), false);
       } finally {
         setBusy("");
       }
@@ -26354,11 +26429,11 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(API + "/setup-run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then((x) => x.json());
         if (r && r.ok) {
-          notify2(t("alignFixed"));
+          notify(t("alignFixed"));
           await runAlign();
-        } else notify2(t("alignFail"), false);
+        } else notify(t("alignFail"), false);
       } catch {
-        notify2(t("alignFail"), false);
+        notify(t("alignFail"), false);
       } finally {
         setBusy("");
       }
@@ -26443,9 +26518,9 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(`${API}/refine-scan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: 8 }) }).then((x) => x.json());
         if (r && r.ok) setRefine(r);
-        else notify2(r && r.error || t("refineFail"), false);
+        else notify(r && r.error || t("refineFail"), false);
       } catch {
-        notify2(t("refineFail"), false);
+        notify(t("refineFail"), false);
       } finally {
         setBusy("");
       }
@@ -26460,15 +26535,15 @@ ${t("quoteHint")}`,
           body: JSON.stringify({ a: x.a.path, b: x.b.path, action, relation: x.relation })
         }).then((y) => y.json());
         if (r && r.ok) {
-          notify2(t("refineApplied"));
+          notify(t("refineApplied"));
           setRefine((prev) => prev ? { ...prev, findings: (prev.findings || []).filter((z) => !(z.a.path === x.a.path && z.b.path === x.b.path)) } : prev);
           await fetchAll();
           if (onReload) onReload();
         } else {
-          notify2(r && r.error || t("refineFail"), false);
+          notify(r && r.error || t("refineFail"), false);
         }
       } catch {
-        notify2(t("refineFail"), false);
+        notify(t("refineFail"), false);
       } finally {
         setBusy("");
       }
@@ -26479,9 +26554,9 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(`${API}/refine-junk`).then((x) => x.json());
         if (r && r.ok) setJunk(r.items || []);
-        else notify2(t("junkFail"), false);
+        else notify(t("junkFail"), false);
       } catch {
-        notify2(t("junkFail"), false);
+        notify(t("junkFail"), false);
       } finally {
         setBusy("");
       }
@@ -26493,15 +26568,15 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(`${API}/refine-junk-purge`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paths }) }).then((x) => x.json());
         if (r && r.removed) {
-          notify2(t("junkDone") + "\uFF1A" + r.removed.length + (r.failed?.length ? "\uFF08\u5931\u8D25 " + r.failed.length + "\uFF09" : ""));
+          notify(t("junkDone") + "\uFF1A" + r.removed.length + (r.failed?.length ? "\uFF08\u5931\u8D25 " + r.failed.length + "\uFF09" : ""));
           setJunk((prev) => prev ? prev.filter((x) => !r.removed.includes(x.path)) : prev);
           await fetchAll();
           if (onReload) onReload();
         } else {
-          notify2(t("junkFail"), false);
+          notify(t("junkFail"), false);
         }
       } catch {
-        notify2(t("junkFail"), false);
+        notify(t("junkFail"), false);
       } finally {
         setBusy("");
       }
@@ -26512,9 +26587,9 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(API + "/refine-goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: 30 }) }).then((x) => x.json());
         if (r && r.ok) setGoals(r);
-        else notify2(r && r.error || t("goalFail"), false);
+        else notify(r && r.error || t("goalFail"), false);
       } catch {
-        notify2(t("goalFail"), false);
+        notify(t("goalFail"), false);
       } finally {
         setBusy("");
       }
@@ -26524,13 +26599,13 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(API + "/refine-goals-keep", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paths: c.members.map((m) => m.path) }) }).then((x) => x.json());
         if (r && r.ok) {
-          notify2(t("goalDone"));
+          notify(t("goalDone"));
           setGoals((prev) => prev ? { ...prev, clusters: (prev.clusters || []).filter((z) => z.goal !== c.goal) } : prev);
         } else {
-          notify2(t("goalFail"), false);
+          notify(t("goalFail"), false);
         }
       } catch {
-        notify2(t("goalFail"), false);
+        notify(t("goalFail"), false);
       } finally {
         setBusy("");
       }
@@ -26541,15 +26616,15 @@ ${t("quoteHint")}`,
       try {
         const r = await fetch(API + "/merge?paths=" + encodeURIComponent(c.members.map((m) => m.path).join(","))).then((x) => x.json());
         if (r && r.ok) {
-          notify2(t("goalMerged"));
+          notify(t("goalMerged"));
           setGoals((prev) => prev ? { ...prev, clusters: (prev.clusters || []).filter((z) => z.goal !== c.goal) } : prev);
           await fetchAll();
           if (onReload) onReload();
         } else {
-          notify2(t("mergeFail"), false);
+          notify(t("mergeFail"), false);
         }
       } catch {
-        notify2(t("mergeFail"), false);
+        notify(t("mergeFail"), false);
       } finally {
         setBusy("");
       }
@@ -26914,15 +26989,15 @@ ${t("quoteHint")}`,
                 const r = await fetch(`${API}/optimize-execute`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
                 const d = await r.json();
                 if (d && d.ok) {
-                  notify2(`${t("oneClickOptimizeDone")}\uFF1A${d.plan.merged} ${t("optimizedMerged")}${oneClickCleanupStale ? ` \xB7 ${d.plan.staleDeleted} ${t("optimizedStaleDeleted")}` : ""}`);
+                  notify(`${t("oneClickOptimizeDone")}\uFF1A${d.plan.merged} ${t("optimizedMerged")}${oneClickCleanupStale ? ` \xB7 ${d.plan.staleDeleted} ${t("optimizedStaleDeleted")}` : ""}`);
                   await fetchAll();
                   if (onReload) onReload();
                   setOpt(null);
                 } else {
-                  notify2(t("mergeFail"), false);
+                  notify(t("mergeFail"), false);
                 }
               } catch {
-                notify2(t("mergeFail"), false);
+                notify(t("mergeFail"), false);
               } finally {
                 setBusy("");
               }
@@ -26970,7 +27045,7 @@ ${t("quoteHint")}`,
                 }
               }
               setBusy("");
-              notify2(`${n} ${t("deletedStale")}`);
+              notify(`${n} ${t("deletedStale")}`);
               await fetchAll();
               if (onReload) onReload();
             }, children: t("cleanStale") }) }),
@@ -27166,7 +27241,7 @@ ${t("quoteHint")}`,
         }
       }
     }, "selectAll");
-    const notify2 = /* @__PURE__ */ __name((msg) => {
+    const notify = /* @__PURE__ */ __name((msg) => {
       setToast(msg);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       toastTimer.current = setTimeout(() => setToast(""), 2400);
@@ -27211,17 +27286,17 @@ ${t("quoteHint")}`,
       try {
         window.open(url, "_blank", "noopener");
       } catch {
-        notify2(t("fbCopyFail"));
+        notify(t("fbCopyFail"));
       }
     }, "openIssue");
     const copyDiag = /* @__PURE__ */ __name(async () => {
       const ok = await copyToClipboard(diag);
       if (ok) {
         setFallback("");
-        notify2(t("fbCopiedDiag"));
+        notify(t("fbCopiedDiag"));
       } else {
         setFallback(diag);
-        notify2(t("fbCopyManual"));
+        notify(t("fbCopyManual"));
       }
     }, "copyDiag");
     const copyPrompt = /* @__PURE__ */ __name(async () => {
@@ -27229,10 +27304,10 @@ ${t("quoteHint")}`,
       const ok = await copyToClipboard(prompt);
       if (ok) {
         setFallback("");
-        notify2(t("fbCopiedPrompt"));
+        notify(t("fbCopiedPrompt"));
       } else {
         setFallback(prompt);
-        notify2(t("fbCopyManual"));
+        notify(t("fbCopyManual"));
       }
     }, "copyPrompt");
     const inputStyle = { width: "100%", resize: "vertical", padding: "8px 10px", borderRadius: 10, border: "1px solid var(--dsw-alias-border-l2, #d1d5db)", background: "transparent", color: "inherit", font: "inherit", fontSize: 13 };
@@ -27261,7 +27336,7 @@ ${t("quoteHint")}`,
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }, children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", onClick: () => {
               if (!text.trim()) {
-                notify2(t("fbNeedDesc"));
+                notify(t("fbNeedDesc"));
                 return;
               }
               openIssue();
@@ -28233,7 +28308,7 @@ ${t("quoteHint")}`,
     const [exportDone, setExportDone] = (0, import_react2.useState)("");
     const toastTimer = (0, import_react2.useRef)(null);
     const exportTimer = (0, import_react2.useRef)(null);
-    const notify2 = /* @__PURE__ */ __name((msg, ok = true) => {
+    const notify = /* @__PURE__ */ __name((msg, ok = true) => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
       setToast({ msg, ok });
       toastTimer.current = setTimeout(() => setToast(null), 1900);
@@ -29551,7 +29626,7 @@ ${t("quoteHint")}`,
             } catch (e) {
             }
             setCtx(null);
-            notify2(t("copied"));
+            notify(t("copied"));
           }, children: t("copyName") }),
           !ctx.planet && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => {
             const s = simRef.current;
@@ -29560,13 +29635,13 @@ ${t("quoteHint")}`,
             if (id && !ps.includes(id)) ps.push(id);
             setCtx(null);
             if (ps.length < 2) {
-              notify2(t("mergeNeed"), false);
+              notify(t("mergeNeed"), false);
               return;
             }
             if (!window.confirm(t("mergeConfirm"))) return;
             const pr = onMergeRef.current && onMergeRef.current(ps);
-            if (pr && pr.then) pr.then((ok) => ok ? notify2(t("merged")) : notify2(t("mergeFail"), false)).catch(() => notify2(t("mergeFail"), false));
-            else if (pr) notify2(t("merged"));
+            if (pr && pr.then) pr.then((ok) => ok ? notify(t("merged")) : notify(t("mergeFail"), false)).catch(() => notify(t("mergeFail"), false));
+            else if (pr) notify(t("merged"));
           }, children: t("merge") }),
           !ctx.planet && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", style: { color: "#f87171" }, onClick: () => {
             const p = ctx.path;
@@ -29576,12 +29651,12 @@ ${t("quoteHint")}`,
                 try {
                   const ok = onDeleteRef.current ? await onDeleteRef.current(p) : false;
                   if (ok) {
-                    notify2(t("deleted"));
+                    notify(t("deleted"));
                   } else {
-                    notify2(t("deleteFail"), false);
+                    notify(t("deleteFail"), false);
                   }
                 } catch (e) {
-                  notify2(t("deleteFail"), false);
+                  notify(t("deleteFail"), false);
                 }
               })();
             }
@@ -29605,11 +29680,11 @@ ${t("quoteHint")}`,
             a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 1e3);
-            notify2(multi.length + t("exportedSel"));
+            notify(multi.length + t("exportedSel"));
           }, children: t("exportSel") }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", onClick: () => {
             if (multi.length < 2) {
-              notify2(t("mergeNeed"), false);
+              notify(t("mergeNeed"), false);
               return;
             }
             const paths = multi.map((id) => nodeById[id] ? nodeById[id].id : id);
@@ -29621,11 +29696,11 @@ ${t("quoteHint")}`,
             }
             fetch(`${API}/merge?paths=${encodeURIComponent(paths.join(","))}`).then((r) => r.json()).then((d) => {
               if (d && d.ok) {
-                notify2(t("merged"));
+                notify(t("merged"));
               } else {
-                notify2(t("mergeFail"), false);
+                notify(t("mergeFail"), false);
               }
-            }).catch(() => notify2(t("mergeFail"), false));
+            }).catch(() => notify(t("mergeFail"), false));
           }, children: t("merge") }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn mc-btn-danger", onClick: () => {
             if (!window.confirm(t("deleteConfirm"))) return;
@@ -29644,7 +29719,7 @@ ${t("quoteHint")}`,
                 } catch (e) {
                 }
               }
-              notify2(n + t("deletedSelected"), n > 0);
+              notify(n + t("deletedSelected"), n > 0);
             })();
           }, children: t("deleteSelected") }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", onClick: () => {
@@ -29705,24 +29780,24 @@ ${t("quoteHint")}`,
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "me-head-actions", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { className: "mc-btn", href: exportData.url, download: "memory-graph.png", onClick: () => {
                 markDone("download");
-                notify2(t("downloaded") + " \xB7 " + t("defaultDownloads"));
+                notify(t("downloaded") + " \xB7 " + t("defaultDownloads"));
               }, style: { textDecoration: "none", display: "inline-flex", alignItems: "center" }, children: exportDone === "download" ? t("done") : t("download") }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", onClick: () => {
                 markDone("full");
                 setExportFull((f) => !f);
-                notify2(t("fullscreen"));
+                notify(t("fullscreen"));
               }, children: exportDone === "full" ? t("done") : exportFull ? t("exitFull") : t("fullscreen") }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", onClick: () => {
                 const cb = exportData.blob;
                 if (cb && window.ClipboardItem && navigator.clipboard) {
                   navigator.clipboard.write([new window.ClipboardItem({ "image/png": cb })]).then(() => {
                     markDone("copy");
-                    notify2(t("copied"));
+                    notify(t("copied"));
                   }).catch(() => {
-                    notify2(t("copyFail"), false);
+                    notify(t("copyFail"), false);
                   });
                 } else {
-                  notify2(t("copyFail"), false);
+                  notify(t("copyFail"), false);
                 }
               }, children: exportDone === "copy" ? t("done") : t("copyImage") }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "mc-btn", onClick: () => {
