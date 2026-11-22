@@ -607,6 +607,26 @@ bootstrapCloudMode()
  * 为什么要全局：顶栏、连接页、配置面板三个组件各有一份 cloudConn，
  * 各自测各自的话会一会儿绿一会儿红。统一测一次、广播出去。
  */
+/**
+ * 本设备的稳定标识（服务端据此按设备记「当前激活库」）。
+ *
+ * 为什么需要：云端只存一份 .active 时，两台设备切不同库会互相覆盖 ——
+ * A 切到 default，B 一刷新就发现自己的库被换了。改成 .active.<deviceId> 后各管各的。
+ * 存 localStorage：同一台机器换浏览器会得到新 id（可接受，代价只是切库状态要重选一次）。
+ */
+const DEVICE_ID = (function () {
+  try {
+    const KEY = 'me-device-id'
+    const old = String(localStorage.getItem(KEY) || '').trim()
+    if (old && old.length >= 8) return old
+    const id = (globalThis.crypto && crypto.randomUUID)
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+      : ('dev' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8))
+    localStorage.setItem(KEY, id)
+    return id
+  } catch { return 'unknown-device' }
+})()
+
 const CLOUD_HEALTH = { status: 'unknown', lastCheckAt: 0, lastError: '', plan: '', owner: '', daysLeft: null, activeVault: '' }
 const CLOUD_HEALTH_EVT = 'me-cloud-health'
 let cloudHealthTimer = null
