@@ -40,7 +40,7 @@ function sh(cmd, args) {
 
 // ── 1. 语法 ────────────────────────────────────────────────
 step('语法检查（所有入口）', () => {
-  const files = ['index.js', 'lib/api.js', 'lib/cloud-server.js', 'lib/cloud-push.js', 'lib/client.js', 'web/app.js']
+  const files = ['index.js', 'lib/api.js', 'lib/cloud-push.js', 'lib/client.js', 'web/app.js']
   for (const f of files) {
     if (!existsSync(path.join(ROOT, f))) throw new Error('缺文件: ' + f)
     const r = sh(process.execPath, ['--check', f])
@@ -49,6 +49,16 @@ step('语法检查（所有入口）', () => {
   return files.length + ' 个文件'
 })
 
+
+// ── 1b. 私有边界（公开仓不得含云端私有模块）──────────────
+// 只看 **git 跟踪的文件**：本地 private/*.pem 之类的运行时密钥不入库，不算违规。
+step('私有边界（公开仓不得含私有模块）', () => {
+  const listed = sh('git', ['ls-files']).stdout || ''
+  const files = listed.split(/\r?\n/).filter(Boolean)
+  const bad = files.filter((f) => /^(lib\/(cloud-server|cloud-auth|cloud-vaults|cloud-admin-ui|cloud-cli|cloud-console|cloud-user-login|quota|oidc|entitlement|license|billing|webhook|subscription-sync|subscription-audit|orders-page|pay)|private\/|docs\/(CLOUD|PRIVATE)\.md|deploy\/)/.test(f))
+  if (bad.length) throw new Error('公开仓出现私有模块（应只存在于私有仓 memory-eternal-cloud）：' + bad.slice(0, 8).join(', '))
+  return '无私有模块'
+})
 // ── 2. 构建产物完整性（防「edit 报成功但没落盘」）────────────
 step('构建产物完整性', () => {
   const app = path.join(ROOT, 'web/app.js')

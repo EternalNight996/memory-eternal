@@ -30,7 +30,7 @@ context to a new client.
 
 ```bash
 # 1) start a cloud instance (off by default; without it you are purely local)
-MEMORY_CLOUD=1 node lib/web.js --port 7999     # Docker / systemd recipe: docs/CLOUD.md
+MEMORY_CLOUD=1 node lib/web.js --port 7999     # the cloud server is a separate private project, not in this repo
 # first boot auto-generates the admin token -> $DSH_HOME/cloud-admin-token (0600, printed once)
 
 # 2) issue an access key (pick one)
@@ -44,9 +44,9 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 ```
 
 > Behind a reverse proxy or in a container, set two variables: `MEMORY_CLOUD_ADMIN_TOKEN` (used if set; otherwise the auto-generated token on disk wins) and `MEMORY_PUBLIC_HOST` (Host allowlist for write requests — put your domain there).
-> Boundary: the cloud server (multi-tenant + auth + billing hooks) is a **separate private component** and is not
+> Boundary: the cloud server (multi-tenant + auth + billing) is a **separate private project** (own private repo); its source is not in this repo and is not
 > shipped with this open-source package; those endpoints are still moving fast and may shift. Ignore the cloud
-> entirely and everything behaves exactly as before — see [docs/CLOUD.md](docs/CLOUD.md) and [docs/PRIVATE.md](docs/PRIVATE.md).
+> entirely and everything behaves exactly as before.
 
 ## 💳 Subscriptions & multi-vault (cloud edition)
 
@@ -622,7 +622,7 @@ Two safety rules:
 ## 📚 Documentation & links
 
 - [Full manual (English)](docs/GUIDE.md) · [完整手册（中文）](docs/GUIDE.zh-CN.md)
-- [Cloud multi-tenancy & deployment](docs/CLOUD.md) · [Self-hosting (Docker / systemd)](docs/DEPLOY.md) · [Private component boundary](docs/PRIVATE.md)
+- [Self-hosting (Docker / systemd)](docs/DEPLOY.md)
 - [Changelog](docs/CHANGELOG.md) · [Architecture notes](docs/ARCHITECTURE.md) · [UI skins](docs/UI-SKINS.md)
 - [📚 Full docs index](docs/README.md) — integrations / ops / archived release notes, grouped
 - [Terminal plugin (dsh-tui)](dsh-tui-plugin/README.md) · [Orca launcher](orca-plugin/README.md) · [Cursor / VS Code extension](cursor-extension/README.md)

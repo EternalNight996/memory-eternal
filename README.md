@@ -29,7 +29,7 @@ Agent 上都能读到 —— 换电脑不用搬家，换客户端不用重新喂
 
 ```bash
 # ① 起一个云端实例（默认关闭，不开就是纯本地）
-MEMORY_CLOUD=1 node lib/web.js --port 7999     # Docker / systemd 部署见 docs/CLOUD.md
+MEMORY_CLOUD=1 node lib/web.js --port 7999     # 云端服务端为独立私有项目，不在本仓库
 # 首次启动会自动生成管理令牌 → $DSH_HOME/cloud-admin-token（0600，日志打印一次）
 
 # ② 签发访问密钥（三选一）
@@ -43,8 +43,8 @@ curl -X POST http://127.0.0.1:7999/memory-eternal/api/cloud/keys \
 ```
 
 > 反代 / 容器部署记两个变量：`MEMORY_CLOUD_ADMIN_TOKEN`（不配就用自动生成的那把；配了以它为准）、`MEMORY_PUBLIC_HOST`（写请求的 Host 白名单，填你的域名）。
-> 边界说明：云端服务端（多租户 + 鉴权 + 计费对接）是**独立私有组件**，不随本开源包发布；
-> 相关接口仍在快速迭代、可能微调。不用云端时，本地功能与之前完全一致 —— 见 [docs/CLOUD.md](docs/CLOUD.md)、[docs/PRIVATE.md](docs/PRIVATE.md)。
+> 边界说明：云端服务端（多租户 + 鉴权 + 计费对接）是**独立私有项目**（私有仓库单独运营），源码不在本仓库、也不随本开源包发布；
+> 不用云端时，本地功能与之前完全一致。
 
 ## 💳 订阅与多库（云端商业版）
 
@@ -613,7 +613,7 @@ node $(dirname $(which dsh-memory))/../lib/web.js --port 7989 --vault ~/.dsh/mem
 ## 📚 文档与链接
 
 - [完整手册（中文）](docs/GUIDE.zh-CN.md) · [Full manual (English)](docs/GUIDE.md)
-- [云端多租户与部署](docs/CLOUD.md) · [私有化部署（Docker / systemd）](docs/DEPLOY.md) · [私有组件边界](docs/PRIVATE.md)
+- [私有化部署（Docker / systemd）](docs/DEPLOY.md)
 - [更新日志](docs/CHANGELOG.md) · [架构细节](docs/ARCHITECTURE.md) · [主题皮肤](docs/UI-SKINS.md)
 - [📚 全部文档索引](docs/README.md) —— 接入 / 运维 / 历史发版说明按目录归档
 - [终端插件（dsh-tui）](dsh-tui-plugin/README.md) · [Orca 启动器](orca-plugin/README.md) · [Cursor / VS Code 扩展](cursor-extension/README.md)

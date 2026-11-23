@@ -662,7 +662,12 @@ MCP 侧只提供只读的 memory_audit_list —— 批准/驳回必须由人显�
     case 'cloud': {
       // 云端访问密钥管理：默认直接操作本机台账（能跑这条命令 = 管理员），
       // 不在同一台机时用 --url + --admin-token 走管理面 HTTP。
-      const { runCloudCli } = await import('../lib/cloud-cli.js')
+      let runCloudCli
+      try { ({ runCloudCli } = await import('../lib/cloud-cli.js')) } catch {
+        console.error('云端 CLI 是商用私有组件：当前安装包不含 cloud-cli.js（本地功能不受影响）')
+        process.exitCode = 1
+        return
+      }
       process.exitCode = await runCloudCli(argv.slice(1))
       return
     }
