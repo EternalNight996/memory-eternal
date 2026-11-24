@@ -198,13 +198,16 @@ function markAllVolatile(schema) {
   return schema
 }
 
-// ⚠ 不要调用 markAllVolatile(Config)：
-// DSH 0.2.2 把标了 volatile 的字段当成「可写引用（ref）」维护，回传给插件时是**空对象** `{}`，
-// 于是每个布尔字段都变成 `{enabled: {}, autoCapture: {}, …}`，校验直接报
-// `ValidationError: $.enabled expected boolean but got [object Object]`，整条插件被拒绝激活（白屏）。
-// 实测证据：`~/.dsh/memory-eternal-config-probe.json` 里 55 个键全是 `{}`。
-// 代价：设置改动不再"热生效"，需要重载页面 —— 用可靠性换这个便利，值得。
-// markAllVolatile(Config)
+// 不标 volatile：在 DSH 0.2.x 下，带 volatile 的字段会被解析成「活引用」，
+// 若宿主/插件再对它做一次 schema 解析，会报 `$.enabled expected boolean but got [object Object]`，
+// 整个插件被拒绝激活（实测踩过）。所以这里保持普通 schema、保证插件能装能跑。
+//
+// 代价：DSH 的 settings.update 只接受 volatile 字段（dsh-settings 会抛 "has no volatile fields"），
+// 于是「设置页保存」会失败。修复放在 bindSettings.update 里做兜底：
+//   宿主拒绝 → 把 patch 写进 ~/.dsh/memory-eternal-config-overrides.json（原子写）+ 本地 overlay，
+//   进程内立即可见；下次启动 bindSettings 读回该文件叠加（不依赖宿主写 YAML）。
+// 宿主哪天能写非 volatile 字段时，这条兜底会自动退出（写成功后清掉对应 override）。
+// markAllVolatile(Config)  ← 不启用（原因见上）；保留这行也作为 config-coverage 测试的切片终点。
 
 /**
  * 「现在该不该跑一次自动备份」的纯判定。
@@ -384,6 +387,26 @@ function schemaDefaults(schema) {
   return {}
 }
 
+const OVERRIDES_FILE = 'memory-eternal-config-overrides.json'
+/** 兜底配置文件路径：宿主拒绝写非 volatile 字段时，用户保存的值落在这里。 */
+function overridesFilePath(env = process.env) {
+  const home = String((env && env.DSH_HOME) || '').trim() || path.join(os.homedir(), '.dsh')
+  return path.join(home, OVERRIDES_FILE)
+}
+function readOverridesFile(env = process.env) {
+  try { const j = JSON.parse(readFileSync(overridesFilePath(env), "utf8")); return (j && typeof j === "object" && !Array.isArray(j)) ? j : {} } catch { return {} }
+}
+async function writeOverridesFile(obj, env = process.env) {
+  try {
+    const file = overridesFilePath(env)
+    await fs.mkdir(path.dirname(file), { recursive: true })
+    const tmp = file + ".tmp-" + process.pid
+    await fs.writeFile(tmp, JSON.stringify(obj, null, 2))
+    await fs.rename(tmp, file)
+    return true
+  } catch { return false }
+}
+
 export function bindSettings(ctx, schema, config) {
   const service = typeof ctx.get === 'function' ? ctx.get('settings') : ctx.settings
   if (service && typeof service.register === 'function') {
@@ -402,7 +425,12 @@ export function bindSettings(ctx, schema, config) {
   // 宿主「volatile 回流」可能滞后甚至不回流（issue #12：改了保存不上）。两步兜底：
   //   ① 写成功后把 patch 叠加在本地视图上 → 面板重新加载立刻是新值；
   //   ② 等宿主快照追上（值相等）后自动摘除，避免长期掩盖宿主的真实状态。
-  const overlay = {}
+  const overrides = readOverridesFile()
+  const persisted = new Set(Object.keys(overrides))
+  const overlay = { ...overrides }
+  if (persisted.size) {
+    try { console.error('[memory-eternal] 已加载 ' + persisted.size + ' 项兜底配置（宿主未开放 volatile 写）：' + overridesFilePath()) } catch { /* 忽略 */ }
+  }
   const snapshotWithoutOverlay = () => (config === undefined || config === null ? fallback : plainConfig(config))
   const pruneOverlay = (snapshot) => {
     for (const key of Object.keys(overlay)) {
@@ -431,11 +459,22 @@ export function bindSettings(ctx, schema, config) {
     async update(patch, expectedRevision) {
       if (!service || typeof service.update !== 'function') throw new Error('当前 DSH 版本不支持写配置')
       const call = (rev) => service.update(entryId, patch, rev)
+      // 宿主只接受 volatile 字段时（dsh-settings: "has no volatile fields"）：
+      // 写插件兜底文件 + 本地 overlay，保存立即生效且跨重启保留。
+      const isVolatileRefusal = (e) => /has no volatile fields|is not volatile/i.test(String((e && e.message) || e))
+      const persistFallback = async () => {
+        for (const k of Object.keys(patch)) persisted.add(k)
+        Object.assign(overlay, patch)
+        const dump = () => Object.fromEntries([...persisted].map((k) => [k, overlay[k] !== undefined ? overlay[k] : (readMerged()[k] ?? null)]))
+        await writeOverridesFile(dump(), process.env)
+        return { revision: used, retried, fallback: true }
+      }
       let retried = false
       let used = expectedRevision
       try {
         await call(expectedRevision)
       } catch (error) {
+        if (isVolatileRefusal(error)) return await persistFallback()
         const msg = String((error && error.message) || error)
         if (!/revision|changed since|conflict/i.test(msg)) throw error
         let fresh
@@ -446,9 +485,19 @@ export function bindSettings(ctx, schema, config) {
         if (fresh === undefined) throw error
         used = fresh
         retried = true
-        await call(fresh)
+        try { await call(fresh) } catch (error2) {
+          if (isVolatileRefusal(error2)) return await persistFallback()
+          throw error2
+        }
       }
+      // 宿主写成功 = 已落 YAML：摘掉同名兜底键，避免以后掩盖宿主的真实配置。
       Object.assign(overlay, patch)
+      let changed = false
+      for (const k of Object.keys(patch)) if (persisted.delete(k)) changed = true
+      if (changed) {
+        const dump = () => Object.fromEntries([...persisted].map((k) => [k, overlay[k] !== undefined ? overlay[k] : (readMerged()[k] ?? null)]))
+        await writeOverridesFile(dump(), process.env)
+      }
       return { revision: used, retried }
     },
   }
@@ -1941,7 +1990,9 @@ export function apply(ctx, config) {
                     applied: Object.keys(clean),
                     pending,
                     retried: !!(writeResult && writeResult.retried),
-                    note: pending.length
+                    note: (writeResult && writeResult.fallback)
+                      ? '已保存（宿主只接受 volatile 字段，已写入插件兜底配置并立即生效；重启 DSH 后仍生效）'
+                      : pending.length
                       ? '已写入；宿主尚未回流这些值（面板已本地生效，重启 DSH 后以配置文件为准）'
                       : '已保存。autoWebMode/watchdogAutoSpawn/webPort 等需重启 DSH 生效；若已有常驻 watchdog，关闭/改参不会自动停掉它，需 dsh-memory stop / restart（#19）。版本漂移（升级后端口上仍是旧代码）由 autoRestartOnDrift 在下次激活时自动重启常驻实例，也可在「插件信息」点「重启常驻实例」立刻处理',
                   })
