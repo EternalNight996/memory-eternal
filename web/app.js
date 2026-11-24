@@ -11457,6 +11457,7 @@
     if (/failed to fetch|networkerror|load failed|fetch failed|econnrefused|etimedout|network request failed/i.test(s)) {
       return tr("cloudErrNetwork", "network unreachable or blocked by CORS (Failed to fetch)");
     }
+    if (/device_limit|设备数达到|device limit reached/i.test(s)) return tr("cloudDeviceLimit", "device limit reached: remove an old device in the console");
     return s;
   }
   __name(friendlyCloudError, "friendlyCloudError");
@@ -12426,6 +12427,10 @@
     cloudInstanceDesc: "\u8FD9\u662F\u4F60\u7684\u4E91\u7AEF\u5B9E\u4F8B\uFF1A\u8BB0\u5FC6\u5E93\u5728\u670D\u52A1\u5668\u4E0A\uFF0C\u901A\u8FC7 HTTPS \u8BBF\u95EE\uFF1B\u672C\u673A\u79BB\u7EBF\u65F6\u7528\u672C\u5730\u5E93\u3002",
     cloudVaultListLabel: "\u4E91\u7AEF\u5B9E\u4F8B\u4E0A\u7684\u5E93",
     cloudVaultQuota: "\u5DF2\u7528 {u} / {l}",
+    cloudPlanDevices: "\u5DF2\u8FDE\u63A5\u8BBE\u5907",
+    cloudDeviceQuota: "{u} / {l} \u53F0",
+    cloudDevicesFullHint: "\u5DF2\u8FBE\u4E0A\u9650\uFF0C\u53BB\u63A7\u5236\u53F0\u5220\u9664\u65E7\u8BBE\u5907",
+    cloudDeviceLimit: "\u8BBE\u5907\u6570\u5DF2\u8FBE\u5957\u9910\u4E0A\u9650\uFF1A\u8BF7\u5230\u63A7\u5236\u53F0\u300C\u5DF2\u8FDE\u63A5\u8BBE\u5907\u300D\u5220\u9664\u65E7\u8BBE\u5907\u540E\u91CD\u8BD5",
     vaultUploadCloud: "\u4E0A\u4F20\u5F53\u524D\u5E93\u5230\u4E91\u7AEF",
     btnUpload: "\u4E0A\u4F20",
     btnDownload: "\u4E0B\u8F7D",
@@ -13946,6 +13951,10 @@
     cloudInstanceDesc: "This is your cloud instance: the vault lives on the server over HTTPS. Use a local vault when offline.",
     cloudVaultListLabel: "Vaults on the cloud instance",
     cloudVaultQuota: "{u} / {l} used",
+    cloudPlanDevices: "Connected devices",
+    cloudDeviceQuota: "{u} / {l}",
+    cloudDevicesFullHint: "limit reached \u2014 remove an old device in the console",
+    cloudDeviceLimit: "Device limit reached: remove an old device in the console and retry",
     vaultUploadCloud: "Upload current to cloud",
     btnUpload: "Upload",
     btnDownload: "Download",
@@ -17349,7 +17358,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.53.1" : "";
+  var CLIENT_VERSION = true ? "0.53.2" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17630,7 +17639,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-23T22:54:28+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-24T14:57:40+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21473,6 +21482,7 @@ ${t("quoteHint")}`,
       }
     });
     const [cloudVaultQuota, setCloudVaultQuota] = (0, import_react2.useState)(null);
+    const [cloudDeviceQuota, setCloudDeviceQuota] = (0, import_react2.useState)(null);
     const [vaultQuotaError, setVaultQuotaError] = (0, import_react2.useState)("");
     const [vaultSel, setVaultSel] = (0, import_react2.useState)("");
     const [dupMode, setDupMode] = (0, import_react2.useState)("skip");
@@ -22151,6 +22161,7 @@ ${t("quoteHint")}`,
             setCloudVaultList(cr.connect.vaults || []);
             const c = cr.connect.caps || {};
             setCloudVaultQuota(c.vaults != null ? { used: (cr.connect.vaults || []).length, limit: Number(c.vaults), limited: (cr.connect.vaults || []).length >= Number(c.vaults) } : null);
+            setCloudDeviceQuota(cr.connect.devices && Number(cr.connect.devices.limit) > 0 ? { used: Number(cr.connect.devices.used) || 0, limit: Number(cr.connect.devices.limit) } : null);
           } else setCloudVaultList(null);
         } catch {
           setCloudVaultList(null);
@@ -22158,6 +22169,7 @@ ${t("quoteHint")}`,
       } else {
         setCloudVaultList(null);
         setCloudVaultQuota(null);
+        setCloudDeviceQuota(null);
       }
       try {
         const r = await fetchLocal("/vaults");
@@ -23812,6 +23824,13 @@ ${t("quoteHint")}`,
                         cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanCards") }),
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { textAlign: "right" }, children: Number(cloudPlan.caps.cards).toLocaleString() })
+                        ] }) : null,
+                        cloudDeviceQuota ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanDevices") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { textAlign: "right" }, children: [
+                            t("cloudDeviceQuota").replace("{u}", String(cloudDeviceQuota.used)).replace("{l}", String(cloudDeviceQuota.limit)),
+                            cloudDeviceQuota.limit > 0 && cloudDeviceQuota.used >= cloudDeviceQuota.limit ? " \xB7 " + t("cloudDevicesFullHint") : ""
+                          ] })
                         ] }) : null,
                         cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanRpm") }),

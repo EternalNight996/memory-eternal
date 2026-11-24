@@ -886,6 +886,7 @@ function friendlyCloudError(msg, t) {
   if (/failed to fetch|networkerror|load failed|fetch failed|econnrefused|etimedout|network request failed/i.test(s)) {
     return tr('cloudErrNetwork', 'network unreachable or blocked by CORS (Failed to fetch)')
   }
+  if (/device_limit|设备数达到|device limit reached/i.test(s)) return tr('cloudDeviceLimit', 'device limit reached: remove an old device in the console')
   return s
 }
 
@@ -1856,6 +1857,10 @@ export const ZH = {
   cloudInstanceDesc: '这是你的云端实例：记忆库在服务器上，通过 HTTPS 访问；本机离线时用本地库。',
   cloudVaultListLabel: '云端实例上的库',
   cloudVaultQuota: '已用 {u} / {l}',
+  cloudPlanDevices: '已连接设备',
+  cloudDeviceQuota: '{u} / {l} 台',
+  cloudDevicesFullHint: '已达上限，去控制台删除旧设备',
+  cloudDeviceLimit: '设备数已达套餐上限：请到控制台「已连接设备」删除旧设备后重试',
   vaultUploadCloud: '上传当前库到云端',
   btnUpload: '上传',
   btnDownload: '下载',
@@ -3378,6 +3383,10 @@ export const EN = {
   cloudInstanceDesc: 'This is your cloud instance: the vault lives on the server over HTTPS. Use a local vault when offline.',
   cloudVaultListLabel: 'Vaults on the cloud instance',
   cloudVaultQuota: '{u} / {l} used',
+  cloudPlanDevices: 'Connected devices',
+  cloudDeviceQuota: '{u} / {l}',
+  cloudDevicesFullHint: 'limit reached — remove an old device in the console',
+  cloudDeviceLimit: 'Device limit reached: remove an old device in the console and retry',
   vaultUploadCloud: 'Upload current to cloud',
   btnUpload: 'Upload',
   btnDownload: 'Download',
@@ -10941,6 +10950,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     try { return String(localStorage.getItem('me-cloud-vault') || 'default') } catch { return 'default' }
   })
   const [cloudVaultQuota, setCloudVaultQuota] = useState(null)
+  const [cloudDeviceQuota, setCloudDeviceQuota] = useState(null)
   // 建库/改名失败的红条提示（配额超限、未订阅等）
   const [vaultQuotaError, setVaultQuotaError] = useState('')
   const [vaultSel, setVaultSel] = useState('')
@@ -11645,11 +11655,13 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           setCloudVaultList(cr.connect.vaults || [])
           const c = cr.connect.caps || {}
           setCloudVaultQuota(c.vaults != null ? { used: (cr.connect.vaults || []).length, limit: Number(c.vaults), limited: (cr.connect.vaults || []).length >= Number(c.vaults) } : null)
+          setCloudDeviceQuota(cr.connect.devices && Number(cr.connect.devices.limit) > 0 ? { used: Number(cr.connect.devices.used) || 0, limit: Number(cr.connect.devices.limit) } : null)
         } else setCloudVaultList(null)
       } catch { setCloudVaultList(null) }
     } else {
       setCloudVaultList(null)
       setCloudVaultQuota(null)
+      setCloudDeviceQuota(null)
     }
     try {
       const r = await fetchLocal('/vaults')
@@ -13254,6 +13266,9 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                             ) : null}
                             {cloudPlan && cloudPlan.caps && cloudPlan.caps.cards ? (
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanCards')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.cards).toLocaleString()}</span></div>
+                            ) : null}
+                            {cloudDeviceQuota ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanDevices')}</span><span style={{ textAlign: 'right' }}>{t('cloudDeviceQuota').replace('{u}', String(cloudDeviceQuota.used)).replace('{l}', String(cloudDeviceQuota.limit))}{cloudDeviceQuota.limit > 0 && cloudDeviceQuota.used >= cloudDeviceQuota.limit ? ' · ' + t('cloudDevicesFullHint') : ''}</span></div>
                             ) : null}
                             {cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? (
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanRpm')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.rpm).toLocaleString()} / {t('perMinute')}</span></div>
