@@ -43,3 +43,13 @@ test('R6 升级/续费：打开服务端控制台，不自己拼订阅深链', (
   assert.match(src, /\/api\/console/, '升级入口要开 /console')
   assert.doesNotMatch(src, /\/subscribe\?/, '客户端不得再自己拼 subscribe 深链（缺 merchant 会落空白页）')
 })
+
+
+test('上传到云端必须能选目标库（cloud::<name> → /vaults/import-into）', () => {
+  const src2 = readFileSync('src/client/index.tsx', 'utf8')
+  // 用户实测：上传只能进 default/当前库，新库传不进去 —— 目标库必须可选。
+  assert.match(src2, /const uploadTargetChoices = \(\) => \{/, '要有上传目标库候选')
+  assert.match(src2, /cloud::' \+ nm/, '候选值要带库名')
+  assert.match(src2, /useTarget \? '\/vaults\/import-into' : '\/import\/chunk'/, '选了目标库要走 import-into')
+  assert.match(src2, /target: targetVault\.root/, 'import-into 必须带目标根路径')
+})

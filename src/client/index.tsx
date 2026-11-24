@@ -11414,7 +11414,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    * 与 importLocalToCloud 的差别：源库可以是任意本地库（/vaults/export?path= 读），
    * 不只是「当前库」——用户的旧库/副本也能搬上云。
    */
-  const uploadVaultToCloud = async (src) => {
+  const uploadVaultToCloud = async (src, targetVault) => {
     if (!src) { setImportJob({ importing: false, dir: 'up', err: t('cfPickLocalVault') }); return }
     if (importJob && importJob.importing) return
     importCancelRef.current = false
@@ -11435,7 +11435,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       // 断点续传：上次传到第几张就接上去（对齐到分片边界，避免重复消耗）
       let startOff = 0
       const rs = readXferResume()
-      if (rs && rs.src === src && rs.total === cards.length) startOff = Math.floor(rs.done / CHUNK) * CHUNK
+      if (rs && rs.src === src && rs.total === cards.length && String(rs.target || '') === String((targetVault && targetVault.name) || '')) startOff = Math.floor(rs.done / CHUNK) * CHUNK
 
       let imported = 0, duplicate = 0, failed = 0
       // 每个失败分片的原因都记下来，收尾时一起显示 —— 只报「部分分片失败」等于没报
@@ -11454,17 +11454,20 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
         let lastErr = ''
         for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
           try {
-            const r = await fetch(cloudApi('/import/chunk'), {
+            const useTarget = !!(targetVault && targetVault.root)
+            const r = await fetch(cloudApi(useTarget ? '/vaults/import-into' : '/import/chunk'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) },
-              body: JSON.stringify({ cards: slice, offset: off, total: cards.length }),
+              body: JSON.stringify(useTarget
+                ? { target: targetVault.root, cards: slice, onDuplicate: dupMode }
+                : { cards: slice, offset: off, total: cards.length }),
             })
             const d = await r.json().catch(() => ({}))
             // 401/403 = 登录态失效。进度保留在断点里，重新登录后点上传即可接着传。
             if (r.status === 401 || r.status === 403) throw new Error('__AUTH__')
             if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status))
             imported += Number(d.imported) || 0
-            duplicate += Number(d.duplicate) || 0
+            duplicate += Number(d.duplicate) || Number(d.skipped) || 0
             ok = true
           } catch (e) {
             lastErr = String((e && e.message) || e)
@@ -11477,7 +11480,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           failed += slice.length
           if (lastErr) failReasons.push('第 ' + (off + 1) + '-' + Math.min(off + CHUNK, cards.length) + ' 张：' + lastErr)
         }
-        saveXferResume({ src, srcName, total: cards.length, done: Math.min(off + slice.length, cards.length) })
+        saveXferResume({ src, target: (targetVault && targetVault.name) || '', srcName, total: cards.length, done: Math.min(off + slice.length, cards.length) })
         setImportJob({ importing: true, dir: 'up', done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, failed, err: failed ? lastErr : '' })
       }
 
@@ -11912,6 +11915,37 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
    * 为什么不再"点一下就闷头传当前库"：本机可能有多个库、云端也有多个库，
    * 一次误点就是把上万张卡搬到错的地方。先把「从哪 → 到哪」摆出来，让人看一眼再确认。
    */
+  /** 上传目标候选：云端有多个库时逐个列出（以前只有一个 'cloud'，只能传进当前/默认库）。 */
+  const uploadTargetChoices = () => {
+    const out = []
+    const cvs = Array.isArray(cloudVaultList) ? cloudVaultList : []
+    if (hasCloudCred(cloudConn) && cvs.length) {
+      for (const cv of cvs) {
+        const nm = String((cv && cv.name) || 'default')
+        const n = cv && cv.cards != null ? Number(cv.cards) : null
+        out.push({ value: 'cloud::' + nm, label: '☁ ' + nm + (n === null ? '' : ' · ' + n + ' ' + t('cardsUnit')) })
+      }
+    } else {
+      out.push({ value: 'cloud', label: '☁ ' + t('cloudVaultEntry') })
+    }
+    return out
+  }
+  const uploadTargetDefault = () => {
+    const cvs = Array.isArray(cloudVaultList) ? cloudVaultList : []
+    if (cvs.length) {
+      const cur = String(cloudVault || '').trim()
+      const hit = cvs.find((cv) => String((cv && cv.name) || 'default') === cur)
+      return 'cloud::' + String((hit || cvs[0]).name || 'default')
+    }
+    return 'cloud'
+  }
+  const cloudVaultByValue = (v) => {
+    const s = String(v || '')
+    if (!s.startsWith('cloud::')) return null
+    const nm = s.slice('cloud::'.length)
+    const cvs = Array.isArray(cloudVaultList) ? cloudVaultList : []
+    return cvs.find((cv) => String((cv && cv.name) || 'default') === nm) || null
+  }
   const openXferDialog = (dir) => {
     if (importJob && importJob.importing) return
     const cur = (vaultList || []).find((v) => v.isCurrent)
@@ -11919,7 +11953,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     const other = (vaultList || []).find((v) => !v.isCurrent)
     const cloudReady = !!(String(cloudForm.token || '').trim() || String(cloudConn.token || '').trim())
     setXferDlg(dir === 'up'
-      ? { dir, from: curPath, to: cloudReady ? 'cloud' : ((other && other.path) || '') }
+      ? { dir, from: curPath, to: cloudReady ? uploadTargetDefault() : ((other && other.path) || '') }
       : { dir, from: cloudReady ? 'cloud' : ((other && other.path) || ''), to: curPath })
   }
 
@@ -11930,6 +11964,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     if (d.from === d.to) { try { notify(t('xferSameVault'), false) } catch { /* 忽略 */ } return }
     setXferDlg(null)
     if (d.from === 'cloud') { await downloadCloudToVault(d.to); return }
+    if (String(d.to).startsWith('cloud::')) { await uploadVaultToCloud(d.from, cloudVaultByValue(d.to)); return }
     if (d.to === 'cloud') { await uploadVaultToCloud(d.from); return }
     await transferLocalVaults(d.from, d.to)
   }
@@ -13554,8 +13589,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                           <div style={{ position: 'fixed', inset: 0, zIndex: 2100, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
                             <div style={{ width: 'min(480px, 100%)', maxHeight: '86vh', overflow: 'auto', background: 'var(--dsw-alias-bg-layer-1, #fff)', border: '1px solid var(--me-c-border)', borderRadius: 14, padding: '18px 20px', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
-                                <span style={{ fontSize: 17 }}>{xferDlg.from === 'cloud' ? '⬇' : xferDlg.to === 'cloud' ? '☁' : '⇄'}</span>
-                                <b style={{ fontSize: 15 }}>{xferDlg.from === 'cloud' ? t('xferDlgDownTitle') : xferDlg.to === 'cloud' ? t('xferDlgUpTitle') : t('xferDlgLocalTitle')}</b>
+                                <span style={{ fontSize: 17 }}>{xferDlg.from === 'cloud' ? '⬇' : String(xferDlg.to || '').startsWith('cloud') ? '☁' : '⇄'}</span>
+                                <b style={{ fontSize: 15 }}>{xferDlg.from === 'cloud' ? t('xferDlgDownTitle') : String(xferDlg.to || '').startsWith('cloud') ? t('xferDlgUpTitle') : t('xferDlgLocalTitle')}</b>
                               </div>
                               <div style={{ fontSize: 11.5, opacity: 0.7, lineHeight: 1.75, marginBottom: 12 }}>{t('xferDlgHint')}</div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -13570,7 +13605,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                                   <span className="mc-field-label">{t('xferDlgTo')}</span>
                                   <select value={xferDlg.to} onChange={(e) => setXferDlg((d) => ({ ...d, to: e.target.value }))}>
                                     <option value="">{t('vaultPickPlaceholder')}</option>
-                                    {vaultChoices().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                    {(xferDlg.dir === 'up' ? uploadTargetChoices() : vaultChoices()).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                                   </select>
                                 </label>
                                 <label className="mc-field" style={{ margin: 0 }}>

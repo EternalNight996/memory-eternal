@@ -17349,7 +17349,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.53.0" : "";
+  var CLIENT_VERSION = true ? "0.53.1" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17630,7 +17630,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-23T06:26:39+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-23T22:54:28+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21914,7 +21914,7 @@ ${t("quoteHint")}`,
         setCloudForm((f) => ({ ...f, url: memUrl }));
       }
     }, [cloudTab, isConnected, cloudForm.url, memUrl]);
-    const uploadVaultToCloud = /* @__PURE__ */ __name(async (src) => {
+    const uploadVaultToCloud = /* @__PURE__ */ __name(async (src, targetVault) => {
       if (!src) {
         setImportJob({ importing: false, dir: "up", err: t("cfPickLocalVault") });
         return;
@@ -21935,7 +21935,7 @@ ${t("quoteHint")}`,
         const srcName = String(src).split(/[\\/]/).filter(Boolean).pop() || src;
         let startOff = 0;
         const rs = readXferResume();
-        if (rs && rs.src === src && rs.total === cards.length) startOff = Math.floor(rs.done / CHUNK) * CHUNK;
+        if (rs && rs.src === src && rs.total === cards.length && String(rs.target || "") === String(targetVault && targetVault.name || "")) startOff = Math.floor(rs.done / CHUNK) * CHUNK;
         let imported = 0, duplicate = 0, failed = 0;
         const failReasons = [];
         setImportJob({ importing: true, dir: "up", done: startOff, total: cards.length, imported: 0, duplicate: 0, failed: 0, err: "" });
@@ -21950,16 +21950,17 @@ ${t("quoteHint")}`,
           let lastErr = "";
           for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
             try {
-              const r = await fetch(cloudApi2("/import/chunk"), {
+              const useTarget = !!(targetVault && targetVault.root);
+              const r = await fetch(cloudApi2(useTarget ? "/vaults/import-into" : "/import/chunk"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} },
-                body: JSON.stringify({ cards: slice, offset: off, total: cards.length })
+                body: JSON.stringify(useTarget ? { target: targetVault.root, cards: slice, onDuplicate: dupMode } : { cards: slice, offset: off, total: cards.length })
               });
               const d = await r.json().catch(() => ({}));
               if (r.status === 401 || r.status === 403) throw new Error("__AUTH__");
               if (!r.ok || !d.ok) throw new Error(d.error || "HTTP " + r.status);
               imported += Number(d.imported) || 0;
-              duplicate += Number(d.duplicate) || 0;
+              duplicate += Number(d.duplicate) || Number(d.skipped) || 0;
               ok = true;
             } catch (e) {
               lastErr = String(e && e.message || e);
@@ -21971,7 +21972,7 @@ ${t("quoteHint")}`,
             failed += slice.length;
             if (lastErr) failReasons.push("\u7B2C " + (off + 1) + "-" + Math.min(off + CHUNK, cards.length) + " \u5F20\uFF1A" + lastErr);
           }
-          saveXferResume({ src, srcName, total: cards.length, done: Math.min(off + slice.length, cards.length) });
+          saveXferResume({ src, target: targetVault && targetVault.name || "", srcName, total: cards.length, done: Math.min(off + slice.length, cards.length) });
           setImportJob({ importing: true, dir: "up", done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, failed, err: failed ? lastErr : "" });
         }
         const done = failed === 0;
@@ -22431,13 +22432,43 @@ ${t("quoteHint")}`,
       }
       await switchLocalVault(target);
     }, "switchToLibrary");
+    const uploadTargetChoices = /* @__PURE__ */ __name(() => {
+      const out = [];
+      const cvs = Array.isArray(cloudVaultList) ? cloudVaultList : [];
+      if (hasCloudCred(cloudConn) && cvs.length) {
+        for (const cv of cvs) {
+          const nm = String(cv && cv.name || "default");
+          const n = cv && cv.cards != null ? Number(cv.cards) : null;
+          out.push({ value: "cloud::" + nm, label: "\u2601 " + nm + (n === null ? "" : " \xB7 " + n + " " + t("cardsUnit")) });
+        }
+      } else {
+        out.push({ value: "cloud", label: "\u2601 " + t("cloudVaultEntry") });
+      }
+      return out;
+    }, "uploadTargetChoices");
+    const uploadTargetDefault = /* @__PURE__ */ __name(() => {
+      const cvs = Array.isArray(cloudVaultList) ? cloudVaultList : [];
+      if (cvs.length) {
+        const cur = String(cloudVault || "").trim();
+        const hit = cvs.find((cv) => String(cv && cv.name || "default") === cur);
+        return "cloud::" + String((hit || cvs[0]).name || "default");
+      }
+      return "cloud";
+    }, "uploadTargetDefault");
+    const cloudVaultByValue = /* @__PURE__ */ __name((v) => {
+      const s = String(v || "");
+      if (!s.startsWith("cloud::")) return null;
+      const nm = s.slice("cloud::".length);
+      const cvs = Array.isArray(cloudVaultList) ? cloudVaultList : [];
+      return cvs.find((cv) => String(cv && cv.name || "default") === nm) || null;
+    }, "cloudVaultByValue");
     const openXferDialog = /* @__PURE__ */ __name((dir) => {
       if (importJob && importJob.importing) return;
       const cur = (vaultList || []).find((v) => v.isCurrent);
       const curPath = cur && cur.path || localVault && localVault.full || "";
       const other = (vaultList || []).find((v) => !v.isCurrent);
       const cloudReady = !!(String(cloudForm.token || "").trim() || String(cloudConn.token || "").trim());
-      setXferDlg(dir === "up" ? { dir, from: curPath, to: cloudReady ? "cloud" : other && other.path || "" } : { dir, from: cloudReady ? "cloud" : other && other.path || "", to: curPath });
+      setXferDlg(dir === "up" ? { dir, from: curPath, to: cloudReady ? uploadTargetDefault() : other && other.path || "" } : { dir, from: cloudReady ? "cloud" : other && other.path || "", to: curPath });
     }, "openXferDialog");
     const runXfer = /* @__PURE__ */ __name(async () => {
       const d = xferDlg;
@@ -22458,6 +22489,10 @@ ${t("quoteHint")}`,
       setXferDlg(null);
       if (d.from === "cloud") {
         await downloadCloudToVault(d.to);
+        return;
+      }
+      if (String(d.to).startsWith("cloud::")) {
+        await uploadVaultToCloud(d.from, cloudVaultByValue(d.to));
         return;
       }
       if (d.to === "cloud") {
@@ -24069,8 +24104,8 @@ ${t("quoteHint")}`,
                     xfer && xfer.result ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, lineHeight: 1.7, opacity: 0.75 }, children: t("xferSummary").replace("{total}", String(xfer.result.total)).replace("{in}", String(xfer.result.imported)).replace("{dup}", String(xfer.result.skipped)).replace("{ow}", String(xfer.result.overwritten)).replace("{fail}", String(xfer.result.failed)) }) : null,
                     xferDlg ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, zIndex: 2100, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: "min(480px, 100%)", maxHeight: "86vh", overflow: "auto", background: "var(--dsw-alias-bg-layer-1, #fff)", border: "1px solid var(--me-c-border)", borderRadius: 14, padding: "18px 20px", boxShadow: "0 24px 64px rgba(0,0,0,.32)" }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 17 }, children: xferDlg.from === "cloud" ? "\u2B07" : xferDlg.to === "cloud" ? "\u2601" : "\u21C4" }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { fontSize: 15 }, children: xferDlg.from === "cloud" ? t("xferDlgDownTitle") : xferDlg.to === "cloud" ? t("xferDlgUpTitle") : t("xferDlgLocalTitle") })
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 17 }, children: xferDlg.from === "cloud" ? "\u2B07" : String(xferDlg.to || "").startsWith("cloud") ? "\u2601" : "\u21C4" }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { style: { fontSize: 15 }, children: xferDlg.from === "cloud" ? t("xferDlgDownTitle") : String(xferDlg.to || "").startsWith("cloud") ? t("xferDlgUpTitle") : t("xferDlgLocalTitle") })
                       ] }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, opacity: 0.7, lineHeight: 1.75, marginBottom: 12 }, children: t("xferDlgHint") }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
@@ -24085,7 +24120,7 @@ ${t("quoteHint")}`,
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mc-field-label", children: t("xferDlgTo") }),
                           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: xferDlg.to, onChange: (e) => setXferDlg((d) => ({ ...d, to: e.target.value })), children: [
                             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t("vaultPickPlaceholder") }),
-                            vaultChoices().map((o) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: o.value, children: o.label }, o.value))
+                            (xferDlg.dir === "up" ? uploadTargetChoices() : vaultChoices()).map((o) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: o.value, children: o.label }, o.value))
                           ] })
                         ] }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "mc-field", style: { margin: 0 }, children: [
