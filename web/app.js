@@ -12440,6 +12440,13 @@
     cloudDeviceQuota: "{u} / {l} \u53F0",
     cloudDevicesFullHint: "\u5DF2\u8FBE\u4E0A\u9650\uFF0C\u53BB\u63A7\u5236\u53F0\u5220\u9664\u65E7\u8BBE\u5907",
     cloudDeviceLimit: "\u8BBE\u5907\u6570\u5DF2\u8FBE\u5957\u9910\u4E0A\u9650\uFF1A\u8BF7\u5230\u63A7\u5236\u53F0\u300C\u5DF2\u8FDE\u63A5\u8BBE\u5907\u300D\u5220\u9664\u65E7\u8BBE\u5907\u540E\u91CD\u8BD5",
+    syncTitle: "\u591A\u7AEF\u540C\u6B65",
+    syncPendingLabel: "\u5F85\u63A8\u9001",
+    syncConflictsLabel: "\u51B2\u7A81\u5F85\u5BA1",
+    syncCursorLabel: "\u62C9\u53D6\u6E38\u6807",
+    syncDigestLabel: "\u6570\u636E\u6458\u8981",
+    syncLastEventLabel: "\u6700\u8FD1\u540C\u6B65",
+    syncLocalOnly: "\u4EC5\u4E91\u7AEF\u6A21\u5F0F\u8FD0\u884C",
     vaultUploadCloud: "\u4E0A\u4F20\u5F53\u524D\u5E93\u5230\u4E91\u7AEF",
     btnUpload: "\u4E0A\u4F20",
     btnDownload: "\u4E0B\u8F7D",
@@ -13964,6 +13971,13 @@
     cloudDeviceQuota: "{u} / {l}",
     cloudDevicesFullHint: "limit reached \u2014 remove an old device in the console",
     cloudDeviceLimit: "Device limit reached: remove an old device in the console and retry",
+    syncTitle: "Multi-device sync",
+    syncPendingLabel: "Pending push",
+    syncConflictsLabel: "Conflicts to review",
+    syncCursorLabel: "Pull cursor",
+    syncDigestLabel: "Digest",
+    syncLastEventLabel: "Last sync",
+    syncLocalOnly: "cloud mode only",
     vaultUploadCloud: "Upload current to cloud",
     btnUpload: "Upload",
     btnDownload: "Download",
@@ -17367,7 +17381,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.0" : "";
+  var CLIENT_VERSION = true ? "0.55.1" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17648,7 +17662,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-25T14:46:21+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-25T14:59:40+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21492,6 +21506,7 @@ ${t("quoteHint")}`,
     });
     const [cloudVaultQuota, setCloudVaultQuota] = (0, import_react2.useState)(null);
     const [cloudDeviceQuota, setCloudDeviceQuota] = (0, import_react2.useState)(null);
+    const [syncInfo, setSyncInfo] = (0, import_react2.useState)(null);
     const [vaultQuotaError, setVaultQuotaError] = (0, import_react2.useState)("");
     const [vaultSel, setVaultSel] = (0, import_react2.useState)("");
     const [dupMode, setDupMode] = (0, import_react2.useState)("skip");
@@ -22174,6 +22189,12 @@ ${t("quoteHint")}`,
           } else setCloudVaultList(null);
         } catch {
           setCloudVaultList(null);
+        }
+        try {
+          const sr = await fetch(cloudApi2("/sync/status"), { headers: { Accept: "application/json" } });
+          const sd = await sr.json().catch(() => ({}));
+          if (sd && sd.ok) setSyncInfo(sd);
+        } catch {
         }
       } else {
         setCloudVaultList(null);
@@ -23840,6 +23861,31 @@ ${t("quoteHint")}`,
                             t("cloudDeviceQuota").replace("{u}", String(cloudDeviceQuota.used)).replace("{l}", String(cloudDeviceQuota.limit)),
                             cloudDeviceQuota.limit > 0 && cloudDeviceQuota.used >= cloudDeviceQuota.limit ? " \xB7 " + t("cloudDevicesFullHint") : ""
                           ] })
+                        ] }) : null,
+                        syncInfo ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("syncTitle") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { textAlign: "right" }, children: [
+                            t("syncPendingLabel"),
+                            " ",
+                            Number(syncInfo.pending) || 0,
+                            " \xB7 ",
+                            t("syncConflictsLabel"),
+                            " ",
+                            Number(syncInfo.conflicts) || 0,
+                            " \xB7 ",
+                            t("syncCursorLabel"),
+                            " ",
+                            Number(syncInfo.cursor) || 0
+                          ] })
+                        ] }) : null,
+                        syncInfo ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }, children: [
+                          t("syncDigestLabel"),
+                          ": ",
+                          String(syncInfo.digest || "").slice(0, 12),
+                          "\u2026",
+                          syncInfo.device ? " \xB7 " + String(syncInfo.device).slice(0, 12) : "",
+                          syncInfo.lastEventAt ? " \xB7 " + t("syncLastEventLabel") + " " + String(syncInfo.lastEventAt).replace("T", " ").slice(0, 19) : "",
+                          cloudConn && cloudConn.mode === "cloud" ? "" : " \xB7 " + t("syncLocalOnly")
                         ] }) : null,
                         cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", gap: 14 }, children: [
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.55 }, children: t("cloudPlanRpm") }),

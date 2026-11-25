@@ -1870,6 +1870,13 @@ export const ZH = {
   cloudDeviceQuota: '{u} / {l} 台',
   cloudDevicesFullHint: '已达上限，去控制台删除旧设备',
   cloudDeviceLimit: '设备数已达套餐上限：请到控制台「已连接设备」删除旧设备后重试',
+  syncTitle: '多端同步',
+  syncPendingLabel: '待推送',
+  syncConflictsLabel: '冲突待审',
+  syncCursorLabel: '拉取游标',
+  syncDigestLabel: '数据摘要',
+  syncLastEventLabel: '最近同步',
+  syncLocalOnly: '仅云端模式运行',
   vaultUploadCloud: '上传当前库到云端',
   btnUpload: '上传',
   btnDownload: '下载',
@@ -3396,6 +3403,13 @@ export const EN = {
   cloudDeviceQuota: '{u} / {l}',
   cloudDevicesFullHint: 'limit reached — remove an old device in the console',
   cloudDeviceLimit: 'Device limit reached: remove an old device in the console and retry',
+  syncTitle: 'Multi-device sync',
+  syncPendingLabel: 'Pending push',
+  syncConflictsLabel: 'Conflicts to review',
+  syncCursorLabel: 'Pull cursor',
+  syncDigestLabel: 'Digest',
+  syncLastEventLabel: 'Last sync',
+  syncLocalOnly: 'cloud mode only',
   vaultUploadCloud: 'Upload current to cloud',
   btnUpload: 'Upload',
   btnDownload: 'Download',
@@ -10960,6 +10974,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   })
   const [cloudVaultQuota, setCloudVaultQuota] = useState(null)
   const [cloudDeviceQuota, setCloudDeviceQuota] = useState(null)
+  // P4b：多端同步状态（设备 / 待推 / 冲突 / 游标 / 摘要）
+  const [syncInfo, setSyncInfo] = useState(null)
   // 建库/改名失败的红条提示（配额超限、未订阅等）
   const [vaultQuotaError, setVaultQuotaError] = useState('')
   const [vaultSel, setVaultSel] = useState('')
@@ -11667,6 +11683,12 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           setCloudDeviceQuota(cr.connect.devices && Number(cr.connect.devices.limit) > 0 ? { used: Number(cr.connect.devices.used) || 0, limit: Number(cr.connect.devices.limit) } : null)
         } else setCloudVaultList(null)
       } catch { setCloudVaultList(null) }
+    // P4b：同步状态（失败静默，不干扰主流程）
+    try {
+      const sr = await fetch(cloudApi('/sync/status'), { headers: { Accept: 'application/json' } })
+      const sd = await sr.json().catch(() => ({}))
+      if (sd && sd.ok) setSyncInfo(sd)
+    } catch { /* 忽略 */ }
     } else {
       setCloudVaultList(null)
       setCloudVaultQuota(null)
@@ -13278,6 +13300,24 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                             ) : null}
                             {cloudDeviceQuota ? (
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanDevices')}</span><span style={{ textAlign: 'right' }}>{t('cloudDeviceQuota').replace('{u}', String(cloudDeviceQuota.used)).replace('{l}', String(cloudDeviceQuota.limit))}{cloudDeviceQuota.limit > 0 && cloudDeviceQuota.used >= cloudDeviceQuota.limit ? ' · ' + t('cloudDevicesFullHint') : ''}</span></div>
+                            ) : null}
+                            {syncInfo ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
+                                <span style={{ opacity: 0.55 }}>{t('syncTitle')}</span>
+                                <span style={{ textAlign: 'right' }}>
+                                  {t('syncPendingLabel')} {Number(syncInfo.pending) || 0}
+                                  {' · '}{t('syncConflictsLabel')} {Number(syncInfo.conflicts) || 0}
+                                  {' · '}{t('syncCursorLabel')} {Number(syncInfo.cursor) || 0}
+                                </span>
+                              </div>
+                            ) : null}
+                            {syncInfo ? (
+                              <div style={{ fontSize: 10.5, opacity: 0.45, lineHeight: 1.7 }}>
+                                {t('syncDigestLabel')}: {String(syncInfo.digest || '').slice(0, 12)}…
+                                {syncInfo.device ? ' · ' + String(syncInfo.device).slice(0, 12) : ''}
+                                {syncInfo.lastEventAt ? ' · ' + t('syncLastEventLabel') + ' ' + String(syncInfo.lastEventAt).replace('T', ' ').slice(0, 19) : ''}
+                                {cloudConn && cloudConn.mode === 'cloud' ? '' : ' · ' + t('syncLocalOnly')}
+                              </div>
                             ) : null}
                             {cloudPlan && cloudPlan.caps && cloudPlan.caps.rpm ? (
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}><span style={{ opacity: 0.55 }}>{t('cloudPlanRpm')}</span><span style={{ textAlign: 'right' }}>{Number(cloudPlan.caps.rpm).toLocaleString()} / {t('perMinute')}</span></div>
