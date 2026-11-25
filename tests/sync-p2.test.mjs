@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { ensureVault, writeCard, updateCardContent, deleteCard, restoreCard, setCardStatus } from '../lib/vault.js'
 import { getDb, closeDb } from '../lib/db.js'
-import { pendingEvents, markEventsSynced, appendRemoteEvents, pullEvents, digestOf } from '../lib/sync.js'
+import { pendingEvents, markEventsSynced, appendRemoteEvents, pullEvents, digestOf, reconcileContentDuplicates } from '../lib/sync.js'
 
 function tmp() { return fs.mkdtempSync(path.join(os.tmpdir(), 'me-syncp2-')) }
 function setup() { const a = tmp(); const b = tmp(); return { a, b } }
@@ -129,4 +129,58 @@ test('P2：同源技能卡事件不会撞 source 唯一索引（合并/跳过）
     assert.equal(cards.length, 1, '同源技能卡只能有一张 approved')
     assert.equal(cards[0].uid, wb.uid, '应合并进已有卡')
   } finally { await clean(a, b) }
+})
+
+test('P3a：同内容不同 uid 历史对账 → 归并 + 广播，三端收敛', async () => {
+  const a = tmp(); const b = tmp(); const c = tmp()
+  try {
+    useDevice('devA'); await ensureVault(a)
+    useDevice('devB'); await ensureVault(b)
+    useDevice('devC'); await ensureVault(c)
+    // A/B 各自有一张内容相同但 uid 不同的卡（模拟 P1 前各自回填）
+    useDevice('devA')
+    const wa = await writeCard(a, { kind: 'knowledge', title: '同一张卡', body: '同样的正文内容', status: 'pending' }, { dedup: false })
+    useDevice('devB')
+    const wb = await writeCard(b, { kind: 'knowledge', title: '同一张卡', body: '同样的正文内容', status: 'pending' }, { dedup: false })
+    assert.notEqual(wa.uid, wb.uid)
+    // 云端 C 收到两边的 create 事件
+    appendRemoteEvents(c, pendingEvents(a, 'devA'))
+    appendRemoteEvents(c, pendingEvents(b, 'devB'))
+    assert.equal(getDb(c).prepare('SELECT COUNT(*) n FROM quarantine').get().n, 2, '云端先有两张同内容卡')
+    // 对账
+    const rec = reconcileContentDuplicates(c, 'devC')
+    assert.equal(rec.groups, 1)
+    assert.equal(rec.removed, 1)
+    assert.equal(getDb(c).prepare('SELECT COUNT(*) n FROM quarantine').get().n, 1, '对账后只留一张')
+    // 把对账事件（delete 输家 + update 保留卡）广播回 A/B
+    const evs = pendingEvents(c, 'devC')
+    assert.ok(evs.some((e) => e.op === 'delete'), '应有删除输家的墓碑事件')
+    assert.ok(evs.some((e) => e.op === 'update'), '应有保留卡的全量事件')
+    appendRemoteEvents(a, evs)
+    appendRemoteEvents(b, evs)
+    // 三端 digest 一致；A/B 都只剩保留卡
+    assert.equal(digestOf(a).digest, digestOf(c).digest, 'A 应与云端一致')
+    assert.equal(digestOf(b).digest, digestOf(c).digest, 'B 应与云端一致')
+    assert.equal(getDb(a).prepare('SELECT COUNT(*) n FROM quarantine').get().n, 1)
+    assert.equal(getDb(b).prepare('SELECT COUNT(*) n FROM quarantine').get().n, 1)
+  } finally { await clean(a, b, c) }
+})
+
+test('P3a：云端对账事件必须发布（server_seq），否则 pull 收不到', async () => {
+  const a = tmp(); const c = tmp()
+  try {
+    useDevice('devA'); await ensureVault(a)
+    useDevice('devC'); await ensureVault(c)
+    useDevice('devA')
+    await writeCard(a, { kind: 'knowledge', title: '发布测试', body: '同样内容', status: 'pending' }, { dedup: false })
+    await writeCard(a, { kind: 'knowledge', title: '发布测试', body: '同样内容', status: 'pending' }, { dedup: false })
+    appendRemoteEvents(c, pendingEvents(a, 'devA'))
+    useDevice('devC')
+    const rec = reconcileContentDuplicates(c, 'devC', { publish: true })
+    assert.equal(rec.removed, 1)
+    const pull = pullEvents(c, 0)
+    assert.ok(pull.events.some((e) => e.op === 'delete'), '墓碑事件应已发布')
+    assert.ok(pull.events.some((e) => e.op === 'update'), '保留卡全量事件应已发布')
+    assert.ok(pull.events.every((e) => Number(e.server_seq) > 0), 'server_seq 必须已分配')
+  } finally { await clean(a, c) }
 })
