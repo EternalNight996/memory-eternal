@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { ensureVault, writeCard, updateCardContent, deleteCard, restoreCard } from '../lib/vault.js'
+import { ensureVault, writeCard, updateCardContent, deleteCard, restoreCard, setCardStatus } from '../lib/vault.js'
 import { getDb, closeDb } from '../lib/db.js'
 import { pendingEvents, markEventsSynced, appendRemoteEvents, pullEvents, digestOf } from '../lib/sync.js'
 
@@ -107,5 +107,26 @@ test('P2：pull 游标增量', async () => {
     const p2 = pullEvents(b, p1.nextSince)
     assert.equal(p2.events.length, 0, '游标之后不应再有事件')
     assert.equal(p2.nextSince, p1.nextSince)
+  } finally { await clean(a, b) }
+})
+
+test('P2：同源技能卡事件不会撞 source 唯一索引（合并/跳过）', async () => {
+  const { a, b } = setup()
+  try {
+    useDevice('devA'); await ensureVault(a)
+    useDevice('devB'); await ensureVault(b)
+    // B 先有一张已批准的技能卡
+    useDevice('devB')
+    const wb = await writeCard(b, { kind: 'skill', title: 'Skill X', body: 'B 版', source: 'skill:x', status: 'pending' }, { dedup: false })
+    await setCardStatus(b, wb.path, 'approved', { changedBy: 'test' })
+    // A 发来同 source 的 approved create 事件
+    const uid2 = '01a2112800007000800000000000beef'
+    const hlc = '001795700000000-0000-devA'
+    const ev = { uid: uid2, op: 'create', patch: { kind: 'skill', source: 'skill:x', status: 'approved', title: 'Skill X', body: 'A 版' }, hlc, field_hlc: { title: hlc, body: hlc }, device: 'devA', device_seq: 1 }
+    const r = appendRemoteEvents(b, [ev])
+    assert.equal(r.accepted, 1, JSON.stringify(r))
+    const cards = getDb(b).prepare("SELECT uid, body FROM cards WHERE kind = 'skill' AND source = 'skill:x'").all()
+    assert.equal(cards.length, 1, '同源技能卡只能有一张 approved')
+    assert.equal(cards[0].uid, wb.uid, '应合并进已有卡')
   } finally { await clean(a, b) }
 })
