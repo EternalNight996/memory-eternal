@@ -115,3 +115,20 @@ test('回填性能：2000 张老卡在事务里回填，必须远快于逐条提
     assert.ok(ms < 20000, '回填耗时 ' + ms + 'ms，疑似退回逐条提交')
   } finally { cleanup(root) }
 })
+
+test('迁移兼容：老 card_events（无 server_seq 等列）打开时能补齐，不因先建索引而失败', async () => {
+  const root = tmp()
+  try {
+    await ensureVault(root)
+    const db = getDb(root)
+    db.exec('DROP TABLE IF EXISTS card_events')
+    db.exec("CREATE TABLE card_events (id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, op TEXT NOT NULL, patch TEXT DEFAULT '{}', hlc TEXT NOT NULL, field_hlc TEXT DEFAULT '{}', device TEXT DEFAULT '', device_seq INTEGER, created_at TEXT DEFAULT (datetime('now')))")
+    // 直接再跑一次迁移（模拟老库打开）
+    migrateSyncIdentity(db)
+    const cols = db.prepare('PRAGMA table_info(card_events)').all().map((r) => r.name)
+    for (const c of ['server_seq', 'synced_at', 'base_vv', 'base_field_hlc']) assert.ok(cols.includes(c), '缺少列 ' + c)
+    // 索引真的建出来了吗
+    const idx = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_card_events_server'").get()
+    assert.ok(idx, 'idx_card_events_server 未创建')
+  } finally { cleanup(root) }
+})
