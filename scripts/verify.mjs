@@ -124,7 +124,7 @@ if (!quick) {
     const out = (r.stdout || '') + (r.stderr || '')
     const m = out.match(/pass=(\d+)\s+fail=(\d+)/)
     if (!m) throw new Error('拿不到测试结果：' + out.slice(-300))
-    if (Number(m[2]) > 0) console.log('  pass=' + m[1] + ' fail=' + m[2] + '（既有失败不计入本次门禁，但需知悉）')
+    if (Number(m[2]) > 0) throw new Error('测试有 ' + m[2] + ' 例失败（pass=' + m[1] + '），门禁不通过；先修测试再发版')
     return 'pass=' + m[1] + ' fail=' + m[2]
   })
 }

@@ -5,8 +5,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { ensureVault, writeCard, updateCardContent, deleteCard, restoreCard, setCardStatus } from '../lib/vault.js'
+import { applyEvent } from '../lib/sync.js'
 import { getDb, closeDb } from '../lib/db.js'
-import { pendingEvents, markEventsSynced, appendRemoteEvents, pullEvents, digestOf, reconcileContentDuplicates } from '../lib/sync.js'
+import { pendingEvents, markEventsSynced, appendRemoteEvents, pullEvents, digestOf, reconcileContentDuplicates, snapshotOf, vaultCardCount } from '../lib/sync.js'
 
 function tmp() { return fs.mkdtempSync(path.join(os.tmpdir(), 'me-syncp2-')) }
 function setup() { const a = tmp(); const b = tmp(); return { a, b } }
@@ -183,4 +184,31 @@ test('P3a：云端对账事件必须发布（server_seq），否则 pull 收不�
     assert.ok(pull.events.some((e) => e.op === 'update'), '保留卡全量事件应已发布')
     assert.ok(pull.events.every((e) => Number(e.server_seq) > 0), 'server_seq 必须已分配')
   } finally { await clean(a, c) }
+})
+
+test('P4a：新设备空库用快照种子，digest 与源库一致（含分页）', async () => {
+  const a = tmp(); const b = tmp()
+  try {
+    useDevice('devA'); await ensureVault(a)
+    useDevice('devA')
+    const w1 = await writeCard(a, { kind: 'knowledge', title: 'Seed 1', body: '正文一', status: 'pending' }, { dedup: false })
+    await setCardStatus(a, w1.path, 'approved', { changedBy: 'test' })
+    await writeCard(a, { kind: 'knowledge', title: 'Seed 2', body: '正文二', status: 'pending' }, { dedup: false })
+    assert.equal(vaultCardCount(a), 2)
+    // 分页遍历快照
+    let cursor = ''; const items = []
+    for (let i = 0; i < 10; i++) {
+      const page = snapshotOf(a, cursor, 1)
+      items.push(...page.items)
+      cursor = page.nextCursor
+      if (!page.hasMore) break
+    }
+    assert.equal(items.length, 2)
+    // 应用到空设备
+    useDevice('devB'); await ensureVault(b)
+    assert.equal(vaultCardCount(b), 0)
+    for (const item of items) applyEvent(b, item)
+    assert.equal(vaultCardCount(b), 2)
+    assert.equal(digestOf(a).digest, digestOf(b).digest, '新设备 digest 应与源库一致')
+  } finally { await clean(a, b) }
 })

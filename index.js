@@ -538,7 +538,20 @@ export function apply(ctx, config) {
           mod.markEventsSynced(root, pend.map((e) => e.id), d.server_seq)
           if (pend.length < 200) break
         }
-        let since = mod.readCursor(root, device)
+        const since0 = mod.readCursor(root, device)
+        // 全新空设备：先拉云端全量快照（历史卡没有事件，只 pull 会得到空库）
+        if (since0 === 0 && mod.vaultCardCount(root) === 0) {
+          let snapCursor = ''
+          for (let round = 0; round < 100; round++) {
+            const sr = await fetch(conn.url + '/api/sync/snapshot?limit=500&since=' + encodeURIComponent(snapCursor), { headers: { Authorization: 'Bearer ' + conn.token, 'X-Device-Id': device } })
+            const sd = await sr.json().catch(() => ({}))
+            if (!sr.ok || !sd.ok) throw new Error('snapshot HTTP ' + sr.status + ' ' + (sd.error || ''))
+            for (const item of (sd.items || [])) { try { mod.applyEvent(root, item) } catch { /* 单条失败不阻断 */ } }
+            snapCursor = String(sd.nextCursor || '')
+            if (!sd.hasMore) break
+          }
+        }
+        let since = since0
         for (let round = 0; round < 10; round++) {
           const r = await fetch(conn.url + '/api/sync/pull?since=' + since + '&limit=500', { headers: { Authorization: 'Bearer ' + conn.token, 'X-Device-Id': device } })
           const d = await r.json().catch(() => ({}))
