@@ -95,3 +95,23 @@ test('迁移：老卡（uid 为空）会被回填，且重复迁移幂等', asyn
     assert.equal(uid2, uid1, '重复迁移不应改已有 uid')
   } finally { cleanup(root) }
 })
+
+test('回填性能：2000 张老卡在事务里回填，必须远快于逐条提交（防 214 秒回归）', async () => {
+  const root = tmp()
+  try {
+    await ensureVault(root)
+    const db = getDb(root)
+    const ins = db.prepare("INSERT INTO cards (id, path, kind, title, tags, body, summary, status, source, uid, created_at, updated_at) VALUES (?, ?, 'knowledge', ?, '[]', ?, ?, 'approved', 'test', NULL, datetime('now'), datetime('now'))")
+    db.exec('BEGIN')
+    for (let i = 0; i < 2000; i++) ins.run(100000 + i, '03-Knowledge/perf-' + i + '.md', 'Perf ' + i, 'body ' + i, 'body ' + i)
+    db.exec('COMMIT')
+    closeDb(root)
+    const t0 = Date.now()
+    const db2 = getDb(root)
+    const ms = Date.now() - t0
+    const left = db2.prepare("SELECT COUNT(*) n FROM cards WHERE uid IS NULL OR uid = ''").get().n
+    assert.equal(left, 0)
+    // 事务回填 2k 约 100ms；逐条自动提交会到 40s+，这里给足余量但能抓住回归
+    assert.ok(ms < 20000, '回填耗时 ' + ms + 'ms，疑似退回逐条提交')
+  } finally { cleanup(root) }
+})
