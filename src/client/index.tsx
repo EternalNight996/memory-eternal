@@ -2189,6 +2189,7 @@ export const ZH = {
   reclassify: '重新识别类型',
   reject: '驳回',
   allAgents: '全部智能体',
+  auditSourceConflict: '同步冲突',
   noAuditItems: '暂无审核项目',
   auditBodyFail: '正文读取失败',
   deletedAt: '删除于',
@@ -3721,6 +3722,7 @@ export const EN = {
   reclassify: 'Reclassify types',
   reject: 'Reject',
   allAgents: 'All agents',
+  auditSourceConflict: 'Sync conflicts',
   noAuditItems: 'No items to review',
   auditBodyFail: 'Failed to load the card body',
   deletedAt: 'deleted',
@@ -14082,6 +14084,7 @@ function AuditPanel({ t, onReload, version }) {
   const [pending, setPending] = useState([])
   const [rejected, setRejected] = useState([])
   const [kindF, setKindF] = useState('all')
+  const [srcF, setSrcF] = useState('all')
   const [agentF, setAgentF] = useState('all')
   const [dateF, setDateF] = useState('')
   const [search, setSearch] = useState('')
@@ -14105,6 +14108,7 @@ function AuditPanel({ t, onReload, version }) {
   const items = (tab === 'pending' ? pending : rejected).filter((c) => {
     if (!auditMatches(c, search)) return false
     if (kindF !== 'all' && c.kind !== kindF) return false
+    if (srcF === 'conflict' && c.source !== 'sync-conflict') return false
     if (agentF !== 'all' && normAgent(c.submittedBy) !== agentF) return false
     // issue #55：日期筛选按**本地**日历日比较（c.created 是 UTC，slice 会错一天）
     if (dateF) { const d = localDateKey(c.created); if (d && d !== dateF) return false }
@@ -14114,7 +14118,7 @@ function AuditPanel({ t, onReload, version }) {
   const kindCounts = useMemo(() => {
     const base = tab === 'pending' ? pending : rejected
     const m = { all: 0 }
-    base.forEach((c) => {
+    ;(srcF === 'conflict' ? base.filter((c) => c.source === 'sync-conflict') : base).forEach((c) => {
       if (!auditMatches(c, search)) return
       if (agentF !== 'all' && normAgent(c.submittedBy) !== agentF) return
       if (dateF) { const d = localDateKey(c.created); if (d && d !== dateF) return }
@@ -14251,6 +14255,10 @@ function AuditPanel({ t, onReload, version }) {
                 {agentOptions(agents).map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
               <input type="date" value={dateF} onChange={(e) => { setDateF(e.target.value); clearSel() }} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1, #fff)', color: 'inherit', border: '1px solid var(--dsw-alias-border-l2, #d1d5db)' }} />
+              <button type="button" className={`me-audit-kind${srcF === 'conflict' ? ' active' : ''}`} onClick={() => { setSrcF(srcF === 'conflict' ? 'all' : 'conflict'); clearSel() }} title={t('auditSourceConflict')}>
+                <span className="me-audit-kind-name">{t('auditSourceConflict')}</span>
+                <span className="me-audit-kind-count">{(tab === 'pending' ? pending : rejected).filter((c) => c.source === 'sync-conflict').length}</span>
+              </button>
             </div>
             <div className="me-audit-types-top">
               <span className="me-audit-types-label">{t('auditTypeLabel')}</span>
@@ -14334,7 +14342,7 @@ function AuditPanel({ t, onReload, version }) {
                   icon="🔍"
                   title={t('auditNoMatch')}
                   hint={t('auditNoMatchHint')}
-                  action={<Btn variant="secondary" size="sm" onClick={() => { setSearch(''); setKindF('all'); setAgentF('all'); setDateF(''); clearSel(); setPreviewPath(null) }}>{t('auditClearSearch')}</Btn>}
+                  action={<Btn variant="secondary" size="sm" onClick={() => { setSearch(''); setKindF('all'); setAgentF('all'); setSrcF('all'); setDateF(''); clearSel(); setPreviewPath(null) }}>{t('auditClearSearch')}</Btn>}
                 />
               : tab === 'pending'
                 ? <EmptyState icon="📥" title={t('auditEmptyTitle')} hint={t('auditEmptyHint')} />

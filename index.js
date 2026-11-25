@@ -591,6 +591,24 @@ export function apply(ctx, config) {
     return () => { if (timer) clearInterval(timer); if (boot) clearTimeout(boot) }
   }, 'memory-eternal: p2 sync loop')
 
+  // 事件日志 GC：每 6 小时清一次「已确认且超过 30 天」的事件；未同步事件永远保留。
+  ctx.effect(() => {
+    let boot = null
+    let timer = null
+    const run = async () => {
+      try {
+        const { compactEvents } = await import('./lib/sync.js')
+        const out = compactEvents(vaultDir(), { keepDays: 30 })
+        if (out && out.removed) console.error('[memory-eternal] 事件 GC 清理 ' + out.removed + ' 条')
+      } catch { /* GC 失败不影响主流程 */ }
+    }
+    boot = setTimeout(() => { void run() }, 60000)
+    if (boot && typeof boot.unref === 'function') boot.unref()
+    timer = setInterval(() => { void run() }, 6 * 3600 * 1000)
+    if (timer && typeof timer.unref === 'function') timer.unref()
+    return () => { if (boot) clearTimeout(boot); if (timer) clearInterval(timer) }
+  }, 'memory-eternal: sync gc')
+
   // Agent MCP：作为 **DSH 插件**时默认挂到 DSH 自己（幂等；关掉见 mcpAutoMount / MEMORY_MCP_AUTOMOUNT）。
   // 其它宿主（Claude Code / Codex / Cursor / Windsurf）不自动写 —— 那是用户自己另开的宿主，
   // 一个仓库里被多个 agent 读到不同库，才是真正会串味的场景（手动入口：设置 → 🧪 实验性 → 🔌）。

@@ -12758,6 +12758,7 @@
     reclassify: "\u91CD\u65B0\u8BC6\u522B\u7C7B\u578B",
     reject: "\u9A73\u56DE",
     allAgents: "\u5168\u90E8\u667A\u80FD\u4F53",
+    auditSourceConflict: "\u540C\u6B65\u51B2\u7A81",
     noAuditItems: "\u6682\u65E0\u5BA1\u6838\u9879\u76EE",
     auditBodyFail: "\u6B63\u6587\u8BFB\u53D6\u5931\u8D25",
     deletedAt: "\u5220\u9664\u4E8E",
@@ -14288,6 +14289,7 @@
     reclassify: "Reclassify types",
     reject: "Reject",
     allAgents: "All agents",
+    auditSourceConflict: "Sync conflicts",
     noAuditItems: "No items to review",
     auditBodyFail: "Failed to load the card body",
     deletedAt: "deleted",
@@ -17381,7 +17383,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.3" : "";
+  var CLIENT_VERSION = true ? "0.55.4" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17662,7 +17664,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-25T15:42:48+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-25T16:02:27+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -24598,6 +24600,7 @@ ${t("quoteHint")}`,
     const [pending, setPending] = (0, import_react2.useState)([]);
     const [rejected, setRejected] = (0, import_react2.useState)([]);
     const [kindF, setKindF] = (0, import_react2.useState)("all");
+    const [srcF, setSrcF] = (0, import_react2.useState)("all");
     const [agentF, setAgentF] = (0, import_react2.useState)("all");
     const [dateF, setDateF] = (0, import_react2.useState)("");
     const [search, setSearch] = (0, import_react2.useState)("");
@@ -24632,6 +24635,7 @@ ${t("quoteHint")}`,
     const items = (tab === "pending" ? pending : rejected).filter((c) => {
       if (!auditMatches(c, search)) return false;
       if (kindF !== "all" && c.kind !== kindF) return false;
+      if (srcF === "conflict" && c.source !== "sync-conflict") return false;
       if (agentF !== "all" && normAgent(c.submittedBy) !== agentF) return false;
       if (dateF) {
         const d = localDateKey(c.created);
@@ -24642,7 +24646,7 @@ ${t("quoteHint")}`,
     const kindCounts = (0, import_react2.useMemo)(() => {
       const base = tab === "pending" ? pending : rejected;
       const m = { all: 0 };
-      base.forEach((c) => {
+      (srcF === "conflict" ? base.filter((c) => c.source === "sync-conflict") : base).forEach((c) => {
         if (!auditMatches(c, search)) return;
         if (agentF !== "all" && normAgent(c.submittedBy) !== agentF) return;
         if (dateF) {
@@ -24837,7 +24841,14 @@ ${t("quoteHint")}`,
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "date", value: dateF, onChange: (e) => {
                 setDateF(e.target.value);
                 clearSel();
-              }, style: { fontSize: 12, padding: "4px 8px", borderRadius: 8, background: "var(--dsw-alias-bg-layer-1, #fff)", color: "inherit", border: "1px solid var(--dsw-alias-border-l2, #d1d5db)" } })
+              }, style: { fontSize: 12, padding: "4px 8px", borderRadius: 8, background: "var(--dsw-alias-bg-layer-1, #fff)", color: "inherit", border: "1px solid var(--dsw-alias-border-l2, #d1d5db)" } }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { type: "button", className: `me-audit-kind${srcF === "conflict" ? " active" : ""}`, onClick: () => {
+                setSrcF(srcF === "conflict" ? "all" : "conflict");
+                clearSel();
+              }, title: t("auditSourceConflict"), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "me-audit-kind-name", children: t("auditSourceConflict") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "me-audit-kind-count", children: (tab === "pending" ? pending : rejected).filter((c) => c.source === "sync-conflict").length })
+              ] })
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "me-audit-types-top", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "me-audit-types-label", children: t("auditTypeLabel") }),
@@ -24950,6 +24961,7 @@ ${t("quoteHint")}`,
                     setSearch("");
                     setKindF("all");
                     setAgentF("all");
+                    setSrcF("all");
                     setDateF("");
                     clearSel();
                     setPreviewPath(null);
