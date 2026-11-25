@@ -560,6 +560,24 @@ export function apply(ctx, config) {
           for (const ev of evs) { try { mod.applyEvent(root, ev) } catch { /* 单条失败不阻断整轮 */ } }
           if (Number(d.nextSince) > since) { since = Number(d.nextSince); mod.writeCursor(root, device, since) }
           if (!d.hasMore || !evs.length) break
+        // 对齐上报：digest 不一致则补一次全量快照，然后完成任务
+        try {
+          const hello = async (dg) => fetch(conn.url + '/api/sync/hello', { method: 'POST', headers: auth, body: JSON.stringify({ device, cursor: since, digest: dg, pending: mod.pendingEvents(root, device, 1).length }) }).then((x) => x.json()).catch(() => null)
+          const h1 = await hello(mod.digestOf(root).digest)
+          if (h1 && h1.ok && h1.mismatch) {
+            let snapCursor = ''
+            for (let round = 0; round < 200; round++) {
+              const sr = await fetch(conn.url + '/api/sync/snapshot?limit=500&since=' + encodeURIComponent(snapCursor), { headers: { Authorization: 'Bearer ' + conn.token, 'X-Device-Id': device } })
+              const sd = await sr.json().catch(() => ({}))
+              if (!sr.ok || !sd.ok) break
+              for (const item of (sd.items || [])) { try { mod.applyEvent(root, item) } catch { /* 忽略 */ } }
+              snapCursor = String(sd.nextCursor || '')
+              if (!sd.hasMore) break
+            }
+            if (h1.task && h1.task.id) await fetch(conn.url + "/api/sync/task/done", { method: 'POST', headers: auth, body: JSON.stringify({ id: h1.task.id, ok: true }) }).catch(() => null)
+            await hello(mod.digestOf(root).digest)
+          }
+        } catch { /* 对齐失败不影响主同步 */ }
         }
       } catch (e) {
         try { console.error('[memory-eternal] 同步循环失败：' + String((e && e.message) || e)) } catch { /* 忽略 */ }
