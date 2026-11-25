@@ -512,6 +512,54 @@ export function apply(ctx, config) {
   const hub = createHub()
   ctx.effect(() => () => hub.close(), 'memory-eternal: sse hub')
 
+  // ── P2 多端同步循环 ───────────────────────────────────────────────
+  // 只在「云端模式且连接 active」时运行：本地模式不往云端推，避免把本地库复制成云端副本。
+  // 每 30 秒：先推本机 outbox → 再按 cursor 拉增量并应用（字段级 HLC，幂等）。
+  ctx.effect(() => {
+    let timer = null
+    let boot = null
+    let running = false
+    const syncOnce = async () => {
+      if (running) return
+      running = true
+      try {
+        const conn = readCloudConn()
+        if (!conn || conn.mode !== 'cloud' || !conn.active || !conn.token || !conn.url) return
+        const device = String(conn.deviceId || process.env.MEMORY_ETERNAL_DEVICE || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 64) || 'local'
+        const root = vaultDir()
+        const mod = await import('./lib/sync.js')
+        const auth = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + conn.token, 'X-Device-Id': device }
+        for (let round = 0; round < 5; round++) {
+          const pend = mod.pendingEvents(root, device, 200)
+          if (!pend.length) break
+          const r = await fetch(conn.url + '/api/sync/push', { method: 'POST', headers: auth, body: JSON.stringify({ events: pend.map((e) => ({ uid: e.uid, op: e.op, patch: e.patch, hlc: e.hlc, field_hlc: e.field_hlc, device: e.device, device_seq: e.device_seq })) }) })
+          const d = await r.json().catch(() => ({}))
+          if (!r.ok || !d.ok) throw new Error('push HTTP ' + r.status + ' ' + (d.error || ''))
+          mod.markEventsSynced(root, pend.map((e) => e.id), d.server_seq)
+          if (pend.length < 200) break
+        }
+        let since = mod.readCursor(root, device)
+        for (let round = 0; round < 10; round++) {
+          const r = await fetch(conn.url + '/api/sync/pull?since=' + since + '&limit=500', { headers: { Authorization: 'Bearer ' + conn.token, 'X-Device-Id': device } })
+          const d = await r.json().catch(() => ({}))
+          if (!r.ok || !d.ok) throw new Error('pull HTTP ' + r.status + ' ' + (d.error || ''))
+          const evs = Array.isArray(d.events) ? d.events : []
+          for (const ev of evs) { try { mod.applyEvent(root, ev) } catch { /* 单条失败不阻断整轮 */ } }
+          if (Number(d.nextSince) > since) { since = Number(d.nextSince); mod.writeCursor(root, device, since) }
+          if (!d.hasMore || !evs.length) break
+        }
+      } catch (e) {
+        try { console.error('[memory-eternal] 同步循环失败：' + String((e && e.message) || e)) } catch { /* 忽略 */ }
+      } finally { running = false }
+    }
+    timer = setInterval(() => { void syncOnce() }, 30000)
+    if (timer && typeof timer.unref === 'function') timer.unref()
+    // 延迟首跑：apply() 里 vaultDir 等 const 还在初始化，立即调用会踩 TDZ
+    boot = setTimeout(() => { void syncOnce() }, 1500)
+    if (boot && typeof boot.unref === 'function') boot.unref()
+    return () => { if (timer) clearInterval(timer); if (boot) clearTimeout(boot) }
+  }, 'memory-eternal: p2 sync loop')
+
   // Agent MCP：作为 **DSH 插件**时默认挂到 DSH 自己（幂等；关掉见 mcpAutoMount / MEMORY_MCP_AUTOMOUNT）。
   // 其它宿主（Claude Code / Codex / Cursor / Windsurf）不自动写 —— 那是用户自己另开的宿主，
   // 一个仓库里被多个 agent 读到不同库，才是真正会串味的场景（手动入口：设置 → 🧪 实验性 → 🔌）。
