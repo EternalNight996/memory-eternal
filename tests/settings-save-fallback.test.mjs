@@ -51,6 +51,20 @@ test('宿主拒绝 volatile 字段时：保存不报错、立即生效、写兜�
   assert.equal(s2.get().auditMode, 'none', 'auditMode 同样要保留')
 }))
 
+test('宿主抛激活上下文守卫（unavailable from a plugin activation）时同样走兜底', () => withHome(async (home) => {
+  const guard = {
+    update: async () => { throw new Error('root.events.emit is unavailable from a plugin activation') },
+    describe: () => [{ ns: 'memory-eternal', revision: 2 }],
+    configure: () => () => {},
+  }
+  const s = bindSettings(fakeCtx(guard), undefined, { autoCapture: true })
+  const r = await s.update({ autoCapture: false })
+  assert.equal(r.fallback, true, '门禁类错误也应走兜底')
+  assert.equal(s.get().autoCapture, false)
+  const saved = JSON.parse(fs.readFileSync(path.join(home, 'memory-eternal-config-overrides.json'), 'utf8'))
+  assert.equal(saved.autoCapture, false)
+}))
+
 test('宿主写成功后清掉同名兜底键（不再掩盖宿主真实配置）', () => withHome(async (home) => {
   fs.writeFileSync(path.join(home, 'memory-eternal-config-overrides.json'), JSON.stringify({ autoCapture: false }))
   const okService = { update: async () => {}, describe: () => [{ ns: 'memory-eternal', revision: 1 }], configure: () => () => {} }

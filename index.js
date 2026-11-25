@@ -461,7 +461,10 @@ export function bindSettings(ctx, schema, config) {
       const call = (rev) => service.update(entryId, patch, rev)
       // 宿主只接受 volatile 字段时（dsh-settings: "has no volatile fields"）：
       // 写插件兜底文件 + 本地 overlay，保存立即生效且跨重启保留。
-      const isVolatileRefusal = (e) => /has no volatile fields|is not volatile/i.test(String((e && e.message) || e))
+      // 宿主拒绝写配置的几类报错：非 volatile 字段 / 激活上下文守卫 / HTTP 浏览器门禁。
+      // 它们都意味着「这条写路径不通」，但不是「保存失败」——统一走兜底（overlay + overrides 文件），
+      // 由业务侧读合并值、下次启动读回，效果等价。
+      const isVolatileRefusal = (e) => /has no volatile fields|is not volatile|unavailable from a plugin activation|HMR transactions cannot be nested|browser access is disabled/i.test(String((e && e.message) || e))
       const persistFallback = async () => {
         for (const k of Object.keys(patch)) persisted.add(k)
         Object.assign(overlay, patch)
