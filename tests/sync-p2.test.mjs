@@ -212,3 +212,34 @@ test('P4a：新设备空库用快照种子，digest 与源库一致（含分页�
     assert.equal(digestOf(a).digest, digestOf(b).digest, '新设备 digest 应与源库一致')
   } finally { await clean(a, b) }
 })
+
+test('P3b：同字段并发编辑 → LWW + 输家进审核（冲突副本）', async () => {
+  const { a, b } = setup()
+  try {
+    useDevice('devA'); await ensureVault(a)
+    useDevice('devB'); await ensureVault(b)
+    useDevice('devA')
+    const w = await writeCard(a, { kind: 'knowledge', title: '并发卡', body: 'base 正文', status: 'pending' }, { dedup: false })
+    pushTo(b, eventsOf(a, 'devA'))
+    markEventsSynced(a, eventsOf(a, 'devA').map((e) => e.id), 1)
+    // A 改正文
+    useDevice('devA'); await updateCardContent(a, w.path, { body: 'A 的版本' })
+    const aUpd = eventsOf(a, 'devA').filter((e) => e.op === 'update'); markEventsSynced(a, aUpd.map((e) => e.id), 2)
+    // B 改同一字段（同一 base）
+    useDevice('devB'); const pathB = getDb(b).prepare('SELECT path FROM quarantine WHERE uid = ?').get(w.uid).path
+    await updateCardContent(b, pathB, { body: 'B 的版本' })
+    const bUpd = eventsOf(b, 'devB').filter((e) => e.op === 'update')
+    // 互相推送：双方都应保留 LWW 赢家 + 一张冲突待审
+    pushTo(b, aUpd)
+    pushTo(a, bUpd)
+    const winnerB = getDb(b).prepare('SELECT body FROM quarantine WHERE uid = ?').get(w.uid)
+    const conflictsB = getDb(b).prepare("SELECT uid, title, body, status, source FROM quarantine WHERE source = 'sync-conflict'").all()
+    assert.equal(conflictsB.length, 1, 'B 应有 1 张冲突副本')
+    assert.equal(conflictsB[0].status, 'pending')
+    assert.match(conflictsB[0].title, /冲突副本/)
+    assert.notEqual(winnerB.body, conflictsB[0].body, '赢家与输家内容应不同')
+    const conflictsA = getDb(a).prepare("SELECT uid, body FROM quarantine WHERE source = 'sync-conflict'").all()
+    assert.equal(conflictsA.length, 1, 'A 也应有 1 张冲突副本')
+    assert.notEqual(winnerB.body, '', '赢家正文不能为空')
+  } finally { await clean(a, b) }
+})
