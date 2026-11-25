@@ -27,6 +27,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.55.5** | 2026-11-25 | **跨云端库显式搬运（同步兼容）**。`POST /vaults/transfer`（源库 → 目标库，`dryRun` 预览、`onDuplicate=skip/overwrite`）原先只复制 `title/body/...`、**只搬 approved 卡**，还**丢掉 uid/field_hlc/vv 且不补事件**——搬过去的卡设备 pull 不到、待审卡全丢、身份也乱了。修复：① 搬运覆盖**全部状态**（主库 + 待审/隔离区，保留 status）；② 携带 `uid/field_hlc/origin_device/vv`；③ 按 `content_hash` 与 `uid` 双键判重；④ 每张搬入/覆盖的卡补一条 `update` 事件，云端自动发布 `server_seq`；⑤ 返回 `events` 数量。测试：两库搬运（approved + pending）后 uid 保留、field_hlc/vv 保留、待审卡到位、目标库有事件、两库 digest 一致。 |
 | **v0.55.4** | 2026-11-25 | **同步收尾：冲突过滤 + GC 定时化**。① 审核中心新增「同步冲突」筛选（含数量），一键只看 `source=sync-conflict` 的冲突副本；中英双语。② 插件内置事件 GC：启动 1 分钟后跑一次、之后每 6 小时清理「已确认且 >30 天」的事件（`compactEvents`），未同步事件永远保留。 |
 | **v0.55.3** | 2026-11-25 | **多端同步 P5：服务端对齐任务 + 事件日志 GC**。① 新增 `sync_devices` / `sync_tasks` 表与 `POST /sync/hello`：设备上报 cursor/digest，与服务端摘要比对，不一致即登记（幂等）一条 `align` 任务；`GET /sync/tasks`、`POST /sync/task/done` 查询/完成。② 同步循环在 pull 后上报 digest；不一致时自动补一次全量快照并完成任务（重报后收敛）。③ `POST /sync/gc`：只删「已确认（server_seq 非空）且超过 keepDays」的事件，未同步事件一律保留。④ 测试 `tests/sync-p5.test.mjs`（2 例：对齐任务生命周期、GC 只删已同步过期事件）。云端 **0.5.52** 已部署。 |
 | **v0.55.2** | 2026-11-25 | **修复迁移顺序导致老库同步整体不可用**。`migrateSyncIdentity` 在 `card_events` 上**先建 `server_seq` 索引、后加列**：老库（0.54.x 之前建的 `card_events` 没有该列）建索引直接报 `no such column: server_seq`，整个迁移中止 → 卡片/事件表缺列 → `GET /sync/status` 500、pull/push 全不可用。修复：把索引创建移到 `ALTER TABLE` 补列之后；新增回归测试（老 schema 打开即补齐 4 列 + 索引存在）。云端 **0.5.51** 已部署。 |
