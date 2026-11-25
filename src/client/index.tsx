@@ -1003,10 +1003,19 @@ try {
           // 否则两台设备切不同库会互相覆盖（服务端 351c9ef 已支持，缺的就是这一个头）。
           if (!headers['X-Device-Id'] && !headers['x-device-id']) headers['X-Device-Id'] = DEVICE_ID
           const target = API_TARGET_URL + input
-          return _fetch(target, { ...(init || {}), headers }).then((r) => {
+          return _fetch(target, { ...(init || {}), headers }).then(async (r) => {
             if (cloudFailureStatus(r.status)) {
               cloudFailCount += 1
-              if (cloudFailCount >= CLOUD_FAIL_LIMIT) fallbackToLocal('云端返回 ' + r.status)
+              if (cloudFailCount >= CLOUD_FAIL_LIMIT) {
+                // 别只报「云端返回 500」：服务端 500 的 body 里通常有真正原因（JSON {error}）。
+                let why = '云端返回 ' + r.status
+                try {
+                  const d = await (r.clone ? r.clone().json() : Promise.resolve({}))
+                  const e = String((d && (d.error || d.message)) || '').trim()
+                  if (e) why += '：' + e.slice(0, 120)
+                } catch { /* body 不是 JSON 就算了 */ }
+                fallbackToLocal(why)
+              }
             } else {
               cloudFailCount = 0
             }
