@@ -17442,7 +17442,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.15" : "";
+  var CLIENT_VERSION = true ? "0.55.16" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17723,7 +17723,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-28T05:32:19+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-28T06:21:29+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -22033,7 +22033,7 @@ ${t("quoteHint")}`,
       importCancelRef.current = false;
       setImportJob({ importing: true, dir: "up", done: 0, total: 0, imported: 0, duplicate: 0, failed: 0, err: "" });
       try {
-        const exp = await fetchLocal("/vaults/export?path=" + encodeURIComponent(src));
+        const exp = await fetchLocal("/vaults/export?includePending=1&path=" + encodeURIComponent(src));
         if (!exp.ok) throw new Error(t("xferReadLocalFail").replace("{s}", String(exp.status)));
         const data = await exp.json();
         const cards = Array.isArray(data.cards) ? data.cards : [];
@@ -22367,7 +22367,7 @@ ${t("quoteHint")}`,
       if (!batchFirst || !batchFirst.target) return;
       setRetryBusy(String(it.title || it.path || ""));
       try {
-        const exp = await fetchLocal("/vaults/export?path=" + encodeURIComponent(src));
+        const exp = await fetchLocal("/vaults/export?includePending=1&path=" + encodeURIComponent(src));
         if (!exp.ok) throw new Error(t("xferReadLocalFail").replace("{s}", String(exp.status)));
         const data = await exp.json();
         const cards = Array.isArray(data.cards) ? data.cards : [];
@@ -22404,7 +22404,7 @@ ${t("quoteHint")}`,
       if (!todo.length) return;
       setRetryBusy("*all*");
       try {
-        const exp = await fetchLocal("/vaults/export?path=" + encodeURIComponent(src));
+        const exp = await fetchLocal("/vaults/export?includePending=1&path=" + encodeURIComponent(src));
         if (!exp.ok) throw new Error("HTTP " + exp.status);
         const data = await exp.json();
         const cards = Array.isArray(data.cards) ? data.cards : [];

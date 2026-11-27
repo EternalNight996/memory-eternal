@@ -27,6 +27,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.55.16** | 2026-11-28 | **待审卡也可同步云端**。`GET /vaults/export?includePending=1` 导出 pending 卡；客户端上传统一带该参数；`importChunk` 按 status 把 pending 写入**隔离区**（主库仍只放 approved）。测试 `tests/pending-export.test.mjs`：默认导出不含待审、includePending 含、导入后主库 1 张/隔离区 1 张。 |
 | **v0.55.15** | 2026-11-28 | **修复「npm 最新」仍显示旧包**：本地安装包为兼容 profile 保留 `name: memory-eternal`，版本检查据此查了旧号。新增 `package.json#npmName = "@mengbot/mem"`，`/version-check` 优先使用它；实测返回 npm 最新 0.55.6。 |
 | **v0.55.14** | 2026-11-28 | **修复插件信息里的「npm 最新」一直显示旧包**。`/version-check` 原先写死查 `registry.npmjs.org/memory-eternal`（旧号停在 0.49.11）；改为从 `package.json` 读当前包名（`@mengbot/mem`）并对其编码查询，缓存按包名失效。实测返回 npm 最新 0.55.6。 |
 | **v0.55.13** | 2026-11-28 | **上传批次：失败过滤 + 重试进度 + 立即清理**。① 详情支持「全部 / 只看失败」过滤；②「重试全部失败」显示逐条进度（d/t）；③ 新增 `POST /vaults/upload/purge` 手动清理 done/canceled 批次；④ **云端白名单补上 `/vaults/upload/*`**（否则云端模式下这些接口会被 `not_cloud_api` 拒绝）。测试 4 例。 |

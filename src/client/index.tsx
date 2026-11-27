@@ -11521,7 +11521,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     importCancelRef.current = false
     setImportJob({ importing: true, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, failed: 0, err: '' })
     try {
-      const exp = await fetchLocal('/vaults/export?path=' + encodeURIComponent(src))
+      const exp = await fetchLocal('/vaults/export?includePending=1&path=' + encodeURIComponent(src))
       if (!exp.ok) throw new Error(t('xferReadLocalFail').replace('{s}', String(exp.status)))
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
@@ -11831,7 +11831,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     if (!batchFirst || !batchFirst.target) return
     setRetryBusy(String(it.title || it.path || ''))
     try {
-      const exp = await fetchLocal('/vaults/export?path=' + encodeURIComponent(src))
+      const exp = await fetchLocal('/vaults/export?includePending=1&path=' + encodeURIComponent(src))
       if (!exp.ok) throw new Error(t('xferReadLocalFail').replace('{s}', String(exp.status)))
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
@@ -11860,7 +11860,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
     if (!todo.length) return
     setRetryBusy('*all*')
     try {
-      const exp = await fetchLocal('/vaults/export?path=' + encodeURIComponent(src))
+      const exp = await fetchLocal('/vaults/export?includePending=1&path=' + encodeURIComponent(src))
       if (!exp.ok) throw new Error('HTTP ' + exp.status)
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
