@@ -27,6 +27,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.55.9** | 2026-11-28 | **上传批次 UI 完善**：① 未完成横幅显示**目标库名**；② 新增「详情」展开逐条状态（✓ 已完成 / • 待上传 + 失败原因）；③ 「继续上传」可选**本地源库**（本地续传记录丢失时也能续传到同一批次）；④ 批次接口返回 `items`（最多 200 条）。 |
 | **v0.55.8** | 2026-11-28 | **上传批次优化**：① 销账改为**优先按 content_hash**（同名不同内容的卡也能各自准确销账，标题只作兜底）；② `GET /vaults/upload/batches` 不传 target 时**聚合同级各库**的批次，非当前库的未完成上传也能看到；③ 同目标+同清单的 `begin` **复用 pending 批次**，重试不再产生重复批次；④ 完成/取消的批次 **30 天自动清理**；⑤ 未完成横幅显示剩余标题。测试增至 2 例（同名不同 hash、批次复用、跨库聚合）。 |
 | **v0.55.7** | 2026-11-28 | **上传事务化：先登记清单，再上传销账**。新增 `upload_batches` / `upload_items` 与 `POST /vaults/upload/begin`：上传前先把每张卡的**标题/类型**登记到云端；`/vaults/import-into` 带 `batchId`，每写入一张就按 title+kind 销账；全部完成批次自动 `done`，中断则保持 `pending`。`GET /vaults/upload/batches` 可查未完成（含剩余标题），`/vaults/upload/cancel` 放弃。客户端上传流程已接入：云端有未完成批次时显示「未完成 d/t」+「继续上传 / 刷新状态 / 放弃」。测试 `tests/upload-batch.test.mjs`。 |
 | **v0.55.6** | 2026-11-27 | **npm 发布迁移到新账号：包名 `@mengbot/mem`**。原 npm 账号 `eternalnight` 的 token 失效且无法恢复，新账号 `mengbot` 注册成功。GitHub 仓库与插件 id **保持 `memory-eternal` 不变**（star/fork/老用户配置/设置命名空间都不受影响），只把 npm 包名改为 `mengbot`：`package.json` name、`server.json` 的 npm identifier、README/GUIDE 安装命令与 npm 徽章同步更新；DSH 市场从仓库 `package.json` 读取安装命令，收录后会自动刷新为 `dsh plugin add @mengbot/mem`。插件清单（Claude/Codex/Cursor）的 name 保持 `memory-eternal` 以兼容既有安装。 |

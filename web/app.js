@@ -12500,6 +12500,12 @@
     uploadBatchRefresh: "\u5237\u65B0\u72B6\u6001",
     uploadBatchCancel: "\u653E\u5F03",
     uploadBatchNeedSource: "\u672C\u5730\u7EED\u4F20\u8BB0\u5F55\u5DF2\u4E22\u5931\uFF1A\u8BF7\u91CD\u65B0\u9009\u62E9\u672C\u5730\u5E93\u4E0A\u4F20",
+    uploadBatchTarget: "\u76EE\u6807\u5E93",
+    uploadBatchDetail: "\u8BE6\u60C5",
+    uploadBatchHide: "\u6536\u8D77",
+    uploadBatchSource: "\u672C\u5730\u6E90\u5E93",
+    uploadBatchItemsDone: "\u5DF2\u5B8C\u6210",
+    uploadBatchItemsPending: "\u5F85\u4E0A\u4F20",
     vaultOriginCloud: "\u4E91\u7AEF",
     vaultCopyTo: "\u590D\u5236\u5230\u9009\u4E2D\u5E93",
     vaultCopyFrom: "\u4ECE\u9009\u4E2D\u5E93\u590D\u5236",
@@ -14037,6 +14043,12 @@
     uploadBatchRefresh: "Refresh status",
     uploadBatchCancel: "Discard",
     uploadBatchNeedSource: "Local resume record is gone: pick the local vault and upload again",
+    uploadBatchTarget: "Target vault",
+    uploadBatchDetail: "Details",
+    uploadBatchHide: "Hide details",
+    uploadBatchSource: "Local source vault",
+    uploadBatchItemsDone: "Done",
+    uploadBatchItemsPending: "Pending",
     vaultOriginCloud: "cloud",
     vaultCopyTo: "Copy into selected",
     vaultCopyFrom: "Copy from selected",
@@ -17393,7 +17405,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.8" : "";
+  var CLIENT_VERSION = true ? "0.55.9" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17674,7 +17686,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-28T02:04:53+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-28T03:37:11+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -20999,6 +21011,8 @@ ${t("quoteHint")}`,
     const [acctOpen, setAcctOpen] = (0, import_react2.useState)(false);
     const [importJob, setImportJob] = (0, import_react2.useState)(null);
     const [uploadBatches, setUploadBatches] = (0, import_react2.useState)(null);
+    const [uploadBatchOpen, setUploadBatchOpen] = (0, import_react2.useState)(false);
+    const [uploadBatchSrc, setUploadBatchSrc] = (0, import_react2.useState)("");
     const importCancelRef = (0, import_react2.useRef)(false);
     const [resume, setResume] = (0, import_react2.useState)(() => readXferResume());
     const [switching, setSwitching] = (0, import_react2.useState)("");
@@ -21509,6 +21523,13 @@ ${t("quoteHint")}`,
     const [localVault, setLocalVault] = (0, import_react2.useState)(null);
     const [hostRole, setHostRole] = (0, import_react2.useState)("client");
     const [vaultList, setVaultList] = (0, import_react2.useState)(null);
+    const batchSourceOptions = (Array.isArray(vaultList) ? vaultList : []).map((v) => {
+      const r = String(v && (v.root || v.path) || "");
+      const label = String(v && v.name || r.replace(/\\/g, "/").split("/").filter(Boolean).pop() || r);
+      return r ? { value: r, label } : null;
+    }).filter(Boolean);
+    const batchFirst = Array.isArray(uploadBatches) && uploadBatches[0] ? uploadBatches[0] : null;
+    const batchTargetName = batchFirst ? String(batchFirst.target || "").replace(/\\/g, "/").split("/").filter(Boolean).pop() || "cloud" : "cloud";
     const [cloudVaultList, setCloudVaultList] = (0, import_react2.useState)(null);
     const [cloudVault, setCloudVault] = (0, import_react2.useState)(() => {
       try {
@@ -24104,30 +24125,53 @@ ${t("quoteHint")}`,
                         ] })
                       ] }, v.path))
                     ] }) : null,
-                    uploadBatches && uploadBatches.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "9px 11px", display: "flex", flexDirection: "column", gap: 7 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, lineHeight: 1.7 }, children: t("uploadBatchPending").replace("{d}", String(uploadBatches[0].doneCount != null ? uploadBatches[0].doneCount : uploadBatches[0].done || 0)).replace("{t}", String(uploadBatches[0].totalCount != null ? uploadBatches[0].totalCount : uploadBatches[0].total || 0)).replace("{name}", String(uploadBatches[0].target || "").split(/[\\/]/).filter(Boolean).pop() || "cloud") }),
-                      Array.isArray(uploadBatches[0].remaining) && uploadBatches[0].remaining.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.6 }, children: [
-                        uploadBatches[0].remaining.slice(0, 5).map((x) => x.title).filter(Boolean).join("\u3001"),
-                        uploadBatches[0].remaining.length > 5 ? " \u2026" : ""
+                    batchFirst ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "9px 11px", display: "flex", flexDirection: "column", gap: 7 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11.5, lineHeight: 1.7 }, children: [
+                        t("uploadBatchPending").replace("{d}", String(batchFirst.doneCount != null ? batchFirst.doneCount : batchFirst.done || 0)).replace("{t}", String(batchFirst.totalCount != null ? batchFirst.totalCount : batchFirst.total || 0)).replace("{name}", batchTargetName),
+                        " \xB7 ",
+                        t("uploadBatchTarget"),
+                        " ",
+                        batchTargetName
+                      ] }),
+                      Array.isArray(batchFirst.remaining) && batchFirst.remaining.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.6 }, children: [
+                        batchFirst.remaining.slice(0, 5).map((x) => x.title).filter(Boolean).join("\u3001"),
+                        batchFirst.remaining.length > 5 ? " \u2026" : ""
                       ] }) : null,
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "none" } }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: uploadBatchSrc, onChange: (e) => setUploadBatchSrc(e.target.value), style: { fontSize: 11, padding: "3px 6px", borderRadius: 6, background: "var(--me-c-surface)", color: "inherit", border: "1px solid var(--me-c-border)" }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: "", children: [
+                            t("uploadBatchSource"),
+                            "\u2026"
+                          ] }),
+                          batchSourceOptions.map((o) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: o.value, children: o.label }, o.value))
+                        ] }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !!(importJob && importJob.importing), onClick: () => {
                           const rs = readXferResume();
-                          if (rs && rs.src) uploadVaultToCloud(rs.src);
-                          else notify(t("uploadBatchNeedSource"), false);
+                          const src = rs && rs.src ? rs.src : uploadBatchSrc;
+                          if (!src) {
+                            notify(t("uploadBatchNeedSource"), false);
+                            return;
+                          }
+                          uploadVaultToCloud(src, { root: batchFirst.target, name: batchTargetName });
                         }, children: t("uploadBatchContinue") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => {
                           loadVaults();
                         }, children: t("uploadBatchRefresh") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: async () => {
                           try {
-                            await fetch(cloudApi2("/vaults/upload/cancel"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ id: uploadBatches[0].id, target: uploadBatches[0].target }) });
+                            await fetch(cloudApi2("/vaults/upload/cancel"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ id: batchFirst.id, target: batchFirst.target }) });
                           } catch {
                           }
                           loadVaults();
-                        }, children: t("uploadBatchCancel") })
-                      ] })
+                        }, children: t("uploadBatchCancel") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => setUploadBatchOpen(!uploadBatchOpen), children: uploadBatchOpen ? t("uploadBatchHide") : t("uploadBatchDetail") })
+                      ] }),
+                      uploadBatchOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { maxHeight: 180, overflow: "auto", fontSize: 10.5, lineHeight: 1.7 }, children: (Array.isArray(batchFirst.items) ? batchFirst.items : []).map((it, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, alignItems: "baseline" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: it.state === "done" ? "var(--me-c-success)" : "var(--me-c-warn)", flex: "none" }, children: it.state === "done" ? "\u2713" : "\u2022" }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: it.title || it.path || "\u2014" }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.5, flex: "none" }, children: it.state === "done" ? t("uploadBatchItemsDone") : t("uploadBatchItemsPending") }),
+                        it.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#ef4444", flex: "none" }, children: String(it.error).slice(0, 40) }) : null
+                      ] }, i)) }) : null
                     ] }) : null,
                     resume && !(importJob && importJob.importing) ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "9px 11px", display: "flex", flexDirection: "column", gap: 7 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, lineHeight: 1.7 }, children: t("xferResumeBanner").replace("{n}", String(resume.srcName || String(resume.src || "").split(/[\\/]/).filter(Boolean).pop() || "")).replace("{d}", String(resume.done)).replace("{t}", String(resume.total)) }),

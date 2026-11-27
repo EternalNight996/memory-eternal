@@ -1930,6 +1930,12 @@ export const ZH = {
   uploadBatchRefresh: '刷新状态',
   uploadBatchCancel: '放弃',
   uploadBatchNeedSource: '本地续传记录已丢失：请重新选择本地库上传',
+  uploadBatchTarget: '目标库',
+  uploadBatchDetail: '详情',
+  uploadBatchHide: '收起',
+  uploadBatchSource: '本地源库',
+  uploadBatchItemsDone: '已完成',
+  uploadBatchItemsPending: '待上传',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
   vaultCopyFrom: '从选中库复制',
@@ -3469,6 +3475,12 @@ export const EN = {
   uploadBatchRefresh: 'Refresh status',
   uploadBatchCancel: 'Discard',
   uploadBatchNeedSource: 'Local resume record is gone: pick the local vault and upload again',
+  uploadBatchTarget: 'Target vault',
+  uploadBatchDetail: 'Details',
+  uploadBatchHide: 'Hide details',
+  uploadBatchSource: 'Local source vault',
+  uploadBatchItemsDone: 'Done',
+  uploadBatchItemsPending: 'Pending',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
   vaultCopyFrom: 'Copy from selected',
@@ -10515,6 +10527,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   // 本地→云端导入进度。null = 未开始；{ done, total, importing, err, imported, duplicate }
   const [importJob, setImportJob] = useState(null)
   const [uploadBatches, setUploadBatches] = useState(null)
+  const [uploadBatchOpen, setUploadBatchOpen] = useState(false)
+  const [uploadBatchSrc, setUploadBatchSrc] = useState('')
   const importCancelRef = useRef(false)
   // ── 断点续传横幅 / 热切库 / 传输弹窗 ───────────────────────────────────
   /** 有没有一趟没传完的上传（关页面 / 断网 / 崩溃留下的断点）。 */
@@ -10979,6 +10993,11 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const [hostRole, setHostRole] = useState('client')
   // 库管理：枚举本机所有记忆库（本地 / 备份副本 / 云端租户），供上传下载选择
   const [vaultList, setVaultList] = useState(null)
+  const batchSourceOptions = (Array.isArray(vaultList) ? vaultList : [])
+    .map((v) => { const r = String((v && (v.root || v.path)) || ''); const label = String((v && v.name) || r.replace(/\\/g, '/').split('/').filter(Boolean).pop() || r); return r ? { value: r, label } : null })
+    .filter(Boolean)
+  const batchFirst = Array.isArray(uploadBatches) && uploadBatches[0] ? uploadBatches[0] : null
+  const batchTargetName = batchFirst ? (String(batchFirst.target || '').replace(/\\/g, '/').split('/').filter(Boolean).pop() || 'cloud') : 'cloud'
   // 云端实例上的库（与本地库分开存：两边的 isCurrent 各算各的，混在一起会打架）
   const [cloudVaultList, setCloudVaultList] = useState(null)
   // 当前选中的云端**库名**（一个账号下可能多个库，切换要带上名字）
@@ -13552,21 +13571,37 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                         ) : null}
                         {/* 断点续传横幅：关页面/断网/崩溃之后重开面板，这里显示进度 + 继续 / 取消。
                             点「继续」从上次的分片边界接着传（已传的不重传），点「取消」丢掉断点。 */}
-                        {uploadBatches && uploadBatches.length ? (
+                        {batchFirst ? (
                           <div style={{ border: '1px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 7 }}>
                             <div style={{ fontSize: 11.5, lineHeight: 1.7 }}>
-                              {t('uploadBatchPending').replace('{d}', String(uploadBatches[0].doneCount != null ? uploadBatches[0].doneCount : uploadBatches[0].done || 0)).replace('{t}', String(uploadBatches[0].totalCount != null ? uploadBatches[0].totalCount : uploadBatches[0].total || 0)).replace('{name}', String(uploadBatches[0].target || '').split(/[\\/]/).filter(Boolean).pop() || 'cloud')}
+                              {t('uploadBatchPending').replace('{d}', String(batchFirst.doneCount != null ? batchFirst.doneCount : batchFirst.done || 0)).replace('{t}', String(batchFirst.totalCount != null ? batchFirst.totalCount : batchFirst.total || 0)).replace('{name}', batchTargetName)}
+                              {' · '}{t('uploadBatchTarget')} {batchTargetName}
                             </div>
-                            {Array.isArray(uploadBatches[0].remaining) && uploadBatches[0].remaining.length ? (
-                              <div style={{ fontSize: 10.5, opacity: 0.6 }}>{uploadBatches[0].remaining.slice(0, 5).map((x) => x.title).filter(Boolean).join('、')}{uploadBatches[0].remaining.length > 5 ? ' …' : ''}</div>
+                            {Array.isArray(batchFirst.remaining) && batchFirst.remaining.length ? (
+                              <div style={{ fontSize: 10.5, opacity: 0.6 }}>{batchFirst.remaining.slice(0, 5).map((x) => x.title).filter(Boolean).join('、')}{batchFirst.remaining.length > 5 ? ' …' : ''}</div>
                             ) : null}
-                            <div style={{ display: 'none' }}>
-                            </div>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <Btn variant="secondary" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => { const rs = readXferResume(); if (rs && rs.src) uploadVaultToCloud(rs.src); else notify(t('uploadBatchNeedSource'), false) }}>{t('uploadBatchContinue')}</Btn>
+                              <select value={uploadBatchSrc} onChange={(e) => setUploadBatchSrc(e.target.value)} style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, background: 'var(--me-c-surface)', color: 'inherit', border: '1px solid var(--me-c-border)' }}>
+                                <option value="">{t('uploadBatchSource')}…</option>
+                                {batchSourceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                              <Btn variant="secondary" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => { const rs = readXferResume(); const src = rs && rs.src ? rs.src : uploadBatchSrc; if (!src) { notify(t('uploadBatchNeedSource'), false); return } uploadVaultToCloud(src, { root: batchFirst.target, name: batchTargetName }) }}>{t('uploadBatchContinue')}</Btn>
                               <Btn variant="ghost" size="sm" onClick={() => { loadVaults(); }}>{t('uploadBatchRefresh')}</Btn>
-                              <Btn variant="ghost" size="sm" onClick={async () => { try { await fetch(cloudApi('/vaults/upload/cancel'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ id: uploadBatches[0].id, target: uploadBatches[0].target }) }); } catch { /* 忽略 */ } loadVaults() }}>{t('uploadBatchCancel')}</Btn>
+                              <Btn variant="ghost" size="sm" onClick={async () => { try { await fetch(cloudApi('/vaults/upload/cancel'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ id: batchFirst.id, target: batchFirst.target }) }); } catch { /* 忽略 */ } loadVaults() }}>{t('uploadBatchCancel')}</Btn>
+                              <Btn variant="ghost" size="sm" onClick={() => setUploadBatchOpen(!uploadBatchOpen)}>{uploadBatchOpen ? t('uploadBatchHide') : t('uploadBatchDetail')}</Btn>
                             </div>
+                            {uploadBatchOpen ? (
+                              <div style={{ maxHeight: 180, overflow: 'auto', fontSize: 10.5, lineHeight: 1.7 }}>
+                                {(Array.isArray(batchFirst.items) ? batchFirst.items : []).map((it, i) => (
+                                  <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+                                    <span style={{ color: it.state === 'done' ? 'var(--me-c-success)' : 'var(--me-c-warn)', flex: 'none' }}>{it.state === 'done' ? '✓' : '•'}</span>
+                                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title || it.path || '—'}</span>
+                                    <span style={{ opacity: 0.5, flex: 'none' }}>{it.state === 'done' ? t('uploadBatchItemsDone') : t('uploadBatchItemsPending')}</span>
+                                    {it.error ? <span style={{ color: '#ef4444', flex: 'none' }}>{String(it.error).slice(0, 40)}</span> : null}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
                         {resume && !(importJob && importJob.importing) ? (
