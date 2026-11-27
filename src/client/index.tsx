@@ -1944,6 +1944,10 @@ export const ZH = {
   uploadBatchItemsDone: '已完成',
   uploadBatchItemsPending: '待上传',
   uploadBatchAllDone: '全部卡片已同步到云端',
+  uploadBatchRetry: '重试',
+uploadBatchHistory: '上传记录',
+uploadBatchNoHistory: '还没有上传记录',
+uploadBatchRetryNeedSource: '先选择本地源库',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
   vaultCopyFrom: '从选中库复制',
@@ -3490,6 +3494,10 @@ export const EN = {
   uploadBatchItemsDone: 'Done',
   uploadBatchItemsPending: 'Pending',
   uploadBatchAllDone: 'All cards synced to cloud',
+  uploadBatchRetry: 'Retry',
+uploadBatchHistory: 'Upload history',
+uploadBatchNoHistory: 'No uploads yet',
+uploadBatchRetryNeedSource: 'Pick a local source vault first',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
   vaultCopyFrom: 'Copy from selected',
@@ -10538,6 +10546,9 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const [uploadBatches, setUploadBatches] = useState(null)
   const [uploadBatchOpen, setUploadBatchOpen] = useState(false)
   const [uploadBatchSrc, setUploadBatchSrc] = useState(() => readBatchSrc())
+  const [retryBusy, setRetryBusy] = useState('')
+  const [uploadHistoryOpen, setUploadHistoryOpen] = useState(false)
+  const [uploadHistory, setUploadHistory] = useState(null)
   const importCancelRef = useRef(false)
   // ── 断点续传横幅 / 热切库 / 传输弹窗 ───────────────────────────────────
   /** 有没有一趟没传完的上传（关页面 / 断网 / 崩溃留下的断点）。 */
@@ -11799,6 +11810,33 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   // ── 断点续传横幅 ───────────────────────────────────────────────────────
   /** 重读断点（每次传输结束、面板重新挂载、切库之后都要重读一次）。 */
   const refreshResume = () => setResume(readXferResume())
+  const retryBatchItem = async (it) => {
+    const rs = readXferResume()
+    const src = uploadBatchSrc || (rs && rs.src)
+    if (!src) { notify(t('uploadBatchRetryNeedSource'), false); return }
+    if (!batchFirst || !batchFirst.target) return
+    setRetryBusy(String(it.title || it.path || ''))
+    try {
+      const exp = await fetchLocal('/vaults/export?path=' + encodeURIComponent(src))
+      if (!exp.ok) throw new Error(t('xferReadLocalFail').replace('{s}', String(exp.status)))
+      const data = await exp.json()
+      const cards = Array.isArray(data.cards) ? data.cards : []
+      const hit = cards.find((c) => (it.hash && String(c.content_hash || '') === String(it.hash)) || (!it.hash && String(c.title || '') === String(it.title || '')))
+      if (!hit) throw new Error(t('uploadBatchNeedSource'))
+      const r = await fetch(cloudApi('/vaults/import-into'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ target: batchFirst.target, batchId: batchFirst.id, cards: [hit] }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.ok) throw new Error((d && d.error) || ('HTTP ' + r.status))
+      notify(t('uploadBatchAllDone'), true)
+      await loadVaults()
+    } catch (e) { notify(String((e && e.message) || e), false) } finally { setRetryBusy('') }
+  }
+  const loadUploadHistory = async () => {
+    try {
+      const r = await fetch(cloudApi('/vaults/upload/batches'), { headers: { Accept: 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) } })
+      const d = await r.json().catch(() => ({}))
+      if (d && d.ok) setUploadHistory(Array.isArray(d.batches) ? d.batches : [])
+    } catch { /* 忽略 */ }
+  }
   /** 丢掉断点：用户点「取消」明确表示这趟不传了。 */
   const dropResume = () => { clearXferResume(); setResume(null) }
   // 面板一出现就把上次没传完的那趟捡回来（关页面/断网/崩溃后重开就是这个场景）
@@ -13607,11 +13645,27 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                                     <span style={{ color: it.state === 'done' ? 'var(--me-c-success)' : 'var(--me-c-warn)', flex: 'none' }}>{it.state === 'done' ? '✓' : '•'}</span>
                                     <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title || it.path || '—'}</span>
                                     <span style={{ opacity: 0.5, flex: 'none' }}>{it.state === 'done' ? t('uploadBatchItemsDone') : t('uploadBatchItemsPending')}</span>
+                                    {it.state !== 'done' ? <Btn variant="ghost" size="sm" disabled={retryBusy === String(it.title || it.path || '')} onClick={() => retryBatchItem(it)}>{t('uploadBatchRetry')}</Btn> : null}
                                     {it.error ? <span style={{ color: '#ef4444', flex: 'none' }}>{String(it.error).slice(0, 40)}</span> : null}
                                   </div>
                                 ))}
                               </div>
                             ) : null}
+                          </div>
+                        ) : null}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <button type="button" onClick={async () => { setUploadHistoryOpen(!uploadHistoryOpen); if (!uploadHistoryOpen) await loadUploadHistory() }} style={{ background: 'none', border: 'none', color: 'var(--me-c-accent, #2563eb)', cursor: 'pointer', fontSize: 10.5, padding: 0 }}>{t('uploadBatchHistory')}</button>
+                        </div>
+                        {uploadHistoryOpen ? (
+                          <div style={{ maxHeight: 160, overflow: 'auto', fontSize: 10.5, lineHeight: 1.7, border: '1px solid var(--me-c-border)', borderRadius: 8, padding: '6px 9px' }}>
+                            {!uploadHistory || !uploadHistory.length ? <div style={{ opacity: 0.5 }}>{t('uploadBatchNoHistory')}</div> : uploadHistory.map((b) => (
+                              <div key={String(b.id) + String(b.target)} style={{ display: 'flex', gap: 8 }}>
+                                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(b.target || '').replace(/\\/g, '/').split('/').filter(Boolean).pop() || '—'}</span>
+                                <span style={{ opacity: 0.6 }}>{b.doneCount != null ? b.doneCount : b.done}/{b.totalCount != null ? b.totalCount : b.total}</span>
+                                <span style={{ opacity: 0.5 }}>{b.state}</span>
+                                <span style={{ opacity: 0.4 }}>{String(b.updated_at || '').replace('T', ' ').slice(0, 16)}</span>
+                              </div>
+                            ))}
                           </div>
                         ) : null}
                         {resume && !(importJob && importJob.importing) ? (
