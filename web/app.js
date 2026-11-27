@@ -17393,7 +17393,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.7" : "";
+  var CLIENT_VERSION = true ? "0.55.8" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17674,7 +17674,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-28T01:15:22+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-28T02:04:53+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21977,7 +21977,7 @@ ${t("quoteHint")}`,
         let uploadBatchId = 0;
         try {
           if (targetVault && targetVault.root) {
-            const br = await fetch(cloudApi2("/vaults/upload/begin"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ target: targetVault.root, items: cards.map((c) => ({ path: c.path || "", title: c.title || "", kind: c.kind || "" })) }) }).then((x) => x.json()).catch(() => null);
+            const br = await fetch(cloudApi2("/vaults/upload/begin"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ target: targetVault.root, items: cards.map((c) => ({ path: c.path || "", title: c.title || "", kind: c.kind || c.type || "", hash: c.content_hash || c.contentHash || "" })) }) }).then((x) => x.json()).catch(() => null);
             if (br && br.ok && br.id) uploadBatchId = Number(br.id);
           }
         } catch {
@@ -24106,6 +24106,11 @@ ${t("quoteHint")}`,
                     ] }) : null,
                     uploadBatches && uploadBatches.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "9px 11px", display: "flex", flexDirection: "column", gap: 7 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, lineHeight: 1.7 }, children: t("uploadBatchPending").replace("{d}", String(uploadBatches[0].doneCount != null ? uploadBatches[0].doneCount : uploadBatches[0].done || 0)).replace("{t}", String(uploadBatches[0].totalCount != null ? uploadBatches[0].totalCount : uploadBatches[0].total || 0)).replace("{name}", String(uploadBatches[0].target || "").split(/[\\/]/).filter(Boolean).pop() || "cloud") }),
+                      Array.isArray(uploadBatches[0].remaining) && uploadBatches[0].remaining.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 10.5, opacity: 0.6 }, children: [
+                        uploadBatches[0].remaining.slice(0, 5).map((x) => x.title).filter(Boolean).join("\u3001"),
+                        uploadBatches[0].remaining.length > 5 ? " \u2026" : ""
+                      ] }) : null,
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "none" } }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !!(importJob && importJob.importing), onClick: () => {
                           const rs = readXferResume();

@@ -11476,7 +11476,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       let uploadBatchId = 0
       try {
         if (targetVault && targetVault.root) {
-          const br = await fetch(cloudApi('/vaults/upload/begin'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ target: targetVault.root, items: cards.map((c) => ({ path: c.path || '', title: c.title || '', kind: c.kind || '' })) }) }).then((x) => x.json()).catch(() => null)
+          const br = await fetch(cloudApi('/vaults/upload/begin'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ target: targetVault.root, items: cards.map((c) => ({ path: c.path || '', title: c.title || '', kind: c.kind || c.type || '', hash: c.content_hash || c.contentHash || '' })) }) }).then((x) => x.json()).catch(() => null)
           if (br && br.ok && br.id) uploadBatchId = Number(br.id)
         }
       } catch { /* 忽略 */ }
@@ -13556,6 +13556,11 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                           <div style={{ border: '1px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 7 }}>
                             <div style={{ fontSize: 11.5, lineHeight: 1.7 }}>
                               {t('uploadBatchPending').replace('{d}', String(uploadBatches[0].doneCount != null ? uploadBatches[0].doneCount : uploadBatches[0].done || 0)).replace('{t}', String(uploadBatches[0].totalCount != null ? uploadBatches[0].totalCount : uploadBatches[0].total || 0)).replace('{name}', String(uploadBatches[0].target || '').split(/[\\/]/).filter(Boolean).pop() || 'cloud')}
+                            </div>
+                            {Array.isArray(uploadBatches[0].remaining) && uploadBatches[0].remaining.length ? (
+                              <div style={{ fontSize: 10.5, opacity: 0.6 }}>{uploadBatches[0].remaining.slice(0, 5).map((x) => x.title).filter(Boolean).join('、')}{uploadBatches[0].remaining.length > 5 ? ' …' : ''}</div>
+                            ) : null}
+                            <div style={{ display: 'none' }}>
                             </div>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                               <Btn variant="secondary" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => { const rs = readXferResume(); if (rs && rs.src) uploadVaultToCloud(rs.src); else notify(t('uploadBatchNeedSource'), false) }}>{t('uploadBatchContinue')}</Btn>

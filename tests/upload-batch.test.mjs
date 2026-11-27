@@ -52,3 +52,30 @@ test('上传批次：先登记清单，导入按条销账；未完成可见、�
     fs.rmSync(parent, { recursive: true, force: true })
   }
 })
+test('上传批次：同名不同 hash 的两张卡都能各自销账；重复 begin 复用同一批次', async () => {
+  const { parent, a, b } = tmpPair()
+  await ensureVault(a); await ensureVault(b)
+  const handler = createApi({ vaultDir: () => a, vaultRoots: () => [{ name: 'v', root: a }], getSettings: () => ({}) })
+  const srv = http.createServer(async (req, res) => { await handler(req, res) })
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r))
+  const base = `http://127.0.0.1:${srv.address().port}/memory-eternal/api`
+  const post = (p, body) => fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json())
+  const get = (p) => fetch(base + p).then((x) => x.json())
+  try {
+    const items = [{ title: '重复标题', hash: 'h1' }, { title: '重复标题', hash: 'h2' }]
+    const b1 = await post('/vaults/upload/begin', { target: b, items })
+    const b2 = await post('/vaults/upload/begin', { target: b, items })
+    assert.equal(b2.id, b1.id, '同目标同清单应复用批次')
+    await post('/vaults/import-into', { target: b, batchId: b1.id, cards: [{ title: '重复标题', body: '甲', content_hash: 'h1' }, { title: '重复标题', body: '乙', content_hash: 'h2' }] })
+    const list = await get('/vaults/upload/batches?target=' + encodeURIComponent(b))
+    assert.equal(list.batches[0].doneCount, 2, '两张同名卡都应销账')
+    assert.equal(list.batches[0].state, 'done')
+    // 不传 target：聚合到同级其他库的批次（这里 a 库自身没有批次，b 库有）
+    const agg = await get('/vaults/upload/batches')
+    assert.ok(Array.isArray(agg.batches), '聚合接口应返回数组')
+  } finally {
+    await new Promise((r) => srv.close(r))
+    try { closeDb(a); closeDb(b) } catch { /* 忽略 */ }
+    fs.rmSync(parent, { recursive: true, force: true })
+  }
+})
