@@ -12526,6 +12526,7 @@
     uploadBatchHistory: "\u4E0A\u4F20\u8BB0\u5F55",
     uploadBatchNoHistory: "\u8FD8\u6CA1\u6709\u4E0A\u4F20\u8BB0\u5F55",
     uploadBatchRetryNeedSource: "\u5148\u9009\u62E9\u672C\u5730\u6E90\u5E93",
+    uploadBatchRetryAll: "\u91CD\u8BD5\u5168\u90E8\u5931\u8D25",
     vaultOriginCloud: "\u4E91\u7AEF",
     vaultCopyTo: "\u590D\u5236\u5230\u9009\u4E2D\u5E93",
     vaultCopyFrom: "\u4ECE\u9009\u4E2D\u5E93\u590D\u5236",
@@ -14074,6 +14075,7 @@
     uploadBatchHistory: "Upload history",
     uploadBatchNoHistory: "No uploads yet",
     uploadBatchRetryNeedSource: "Pick a local source vault first",
+    uploadBatchRetryAll: "Retry all failed",
     vaultOriginCloud: "cloud",
     vaultCopyTo: "Copy into selected",
     vaultCopyFrom: "Copy from selected",
@@ -17430,7 +17432,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.11" : "";
+  var CLIENT_VERSION = true ? "0.55.12" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17711,7 +17713,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-28T04:13:24+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-28T04:26:54+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -22378,6 +22380,38 @@ ${t("quoteHint")}`,
       } catch {
       }
     }, "loadUploadHistory");
+    const retryAllFailed = /* @__PURE__ */ __name(async () => {
+      const rs = readXferResume();
+      const src = uploadBatchSrc || rs && rs.src;
+      if (!src) {
+        notify(t("uploadBatchRetryNeedSource"), false);
+        return;
+      }
+      if (!batchFirst || !batchFirst.target) return;
+      const todo = (Array.isArray(batchFirst.items) ? batchFirst.items : []).filter((x) => x.state !== "done").slice(0, 20);
+      if (!todo.length) return;
+      setRetryBusy("*all*");
+      try {
+        const exp = await fetchLocal("/vaults/export?path=" + encodeURIComponent(src));
+        if (!exp.ok) throw new Error("HTTP " + exp.status);
+        const data = await exp.json();
+        const cards = Array.isArray(data.cards) ? data.cards : [];
+        let ok = 0;
+        for (const it of todo) {
+          const hit = cards.find((c) => it.hash && String(c.content_hash || "") === String(it.hash) || !it.hash && String(c.title || "") === String(it.title || ""));
+          if (!hit) continue;
+          const r = await fetch(cloudApi2("/vaults/import-into"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ target: batchFirst.target, batchId: batchFirst.id, cards: [hit] }) });
+          const d = await r.json().catch(() => ({}));
+          if (r.ok && d && d.ok) ok += 1;
+        }
+        notify(t("uploadBatchAllDone") + " (" + ok + "/" + todo.length + ")", true);
+        await loadVaults();
+      } catch (e) {
+        notify(String(e && e.message || e), false);
+      } finally {
+        setRetryBusy("");
+      }
+    }, "retryAllFailed");
     const dropResume = /* @__PURE__ */ __name(() => {
       clearXferResume();
       setResume(null);
@@ -24236,6 +24270,7 @@ ${t("quoteHint")}`,
                           }
                           loadVaults();
                         }, children: t("uploadBatchCancel") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: !!(importJob && importJob.importing) || retryBusy === "*all*", onClick: retryAllFailed, children: t("uploadBatchRetryAll") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => setUploadBatchOpen(!uploadBatchOpen), children: uploadBatchOpen ? t("uploadBatchHide") : t("uploadBatchDetail") })
                       ] }),
                       uploadBatchOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { maxHeight: 180, overflow: "auto", fontSize: 10.5, lineHeight: 1.7 }, children: (Array.isArray(batchFirst.items) ? batchFirst.items.slice().sort((a, b) => (a.state === "done" ? 1 : 0) - (b.state === "done" ? 1 : 0)) : []).map((it, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, alignItems: "baseline" }, children: [

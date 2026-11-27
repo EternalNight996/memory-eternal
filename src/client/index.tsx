@@ -1948,6 +1948,7 @@ export const ZH = {
 uploadBatchHistory: '上传记录',
 uploadBatchNoHistory: '还没有上传记录',
 uploadBatchRetryNeedSource: '先选择本地源库',
+  uploadBatchRetryAll: '重试全部失败',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
   vaultCopyFrom: '从选中库复制',
@@ -3498,6 +3499,7 @@ export const EN = {
 uploadBatchHistory: 'Upload history',
 uploadBatchNoHistory: 'No uploads yet',
 uploadBatchRetryNeedSource: 'Pick a local source vault first',
+  uploadBatchRetryAll: 'Retry all failed',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
   vaultCopyFrom: 'Copy from selected',
@@ -11837,6 +11839,31 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       if (d && d.ok) setUploadHistory(Array.isArray(d.batches) ? d.batches : [])
     } catch { /* 忽略 */ }
   }
+  const retryAllFailed = async () => {
+    const rs = readXferResume()
+    const src = uploadBatchSrc || (rs && rs.src)
+    if (!src) { notify(t('uploadBatchRetryNeedSource'), false); return }
+    if (!batchFirst || !batchFirst.target) return
+    const todo = (Array.isArray(batchFirst.items) ? batchFirst.items : []).filter((x) => x.state !== 'done').slice(0, 20)
+    if (!todo.length) return
+    setRetryBusy('*all*')
+    try {
+      const exp = await fetchLocal('/vaults/export?path=' + encodeURIComponent(src))
+      if (!exp.ok) throw new Error('HTTP ' + exp.status)
+      const data = await exp.json()
+      const cards = Array.isArray(data.cards) ? data.cards : []
+      let ok = 0
+      for (const it of todo) {
+        const hit = cards.find((c) => (it.hash && String(c.content_hash || '') === String(it.hash)) || (!it.hash && String(c.title || '') === String(it.title || '')))
+        if (!hit) continue
+        const r = await fetch(cloudApi('/vaults/import-into'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ target: batchFirst.target, batchId: batchFirst.id, cards: [hit] }) })
+        const d = await r.json().catch(() => ({}))
+        if (r.ok && d && d.ok) ok += 1
+      }
+      notify(t('uploadBatchAllDone') + ' (' + ok + '/' + todo.length + ')', true)
+      await loadVaults()
+    } catch (e) { notify(String((e && e.message) || e), false) } finally { setRetryBusy('') }
+  }
   /** 丢掉断点：用户点「取消」明确表示这趟不传了。 */
   const dropResume = () => { clearXferResume(); setResume(null) }
   // 面板一出现就把上次没传完的那趟捡回来（关页面/断网/崩溃后重开就是这个场景）
@@ -13636,6 +13663,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                               <Btn variant="secondary" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => { const rs = readXferResume(); const src = rs && rs.src ? rs.src : uploadBatchSrc; if (!src) { notify(t('uploadBatchNeedSource'), false); return } uploadVaultToCloud(src, { root: batchFirst.target, name: batchTargetName }) }}>{t('uploadBatchContinue')}</Btn>
                               <Btn variant="ghost" size="sm" onClick={() => { loadVaults(); }}>{t('uploadBatchRefresh')}</Btn>
                               <Btn variant="ghost" size="sm" onClick={async () => { try { await fetch(cloudApi('/vaults/upload/cancel'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ id: batchFirst.id, target: batchFirst.target }) }); } catch { /* 忽略 */ } loadVaults() }}>{t('uploadBatchCancel')}</Btn>
+                              <Btn variant="ghost" size="sm" disabled={!!(importJob && importJob.importing) || retryBusy === '*all*'} onClick={retryAllFailed}>{t('uploadBatchRetryAll')}</Btn>
                               <Btn variant="ghost" size="sm" onClick={() => setUploadBatchOpen(!uploadBatchOpen)}>{uploadBatchOpen ? t('uploadBatchHide') : t('uploadBatchDetail')}</Btn>
                             </div>
                             {uploadBatchOpen ? (
