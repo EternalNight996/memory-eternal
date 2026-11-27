@@ -34,7 +34,7 @@
 > **Every conversation is distilled into knowledge cards; nothing is forgotten across sessions, and recall fetches only the relevant chunks — fewer tokens, less noise.**
 > Fully self-built, zero third-party memory framework, no DSH source changes; one vault shared by every Agent, SQLite persistent storage, zero external dependencies.
 
-<p align="center"><strong>⭐ If it saved you from explaining the same context again, a star means a lot</strong><br/><sub>DSH one-liner: <code>dsh plugin --profile desktop add memory-eternal</code></sub></p>
+<p align="center"><strong>⭐ If it saved you from explaining the same context again, a star means a lot</strong><br/><sub>DSH one-liner: <code>dsh plugin --profile desktop add mengbot</code></sub></p>
 
 <p align="center"><a href="https://eternalnight996.github.io/memory-eternal/"><b>🌐 Live site</b></a> · <a href="https://eternalnight996.github.io/memory-eternal/demo/"><b>Open the memory library demo</b></a> <sub>(sample data, no install)</sub></p>
 
@@ -81,7 +81,7 @@ The Web UI is not the only entry. The terminal version is a **native TUI** over 
 No clone, no `cd`, no local absolute path:
 
 ```bash
-npx -y -p memory-eternal dsh-memory tui
+npx -y -p mengbot dsh-memory tui
 ```
 
 On a machine where `memory-eternal` is already installed:
@@ -164,18 +164,18 @@ The terminal TUI relies on the alternate screen, raw key events and a character 
 ```bash
 # 1) Official DeepSeek Harness desktop app (recommended): Settings -> Plugins -> search memory-eternal
 #    Equivalent CLI (that shell's profile is named "desktop"):
-dsh plugin --profile desktop add memory-eternal
+dsh plugin --profile desktop add mengbot
 
 # 2) dsh web (browser):
-dsh plugin --profile web add memory-eternal
+dsh plugin --profile web add mengbot
 
 # or update directly in the profile (pnpm workspace). Use pnpm — `npm install` throws EUNSUPPORTEDPROTOCOL
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
+cd ~/.dsh/profiles/web && pnpm add mengbot@latest
 
 # right after a release, @latest can be held back by pnpm's minimum-release-age gate or a cached
 # packument (it silently stays on the old version): pin the version instead — pnpm adds it to the
 # workspace's minimumReleaseAgeExclude automatically
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.15.0
+cd ~/.dsh/profiles/web && pnpm add mengbot@0.15.0
 
 # verify the version, then restart the host
 node -e "console.log(require('memory-eternal/package.json').version)"
@@ -204,7 +204,7 @@ After **restarting the host**, three things are live immediately:
 ### 🟨 Claude Code
 
 ```bash
-npm i -g memory-eternal     # installs CLI + MCP (auto-writes ~/.claude.json + SessionEnd hook)
+npm i -g mengbot     # installs CLI + MCP (auto-writes ~/.claude.json + SessionEnd hook)
 ```
 
 Ready after install: say "recall 数据库选型" in a session → auto-retrieves memory; on session end / before context compaction → auto-captures.
@@ -212,7 +212,7 @@ Ready after install: say "recall 数据库选型" in a session → auto-retrieve
 ### 🟧 Codex CLI / Cursor
 
 ```bash
-npm i -g memory-eternal     # auto-writes Codex config.toml / Cursor mcp.json
+npm i -g mengbot     # auto-writes Codex config.toml / Cursor mcp.json
 ```
 
 Restart the tool → MCP is in the list; just use: `用 memory_recall 查一下项目历史决策`.

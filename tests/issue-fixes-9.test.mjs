@@ -147,7 +147,7 @@ test('刻意不做的那两件：不许偷偷加 busy_timeout / WAL 自动降级
   // 0.52.0 的并发提交正是靠注释记录「实测会卡死事件循环」，不能把注释当违规）。
   const code = db
     .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n').map((line) => line.replace(/(^|[^:'"])\/\/.*$/, '$1')).join('\n')
+    .replace(/\r/g, '').split('\n').map((line) => line.replace(/(^|[^:'"])\/\/.*$/, '$1')).join('\n')
   assert.doesNotMatch(code, /exec\([^)]*busy_timeout|PRAGMA\s+busy_timeout\s*=|busy_timeout\s*=\s*\d/i, 'DatabaseSync 是同步 API，busy_timeout 忙等会阻塞事件循环 → 未经实测不得加')
   assert.match(db, /withDbRetry/, '撞锁要走应用层异步重试')
   assert.doesNotMatch(code, /journal_mode=DELETE|journal_mode = DELETE/, '不得自动把库降级成 rollback journal（会永久改库模式且并发更差）')

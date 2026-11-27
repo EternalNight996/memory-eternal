@@ -34,7 +34,7 @@
 > **对话结束自动沉淀成知识卡，跨会话不失忆；召回只取相关小块，省 token 少噪音。**
 > 全自研、零第三方记忆框架、不改 DSH 源码；一个记忆库所有 Agent 共享，SQLite 持久存储，零外部依赖。
 
-<p align="center"><strong>⭐ 如果它帮你少解释了一遍上下文，点个 Star 就是最大的支持</strong><br/><sub>DSH 一条命令：<code>dsh plugin --profile desktop add memory-eternal</code></sub></p>
+<p align="center"><strong>⭐ 如果它帮你少解释了一遍上下文，点个 Star 就是最大的支持</strong><br/><sub>DSH 一条命令：<code>dsh plugin --profile desktop add mengbot</code></sub></p>
 
 <p align="center"><a href="https://eternalnight996.github.io/memory-eternal/"><b>🌐 在线体验</b></a> · <a href="https://eternalnight996.github.io/memory-eternal/demo/"><b>打开记忆库 Demo</b></a> <sub>（示例数据，不用安装）</sub></p>
 
@@ -81,7 +81,7 @@ Web 不是唯一入口。终端版是同一套记忆库的**原生 TUI**，适�
 不需要克隆仓库、不需要 `cd`、不需要填写本机绝对路径：
 
 ```bash
-npx -y -p memory-eternal dsh-memory tui
+npx -y -p mengbot dsh-memory tui
 ```
 
 已经安装 `memory-eternal` 的机器：
@@ -165,17 +165,17 @@ dsh-memory tui --demo   # 示例数据（无 API 时也可看效果）
 ```bash
 # ① 官方 DeepSeek Harness 桌面版（推荐）：设置 → 插件 → 搜 memory-eternal 安装
 #    等价 CLI（该壳的 profile 名就是 desktop）：
-dsh plugin --profile desktop add memory-eternal
+dsh plugin --profile desktop add mengbot
 
 # ② dsh web（浏览器端）：
-dsh plugin --profile web add memory-eternal
+dsh plugin --profile web add mengbot
 
 # 或在 profile（pnpm workspace）里直接更新。注意用 pnpm，npm install 会报 EUNSUPPORTEDPROTOCOL
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@latest
+cd ~/.dsh/profiles/web && pnpm add mengbot@latest
 
 # 刚发新版时 @latest 可能被 pnpm 的最小发布年龄门槛/元数据缓存挡住（静默停在旧版）：
 # 直接指定版本号最快，pnpm 会自动把它加进 workspace 的 minimumReleaseAgeExclude
-cd ~/.dsh/profiles/web && pnpm add memory-eternal@0.15.0
+cd ~/.dsh/profiles/web && pnpm add mengbot@0.15.0
 
 # 验版本（应等于上面装的号），然后重启对应宿主生效
 node -e "console.log(require('memory-eternal/package.json').version)"
@@ -204,7 +204,7 @@ node -e "console.log(require('memory-eternal/package.json').version)"
 ### 🟨 Claude Code
 
 ```bash
-npm i -g memory-eternal     # 装 CLI + MCP（写 ~/.claude.json mcpServers.memory）
+npm i -g mengbot     # 装 CLI + MCP（写 ~/.claude.json mcpServers.memory）
 dsh-memory connect claude       # 写 ~/.claude/settings.json 的 SessionEnd hook → 会话结束自动沉淀
 ```
 
@@ -213,7 +213,7 @@ dsh-memory connect claude       # 写 ~/.claude/settings.json 的 SessionEnd hoo
 ### 🟧 Codex CLI / Cursor
 
 ```bash
-npm i -g memory-eternal     # 装完自动写 Codex config.toml / Cursor mcp.json 的 mcpServers.memory
+npm i -g mengbot     # 装完自动写 Codex config.toml / Cursor mcp.json 的 mcpServers.memory
 dsh-memory connect codex        # 写用户级 ~/.codex/hooks.json 的 Stop hook → 会话结束自动沉淀（含 Codex Desktop）
 dsh-memory connect cursor       # 写 ~/.cursor/hooks.json 的 stop/sessionEnd hook → 自动沉淀
 ```

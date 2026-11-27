@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
-  <img src="https://img.shields.io/npm/v/memory-eternal" alt="npm" />
+  <img src="https://img.shields.io/npm/v/mengbot" alt="npm" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
@@ -121,7 +121,7 @@ MEMORY_CLOUD=1 MEMORY_CLOUD_NO_UI=1 node lib/web.js --port 7999
 
 ## 🏷 命令名与别名
 
-包名从一开始就是中性的 **memory-eternal**；只有命令行工具早期叫 `dsh-memory`（那时它只服务 DSH）。
+仓库与插件 id 一直是中性的 **memory-eternal**；npm 包名从 2026-11 起改为 **mengbot**（新账号发布），命令行工具仍叫 `dsh-memory`。
 现在三种写法是同一个入口：
 
 | 命令 | 用在哪 |
@@ -142,13 +142,13 @@ mem peer code                  # 等价于 dsh-memory peer code
 
 ```bash
 # DSH 桌面版 / Web
-dsh plugin --profile desktop add memory-eternal     # 重开 DSH → 左栏「记忆」
+dsh plugin --profile desktop add mengbot     # 重开 DSH → 左栏「记忆」
 
 # 同一套库接 Claude Code / Codex / Cursor（MCP）
-npm i -g memory-eternal && dsh-memory connect claude
+npm i -g mengbot && dsh-memory connect claude
 
 # 任意 MCP 客户端（MengBot / OpenClaw / Hermes 见 docs/INTEGRATIONS.md）
-npx -y -p memory-eternal dsh-memory mcp
+npx -y -p mengbot dsh-memory mcp
 
 # 云端 bot / 远程 agent：直接走 HTTP，不用装进程
 curl -s http://127.0.0.1:7999/memory-eternal/api/mcp \
@@ -157,7 +157,7 @@ curl -s http://127.0.0.1:7999/memory-eternal/api/mcp \
 
 # 浏览器 / 终端
 dsh-memory open                             # http://127.0.0.1:7999
-npx -y -p memory-eternal dsh-memory tui     # 终端里的实时待审队列
+npx -y -p mengbot dsh-memory tui     # 终端里的实时待审队列
 ```
 
 <p align="center"><strong>⭐ 如果它帮你少解释了一遍上下文，点个 Star 就是最大的支持</strong></p>
@@ -249,7 +249,7 @@ npx -y -p memory-eternal dsh-memory tui     # 终端里的实时待审队列
 | 通道 | 用法 |
 |---|---|
 | **云端 bot / 远程 agent** | `POST /memory-eternal/api/mcp`（Streamable HTTP，云端带 `Bearer me_…`） |
-| **终端 TUI** | `npx -y -p memory-eternal dsh-memory tui` —— 实时队列、全选、批量批/驳、长文读卡 |
+| **终端 TUI** | `npx -y -p mengbot dsh-memory tui` —— 实时队列、全选、批量批/驳、长文读卡 |
 | **Web 面板** | `dsh-memory open` → http://127.0.0.1:7999：独立部署，审核 / 检索 / 备份 |
 
 一次投影多处：`dsh-memory mcp mount --host gemini,qwen,kimi`（`--host all` 全挂）。字段名、示例与坑见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)；Orca 启动器见 [orca-plugin](orca-plugin/README.md)，编辑器扩展见 [cursor-extension](cursor-extension/README.md)。

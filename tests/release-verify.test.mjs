@@ -11,7 +11,7 @@ const src = readFileSync(path.join(root, 'scripts/release.mjs'), 'utf8')
 
 test('npm 发布必须用 version 端点实证（不信 publish 的 stdout，也不信 packument 缓存）', () => {
   assert.match(src, /const npmHasVersion = async/, '要有"这个版本真的在吗"的判定')
-  assert.match(src, /registry\.npmjs\.org\/memory-eternal\/\$\{v\}/, '要打 version 端点（packument 会被边缘缓存骗）')
+  assert.match(src, /registry\.npmjs\.org\/\$\{pkg\.name\}\/\$\{v\}/, '要打 version 端点（包名走 pkg.name，packument 会被边缘缓存骗）')
   assert.match(src, /await waitNpmVersion\(pkg\.version\)/, '发布后要等它可见')
   // 端点滞后（实测可达数分钟）不中断后续步骤，但**必须记进问题清单**（非零退出），
   // 或用 publish 探针的 409（"previously staged / published"）证明版本确实进去了。

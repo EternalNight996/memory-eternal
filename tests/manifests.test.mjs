@@ -44,7 +44,9 @@ test('三个插件清单的 name/version 与 package.json 一致且描述可读'
   for (const f of ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.cursor-plugin/plugin.json']) {
     assert.ok(files.includes(f), `${f} 必须在 files 白名单里（否则安装侧会缺文件）`)
     const j = JSON.parse(await fs.readFile(path.join(root, f), 'utf8'))
-    assert.equal(j.name, pkg.name, `${f} 的 name 应与 package.json 一致`)
+    // 插件清单的 name 是外部宿主里的插件 id：保持 memory-eternal 以兼容既有安装；
+    // npm 包名可以不同（现在是 mengbot），版本必须一致。
+    assert.ok(j.name === 'memory-eternal' || j.name === pkg.name, `${f} 的 name 应是 memory-eternal 或 package.json 的 name`)
     assert.equal(j.version, pkg.version, `${f} 的 version 未跟随发版更新（应为 ${pkg.version}）`)
     assert.ok(typeof j.description === 'string' && j.description.length >= 10, `${f} 缺少可读描述`)
   }

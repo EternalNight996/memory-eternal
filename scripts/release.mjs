@@ -63,7 +63,7 @@ const problems = []
  */
 const npmHasVersion = async (v) => {
   try {
-    const r = await fetch(`https://registry.npmjs.org/memory-eternal/${v}`, { cache: 'no-store' })
+    const r = await fetch(`https://registry.npmjs.org/${pkg.name}/${v}`, { cache: 'no-store' })
     return r.status === 200
   } catch { return false }
 }
@@ -184,7 +184,7 @@ if (notesFile) {
   notes = [
     `## ${tag}`,
     '',
-    `npm: https://www.npmjs.com/package/memory-eternal/v/${pkg.version}`,
+    `npm: https://www.npmjs.com/package/${pkg.name}/v/${pkg.version}`,
     '',
     row ? row.replace(/^\|\s*/, '').replace(/\s*\|\s*$/, '').split(/\s*\|\s*/).slice(1).join(' — ') : '（CHANGELOG 里没有这一版，请用 --notes-file 指定）',
   ].join('\n')
@@ -208,7 +208,7 @@ if (SKIP_NPM) {
     } else {
       const r = run('npm', ['publish', '--access public'], { allowFail: true })
       if (!r.ok) throw new Error(`npm publish 失败（2FA / 网络 / 版本冲突？）：\n${r.out}`)
-      say(`npm publish 已执行：memory-eternal@${pkg.version}（等待 registry 可见…）`)
+      say(`npm publish 已执行：${pkg.name}@${pkg.version}（等待 registry 可见…）`)
     }
     // **不信 stdout，只信 registry**：publish 返回 0 不代表包真的上去了（0.10.21 实测：
     // 本地 packument/npm view 缓存会假装没有，边缘缓存又会假装有）—— 用 version 端点实证。
@@ -222,11 +222,11 @@ if (SKIP_NPM) {
       if (/previously staged version|previously published version|EPUBLISHCONFLICT|409/i.test(txt)) {
         say('npm version 端点滞后，但 publish 探针回报「版本已存在 / 已暂存」→ 视为**已发布**')
       } else {
-        say(`⚠ npm version 端点仍未可见：https://registry.npmjs.org/memory-eternal/${pkg.version}（可能只是 CDN 滞后）`)
-        problems.push(`npm 上暂时查不到 ${pkg.version} → 稍后复核（200 才算真的发布成功）：https://registry.npmjs.org/memory-eternal/${pkg.version}`)
+        say(`⚠ npm version 端点仍未可见：https://registry.npmjs.org/${pkg.name}/${pkg.version}（可能只是 CDN 滞后）`)
+        problems.push(`npm 上暂时查不到 ${pkg.version} → 稍后复核（200 才算真的发布成功）：https://registry.npmjs.org/${pkg.name}/${pkg.version}`)
       }
     } else {
-      say(`npm 校验通过：https://registry.npmjs.org/memory-eternal/${pkg.version} → 200`)
+      say(`npm 校验通过：https://registry.npmjs.org/${pkg.name}/${pkg.version} → 200`)
     }
   }
 }
@@ -334,4 +334,4 @@ if (problems.length) {
   process.exitCode = 1   // 让脚本/CI 能发现"三端没齐"
 }
 say('提醒：桌面版用户需 `cd ~/.dsh/profiles/desktop && pnpm update memory-eternal` 后重启 DSH；')
-say('      dsh web 用户需 `cd ~/.dsh/profiles/web && pnpm add memory-eternal@' + pkg.version + '`。')
+say('      dsh web 用户需 `cd ~/.dsh/profiles/web && pnpm add ' + pkg.name + '@' + pkg.version + '`。')
