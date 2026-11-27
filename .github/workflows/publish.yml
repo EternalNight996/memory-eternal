@@ -67,7 +67,7 @@ jobs:
         run: |
           set -e
           ver="$(node -p "require('./package.json').version")"
-          if curl -fsS "https://registry.npmjs.org/mengbot/${ver}" >/dev/null 2>&1; then
+          if curl -fsS "https://registry.npmjs.org/@mengbot%2Fmem/${ver}" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "npm 上已存在 ${ver}：跳过发布（release.mjs 或上一轮已发过）"
           else
@@ -121,7 +121,7 @@ jobs:
           {
             echo "## ✅ Published memory-eternal@${{ github.ref_name }}"
             echo ""
-            echo "- npm: https://www.npmjs.com/package/mengbot/v/$(node -p "require('./package.json').version")"
+            echo "- npm: https://www.npmjs.com/package/@mengbot/mem/v/$(node -p "require('./package.json').version")"
             echo "- 方式: OIDC trusted publishing（无长期 token、无 TOTP）"
           } >> "$GITHUB_STEP_SUMMARY"
 

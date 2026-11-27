@@ -63,7 +63,7 @@ const problems = []
  */
 const npmHasVersion = async (v) => {
   try {
-    const r = await fetch(`https://registry.npmjs.org/${pkg.name}/${v}`, { cache: 'no-store' })
+    const r = await fetch(`https://registry.npmjs.org/${npmName}/${v}`, { cache: 'no-store' })
     return r.status === 200
   } catch { return false }
 }
@@ -95,6 +95,7 @@ const step = (n, msg) => console.log(`\n=== [${n}] ${msg}`)
 // ---- 1. 版本与前置检查 ------------------------------------------------------
 step(1, '读取版本与前置检查')
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
+const npmName = pkg.name.replace('/', '%2f') // registry URL 里 scoped 名要编码
 const tag = opt('tag') || `v${pkg.version}`
 say(`package.json version = ${pkg.version} → tag = ${tag}`)
 if (tag !== `v${pkg.version}` && !flag('allow-tag-mismatch')) {
@@ -222,11 +223,11 @@ if (SKIP_NPM) {
       if (/previously staged version|previously published version|EPUBLISHCONFLICT|409/i.test(txt)) {
         say('npm version 端点滞后，但 publish 探针回报「版本已存在 / 已暂存」→ 视为**已发布**')
       } else {
-        say(`⚠ npm version 端点仍未可见：https://registry.npmjs.org/${pkg.name}/${pkg.version}（可能只是 CDN 滞后）`)
-        problems.push(`npm 上暂时查不到 ${pkg.version} → 稍后复核（200 才算真的发布成功）：https://registry.npmjs.org/${pkg.name}/${pkg.version}`)
+        say(`⚠ npm version 端点仍未可见：https://registry.npmjs.org/${npmName}/${pkg.version}（可能只是 CDN 滞后）`)
+        problems.push(`npm 上暂时查不到 ${pkg.version} → 稍后复核（200 才算真的发布成功）：https://registry.npmjs.org/${npmName}/${pkg.version}`)
       }
     } else {
-      say(`npm 校验通过：https://registry.npmjs.org/${pkg.name}/${pkg.version} → 200`)
+      say(`npm 校验通过：https://registry.npmjs.org/${npmName}/${pkg.version} → 200`)
     }
   }
 }

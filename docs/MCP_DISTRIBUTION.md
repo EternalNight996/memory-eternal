@@ -59,7 +59,7 @@ npx -y @smithery/cli publish EternalNight996/memory-eternal
 ```text
 名称：memory-eternal
 仓库：https://github.com/EternalNight996/memory-eternal
-安装：npx -y -p mengbot dsh-memory mcp
+安装：npx -y -p @mengbot/mem dsh-memory mcp
 类型：stdio / 本地，无需 API Key
 描述：本地优先的长期记忆 MCP 服务。对话沉淀成知识卡，**人工审核通过后**才可被召回；召回走 SQLite FTS5/BM25，零模型调用（实测 2,321 张卡下 p50 2.3ms）；不可变审计日志；一个库同时供 DSH / Claude Code / Codex / Cursor 使用。
 ```

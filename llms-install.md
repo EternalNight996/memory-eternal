@@ -26,14 +26,14 @@ Use this server entry in the client's `mcpServers` config:
 Or install globally:
 
 ```bash
-npm i -g mengbot
+npm i -g @mengbot/mem
 dsh-memory connect claude   # configures Claude Code / Codex / Cursor automatically
 ```
 
 ## Verify
 
 ```bash
-npx -y -p mengbot dsh-memory stats --json
+npx -y -p @mengbot/mem dsh-memory stats --json
 ```
 
 A fresh vault reports `total: 0`; that is a successful start.
@@ -41,10 +41,10 @@ A fresh vault reports `total: 0`; that is a successful start.
 ## Notes
 
 - Requires Node.js >= 22.
-- Optional: DSH users can instead install the plugin (`dsh plugin --profile desktop add mengbot`) to get the review UI.
+- Optional: DSH users can instead install the plugin (`dsh plugin --profile desktop add @mengbot/mem`) to get the review UI.
 - Write paths go through a review queue by design; `memory_recall` only returns approved cards.
 
 ## Other agents (MengBot / OpenClaw / Hermes / any MCP client)
 
-memory-eternal is a standard MCP stdio server: `npx -y -p mengbot dsh-memory mcp`.
+memory-eternal is a standard MCP stdio server: `npx -y -p @mengbot/mem dsh-memory mcp`.
 Client-specific config is documented in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md): Gemini CLI `~/.gemini/settings.json` → `mcpServers`, Antigravity `~/.gemini/config/mcp_config.json` → `mcpServers`, Cline `cline_mcp_settings.json` → `mcpServers`, Qwen Code `~/.qwen/settings.json` → `mcpServers`, Kimi CLI `~/.kimi/mcp.json`, GrokBot `~/.grokbot/mcp.json`, Hermes `~/.hermes/config.yaml` → `mcp_servers`, OpenClaw `~/.openclaw/openclaw.json` → `mcp.servers` (JSON5), MengBot in-app “Settings → MCP servers” or the bot project's `.mcp.json`.

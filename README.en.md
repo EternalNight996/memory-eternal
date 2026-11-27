@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/stars/EternalNight996/memory-eternal?style=flat" alt="stars" />
-  <img src="https://img.shields.io/npm/v/mengbot" alt="npm" />
+  <img src="https://img.shields.io/npm/v/@mengbot/mem" alt="npm" />
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license" />
 </p>
 
@@ -146,13 +146,13 @@ and `MEMORY_WEB_PORT` (port) are all configurable, so the vault does not have to
 
 ```bash
 # DSH desktop / web
-dsh plugin --profile desktop add mengbot     # reopen DSH -> sidebar "Memory"
+dsh plugin --profile desktop add @mengbot/mem     # reopen DSH -> sidebar "Memory"
 
 # Same vault for Claude Code / Codex / Cursor (MCP)
-npm i -g mengbot && dsh-memory connect claude
+npm i -g @mengbot/mem && dsh-memory connect claude
 
 # Any MCP client (MengBot / OpenClaw / Hermes: docs/INTEGRATIONS.md)
-npx -y -p mengbot dsh-memory mcp
+npx -y -p @mengbot/mem dsh-memory mcp
 
 # Cloud bots / remote agents: plain HTTP, no local process needed
 curl -s http://127.0.0.1:7999/memory-eternal/api/mcp \
@@ -161,7 +161,7 @@ curl -s http://127.0.0.1:7999/memory-eternal/api/mcp \
 
 # Browser / terminal
 dsh-memory open                             # http://127.0.0.1:7999
-npx -y -p mengbot dsh-memory tui     # live review queue in the terminal
+npx -y -p @mengbot/mem dsh-memory tui     # live review queue in the terminal
 ```
 
 <p align="center"><strong>⭐ If it saves you from explaining the same context again, a star helps a lot.</strong></p>
@@ -254,7 +254,7 @@ One SQLite vault that all of the following can read from and write to. Every wri
 | Channel | How |
 |---|---|
 | **Cloud bots / remote agents** | `POST /memory-eternal/api/mcp` (Streamable HTTP; `Bearer me_…` on cloud) |
-| **Terminal TUI** | `npx -y -p mengbot dsh-memory tui` — live queue, select-all, batch approve/reject |
+| **Terminal TUI** | `npx -y -p @mengbot/mem dsh-memory tui` — live queue, select-all, batch approve/reject |
 | **Web panel** | `dsh-memory open` → http://127.0.0.1:7999: review / search / backup, standalone |
 
 Project onto several hosts at once: `dsh-memory mcp mount --host gemini,qwen,kimi` (`--host all` for everything). Field names, snippets and pitfalls: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md); Orca launcher: [orca-plugin](orca-plugin/README.md); editor extension: [cursor-extension](cursor-extension/README.md).

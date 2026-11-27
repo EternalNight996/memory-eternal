@@ -12,10 +12,10 @@ memory-eternal 对外就是一个**标准 MCP stdio server**（零依赖 JSON-RP
 
 ```bash
 # 不安装、按需拉取（推荐写进各客户端配置；-p 指定包名、再给 bin 名，两者都写最稳）
-npx -y -p mengbot dsh-memory mcp
+npx -y -p @mengbot/mem dsh-memory mcp
 
 # 已全局安装
-npm i -g mengbot
+npm i -g @mengbot/mem
 dsh-memory mcp
 ```
 
@@ -210,7 +210,7 @@ VS Code 扩展版把同一份放在 `%APPDATA%\\Code\\User\\globalStorage\\saoud
 ```
 
 - 与 Gemini CLI 同源，所以键名（`mcpServers`）与`trust`/`includeTools`/`excludeTools`这套过滤都一样；
-- 也可以用它自己的命令加：`qwen mcp add --scope user memory-eternal npx -y -p mengbot dsh-memory mcp`（写的就是上面那个文件）；
+- 也可以用它自己的命令加：`qwen mcp add --scope user memory-eternal npx -y -p @mengbot/mem dsh-memory mcp`（写的就是上面那个文件）；
 - 会话里 `/mcp` 查看与管理已连接的 server。
 
 ## Kimi CLI（月之暗面）
@@ -294,7 +294,7 @@ VS Code 扩展版把同一份放在 `%APPDATA%\\Code\\User\\globalStorage\\saoud
 
 ```bash
 # 1) 协议握手（应返回 serverInfo + tools 列表）
-npx -y -p mengbot dsh-memory mcp
+npx -y -p @mengbot/mem dsh-memory mcp
 
 # 2) 库路径是否正确
 dsh-memory stats
