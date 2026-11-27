@@ -27,6 +27,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.55.7** | 2026-11-28 | **上传事务化：先登记清单，再上传销账**。新增 `upload_batches` / `upload_items` 与 `POST /vaults/upload/begin`：上传前先把每张卡的**标题/类型**登记到云端；`/vaults/import-into` 带 `batchId`，每写入一张就按 title+kind 销账；全部完成批次自动 `done`，中断则保持 `pending`。`GET /vaults/upload/batches` 可查未完成（含剩余标题），`/vaults/upload/cancel` 放弃。客户端上传流程已接入：云端有未完成批次时显示「未完成 d/t」+「继续上传 / 刷新状态 / 放弃」。测试 `tests/upload-batch.test.mjs`。 |
 | **v0.55.6** | 2026-11-27 | **npm 发布迁移到新账号：包名 `@mengbot/mem`**。原 npm 账号 `eternalnight` 的 token 失效且无法恢复，新账号 `mengbot` 注册成功。GitHub 仓库与插件 id **保持 `memory-eternal` 不变**（star/fork/老用户配置/设置命名空间都不受影响），只把 npm 包名改为 `mengbot`：`package.json` name、`server.json` 的 npm identifier、README/GUIDE 安装命令与 npm 徽章同步更新；DSH 市场从仓库 `package.json` 读取安装命令，收录后会自动刷新为 `dsh plugin add @mengbot/mem`。插件清单（Claude/Codex/Cursor）的 name 保持 `memory-eternal` 以兼容既有安装。 |
 | **v0.55.5** | 2026-11-25 | **跨云端库显式搬运（同步兼容）**。`POST /vaults/transfer`（源库 → 目标库，`dryRun` 预览、`onDuplicate=skip/overwrite`）原先只复制 `title/body/...`、**只搬 approved 卡**，还**丢掉 uid/field_hlc/vv 且不补事件**——搬过去的卡设备 pull 不到、待审卡全丢、身份也乱了。修复：① 搬运覆盖**全部状态**（主库 + 待审/隔离区，保留 status）；② 携带 `uid/field_hlc/origin_device/vv`；③ 按 `content_hash` 与 `uid` 双键判重；④ 每张搬入/覆盖的卡补一条 `update` 事件，云端自动发布 `server_seq`；⑤ 返回 `events` 数量。测试：两库搬运（approved + pending）后 uid 保留、field_hlc/vv 保留、待审卡到位、目标库有事件、两库 digest 一致。 |
 | **v0.55.4** | 2026-11-25 | **同步收尾：冲突过滤 + GC 定时化**。① 审核中心新增「同步冲突」筛选（含数量），一键只看 `source=sync-conflict` 的冲突副本；中英双语。② 插件内置事件 GC：启动 1 分钟后跑一次、之后每 6 小时清理「已确认且 >30 天」的事件（`compactEvents`），未同步事件永远保留。 |

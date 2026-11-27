@@ -1925,6 +1925,11 @@ export const ZH = {
   xferNeedLogin: '未登录云端：先在上方扫码登录才能上传/下载',
   xferPickFirst: '先在「与哪个库搬数据」里选一个目标库',
   vaultUploadCloudHint: '把当前本机库整份推到云端（复制，本地保留）；云端已有同内容会自动跳过',
+  uploadBatchPending: '云端有未完成的上传：{d}/{t}（{name}）',
+  uploadBatchContinue: '继续上传',
+  uploadBatchRefresh: '刷新状态',
+  uploadBatchCancel: '放弃',
+  uploadBatchNeedSource: '本地续传记录已丢失：请重新选择本地库上传',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
   vaultCopyFrom: '从选中库复制',
@@ -3459,6 +3464,11 @@ export const EN = {
   xferNeedLogin: 'Not signed in — scan the code above first',
   xferPickFirst: 'Pick a target vault first',
   vaultUploadCloudHint: 'Push the current local vault to cloud (copy, local kept); identical cards are skipped',
+  uploadBatchPending: 'Cloud has an unfinished upload: {d}/{t} ({name})',
+  uploadBatchContinue: 'Continue upload',
+  uploadBatchRefresh: 'Refresh status',
+  uploadBatchCancel: 'Discard',
+  uploadBatchNeedSource: 'Local resume record is gone: pick the local vault and upload again',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
   vaultCopyFrom: 'Copy from selected',
@@ -10504,6 +10514,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const [acctOpen, setAcctOpen] = useState(false)
   // 本地→云端导入进度。null = 未开始；{ done, total, importing, err, imported, duplicate }
   const [importJob, setImportJob] = useState(null)
+  const [uploadBatches, setUploadBatches] = useState(null)
   const importCancelRef = useRef(false)
   // ── 断点续传横幅 / 热切库 / 传输弹窗 ───────────────────────────────────
   /** 有没有一趟没传完的上传（关页面 / 断网 / 崩溃留下的断点）。 */
@@ -11461,6 +11472,14 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       if (!exp.ok) throw new Error(t('xferReadLocalFail').replace('{s}', String(exp.status)))
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
+      // 上传批次：先把「标题/类型清单」登记到云端，中断后云端能显示未完成
+      let uploadBatchId = 0
+      try {
+        if (targetVault && targetVault.root) {
+          const br = await fetch(cloudApi('/vaults/upload/begin'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ target: targetVault.root, items: cards.map((c) => ({ path: c.path || '', title: c.title || '', kind: c.kind || '' })) }) }).then((x) => x.json()).catch(() => null)
+          if (br && br.ok && br.id) uploadBatchId = Number(br.id)
+        }
+      } catch { /* 忽略 */ }
       if (!cards.length) { setImportJob({ importing: false, dir: 'up', done: 0, total: 0, imported: 0, duplicate: 0, failed: 0, err: t('importEmpty') }); return }
 
       // 分片大小：200 → 50。
@@ -11496,7 +11515,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
               method: 'POST',
               headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) },
               body: JSON.stringify(useTarget
-                ? { target: targetVault.root, cards: slice, onDuplicate: dupMode }
+                ? { target: targetVault.root, cards: slice, onDuplicate: dupMode, batchId: uploadBatchId }
                 : { cards: slice, offset: off, total: cards.length }),
             })
             const d = await r.json().catch(() => ({}))
@@ -11521,6 +11540,11 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
         setImportJob({ importing: true, dir: 'up', done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, failed, err: failed ? lastErr : '' })
       }
 
+      if (uploadBatchId && failed === 0) {
+        try {
+          await fetch(cloudApi('/vaults/upload/finish'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ id: uploadBatchId, target: targetVault && targetVault.root ? targetVault.root : undefined }) })
+        } catch { /* 忽略 */ }
+      }
       const done = failed === 0
       if (done) clearXferResume()
       // 把真实原因拼进提示（最多两条，避免横幅撑爆）
@@ -11683,6 +11707,12 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
           const c = cr.connect.caps || {}
           setCloudVaultQuota(c.vaults != null ? { used: (cr.connect.vaults || []).length, limit: Number(c.vaults), limited: (cr.connect.vaults || []).length >= Number(c.vaults) } : null)
           setCloudDeviceQuota(cr.connect.devices && Number(cr.connect.devices.limit) > 0 ? { used: Number(cr.connect.devices.used) || 0, limit: Number(cr.connect.devices.limit) } : null)
+        // 上传批次：云端登记过的未完成上传（标题/类型清单）
+        try {
+          const br = await fetch(cloudApi('/vaults/upload/batches?state=pending'), { headers: { Accept: 'application/json', ...(tk ? { Authorization: 'Bearer ' + tk } : {}) } })
+          const bd = await br.json().catch(() => ({}))
+          if (bd && bd.ok) setUploadBatches(Array.isArray(bd.batches) ? bd.batches : [])
+        } catch { /* 忽略 */ }
         } else setCloudVaultList(null)
       } catch { setCloudVaultList(null) }
     // P4b：同步状态（失败静默，不干扰主流程）
@@ -13522,6 +13552,18 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                         ) : null}
                         {/* 断点续传横幅：关页面/断网/崩溃之后重开面板，这里显示进度 + 继续 / 取消。
                             点「继续」从上次的分片边界接着传（已传的不重传），点「取消」丢掉断点。 */}
+                        {uploadBatches && uploadBatches.length ? (
+                          <div style={{ border: '1px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                            <div style={{ fontSize: 11.5, lineHeight: 1.7 }}>
+                              {t('uploadBatchPending').replace('{d}', String(uploadBatches[0].doneCount != null ? uploadBatches[0].doneCount : uploadBatches[0].done || 0)).replace('{t}', String(uploadBatches[0].totalCount != null ? uploadBatches[0].totalCount : uploadBatches[0].total || 0)).replace('{name}', String(uploadBatches[0].target || '').split(/[\\/]/).filter(Boolean).pop() || 'cloud')}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <Btn variant="secondary" size="sm" disabled={!!(importJob && importJob.importing)} onClick={() => { const rs = readXferResume(); if (rs && rs.src) uploadVaultToCloud(rs.src); else notify(t('uploadBatchNeedSource'), false) }}>{t('uploadBatchContinue')}</Btn>
+                              <Btn variant="ghost" size="sm" onClick={() => { loadVaults(); }}>{t('uploadBatchRefresh')}</Btn>
+                              <Btn variant="ghost" size="sm" onClick={async () => { try { await fetch(cloudApi('/vaults/upload/cancel'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ id: uploadBatches[0].id, target: uploadBatches[0].target }) }); } catch { /* 忽略 */ } loadVaults() }}>{t('uploadBatchCancel')}</Btn>
+                            </div>
+                          </div>
+                        ) : null}
                         {resume && !(importJob && importJob.importing) ? (
                           <div style={{ border: '1px solid var(--me-c-warn)', background: 'var(--me-c-warn-soft)', borderRadius: 8, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 7 }}>
                             <div style={{ fontSize: 11.5, lineHeight: 1.7 }}>

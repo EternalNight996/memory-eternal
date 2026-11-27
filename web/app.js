@@ -12495,6 +12495,11 @@
     xferNeedLogin: "\u672A\u767B\u5F55\u4E91\u7AEF\uFF1A\u5148\u5728\u4E0A\u65B9\u626B\u7801\u767B\u5F55\u624D\u80FD\u4E0A\u4F20/\u4E0B\u8F7D",
     xferPickFirst: "\u5148\u5728\u300C\u4E0E\u54EA\u4E2A\u5E93\u642C\u6570\u636E\u300D\u91CC\u9009\u4E00\u4E2A\u76EE\u6807\u5E93",
     vaultUploadCloudHint: "\u628A\u5F53\u524D\u672C\u673A\u5E93\u6574\u4EFD\u63A8\u5230\u4E91\u7AEF\uFF08\u590D\u5236\uFF0C\u672C\u5730\u4FDD\u7559\uFF09\uFF1B\u4E91\u7AEF\u5DF2\u6709\u540C\u5185\u5BB9\u4F1A\u81EA\u52A8\u8DF3\u8FC7",
+    uploadBatchPending: "\u4E91\u7AEF\u6709\u672A\u5B8C\u6210\u7684\u4E0A\u4F20\uFF1A{d}/{t}\uFF08{name}\uFF09",
+    uploadBatchContinue: "\u7EE7\u7EED\u4E0A\u4F20",
+    uploadBatchRefresh: "\u5237\u65B0\u72B6\u6001",
+    uploadBatchCancel: "\u653E\u5F03",
+    uploadBatchNeedSource: "\u672C\u5730\u7EED\u4F20\u8BB0\u5F55\u5DF2\u4E22\u5931\uFF1A\u8BF7\u91CD\u65B0\u9009\u62E9\u672C\u5730\u5E93\u4E0A\u4F20",
     vaultOriginCloud: "\u4E91\u7AEF",
     vaultCopyTo: "\u590D\u5236\u5230\u9009\u4E2D\u5E93",
     vaultCopyFrom: "\u4ECE\u9009\u4E2D\u5E93\u590D\u5236",
@@ -14027,6 +14032,11 @@
     xferNeedLogin: "Not signed in \u2014 scan the code above first",
     xferPickFirst: "Pick a target vault first",
     vaultUploadCloudHint: "Push the current local vault to cloud (copy, local kept); identical cards are skipped",
+    uploadBatchPending: "Cloud has an unfinished upload: {d}/{t} ({name})",
+    uploadBatchContinue: "Continue upload",
+    uploadBatchRefresh: "Refresh status",
+    uploadBatchCancel: "Discard",
+    uploadBatchNeedSource: "Local resume record is gone: pick the local vault and upload again",
     vaultOriginCloud: "cloud",
     vaultCopyTo: "Copy into selected",
     vaultCopyFrom: "Copy from selected",
@@ -17383,7 +17393,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.6" : "";
+  var CLIENT_VERSION = true ? "0.55.7" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17664,7 +17674,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-28T00:19:34+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-28T01:15:22+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -20988,6 +20998,7 @@ ${t("quoteHint")}`,
     const [showKeyField, setShowKeyField] = (0, import_react2.useState)(false);
     const [acctOpen, setAcctOpen] = (0, import_react2.useState)(false);
     const [importJob, setImportJob] = (0, import_react2.useState)(null);
+    const [uploadBatches, setUploadBatches] = (0, import_react2.useState)(null);
     const importCancelRef = (0, import_react2.useRef)(false);
     const [resume, setResume] = (0, import_react2.useState)(() => readXferResume());
     const [switching, setSwitching] = (0, import_react2.useState)("");
@@ -21963,6 +21974,14 @@ ${t("quoteHint")}`,
         if (!exp.ok) throw new Error(t("xferReadLocalFail").replace("{s}", String(exp.status)));
         const data = await exp.json();
         const cards = Array.isArray(data.cards) ? data.cards : [];
+        let uploadBatchId = 0;
+        try {
+          if (targetVault && targetVault.root) {
+            const br = await fetch(cloudApi2("/vaults/upload/begin"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ target: targetVault.root, items: cards.map((c) => ({ path: c.path || "", title: c.title || "", kind: c.kind || "" })) }) }).then((x) => x.json()).catch(() => null);
+            if (br && br.ok && br.id) uploadBatchId = Number(br.id);
+          }
+        } catch {
+        }
         if (!cards.length) {
           setImportJob({ importing: false, dir: "up", done: 0, total: 0, imported: 0, duplicate: 0, failed: 0, err: t("importEmpty") });
           return;
@@ -21990,7 +22009,7 @@ ${t("quoteHint")}`,
               const r = await fetch(cloudApi2(useTarget ? "/vaults/import-into" : "/import/chunk"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} },
-                body: JSON.stringify(useTarget ? { target: targetVault.root, cards: slice, onDuplicate: dupMode } : { cards: slice, offset: off, total: cards.length })
+                body: JSON.stringify(useTarget ? { target: targetVault.root, cards: slice, onDuplicate: dupMode, batchId: uploadBatchId } : { cards: slice, offset: off, total: cards.length })
               });
               const d = await r.json().catch(() => ({}));
               if (r.status === 401 || r.status === 403) throw new Error("__AUTH__");
@@ -22010,6 +22029,12 @@ ${t("quoteHint")}`,
           }
           saveXferResume({ src, target: targetVault && targetVault.name || "", srcName, total: cards.length, done: Math.min(off + slice.length, cards.length) });
           setImportJob({ importing: true, dir: "up", done: Math.min(off + slice.length, cards.length), total: cards.length, imported, duplicate, failed, err: failed ? lastErr : "" });
+        }
+        if (uploadBatchId && failed === 0) {
+          try {
+            await fetch(cloudApi2("/vaults/upload/finish"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ id: uploadBatchId, target: targetVault && targetVault.root ? targetVault.root : void 0 }) });
+          } catch {
+          }
         }
         const done = failed === 0;
         if (done) clearXferResume();
@@ -22188,6 +22213,12 @@ ${t("quoteHint")}`,
             const c = cr.connect.caps || {};
             setCloudVaultQuota(c.vaults != null ? { used: (cr.connect.vaults || []).length, limit: Number(c.vaults), limited: (cr.connect.vaults || []).length >= Number(c.vaults) } : null);
             setCloudDeviceQuota(cr.connect.devices && Number(cr.connect.devices.limit) > 0 ? { used: Number(cr.connect.devices.used) || 0, limit: Number(cr.connect.devices.limit) } : null);
+            try {
+              const br = await fetch(cloudApi2("/vaults/upload/batches?state=pending"), { headers: { Accept: "application/json", ...tk ? { Authorization: "Bearer " + tk } : {} } });
+              const bd = await br.json().catch(() => ({}));
+              if (bd && bd.ok) setUploadBatches(Array.isArray(bd.batches) ? bd.batches : []);
+            } catch {
+            }
           } else setCloudVaultList(null);
         } catch {
           setCloudVaultList(null);
@@ -24072,6 +24103,26 @@ ${t("quoteHint")}`,
                           "MB"
                         ] })
                       ] }, v.path))
+                    ] }) : null,
+                    uploadBatches && uploadBatches.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "9px 11px", display: "flex", flexDirection: "column", gap: 7 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, lineHeight: 1.7 }, children: t("uploadBatchPending").replace("{d}", String(uploadBatches[0].doneCount != null ? uploadBatches[0].doneCount : uploadBatches[0].done || 0)).replace("{t}", String(uploadBatches[0].totalCount != null ? uploadBatches[0].totalCount : uploadBatches[0].total || 0)).replace("{name}", String(uploadBatches[0].target || "").split(/[\\/]/).filter(Boolean).pop() || "cloud") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "secondary", size: "sm", disabled: !!(importJob && importJob.importing), onClick: () => {
+                          const rs = readXferResume();
+                          if (rs && rs.src) uploadVaultToCloud(rs.src);
+                          else notify(t("uploadBatchNeedSource"), false);
+                        }, children: t("uploadBatchContinue") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => {
+                          loadVaults();
+                        }, children: t("uploadBatchRefresh") }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: async () => {
+                          try {
+                            await fetch(cloudApi2("/vaults/upload/cancel"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ id: uploadBatches[0].id, target: uploadBatches[0].target }) });
+                          } catch {
+                          }
+                          loadVaults();
+                        }, children: t("uploadBatchCancel") })
+                      ] })
                     ] }) : null,
                     resume && !(importJob && importJob.importing) ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { border: "1px solid var(--me-c-warn)", background: "var(--me-c-warn-soft)", borderRadius: 8, padding: "9px 11px", display: "flex", flexDirection: "column", gap: 7 }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11.5, lineHeight: 1.7 }, children: t("xferResumeBanner").replace("{n}", String(resume.srcName || String(resume.src || "").split(/[\\/]/).filter(Boolean).pop() || "")).replace("{d}", String(resume.done)).replace("{t}", String(resume.total)) }),
