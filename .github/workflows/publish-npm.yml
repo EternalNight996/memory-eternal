@@ -1,0 +1,37 @@
+name: publish-npm
+
+# 用途：npm 账号的长期 token 失效/被吊销时，用 GitHub OIDC「可信发布」发 npm。
+# 前置（只需做一次，且需要能登录 npmjs.com）：
+#   npmjs.com → 包 memory-eternal → Settings → Trusted Publisher → GitHub Actions
+#   填：repository = EternalNight996/memory-eternal，workflow = publish-npm.yml
+# 之后在 Actions 里手动触发，不需要任何 NPM_TOKEN。
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只打包不发布（dry-run）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: 升级 npm（可信发布需要 >= 11.5）
+        run: npm install -g npm@latest
+      - run: npm ci --ignore-scripts
+      - name: 构建
+        run: node build.mjs
+      - name: 发布
+        run: npm publish --provenance --access public ${{ inputs.dry_run && '--dry-run' || '' }}
