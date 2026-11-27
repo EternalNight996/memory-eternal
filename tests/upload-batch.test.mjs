@@ -106,3 +106,27 @@ test('上传批次：失败卡记录 error 且保持待传，重试成功后销�
     fs.rmSync(parent, { recursive: true, force: true })
   }
 })
+test('上传批次：清理已完成/取消的记录', async () => {
+  const { parent, a, b } = tmpPair()
+  await ensureVault(a); await ensureVault(b)
+  const handler = createApi({ vaultDir: () => a, vaultRoots: () => [{ name: 'v', root: a }], getSettings: () => ({}) })
+  const srv = http.createServer(async (req, res) => { await handler(req, res) })
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r))
+  const base = `http://127.0.0.1:${srv.address().port}/memory-eternal/api`
+  const post = (p, body) => fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json())
+  const get = (p) => fetch(base + p).then((x) => x.json())
+  try {
+    const begin = await post('/vaults/upload/begin', { target: b, items: [{ title: '清理批' }] })
+    await post('/vaults/import-into', { target: b, batchId: begin.id, cards: [{ title: '清理批', body: 'x', text: '---\ntitle: 清理批\n---\n\nx' }] })
+    const before = await get('/vaults/upload/batches?target=' + encodeURIComponent(b))
+    assert.equal(before.batches.length, 1)
+    const purge = await post('/vaults/upload/purge', { target: b })
+    assert.equal(purge.ok, true)
+    const after = await get('/vaults/upload/batches?target=' + encodeURIComponent(b))
+    assert.equal(after.batches.length, 0)
+  } finally {
+    await new Promise((r) => srv.close(r))
+    try { closeDb(a); closeDb(b) } catch { /* 忽略 */ }
+    fs.rmSync(parent, { recursive: true, force: true })
+  }
+})

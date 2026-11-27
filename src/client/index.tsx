@@ -1949,6 +1949,11 @@ uploadBatchHistory: '上传记录',
 uploadBatchNoHistory: '还没有上传记录',
 uploadBatchRetryNeedSource: '先选择本地源库',
   uploadBatchRetryAll: '重试全部失败',
+  uploadBatchFilterAll: '全部',
+  uploadBatchFilterFailed: '只看失败',
+  uploadBatchPurge: '清理已完成',
+  uploadBatchPurged: '已清理 {n} 条记录',
+  uploadBatchRetrying: '重试中 {d}/{t}',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
   vaultCopyFrom: '从选中库复制',
@@ -3500,6 +3505,11 @@ uploadBatchHistory: 'Upload history',
 uploadBatchNoHistory: 'No uploads yet',
 uploadBatchRetryNeedSource: 'Pick a local source vault first',
   uploadBatchRetryAll: 'Retry all failed',
+  uploadBatchFilterAll: 'All',
+  uploadBatchFilterFailed: 'Failed only',
+  uploadBatchPurge: 'Clear finished',
+  uploadBatchPurged: 'Cleared {n} records',
+  uploadBatchRetrying: 'Retrying {d}/{t}',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
   vaultCopyFrom: 'Copy from selected',
@@ -10551,6 +10561,8 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const [retryBusy, setRetryBusy] = useState('')
   const [uploadHistoryOpen, setUploadHistoryOpen] = useState(false)
   const [uploadHistory, setUploadHistory] = useState(null)
+  const [batchFilter, setBatchFilter] = useState('all')
+  const [retryProgress, setRetryProgress] = useState(null)
   const importCancelRef = useRef(false)
   // ── 断点续传横幅 / 热切库 / 传输弹窗 ───────────────────────────────────
   /** 有没有一趟没传完的上传（关页面 / 断网 / 崩溃留下的断点）。 */
@@ -11852,17 +11864,19 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       if (!exp.ok) throw new Error('HTTP ' + exp.status)
       const data = await exp.json()
       const cards = Array.isArray(data.cards) ? data.cards : []
+      setRetryProgress({ done: 0, total: todo.length })
       let ok = 0
       for (const it of todo) {
         const hit = cards.find((c) => (it.hash && String(c.content_hash || '') === String(it.hash)) || (!it.hash && String(c.title || '') === String(it.title || '')))
         if (!hit) continue
+        setRetryProgress((pg) => ({ done: (pg ? pg.done : 0) + 1, total: todo.length }))
         const r = await fetch(cloudApi('/vaults/import-into'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ target: batchFirst.target, batchId: batchFirst.id, cards: [hit] }) })
         const d = await r.json().catch(() => ({}))
         if (r.ok && d && d.ok) ok += 1
       }
       notify(t('uploadBatchAllDone') + ' (' + ok + '/' + todo.length + ')', true)
       await loadVaults()
-    } catch (e) { notify(String((e && e.message) || e), false) } finally { setRetryBusy('') }
+    } catch (e) { notify(String((e && e.message) || e), false) } finally { setRetryBusy(''); setRetryProgress(null) }
   }
   /** 丢掉断点：用户点「取消」明确表示这趟不传了。 */
   const dropResume = () => { clearXferResume(); setResume(null) }
@@ -13668,7 +13682,13 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                             </div>
                             {uploadBatchOpen ? (
                               <div style={{ maxHeight: 180, overflow: 'auto', fontSize: 10.5, lineHeight: 1.7 }}>
-                                {(Array.isArray(batchFirst.items) ? batchFirst.items.slice().sort((a, b) => (a.state === 'done' ? 1 : 0) - (b.state === 'done' ? 1 : 0)) : []).map((it, i) => (
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                                <Btn variant={batchFilter === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setBatchFilter('all')}>{t('uploadBatchFilterAll')}</Btn>
+                                <Btn variant={batchFilter === 'failed' ? 'secondary' : 'ghost'} size="sm" onClick={() => setBatchFilter('failed')}>{t('uploadBatchFilterFailed')}</Btn>
+                                <Btn variant="ghost" size="sm" onClick={async () => { try { const r = await fetch(cloudApi('/vaults/upload/purge'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cloudForm.token ? { Authorization: 'Bearer ' + cloudForm.token } : {}) }, body: JSON.stringify({ target: batchFirst.target }) }); const d2 = await r.json().catch(() => ({})); notify(t('uploadBatchPurged').replace('{n}', String((d2 && d2.removed) || 0)), true); loadVaults() } catch { /* 忽略 */ } }}>{t('uploadBatchPurge')}</Btn>
+                                {retryProgress ? <span style={{ fontSize: 10.5, opacity: 0.6 }}>{t('uploadBatchRetrying').replace('{d}', String(retryProgress.done)).replace('{t}', String(retryProgress.total))}</span> : null}
+                              </div>
+                                {(Array.isArray(batchFirst.items) ? batchFirst.items.slice().filter((x) => batchFilter === 'all' || x.state !== 'done').sort((a, b) => (a.state === 'done' ? 1 : 0) - (b.state === 'done' ? 1 : 0)) : []).map((it, i) => (
                                   <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
                                     <span style={{ color: it.state === 'done' ? 'var(--me-c-success)' : 'var(--me-c-warn)', flex: 'none' }}>{it.state === 'done' ? '✓' : '•'}</span>
                                     <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title || it.path || '—'}</span>

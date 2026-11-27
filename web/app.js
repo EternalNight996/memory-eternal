@@ -12527,6 +12527,11 @@
     uploadBatchNoHistory: "\u8FD8\u6CA1\u6709\u4E0A\u4F20\u8BB0\u5F55",
     uploadBatchRetryNeedSource: "\u5148\u9009\u62E9\u672C\u5730\u6E90\u5E93",
     uploadBatchRetryAll: "\u91CD\u8BD5\u5168\u90E8\u5931\u8D25",
+    uploadBatchFilterAll: "\u5168\u90E8",
+    uploadBatchFilterFailed: "\u53EA\u770B\u5931\u8D25",
+    uploadBatchPurge: "\u6E05\u7406\u5DF2\u5B8C\u6210",
+    uploadBatchPurged: "\u5DF2\u6E05\u7406 {n} \u6761\u8BB0\u5F55",
+    uploadBatchRetrying: "\u91CD\u8BD5\u4E2D {d}/{t}",
     vaultOriginCloud: "\u4E91\u7AEF",
     vaultCopyTo: "\u590D\u5236\u5230\u9009\u4E2D\u5E93",
     vaultCopyFrom: "\u4ECE\u9009\u4E2D\u5E93\u590D\u5236",
@@ -14076,6 +14081,11 @@
     uploadBatchNoHistory: "No uploads yet",
     uploadBatchRetryNeedSource: "Pick a local source vault first",
     uploadBatchRetryAll: "Retry all failed",
+    uploadBatchFilterAll: "All",
+    uploadBatchFilterFailed: "Failed only",
+    uploadBatchPurge: "Clear finished",
+    uploadBatchPurged: "Cleared {n} records",
+    uploadBatchRetrying: "Retrying {d}/{t}",
     vaultOriginCloud: "cloud",
     vaultCopyTo: "Copy into selected",
     vaultCopyFrom: "Copy from selected",
@@ -17432,7 +17442,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.12" : "";
+  var CLIENT_VERSION = true ? "0.55.13" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17713,7 +17723,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-28T04:26:54+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-28T04:51:09+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21043,6 +21053,8 @@ ${t("quoteHint")}`,
     const [retryBusy, setRetryBusy] = (0, import_react2.useState)("");
     const [uploadHistoryOpen, setUploadHistoryOpen] = (0, import_react2.useState)(false);
     const [uploadHistory, setUploadHistory] = (0, import_react2.useState)(null);
+    const [batchFilter, setBatchFilter] = (0, import_react2.useState)("all");
+    const [retryProgress, setRetryProgress] = (0, import_react2.useState)(null);
     const importCancelRef = (0, import_react2.useRef)(false);
     const [resume, setResume] = (0, import_react2.useState)(() => readXferResume());
     const [switching, setSwitching] = (0, import_react2.useState)("");
@@ -22396,10 +22408,12 @@ ${t("quoteHint")}`,
         if (!exp.ok) throw new Error("HTTP " + exp.status);
         const data = await exp.json();
         const cards = Array.isArray(data.cards) ? data.cards : [];
+        setRetryProgress({ done: 0, total: todo.length });
         let ok = 0;
         for (const it of todo) {
           const hit = cards.find((c) => it.hash && String(c.content_hash || "") === String(it.hash) || !it.hash && String(c.title || "") === String(it.title || ""));
           if (!hit) continue;
+          setRetryProgress((pg) => ({ done: (pg ? pg.done : 0) + 1, total: todo.length }));
           const r = await fetch(cloudApi2("/vaults/import-into"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ target: batchFirst.target, batchId: batchFirst.id, cards: [hit] }) });
           const d = await r.json().catch(() => ({}));
           if (r.ok && d && d.ok) ok += 1;
@@ -22410,6 +22424,7 @@ ${t("quoteHint")}`,
         notify(String(e && e.message || e), false);
       } finally {
         setRetryBusy("");
+        setRetryProgress(null);
       }
     }, "retryAllFailed");
     const dropResume = /* @__PURE__ */ __name(() => {
@@ -24273,13 +24288,29 @@ ${t("quoteHint")}`,
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: !!(importJob && importJob.importing) || retryBusy === "*all*", onClick: retryAllFailed, children: t("uploadBatchRetryAll") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => setUploadBatchOpen(!uploadBatchOpen), children: uploadBatchOpen ? t("uploadBatchHide") : t("uploadBatchDetail") })
                       ] }),
-                      uploadBatchOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { maxHeight: 180, overflow: "auto", fontSize: 10.5, lineHeight: 1.7 }, children: (Array.isArray(batchFirst.items) ? batchFirst.items.slice().sort((a, b) => (a.state === "done" ? 1 : 0) - (b.state === "done" ? 1 : 0)) : []).map((it, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, alignItems: "baseline" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: it.state === "done" ? "var(--me-c-success)" : "var(--me-c-warn)", flex: "none" }, children: it.state === "done" ? "\u2713" : "\u2022" }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: it.title || it.path || "\u2014" }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.5, flex: "none" }, children: it.state === "done" ? t("uploadBatchItemsDone") : t("uploadBatchItemsPending") }),
-                        it.state !== "done" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: retryBusy === String(it.title || it.path || ""), onClick: () => retryBatchItem(it), children: t("uploadBatchRetry") }) : null,
-                        it.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#ef4444", flex: "none" }, children: String(it.error).slice(0, 40) }) : null
-                      ] }, i)) }) : null
+                      uploadBatchOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { maxHeight: 180, overflow: "auto", fontSize: 10.5, lineHeight: 1.7 }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: batchFilter === "all" ? "secondary" : "ghost", size: "sm", onClick: () => setBatchFilter("all"), children: t("uploadBatchFilterAll") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: batchFilter === "failed" ? "secondary" : "ghost", size: "sm", onClick: () => setBatchFilter("failed"), children: t("uploadBatchFilterFailed") }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: async () => {
+                            try {
+                              const r = await fetch(cloudApi2("/vaults/upload/purge"), { method: "POST", headers: { "Content-Type": "application/json", ...cloudForm.token ? { Authorization: "Bearer " + cloudForm.token } : {} }, body: JSON.stringify({ target: batchFirst.target }) });
+                              const d2 = await r.json().catch(() => ({}));
+                              notify(t("uploadBatchPurged").replace("{n}", String(d2 && d2.removed || 0)), true);
+                              loadVaults();
+                            } catch {
+                            }
+                          }, children: t("uploadBatchPurge") }),
+                          retryProgress ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 10.5, opacity: 0.6 }, children: t("uploadBatchRetrying").replace("{d}", String(retryProgress.done)).replace("{t}", String(retryProgress.total)) }) : null
+                        ] }),
+                        (Array.isArray(batchFirst.items) ? batchFirst.items.slice().filter((x) => batchFilter === "all" || x.state !== "done").sort((a, b) => (a.state === "done" ? 1 : 0) - (b.state === "done" ? 1 : 0)) : []).map((it, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, alignItems: "baseline" }, children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: it.state === "done" ? "var(--me-c-success)" : "var(--me-c-warn)", flex: "none" }, children: it.state === "done" ? "\u2713" : "\u2022" }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: it.title || it.path || "\u2014" }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.5, flex: "none" }, children: it.state === "done" ? t("uploadBatchItemsDone") : t("uploadBatchItemsPending") }),
+                          it.state !== "done" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", disabled: retryBusy === String(it.title || it.path || ""), onClick: () => retryBatchItem(it), children: t("uploadBatchRetry") }) : null,
+                          it.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#ef4444", flex: "none" }, children: String(it.error).slice(0, 40) }) : null
+                        ] }, i))
+                      ] }) : null
                     ] }) : null,
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: async () => {
                       setUploadHistoryOpen(!uploadHistoryOpen);
