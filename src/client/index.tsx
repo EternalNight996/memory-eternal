@@ -118,6 +118,13 @@ let LAST_CFG_PAGE = ''
  * 返回值只回答一件事：**有没有一趟没传完的上传**（有就给用户「继续 / 取消」两个选择）。
  * 源库不存在 / 已经传完 / 记录坏了 —— 一律当作没有，别让用户对着一条永远点不动的横幅发愣。
  */
+function readBatchSrc() {
+  try { return String(localStorage.getItem('memory-eternal-batch-src') || '') } catch { return '' }
+}
+function saveBatchSrc(v) {
+  try { localStorage.setItem('memory-eternal-batch-src', String(v || '')) } catch { /* 忽略 */ }
+}
+
 function readXferResume() {
   try {
     const rs = JSON.parse(localStorage.getItem(XFER_RESUME_KEY) || 'null')
@@ -1936,6 +1943,7 @@ export const ZH = {
   uploadBatchSource: '本地源库',
   uploadBatchItemsDone: '已完成',
   uploadBatchItemsPending: '待上传',
+  uploadBatchAllDone: '全部卡片已同步到云端',
   vaultOriginCloud: '云端',
   vaultCopyTo: '复制到选中库',
   vaultCopyFrom: '从选中库复制',
@@ -3481,6 +3489,7 @@ export const EN = {
   uploadBatchSource: 'Local source vault',
   uploadBatchItemsDone: 'Done',
   uploadBatchItemsPending: 'Pending',
+  uploadBatchAllDone: 'All cards synced to cloud',
   vaultOriginCloud: 'cloud',
   vaultCopyTo: 'Copy into selected',
   vaultCopyFrom: 'Copy from selected',
@@ -10528,7 +10537,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
   const [importJob, setImportJob] = useState(null)
   const [uploadBatches, setUploadBatches] = useState(null)
   const [uploadBatchOpen, setUploadBatchOpen] = useState(false)
-  const [uploadBatchSrc, setUploadBatchSrc] = useState('')
+  const [uploadBatchSrc, setUploadBatchSrc] = useState(() => readBatchSrc())
   const importCancelRef = useRef(false)
   // ── 断点续传横幅 / 热切库 / 传输弹窗 ───────────────────────────────────
   /** 有没有一趟没传完的上传（关页面 / 断网 / 崩溃留下的断点）。 */
@@ -11572,6 +11581,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
       refreshResume()
       try { loadVaults() } catch { /* 忽略 */ }
       try { notify(t('importDone').replace('{n}', String(imported)), true) } catch { /* 忽略 */ }
+      if (done && !failed) { try { notify(t('uploadBatchAllDone'), true) } catch { /* 忽略 */ } }
     } catch (e) {
       // 失败也保留断点（本地库里那份 data 下次还能对得上 src+total 就续传）
       const msg = String((e && e.message) || e)
@@ -13581,7 +13591,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                               <div style={{ fontSize: 10.5, opacity: 0.6 }}>{batchFirst.remaining.slice(0, 5).map((x) => x.title).filter(Boolean).join('、')}{batchFirst.remaining.length > 5 ? ' …' : ''}</div>
                             ) : null}
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <select value={uploadBatchSrc} onChange={(e) => setUploadBatchSrc(e.target.value)} style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, background: 'var(--me-c-surface)', color: 'inherit', border: '1px solid var(--me-c-border)' }}>
+                              <select value={uploadBatchSrc} onChange={(e) => { setUploadBatchSrc(e.target.value); saveBatchSrc(e.target.value) }} style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, background: 'var(--me-c-surface)', color: 'inherit', border: '1px solid var(--me-c-border)' }}>
                                 <option value="">{t('uploadBatchSource')}…</option>
                                 {batchSourceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                               </select>
@@ -13592,7 +13602,7 @@ function ConfigPanel({ t, onReload, version, compact, viewVault, onViewVaultChan
                             </div>
                             {uploadBatchOpen ? (
                               <div style={{ maxHeight: 180, overflow: 'auto', fontSize: 10.5, lineHeight: 1.7 }}>
-                                {(Array.isArray(batchFirst.items) ? batchFirst.items : []).map((it, i) => (
+                                {(Array.isArray(batchFirst.items) ? batchFirst.items.slice().sort((a, b) => (a.state === 'done' ? 1 : 0) - (b.state === 'done' ? 1 : 0)) : []).map((it, i) => (
                                   <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
                                     <span style={{ color: it.state === 'done' ? 'var(--me-c-success)' : 'var(--me-c-warn)', flex: 'none' }}>{it.state === 'done' ? '✓' : '•'}</span>
                                     <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title || it.path || '—'}</span>

@@ -10852,6 +10852,21 @@
   var LAST_VIEW = "";
   var PENDING_TOAST = null;
   var LAST_CFG_PAGE = "";
+  function readBatchSrc() {
+    try {
+      return String(localStorage.getItem("memory-eternal-batch-src") || "");
+    } catch {
+      return "";
+    }
+  }
+  __name(readBatchSrc, "readBatchSrc");
+  function saveBatchSrc(v) {
+    try {
+      localStorage.setItem("memory-eternal-batch-src", String(v || ""));
+    } catch {
+    }
+  }
+  __name(saveBatchSrc, "saveBatchSrc");
   function readXferResume() {
     try {
       const rs = JSON.parse(localStorage.getItem(XFER_RESUME_KEY) || "null");
@@ -12506,6 +12521,7 @@
     uploadBatchSource: "\u672C\u5730\u6E90\u5E93",
     uploadBatchItemsDone: "\u5DF2\u5B8C\u6210",
     uploadBatchItemsPending: "\u5F85\u4E0A\u4F20",
+    uploadBatchAllDone: "\u5168\u90E8\u5361\u7247\u5DF2\u540C\u6B65\u5230\u4E91\u7AEF",
     vaultOriginCloud: "\u4E91\u7AEF",
     vaultCopyTo: "\u590D\u5236\u5230\u9009\u4E2D\u5E93",
     vaultCopyFrom: "\u4ECE\u9009\u4E2D\u5E93\u590D\u5236",
@@ -14049,6 +14065,7 @@
     uploadBatchSource: "Local source vault",
     uploadBatchItemsDone: "Done",
     uploadBatchItemsPending: "Pending",
+    uploadBatchAllDone: "All cards synced to cloud",
     vaultOriginCloud: "cloud",
     vaultCopyTo: "Copy into selected",
     vaultCopyFrom: "Copy from selected",
@@ -17405,7 +17422,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.9" : "";
+  var CLIENT_VERSION = true ? "0.55.10" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17686,7 +17703,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-28T03:37:11+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-28T03:49:28+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
@@ -21012,7 +21029,7 @@ ${t("quoteHint")}`,
     const [importJob, setImportJob] = (0, import_react2.useState)(null);
     const [uploadBatches, setUploadBatches] = (0, import_react2.useState)(null);
     const [uploadBatchOpen, setUploadBatchOpen] = (0, import_react2.useState)(false);
-    const [uploadBatchSrc, setUploadBatchSrc] = (0, import_react2.useState)("");
+    const [uploadBatchSrc, setUploadBatchSrc] = (0, import_react2.useState)(() => readBatchSrc());
     const importCancelRef = (0, import_react2.useRef)(false);
     const [resume, setResume] = (0, import_react2.useState)(() => readXferResume());
     const [switching, setSwitching] = (0, import_react2.useState)("");
@@ -22069,6 +22086,12 @@ ${t("quoteHint")}`,
         try {
           notify(t("importDone").replace("{n}", String(imported)), true);
         } catch {
+        }
+        if (done && !failed) {
+          try {
+            notify(t("uploadBatchAllDone"), true);
+          } catch {
+          }
         }
       } catch (e) {
         const msg = String(e && e.message || e);
@@ -24138,7 +24161,10 @@ ${t("quoteHint")}`,
                         batchFirst.remaining.length > 5 ? " \u2026" : ""
                       ] }) : null,
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: uploadBatchSrc, onChange: (e) => setUploadBatchSrc(e.target.value), style: { fontSize: 11, padding: "3px 6px", borderRadius: 6, background: "var(--me-c-surface)", color: "inherit", border: "1px solid var(--me-c-border)" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: uploadBatchSrc, onChange: (e) => {
+                          setUploadBatchSrc(e.target.value);
+                          saveBatchSrc(e.target.value);
+                        }, style: { fontSize: 11, padding: "3px 6px", borderRadius: 6, background: "var(--me-c-surface)", color: "inherit", border: "1px solid var(--me-c-border)" }, children: [
                           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: "", children: [
                             t("uploadBatchSource"),
                             "\u2026"
@@ -24166,7 +24192,7 @@ ${t("quoteHint")}`,
                         }, children: t("uploadBatchCancel") }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Btn, { variant: "ghost", size: "sm", onClick: () => setUploadBatchOpen(!uploadBatchOpen), children: uploadBatchOpen ? t("uploadBatchHide") : t("uploadBatchDetail") })
                       ] }),
-                      uploadBatchOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { maxHeight: 180, overflow: "auto", fontSize: 10.5, lineHeight: 1.7 }, children: (Array.isArray(batchFirst.items) ? batchFirst.items : []).map((it, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, alignItems: "baseline" }, children: [
+                      uploadBatchOpen ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { maxHeight: 180, overflow: "auto", fontSize: 10.5, lineHeight: 1.7 }, children: (Array.isArray(batchFirst.items) ? batchFirst.items.slice().sort((a, b) => (a.state === "done" ? 1 : 0) - (b.state === "done" ? 1 : 0)) : []).map((it, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, alignItems: "baseline" }, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: it.state === "done" ? "var(--me-c-success)" : "var(--me-c-warn)", flex: "none" }, children: it.state === "done" ? "\u2713" : "\u2022" }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: it.title || it.path || "\u2014" }),
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { opacity: 0.5, flex: "none" }, children: it.state === "done" ? t("uploadBatchItemsDone") : t("uploadBatchItemsPending") }),
