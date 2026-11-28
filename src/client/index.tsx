@@ -1624,6 +1624,8 @@ export const ZH = {
   logsYesterday: '昨天',
   logsLast7: '近 7 天',
   logsCopyPath: '复制卡片路径',
+  logsDetailShow: '详情',
+  logsDetailHide: '收起',
   logsOpenCard: '打开这张卡',
   logsTrend7d: '最近 7 天',
   logsScopeLocal: '本地',
@@ -3202,6 +3204,8 @@ export const EN = {
   logsYesterday: 'Yesterday',
   logsLast7: 'Last 7d',
   logsCopyPath: 'Copy card path',
+  logsDetailShow: 'Details',
+  logsDetailHide: 'Hide',
   logsOpenCard: 'Open this card',
   logsTrend7d: 'Last 7 days',
   logsScopeLocal: 'Local',
@@ -7594,6 +7598,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [logQ, setLogQ] = useState('')
   const [logAction, setLogAction] = useState('')
   const [logData, setLogData] = useState(null)
+  const [logOpenId, setLogOpenId] = useState(null)
   const [logBusy, setLogBusy] = useState(false)
   // 最近 7 天趋势（日志页顶部柱状图）
   const [logStats, setLogStats] = useState(null)
@@ -8302,8 +8307,21 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       const qs = st && st !== 'approved' ? `&status=${encodeURIComponent(st)}` : ''
       const res = await fetch(`${API}/card?path=${encodeURIComponent(card.path || card.id)}${qs}`)
       const data = await res.json()
-      if (data.ok) setReader({ path: data.path, title: card.title, text: data.text, kind: card.kind || 'knowledge', status: st || 'approved' })
-      else setError(data.error || `HTTP ${res.status}`)
+      if (data.ok) { setReader({ path: data.path, title: card.title, text: data.text, kind: card.kind || 'knowledge', status: st || 'approved' }); return }
+      // 兜底：日志里的 path 可能因改名/跨库失效，按 card_key 或标题再找一次
+      try {
+        const q = String(card.title || '').trim()
+        if (q) {
+          const rr = await fetch(`${API}/cards?status=all&q=${encodeURIComponent(q)}&limit=20`).then((x) => x.json())
+          const hit = (rr.cards || []).find((c) => (card.card_key && (c.uid === card.card_key || c.card_key === card.card_key)) || c.path === card.path || c.title === card.title)
+          if (hit) {
+            const res2 = await fetch(`${API}/card?path=${encodeURIComponent(hit.path)}&status=${encodeURIComponent(hit.status || 'approved')}`)
+            const d2 = await res2.json()
+            if (d2.ok) { setReader({ path: d2.path, title: hit.title, text: d2.text, kind: hit.kind || 'knowledge', status: hit.status || 'approved' }); return }
+          }
+        }
+      } catch { /* 兜底失败 */ }
+      setError(data.error || `HTTP ${res.status}`)
     } catch (e) {
       setError(String(e && e.message ? e.message : e))
     }
@@ -9001,31 +9019,41 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                   <span>{t('logsColTime')}</span><span>{t('logsColIP')}</span><span>{t('logsColAgent')}</span><span>{t('logsColAction')}</span><span>{t('logsColCard')}</span>
                 </div>
                 {logData.rows.map((r) => (
-                  <div key={r.id} className="mc-logrow">
-                    <span className="mc-logtime">{String(r.at || '').slice(11, 19)}</span>
-                    <span className="mc-logip" title={r.ip || ''}>{midEllipsis(r.ip || '') || '-'}</span>
-                    <span className="mc-logagent" title={r.agent}>{r.agent || '-'}</span>
-                    <span className="mc-logaction"><span className={'mc-logpill mc-logpill--' + logTone(r.action)}>{logEmoji(r.action)} {t('logAction_' + r.action) || r.action}</span></span>
-                    <span className="mc-logcard" title={r.title || ''}>
-              {r.target ? (
-                <button
-                  type="button"
-                  className="mc-logcard-btn"
-                  onClick={() => { try { openCard({ path: r.target, title: String(r.title || '') }) } catch { /* 忽略 */ } }}
-                  title={t('logsOpenCard') + '：' + (r.title || '')}
-                >{r.title || t('logsNoTitle')}</button>
-              ) : (
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title || t('logsNoTitle')}</span>
-              )}
-              {r.target ? (
-                <button
-                  type="button"
-                  onClick={() => { try { navigator.clipboard.writeText(String(r.target)) } catch { /* 忽略 */ } }}
-                  title={t('logsCopyPath') + '：' + r.target}
-                  style={{ flex: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 10.5, opacity: 0.35, padding: 0 }}
-                >⧉</button>
-              ) : null}
-            </span>
+                  <div key={r.id}>
+                    <div className="mc-logrow">
+                      <span className="mc-logtime">{String(r.at || '').slice(11, 19)}</span>
+                      <span className="mc-logip" title={r.ip || ''}>{midEllipsis(r.ip || '') || '-'}</span>
+                      <span className="mc-logagent" title={r.agent}>{r.agent || '-'}</span>
+                      <span className="mc-logaction"><span className={'mc-logpill mc-logpill--' + logTone(r.action)}>{logEmoji(r.action)} {t('logAction_' + r.action) || r.action}</span></span>
+                      <span className="mc-logcard" title={r.title || ''}>
+                        <button
+                          type="button"
+                          className="mc-logcard-btn"
+                          onClick={() => { try { openCard({ path: r.target, title: String(r.title || ''), card_key: r.card_key, kind: r.kind }) } catch { /* 忽略 */ } }}
+                          title={t('logsOpenCard') + '：' + (r.title || '')}
+                        >{r.title || t('logsNoTitle')}</button>
+                        {r.kind ? <span style={{ flex: 'none', fontSize: 10, opacity: 0.5, border: '1px solid var(--me-c-border)', borderRadius: 5, padding: '0 4px' }}>{r.kind}</span> : null}
+                        {r.target ? (
+                          <button
+                            type="button"
+                            onClick={() => { try { navigator.clipboard.writeText(String(r.target)) } catch { /* 忽略 */ } }}
+                            title={t('logsCopyPath') + '：' + r.target}
+                            style={{ flex: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 10.5, opacity: 0.35, padding: 0 }}
+                          >⧉</button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setLogOpenId(logOpenId === r.id ? null : r.id)}
+                          style={{ flex: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 10.5, opacity: 0.5, padding: 0 }}
+                        >{logOpenId === r.id ? t('logsDetailHide') : t('logsDetailShow')}</button>
+                      </span>
+                    </div>
+                    {logOpenId === r.id ? (
+                      <div style={{ padding: '6px 12px 8px', fontSize: 10.5, lineHeight: 1.75, borderTop: '1px dashed var(--me-c-border)' }}>
+                        <div style={{ opacity: 0.7 }}>target: {r.target || '—'} · kind: {r.kind || '—'} · session: {r.session || '—'} · ok: {r.ok === 0 ? 'false' : 'true'} · key: {r.card_key || '—'}</div>
+                        {r.detail ? <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', opacity: 0.85 }}>{(() => { try { return JSON.stringify(JSON.parse(r.detail), null, 2) } catch { return String(r.detail) } })()}</div> : null}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

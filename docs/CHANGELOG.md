@@ -27,6 +27,7 @@
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
+| **v0.55.18** | 2026-11-28 | **日志加细节 + 卡片可点开**。① `activity_log` 新增 `kind/session/card_key/ok/detail` 列（老库自动 ALTER），capture/dedup/recall/write/import 全部写入分析字段；② `/logs`、`/logs/export` 返回新列；③ 日志页标题**始终可点**，`path` 失效时按 `card_key`/标题兜底打开；④ 每行可展开详情（target/kind/session/ok/key + detail JSON）；⑤ 测试 `tests/logs-detail.test.mjs`。 |
 | **v0.55.17** | 2026-11-28 | **修复「选云端模式但后端仍是 local」**。`syncCloudConnToServer` 之前用 `API + /cloud/conn`，切云端后 API 被前缀成云端，POST 打到云端被 `local_only` 拒绝且被空 catch 吞掉 → 后端文件永远停在 local。改为 `fetchLocal(/cloud/conn)` 始终写本机；并在启动同步时若「本机意图 cloud、后端 local」则补写一次。 |
 | **v0.55.16** | 2026-11-28 | **待审卡也可同步云端**。`GET /vaults/export?includePending=1` 导出 pending 卡；客户端上传统一带该参数；`importChunk` 按 status 把 pending 写入**隔离区**（主库仍只放 approved）。测试 `tests/pending-export.test.mjs`：默认导出不含待审、includePending 含、导入后主库 1 张/隔离区 1 张。 |
 | **v0.55.15** | 2026-11-28 | **修复「npm 最新」仍显示旧包**：本地安装包为兼容 profile 保留 `name: memory-eternal`，版本检查据此查了旧号。新增 `package.json#npmName = "@mengbot/mem"`，`/version-check` 优先使用它；实测返回 npm 最新 0.55.6。 |

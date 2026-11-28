@@ -1081,9 +1081,9 @@ export function apply(ctx, config) {
     try {
       const _who = String(card.source || 'unknown')
       if (out && out.ok) {
-        logActivity(root, { ip: localIPv4(), agent: _who, action: 'capture', title: card.title, target: out.path || out.rel || '' })
+        logActivity(root, { ip: localIPv4(), agent: _who, action: 'capture', title: card.title, target: out.path || out.rel || '', kind: out.kind || card.kind || '', card_key: out.uid || '', session: String((opts && opts.session) || ''), detail: { store: out.store || '', status: out.status || '', rel: out.path || out.rel || '', uid: out.uid || '', source: card.source || '' } })
       } else if (out && out.duplicate) {
-        logActivity(root, { ip: localIPv4(), agent: _who, action: 'dedup', title: card.title, target: out.duplicate.path || '' })
+        logActivity(root, { ip: localIPv4(), agent: _who, action: 'dedup', title: card.title, target: out.duplicate.path || '', kind: out.duplicate.kind || card.kind || '', card_key: out.duplicate.uid || '', session: String((opts && opts.session) || ''), ok: true, detail: { duplicate_path: out.duplicate.path || '', duplicate_uid: out.duplicate.uid || '', source: card.source || '' } })
       }
     } catch { /* 忽略 */ }
     if (out && out.ok && shouldPushToCloud()) {
@@ -1698,6 +1698,10 @@ export function apply(ctx, config) {
             ip: localIPv4(), agent: 'memory_recall', action: 'recall',
             title: query.slice(0, 120) + (hits.length ? ' → ' + hits.slice(0, 3).map((h) => String(h.title || '').slice(0, 40)).join(' / ') : ''),
             target: String(hits[0] && hits[0].path || ''),
+            kind: String((hits[0] && hits[0].kind) || ''),
+            card_key: String((hits[0] && (hits[0].uid || hits[0].card_key)) || ''),
+            ok: hits.length > 0,
+            detail: { query: query.slice(0, 200), hits: hits.length, top: hits.slice(0, 5).map((h) => ({ title: String(h.title || '').slice(0, 60), path: h.path || '', kind: h.kind || '' })) },
           })
         } catch { /* 忽略 */ }
         return out
