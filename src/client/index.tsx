@@ -295,7 +295,7 @@ function commitCloudConn(c, extra) {
  */
 function syncCloudConnToServer(conn) {
   try {
-    fetch(API + '/cloud/conn', {
+    fetchLocal('/cloud/conn', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || '', deviceId: DEVICE_ID } }),
@@ -558,6 +558,12 @@ bootstrapCloudMode()
       //   ② 服务端是 cloud 而本地不是
       //   ③ 服务端 active=true 而本地 active=false（本地被某个旧标签页写成失效）
       // 本地是脏值（***）时 readCloudConn 已经把 token 清成空 → localLacks 为 true → 自动恢复
+      // 本机明确是云端意图，但服务端文件被旧写入改成 local（历史 bug）→ 以本机意图补写服务端
+      const localWantsCloud = local.mode === 'cloud' && local.active !== false && !!String(local.token || '').trim() && !!String(local.url || '').trim()
+      if (localWantsCloud && (s.mode !== 'cloud' || s.active === false)) {
+        try { syncCloudConnToServer(local) } catch { /* 网络失败下次再补 */ }
+        return
+      }
       const localLacks = !String(local.token || '').trim() || !String(local.url || '').trim()
       const serverWantsCloud = s.mode === 'cloud' && s.active !== false
       const localWronglyInactive = s.active !== false && local.mode === 'cloud' && local.active === false

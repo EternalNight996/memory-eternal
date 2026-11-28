@@ -10985,7 +10985,7 @@
   __name(commitCloudConn, "commitCloudConn");
   function syncCloudConnToServer(conn) {
     try {
-      fetch(API + "/cloud/conn", {
+      fetchLocal("/cloud/conn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conn: { mode: conn.mode, url: conn.url, token: conn.token, active: conn.active, owner: conn.owner || "", deviceId: DEVICE_ID } })
@@ -11191,6 +11191,14 @@
         const d = await r.json().catch(() => null);
         const s = d && d.conn;
         if (!s || !String(s.token || "").trim() || !String(s.url || "").trim()) return;
+        const localWantsCloud = local.mode === "cloud" && local.active !== false && !!String(local.token || "").trim() && !!String(local.url || "").trim();
+        if (localWantsCloud && (s.mode !== "cloud" || s.active === false)) {
+          try {
+            syncCloudConnToServer(local);
+          } catch {
+          }
+          return;
+        }
         const localLacks = !String(local.token || "").trim() || !String(local.url || "").trim();
         const serverWantsCloud = s.mode === "cloud" && s.active !== false;
         const localWronglyInactive = s.active !== false && local.mode === "cloud" && local.active === false;
@@ -17442,7 +17450,7 @@ ${COMPONENTS_CSS}
 }
 
 `;
-  var CLIENT_VERSION = true ? "0.55.16" : "";
+  var CLIENT_VERSION = true ? "0.55.17" : "";
   function TerminalGuide({ t }) {
     const [copied, setCopied] = (0, import_react2.useState)("");
     const runCmd = "dsh-memory tui";
@@ -17723,7 +17731,7 @@ ${COMPONENTS_CSS}
     ] });
   }
   __name(WorkingNoteCard, "WorkingNoteCard");
-  var BUILD_AT = true ? "2026-11-28T06:21:29+08:00" : "dev";
+  var BUILD_AT = true ? "2026-11-28T07:24:13+08:00" : "dev";
   var BUILD_MIN = true ? false : null;
   function MemoryLibrary(props) {
     const [epoch, setEpoch] = (0, import_react2.useState)(0);
