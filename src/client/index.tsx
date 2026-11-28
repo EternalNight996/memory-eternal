@@ -1639,6 +1639,8 @@ export const ZH = {
   logsCleanupNow: '立即清理',
   logsSearchPlaceholder: '搜索标题 / 智能体 / IP',
   logsActionLabel: '分类',
+  logsKindLabel: '知识类型',
+  logsOpenFail: '打不开（可能已删除/改名）',
   logsAll: '全部',
   logAction_capture: '自动写入',
   logAction_write: '手动写',
@@ -3219,6 +3221,8 @@ export const EN = {
   logsCleanupNow: 'Prune now',
   logsSearchPlaceholder: 'Search title / agent / IP',
   logsActionLabel: 'Type',
+  logsKindLabel: 'Knowledge type',
+  logsOpenFail: 'Cannot open (deleted or renamed?)',
   logsAll: 'All',
   logAction_capture: 'Auto',
   logAction_write: 'Write',
@@ -7597,6 +7601,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
   const [logRange, setLogRange] = useState('day')
   const [logQ, setLogQ] = useState('')
   const [logAction, setLogAction] = useState('')
+  const [logKind, setLogKind] = useState('')
   const [logData, setLogData] = useState(null)
   const [logOpenId, setLogOpenId] = useState(null)
   const [logBusy, setLogBusy] = useState(false)
@@ -7626,6 +7631,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       }
       if (logQ.trim()) qs.set('q', logQ.trim())
       if (logAction) qs.set('action', logAction)
+      if (logKind) qs.set('kind', logKind)
       const base = logScope === 'cloud' ? cloudApi('/logs') : (API + '/logs')
       const r = await fetch(base + '?' + qs.toString())
       const d = await r.json().catch(() => ({}))
@@ -7647,7 +7653,7 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
       setLogBusy(false)
     }
   }
-  useEffect(() => { if (view === 'logs') loadLogs() }, [view, logDate, logAction, logRange, logScope])
+  useEffect(() => { if (view === 'logs') loadLogs() }, [view, logDate, logAction, logKind, logRange, logScope])
 
   /** 导出 CSV（浏览器直接下载）。 */
   const exportLogs = () => {
@@ -8999,6 +9005,10 @@ function MemoryLibraryInner({ t, inModal, onClose }) {
                 </button>
               ))}
               <span style={{ flex: 1 }} />
+              <select value={logKind} onChange={(e) => setLogKind(e.target.value)} title={t('logsKindLabel')} style={{ fontSize: 11.5, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--me-c-border)', background: 'var(--me-c-surface)', color: 'inherit' }}>
+                <option value="">{t('logsKindLabel')}：{t('logsAll')}</option>
+                {(logData && Array.isArray(logData.byKind) ? logData.byKind : []).filter((x) => x.kind).map((x) => <option key={x.kind} value={x.kind}>{x.kind} ({x.n})</option>)}
+              </select>
               <Btn variant="ghost" size="sm" onClick={exportLogs}>{t('logsExport')}</Btn>
               <span style={{ opacity: 0.55, fontSize: 11 }}>{t('logsKeepLabel')}</span>
       <select
@@ -16007,13 +16017,29 @@ function LibraryAdmin({ t, tab, onReload, version, onOpenCard }) {
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
   // 自动沉淀日志里点卡片标题 = 打开那张卡（与操作日志页同一套 openCard）。
   // 写卡记录里刚出来的卡可能是 pending，openCard 自己会先去查状态，这里不做判断。
-  const openCaptureCard = (path, title) => {
-    if (!path || typeof onOpenCard !== 'function') return
-    try { onOpenCard({ path: String(path), title: String(title || '') }) } catch { /* 打开失败不影响日志浏览 */ }
+  const openCaptureCard = async (path, title) => {
+    const q = String(title || '')
+    const open = async (p, st) => {
+      try {
+        const d = await fetch(API + '/card?path=' + encodeURIComponent(p) + (st ? '&status=' + encodeURIComponent(st) : '')).then((r) => r.json())
+        if (d && d.ok) { setLogPreview({ path: d.path, title: title || d.title || '', text: d.text || '', kind: d.kind || '' }); return true }
+      } catch { /* 忽略 */ }
+      return false
+    }
+    if (path && await open(path)) return
+    if (q) {
+      try {
+        const rr = await fetch(API + '/cards?status=all&q=' + encodeURIComponent(q) + '&limit=20').then((r) => r.json())
+        const hit = (rr.cards || []).find((c) => c.path === path || c.title === q)
+        if (hit && await open(hit.path, hit.status)) return
+      } catch { /* 忽略 */ }
+    }
+    notify(t('logsOpenFail') || '打不开（可能已删除/改名）', false)
   }
   const [opt, setOpt] = useState(null)
   const [budget, setBudget] = useState(null)
   const [captureLog, setCaptureLog] = useState(null)
+  const [logPreview, setLogPreview] = useState(null)
   // 健康概览（库 / 备份 / 沉淀 / 版本）——「看不见的状态」集中一处（issue 可靠性线）
   const [health, setHealth] = useState(null)
   // 记忆账本：召回注入 / 蒸馏调用 / 召回有用率（回答「到底省不省 token」）
@@ -16206,6 +16232,19 @@ function LibraryAdmin({ t, tab, onReload, version, onOpenCard }) {
   return (
     <div className="mc-admin" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1, minHeight: 0 }}>
       <style>{CSS}</style>
+      {logPreview && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setLogPreview(null)}>
+          <div style={{ width: 'min(860px, 100%)', maxHeight: '86vh', overflow: 'auto', background: 'var(--dsw-alias-bg-layer-1, #fff)', border: '1px solid var(--me-c-border)', borderRadius: 14, padding: '18px 20px', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+              <b style={{ flex: 1, fontSize: 15 }}>{logPreview.title}</b>
+              {logPreview.kind ? <span style={{ fontSize: 11, opacity: 0.55 }}>{logPreview.kind}</span> : null}
+              <button type="button" onClick={() => setLogPreview(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, opacity: 0.5 }}>✕</button>
+            </div>
+            <div style={{ fontSize: 10.5, opacity: 0.5, marginBottom: 10, wordBreak: 'break-all' }}>{logPreview.path}</div>
+            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12.5, lineHeight: 1.8, fontFamily: 'inherit', margin: 0 }}>{logPreview.text}</pre>
+          </div>
+        </div>
+      )}
       {toast && <InlineToast toast={toast} />}
       <div style={{ overflow: 'auto' }}>
           {err && <div style={{ marginBottom: 10 }}><ErrorBar error={err} onRetry={() => fetchAll()} retryText={t('retry')} /></div>}

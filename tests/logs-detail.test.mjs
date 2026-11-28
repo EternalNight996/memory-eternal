@@ -40,6 +40,12 @@ test('activity_log 写入分析字段并由 /logs 返回', async () => {
     assert.equal(row.card_key, 'uid-1')
     assert.equal(Number(row.ok), 0)
     assert.equal(JSON.parse(row.detail).status, 'pending')
+    // 知识类型筛选与聚合
+    const only = await fetch(base + '/logs?limit=10&kind=project').then((r) => r.json())
+    assert.ok((only.rows || []).some((x) => x.title === '日志分析字段'), 'kind=project 应命中')
+    assert.ok(Array.isArray(only.byKind) && only.byKind.some((x) => x.kind === 'project'), 'byKind 应含 project')
+    const none = await fetch(base + '/logs?limit=10&kind=knowledge').then((r) => r.json())
+    assert.ok(!(none.rows || []).some((x) => x.title === '日志分析字段'), 'kind=knowledge 不应命中')
   } finally {
     await new Promise((r) => srv.close(r))
     try { closeDb(root) } catch { /* 忽略 */ }
